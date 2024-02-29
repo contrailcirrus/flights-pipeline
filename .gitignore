@@ -1,0 +1,14 @@
+# terraform build files
+.cloud/.terraform/
+.terraform.lock.hcl
+
+# IDEs
+.DS_Store
+.idea/
+.vscode/
+
+# build
+__pycache__/
+
+# local environment
+.env
