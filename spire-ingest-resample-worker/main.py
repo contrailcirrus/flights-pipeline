@@ -2,6 +2,8 @@
 
 import lib.environment as env
 from lib.log import logger
+import stub  # temp
+from lib.schemas import SpireWaypointsRecord
 
 
 def run():
@@ -22,7 +24,7 @@ def run():
     # TODO: init lease management on ack
 
     # STUBBED
-    # job = SpireWaypointsRecord
+    job = SpireWaypointsRecord.from_utf8_json(stub.pubsub_message)
     logger.info(f"got SpireWaypointsRecord: {job.as_utf8_json()}")  # noqa:F821
 
     # TODO: fetch last known waypoint for flight-instance from remote store
