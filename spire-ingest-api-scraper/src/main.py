@@ -83,7 +83,7 @@ def main(
         spire_df = spire_df.sort_values(["icao_address", "timestamp"])
         logger.debug(f"Publishing position records: {len(spire_df)}")
         for icao_address, rows in spire_df.groupby("icao_address"):
-            dtos = [
+            records = [
                 # TODO: serialize as declarative typed object. do we have shared
                 # serialization methods?
                 dict(
@@ -99,7 +99,10 @@ def main(
                 )
                 for _, row in rows.iterrows()
             ]
-            data = json.dumps(dtos).encode("utf-8")
+            # TODO: pop-out flight_id, icao_address, aircraft_type_icao, and
+            # aircraft_type_name?
+            egress_dto = {"records": records}
+            data = json.dumps(egress_dto).encode("utf-8")
             ordering_key = str(icao_address)
             queue_client.publish_async(data, ordering_key)
 
