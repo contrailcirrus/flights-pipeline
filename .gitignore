@@ -10,5 +10,16 @@
 # build
 __pycache__/
 
+# python virtual environments
+**/.venv
+
+# python tool caches
+.mypy_cache
+.pytest_cache
+.ruff_cache
+
 # local environment
 .env
+
+# ide configs
+.vscode
