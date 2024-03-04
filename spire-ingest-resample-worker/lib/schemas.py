@@ -1,5 +1,6 @@
 """ Data Object Models & Schemas"""
 
+import dataclasses
 from dataclasses import dataclass
 import json
 
@@ -48,7 +49,7 @@ class SpireWaypoint:
         """
         Builds a utf-8 encoded JSON blob from the class' attributes.
         """
-        js = json.dumps(self.__dict__)
+        js = json.dumps(dataclasses.asdict(self))
         return js.encode("utf-8")
 
     @staticmethod
@@ -71,7 +72,7 @@ class SpireWaypointsRecord:
         """
         Builds a utf-8 encoded JSON blob from the class' attributes.
         """
-        js = json.dumps(self.__dict__)
+        js = json.dumps(dataclasses.asdict(self))
         return js.encode("utf-8")
 
     @staticmethod
