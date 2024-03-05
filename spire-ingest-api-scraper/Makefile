@@ -16,27 +16,27 @@ install:  ## Install development and production dependencies in .venv
 # -----
 
 format:
-	black .
+	pipenv run black .
 
 dependency-check:
 	pipenv check
 	pipenv verify
 
 lint:
-	ruff format --check src tests
-	ruff check src tests
+	pipenv run ruff format --check src tests
+	pipenv run ruff check src tests
 
 type-check:
-	mypy --install-types --non-interactive src tests
+	pipenv run mypy --install-types --non-interactive src tests
 
 pytest:
-	python -m pytest --cov app --cov-report term-missing
+	pipenv run pytest --cov app --cov-report term-missing
 
 test: dependency-check lint type-check pytest
 
 # Don't capture stdout: pytest will capture logs
 test-with-logs:
-	python -m pytest --log-cli-level=DEBUG --show-capture=no
+	pipenv run pytest --log-cli-level=DEBUG --show-capture=no
 
 # ---------------
 # Docker / podman
