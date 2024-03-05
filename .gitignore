@@ -20,6 +20,3 @@ __pycache__/
 
 # local environment
 .env
-
-# ide configs
-.vscode
