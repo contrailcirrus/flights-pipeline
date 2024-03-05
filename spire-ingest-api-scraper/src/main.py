@@ -1,13 +1,10 @@
 import json
-import logging
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import queue, spire, state
-
-logger = logging.getLogger(__name__)
-
+from .log import logger
 
 # WALL_TIME sets duration to wait before syncing, assuming that API requests for data
 # before (now - WALL_TIME) will return immutable responses.
@@ -116,8 +113,6 @@ def main(
 
 if __name__ == "__main__":
     from . import environment
-
-    logging.basicConfig(level=environment.LOG_LEVEL)
 
     triggered_at = datetime.now(tz=timezone.utc)
 
