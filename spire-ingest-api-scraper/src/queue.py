@@ -51,5 +51,5 @@ class QueueClient:
         concurrent.futures.TimeoutError: server did not respond
         Exception: will re-raise exceptions raised by the batch execution threads
         """
-        concurrent.futures.wait(self._publish_futures)
+        concurrent.futures.wait(self._publish_futures, timeout=60)
         self._publish_futures = []
