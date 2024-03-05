@@ -44,7 +44,7 @@ def _time_windows(
     """
     next_start_at = start_at
     next_end_at = next_start_at + step
-    while next_start_at < end_at and next_end_at <= end_at:
+    while next_end_at <= end_at:
         yield (next_start_at, next_end_at)
         next_start_at = next_end_at
         next_end_at = next_start_at + step
