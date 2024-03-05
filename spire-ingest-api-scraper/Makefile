@@ -1,3 +1,8 @@
+DOCKER_COMMAND = docker
+IMAGE_NAME = spire-ingest-api-scraper
+TAG ?= $(shell git describe --tags)
+
+
 .PHONY: help
 help:
 	echo "See Makefile for recipe list"
@@ -36,10 +41,6 @@ test-with-logs:
 # ---------------
 # Docker / podman
 # ---------------
-
-DOCKER_COMMAND = podman
-IMAGE_NAME = contrails-api
-TAG ?= $(shell git describe --tags)
 
 docker-build:
 	-$(DOCKER_COMMAND) build --tag $(IMAGE_NAME) .
