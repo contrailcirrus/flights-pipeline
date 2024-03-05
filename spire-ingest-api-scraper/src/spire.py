@@ -1,9 +1,19 @@
 import json
+import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import requests
+
+logger = logging.getLogger(__name__)
+
+
+# Requesting data between [start_at, end_at) will fetch [start_at, end_at + WALL_TIME]
+# from Spire's API to load data observations that occurred during [start_at, end_at)
+# but were ingested after end_at. Records with observation timestamps outside of
+# [start_at, end_at) are dropped before data leaves this module.
+INGEST_LAG_TIME = timedelta(minutes=5)
 
 
 class SpireAPIClient:
@@ -21,57 +31,68 @@ class SpireAPIClient:
         Parameters
         ----------
         start_at
-            window start, inclusive
+            observation timestamp window start, inclusive
         end_at
-            window end, exclusive
+            observation timestamp window end, exclusive
 
         Returns
         -------
         pd.DataFrame
             aircraft position rows of:
             {
-                "ingestion_time": "2024-03-01T13:00:02.955Z",
-                "icao_address": "34758C",
-                "flight_id": "00142f32-9bfa-497f-a9d4-659ece1a6f70",
-                "timestamp": "2024-03-01T13:00:00Z",
-                "latitude": 33.695301,
-                "longitude": -12.087479,
-                "heading": 215.6893,
-                "squawk": "3737",
+                "ingestion_time": "2024-03-04T23:24:01.900Z",
+                "icao_address": "040172",
+                "flight_id": "a854ae1e-9348-45cc-8253-3251b1ce6448",
+                "timestamp": "2024-03-04T23:23:59Z",
+                "latitude": 36.696758,
+                "longitude": 19.5334,
+                "altitude_baro": 38750,
+                "heading": 122.42984,
+                "speed": 530.0,
+                "vertical_rate": 512,
+                "squawk": "5223",
                 "on_ground": false,
-                "callsign": "IBS38DM",
-                "tail_number": "EC-OCI",
+                "callsign": "ETH701",
+                "tail_number": "ET-AWO",
                 "source": "ADSB",
                 "collection_type": "terrestrial",
-                "flight_number": "IB3830",
-                "aircraft_type_icao": "A21N",
-                "aircraft_type_name": "Airbus A321-271NX",
-                "airline_iata": "I2",
-                "airline_name": "Iberia Express",
-                "departure_utc_offset": "+0100",
-                "departure_airport_icao": "LEMD",
-                "departure_airport_iata": "MAD",
-                "departure_scheduled_time": "2024-03-01T11:15:00Z",
-                "takeoff_time": "2024-03-01T11:27:27Z",
-                "arrival_utc_offset": "+0000",
-                "arrival_airport_icao": "GCLP",
-                "arrival_airport_iata": "LPA",
-                "arrival_scheduled_time": "2024-03-01T14:10:00Z",
-                "arrival_estimated_time": "2024-03-01T14:13:00Z"
+                "flight_number": "ET701",
+                "aircraft_type_icao": "A359",
+                "aircraft_type_name": "Airbus A350-941",
+                "airline_iata": "ET",
+                "airline_name": "Ethiopian Airlines",
+                "departure_utc_offset": "+0000",
+                "departure_airport_icao": "EGLL",
+                "departure_airport_iata": "LHR",
+                "departure_scheduled_time": "2024-03-04T20:15:00Z",
+                "departure_estimated_time": "2024-03-04T20:26:00Z",
+                "takeoff_time": "2024-03-04T20:47:36Z",
+                "arrival_utc_offset": "+0300",
+                "arrival_airport_icao": "HAAB",
+                "arrival_airport_iata": "ADD",
+                "arrival_scheduled_time": "2024-03-05T04:00:00Z"
             }
         """
 
-        # For 1 minute of data
-        # https://api.airsafe.spire.com/v2/targets/stream
-        #   ?start=2024-03-01T13:00:00Z&end=2024-03-01T13:01:00Z
-        # response time: 6.5 s
-        # response size: 93 MB
+        if start_at.tzinfo is None:
+            raise ValueError("start_at must be timezone aware")
+        if end_at.tzinfo is None:
+            raise ValueError("end_at must be timezone aware")
+
+        start_at_utc = start_at.astimezone(timezone.utc)
+        end_at_utc = end_at.astimezone(timezone.utc)
+
+        end_at_utc_buffer = end_at_utc + INGEST_LAG_TIME
+        if end_at_utc_buffer > datetime.now(timezone.utc):
+            raise ValueError(
+                f"end_at must be at least {INGEST_LAG_TIME} before present"
+            )
 
         headers = {"Authorization": f"Bearer {self._api_token}"}
 
         params = {
-            "start": start_at.isoformat(),
-            "end": end_at.isoformat(),
+            "start": start_at_utc.isoformat(),
+            "end": end_at_utc_buffer.isoformat(),
         }
 
         min_backoff_seconds = 1
@@ -108,11 +129,18 @@ class SpireAPIClient:
         df = pd.DataFrame(target_records)
 
         # Spire API may return records out of the request time window. Drop records
-        # ingested outside of [start_at, end_at).
-        ingestion_time = pd.to_datetime(df["ingestion_time"], utc=True)
-        is_at_or_after_start = ingestion_time >= pd.to_datetime(start_at, utc=True)
-        is_before_end = ingestion_time < pd.to_datetime(end_at, utc=True)
-
+        # with timestamps outside of [start_at, end_at).
+        timestamp = pd.to_datetime(df["timestamp"])
+        is_at_or_after_start = timestamp >= pd.to_datetime(start_at_utc)
+        is_before_end = timestamp < pd.to_datetime(end_at_utc)
         df = df.loc[is_at_or_after_start & is_before_end, :]
+
+        drop_count_before_start = (~is_at_or_after_start).sum()
+        if drop_count_before_start > 0:
+            logger.info(f"Drop {drop_count_before_start} records before {start_at_utc}")
+
+        drop_count_after_end = (~is_before_end).sum()
+        if drop_count_after_end > 0:
+            logger.info(f"Drop {drop_count_after_end} records after {end_at_utc}")
 
         return df

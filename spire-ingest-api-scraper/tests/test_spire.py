@@ -1,19 +1,38 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
+import pytest
 
 from src import spire
 
 
 def test_spire_airsafe_target_parsing(mock_spire_airsafe_api: str) -> None:
-    start_at = datetime(2024, 3, 1, 13, 0, 0)
-    end_at = datetime(2024, 3, 1, 13, 1, 0)
+    start_at = datetime(2024, 3, 1, 13, 0, 0, tzinfo=timezone.utc)
+    end_at = datetime(2024, 3, 1, 13, 5, 0, tzinfo=timezone.utc)
     spire_client = spire.SpireAPIClient("fake-token", mock_spire_airsafe_api)
     spire_df = spire_client.get_data_between(start_at, end_at)
 
-    expected_target_record_count = 117440
+    expected_target_record_count = 117438
     assert len(spire_df) == expected_target_record_count
 
     ingestion_time = pd.to_datetime(spire_df["ingestion_time"], utc=True)
     assert (ingestion_time >= pd.to_datetime(start_at, utc=True)).all()
     assert (ingestion_time < pd.to_datetime(end_at, utc=True)).all()
+
+
+def test_spire_enforces_timezone_aware() -> None:
+    start_at = datetime(1970, 1, 1)
+    end_at = datetime(2099, 1, 1)
+    spire_client = spire.SpireAPIClient("fake-token", "fake-uri")
+
+    with pytest.raises(ValueError):
+        spire_client.get_data_between(start_at, end_at)
+
+
+def test_spire_enforces_wall_time() -> None:
+    start_at = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    end_at = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    spire_client = spire.SpireAPIClient("fake-token", "fake-uri")
+
+    with pytest.raises(ValueError):
+        spire_client.get_data_between(start_at, end_at)

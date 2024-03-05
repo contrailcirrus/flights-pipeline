@@ -20,9 +20,9 @@ class SpireWaypointPositional:
     source: str  # e.g. ADSB
     collection_type: str  # e.g. terrestrial
     altitude_baro: float  # e.g. 26550.0 (MSL)
-    flight_level: int  # 390 (imputed) altitude_baro//100 mapped -> list
+    # flight_level: int  # 390 (imputed) altitude_baro//100 mapped -> list
     # vertical_rate: float  # e.g. -64.0
-    imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
+    # imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
 
     def as_utf8_json(self) -> bytes:
         """
@@ -46,7 +46,7 @@ class SpireFlightInfo:
     """
 
     icao_address: str  # e.g. 4B0293
-    flight_id: str  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
+    flight_id: str | None  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
     callsign: str  # e.g. SWR64C
     # squawk: str  # e.g. 1000
     tail_number: str  # e.g. HB-AZJ

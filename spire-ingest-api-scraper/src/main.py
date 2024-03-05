@@ -1,14 +1,14 @@
-import json
+import logging
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import queue, spire, state
-from .log import logger
+from . import queue, schemas, spire, state
 
-# WALL_TIME sets duration to wait before syncing, assuming that API requests for data
-# before (now - WALL_TIME) will return immutable responses.
-WALL_TIME = timedelta(minutes=5)
+# SYNC_DELAY enforces we do not fetch data ingested by Spire after: now - SYNC_DELAY
+SYNC_DELAY = timedelta(minutes=5)
+
+logger = logging.getLogger(__name__)
 
 
 def _to_string_or_none(x: Any) -> str | None:
@@ -58,66 +58,81 @@ def main(
 ) -> None:
     """Entrypoint responsible for data ingress and checkpointing progress."""
     logger.info(f"Triggered at: {triggered_at.isoformat()}")
-    do_not_sync_after = triggered_at - WALL_TIME
+    do_not_sync_after = triggered_at - SYNC_DELAY
 
     last_sync_end_at = state_client.get_last_sync_end_at()
-    logger.info(f"Last sync end checkpoint: {last_sync_end_at.isoformat()}")
 
     start_at = _floor_1min(last_sync_end_at)
     end_at = _floor_1min(do_not_sync_after)
     logger.info(f"Syncing between: [{start_at.isoformat()}, {end_at.isoformat()})")
 
-    # TODO: between 1 minute and 5 minute batches. 5 minute triggered server errors from
-    # spire API during testing.
     for batch_start_at, batch_end_at in _time_windows(
         start_at=start_at,
         end_at=end_at,
-        step=timedelta(minutes=1),
+        step=timedelta(minutes=5),
     ):
         logger.debug(f"Fetching: [{start_at.isoformat()}, {end_at.isoformat()})")
         spire_df = spire_client.get_data_between(batch_start_at, batch_end_at)
 
         # Retain records when aircraft is not on ground. on_ground is a nullable boolean
         # type which may be nan if unknown.
-        is_flying = ~spire_df["on_ground"].fillna(False)
-        spire_df = spire_df.loc[~is_flying, :]
+        is_on_ground = spire_df["on_ground"].fillna(False)
+        drop_count_on_ground = is_on_ground.sum()
+        if drop_count_on_ground > 0:
+            logger.info(f"Drop {drop_count_on_ground} records on ground")
+        is_flying = ~is_on_ground
+        spire_df = spire_df.loc[is_flying, :]
 
         spire_df = spire_df.sort_values(["icao_address", "timestamp"])
-        logger.debug(f"Publishing position records: {len(spire_df)}")
+
+        # TODO: downsample by icao_address to first/last TIMESTAMP ob per minute
+
+        logger.info(f"Publishing position records: {len(spire_df)}")
         for icao_address, rows in spire_df.groupby("icao_address"):
-            records = [
-                # TODO: serialize as declarative typed object. do we have shared
-                # serialization methods?
-                dict(
-                    flight_id=_to_string_or_none(row["flight_id"]),
+            row = rows.iloc[0]
+            dto = schemas.SpireWaypointRecords(
+                flight_info=schemas.SpireFlightInfo(
                     icao_address=str(row["icao_address"]),
-                    timestamp=str(row["timestamp"]),
-                    latitude=float(row["latitude"]),
-                    longitude=float(row["longitude"]),
-                    # TODO: altitude key missing
-                    # altitude=float(row["altitude_baro"]),
+                    flight_id=_to_string_or_none(row["flight_id"]),
+                    callsign=str(row["callsign"]),
+                    tail_number=str(row["tail_number"]),
+                    flight_number=(row["flight_number"]),
                     aircraft_type_icao=str(row["aircraft_type_icao"]),
-                    aircraft_type_name=str(row["aircraft_type_name"]),
-                )
-                for _, row in rows.iterrows()
-            ]
-            # TODO: pop-out flight_id, icao_address, aircraft_type_icao, and
-            # aircraft_type_name?
-            egress_dto = {"records": records}
-            data = json.dumps(egress_dto).encode("utf-8")
+                    airline_iata=str(row["airline_iata"]),
+                    departure_airport_icao=str(row["departure_airport_icao"]),
+                    departure_scheduled_time=str(row["departure_scheduled_time"]),
+                    arrival_airport_icao=str(row["arrival_airport_icao"]),
+                    arrival_scheduled_time=str(row["arrival_scheduled_time"]),
+                ),
+                records=[
+                    schemas.SpireWaypointPositional(
+                        ingestion_time=str(row["ingestion_time"]),
+                        timestamp=str(row["timestamp"]),
+                        latitude=float(row["latitude"]),
+                        longitude=float(row["longitude"]),
+                        source=str(row["source"]),
+                        collection_type=str(row["collection_type"]),
+                        altitude_baro=float(row["altitude_baro"]),
+                    )
+                    for _, row in rows.iterrows()
+                ],
+            )
+
+            data = dto.as_utf8_json()
             ordering_key = str(icao_address)
             queue_client.publish_async(data, ordering_key)
 
         queue_client.wait_for_publish()
-        logger.debug(f"Published records successfully: {len(spire_df)}")
+        logger.info(f"Published records successfully: {len(spire_df)}")
 
         state_client.set_last_sync_end_at(batch_end_at)
-        logger.debug(f"Updated last sync endcheckpoint: {batch_end_at.isoformat()}")
         last_sync_end_at = batch_end_at
 
 
 if __name__ == "__main__":
-    from . import environment
+    from . import environment, log
+
+    log.logger.info("Starting spire-ingest-api-scraper service")
 
     triggered_at = datetime.now(tz=timezone.utc)
 
