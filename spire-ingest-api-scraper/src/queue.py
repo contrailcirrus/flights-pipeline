@@ -22,10 +22,13 @@ class QueueClient:
         for one or more publish calls until they have been received by the server, call
         wait_for_publish.
 
-        Args:
-            data: byte encoded string payload
-            ordering_key: payloads sharing the same ordering_key are guaranteed to be
-                delivered to consumers in the order they are published
+        Parameters
+        ----------
+        data
+            byte encoded string payload
+        ordering_key
+            payloads sharing the same ordering_key are guaranteed to be delivered to
+            consumers in the order they are published
         """
         future: concurrent.futures.Future = self._publisher.publish(
             topic=self._topic_id,
@@ -38,9 +41,10 @@ class QueueClient:
     def wait_for_publish(self) -> None:
         """Block until all current publish batches are received by server.
 
-        Raises:
-            concurrent.futures.TimeoutError: server did not respond
-            Exception: will re-raise exceptions raised by the batch execution threads
+        Raises
+        ------
+        concurrent.futures.TimeoutError: server did not respond
+        Exception: will re-raise exceptions raised by the batch execution threads
         """
         concurrent.futures.wait(self._publish_futures)
         self._publish_futures = []

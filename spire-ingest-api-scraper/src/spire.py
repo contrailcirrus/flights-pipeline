@@ -18,12 +18,17 @@ class SpireAPIClient:
     def get_data_between(self, start_at: datetime, end_at: datetime) -> pd.DataFrame:
         """Fetch global aircraft position records within time window.
 
-        Args:
-            start_at: window start, inclusive
-            end_at: window end, exclusive
+        Parameters
+        ----------
+        start_at
+            window start, inclusive
+        end_at
+            window end, exclusive
 
-        Returns:
-            pd.DataFrame with rows of:
+        Returns
+        -------
+        pd.DataFrame
+            aircraft position rows of:
             {
                 "ingestion_time": "2024-03-01T13:00:02.955Z",
                 "icao_address": "34758C",

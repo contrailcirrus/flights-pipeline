@@ -28,14 +28,19 @@ def _time_windows(
 ) -> Iterator[tuple[datetime, datetime]]:
     """Constructs ordered time windows between start_at and end_at of size step.
 
-    Args:
-        start_at: time at which first window should begin, inclusive.
-        end_at: time at which last window should end, inclusive, if end_at - start_at is
-            evenly divisible by step
+    Parameters
+    ----------
+    start_at
+        time at which first window should begin, inclusive.
+    end_at
+        time at which last window should end, inclusive, if end_at - start_at is evenly
+        divisible by step
 
-    Yields:
-        tuple[window_start_at, window_end_at] indicating bounds of each window where
-            start_at <= window_start_at < end_at and start_at < window_end_at <= end_at.
+    Yields
+    ------
+    tuple[window_start_at, window_end_at]
+        indicates bounds of each window where start_at <= window_start_at < end_at and
+        start_at < window_end_at <= end_at
     """
     next_start_at = start_at
     next_end_at = next_start_at + step
