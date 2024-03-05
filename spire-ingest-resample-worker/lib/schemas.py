@@ -46,7 +46,7 @@ class SpireFlightInfo:
     """
 
     icao_address: str  # e.g. 4B0293
-    flight_id: str  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
+    flight_id: str | None  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
     callsign: str  # e.g. SWR64C
     # squawk: str  # e.g. 1000
     tail_number: str  # e.g. HB-AZJ
