@@ -7,7 +7,7 @@ on:
       - ".github/spire-ingest-job-publisher-deploy-dev.yaml"
 
 jobs:
-  run-deploy:
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
