@@ -1,13 +1,66 @@
+.PHONY: help
+help:
+	echo "See Makefile for recipe list"
+
 .PHONY: install
 install:  ## Install development and production dependencies in .venv
 	PIPENV_VENV_IN_PROJECT=1 pipenv install --dev
 
-.PHONY: check
-check:  ## Run static analysis tools
-	pipenv run ruff format --check src tests
-	pipenv run ruff check src tests
-	pipenv run mypy src tests
+# -----
+# Hygiene & Testing
+# -----
 
-.PHONY: test
-test:  ## Run local tests.
-	pipenv run pytest
+format:
+	black .
+
+dependency-check:
+	pipenv check
+	pipenv verify
+
+lint:
+	ruff format --check src tests
+	ruff check src tests
+
+type-check:
+	mypy --install-types --non-interactive src tests
+
+pytest:
+	python -m pytest --cov app --cov-report term-missing
+
+test: dependency-check lint type-check pytest
+
+# Don't capture stdout: pytest will capture logs
+test-with-logs:
+	python -m pytest --log-cli-level=DEBUG --show-capture=no
+
+# ---------------
+# Docker / podman
+# ---------------
+
+DOCKER_COMMAND = podman
+IMAGE_NAME = contrails-api
+TAG ?= $(shell git describe --tags)
+
+docker-build:
+	-$(DOCKER_COMMAND) build --tag $(IMAGE_NAME) .
+	$(DOCKER_COMMAND) image prune -f
+
+docker-test:
+	$(DOCKER_COMMAND) build --tag $(IMAGE_NAME) --target test .
+	$(DOCKER_COMMAND) image prune -f
+
+docker-build-fresh:
+	$(DOCKER_COMMAND) build --no-cache --tag $(IMAGE_NAME) .
+	$(DOCKER_COMMAND) image prune -f
+
+docker-bash:
+	$(DOCKER_COMMAND) run --rm -e CONTRAILS_API_DEBUG=1 -it --entrypoint bash $(IMAGE_NAME)
+
+docker-run:
+	$(DOCKER_COMMAND) run --rm -e CONTRAILS_API_DEBUG=1 -p 8000:8000 -it $(IMAGE_NAME)
+
+# reclaim disk space eaten up by docker
+# https://docs.docker.com/docker-for-mac/space/
+docker-clean:
+	-buildah rm --all
+	$(DOCKER_COMMAND) system prune
