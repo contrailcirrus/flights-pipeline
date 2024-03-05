@@ -4,8 +4,13 @@ from google.cloud import pubsub_v1  # type: ignore
 
 
 def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
-    # Re-raise any exceptions raised by the future's execution thread.
-    future.result(timeout=60)
+    """Re-raise any exceptions raised by the future's execution thread.
+
+    This should be registered as a callback that will only be invoked when the future
+    has already completed using:
+        future.add_done_callback(_raise_exception_if_failed)
+    """
+    future.result()
 
 
 class QueueClient:
@@ -43,7 +48,7 @@ class QueueClient:
         future.add_done_callback(_raise_exception_if_failed)
         self._publish_futures.append(future)
 
-    def wait_for_publish(self) -> None:
+    def wait_for_publish(self, timeout: float | None = None) -> None:
         """Block until all current publish batches are received by server.
 
         Raises
@@ -51,5 +56,5 @@ class QueueClient:
         concurrent.futures.TimeoutError: server did not respond
         Exception: will re-raise exceptions raised by the batch execution threads
         """
-        concurrent.futures.wait(self._publish_futures, timeout=60)
+        concurrent.futures.wait(self._publish_futures, timeout=timeout)
         self._publish_futures = []
