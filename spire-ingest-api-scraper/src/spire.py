@@ -91,8 +91,8 @@ class SpireAPIClient:
         headers = {"Authorization": f"Bearer {self._api_token}"}
 
         params = {
-            "start": start_at_utc.isoformat(),
-            "end": end_at_utc_buffer.isoformat(),
+            "start": start_at_utc.isoformat().replace("+00:00", "Z"),
+            "end": end_at_utc_buffer.isoformat().replace("+00:00", "Z"),
         }
 
         min_backoff_seconds = 1
