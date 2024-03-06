@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, asdict
 import json
+from typing import TypedDict, Tuple
 
 
 @dataclass
@@ -19,7 +20,7 @@ class SpireWaypointPositional:
     # on_ground: bool  # e.g. True
     source: str  # e.g. ADSB
     collection_type: str  # e.g. terrestrial
-    altitude_baro: float  # e.g. 26550.0 (MSL)
+    altitude_baro: int | None  # e.g. 26550.0 (MSL)
     flight_level: int  # 390 (imputed) altitude_baro//100 mapped -> list
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
@@ -105,6 +106,33 @@ class SpireWaypointRecords:
         Takes a utf8 json blob and marshals to an instance of this class.
         """
         return SpireWaypointRecords(
-            flight_info=json.loads(blob)["flight_info"],
+            flight_info=SpireFlightInfo(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
+
+
+@dataclass
+class WaypointCache:
+    """
+    A record living in shared cache, indicating the last known waypoint for a flight instance.
+    Our CoCip calculation requires at minimum two segments (three waypoints),
+    in order to compute CoCip outputs.
+    i.e. suppose we wanted to calculate CoCip on a segment s0, formed by waypoints (w0, w1)
+         this requires taking [w0, w1, w2], forming segments {s0: (w0, w1), s1: (w1, w2)}
+         note that segment s1 is necessary, but CoCip is only calculated/available on s0.
+
+    As such, the WaypointCache object endeavors to retain the _two_ most recent waypoints
+    for a given flight instance.
+    """
+
+    class Waypoint(TypedDict):
+        flight_id: bytes  # UUID
+        latitude: float  # WSG ESPG:4326
+        longitude: float  # WSG ESPG:4326
+        altitude_ft: int  # feet MSL
+        timestamp: int  # unixtime
+
+    key: str  # <source_identifier>:<icao_address>, e.g. `spr:4B0293`
+    waypoints: Tuple[
+        Waypoint | None, Waypoint
+    ]  # record[0].timestamp < record[1].timestamp
