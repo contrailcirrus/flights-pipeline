@@ -1,4 +1,5 @@
 import logging
+import math
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -15,6 +16,13 @@ def _to_string_or_none(x: Any) -> str | None:
     """Stringify value if truthy, otherwise return None."""
     if x:
         return str(x)
+    return None
+
+
+def _to_int_or_none(x: Any) -> int | None:
+    """Cast to int if truthy, otherwise return None."""
+    if x and not math.isnan(x):
+        return int(x)
     return None
 
 
@@ -115,7 +123,7 @@ def main(
                         longitude=float(row["longitude"]),
                         source=str(row["source"]),
                         collection_type=str(row["collection_type"]),
-                        altitude_baro=float(row["altitude_baro"]),
+                        altitude_baro=_to_int_or_none(row["altitude_baro"]),
                     )
                     for _, row in rows.iterrows()
                 ],
