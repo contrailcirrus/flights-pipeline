@@ -9,13 +9,13 @@ flight_waypoints = SpireWaypointRecords.from_utf8_json(pubsub_message)
 # grab 2 waypoints to test out marshalling to the data cache obj
 w0: SpireWaypointPositional = flight_waypoints.records[
     0
-]  # left-hand, i.e. first, waypoint in time
+]  # choose a waypoint (first in time)
 w1: SpireWaypointPositional = flight_waypoints.records[
     1
-]  # right-hand, i.e. second, waypoint in time
+]  # choose a waypoint (second in time)
 
 # type conversions
-flight_uuid_bytes: bytes = UUID(flight_waypoints.flight_info["flight_id"]).bytes
+flight_uuid_bytes: bytes = UUID(flight_waypoints.flight_info.flight_id).bytes
 flight_icao_addr: str = flight_waypoints.flight_info.icao_address
 w0_unixtime: int = int(datetime.fromisoformat(w0.timestamp).timestamp())
 w1_unixtime: int = int(datetime.fromisoformat(w1.timestamp).timestamp())
