@@ -1,1 +1,41 @@
+from lib.schemas import SpireFlightInfo, SpireWaypointPositional, SpireWaypointRecords
+import json
+
 pubsub_message = b'[{"ingestion_time":"2024-03-01T16:37:56.123Z","icao_address":"4B0293","flight_id":"ef9fb457-0f70-4780-9154-6a5362e39862","timestamp":"2024-03-01T16:37:54Z","latitude":47.453758,"longitude":8.555093,"heading":334.5535,"speed":16.0,"squawk":"1000","on_ground":true,"callsign":"SWR64C","tail_number":"HB-AZJ","source":"ADSB","collection_type":"terrestrial","flight_number":"LX644","aircraft_type_icao":"E295","aircraft_type_name":"Embraer 195-400STD-E2","airline_iata":"LX","airline_name":"Swiss International Air Lines","departure_utc_offset":"+0100","departure_airport_icao":"LSZH","departure_airport_iata":"ZRH","departure_scheduled_time":"2024-03-01T16:25:00Z","arrival_utc_offset":"+0100","arrival_airport_icao":"LFPG","arrival_airport_iata":"CDG","arrival_scheduled_time":"2024-03-01T17:40:00Z","arrival_estimated_time":"2024-03-01T17:45:00Z","vertical_rate":0.0,"altitude_baro":null,"takeoff_time":null,"departure_estimated_time":null,"landing_time":null},{"ingestion_time":"2024-03-01T16:38:04.896Z","icao_address":"4B0293","flight_id":"ef9fb457-0f70-4780-9154-6a5362e39862","timestamp":"2024-03-01T16:38:02Z","latitude":47.454254,"longitude":8.554745,"heading":333.9326,"speed":16.0,"squawk":"1000","on_ground":true,"callsign":"SWR64C","tail_number":"HB-AZJ","source":"ADSB","collection_type":"terrestrial","flight_number":"LX644","aircraft_type_icao":"E295","aircraft_type_name":"Embraer 195-400STD-E2","airline_iata":"LX","airline_name":"Swiss International Air Lines","departure_utc_offset":"+0100","departure_airport_icao":"LSZH","departure_airport_iata":"ZRH","departure_scheduled_time":"2024-03-01T16:25:00Z","arrival_utc_offset":"+0100","arrival_airport_icao":"LFPG","arrival_airport_iata":"CDG","arrival_scheduled_time":"2024-03-01T17:40:00Z","arrival_estimated_time":"2024-03-01T17:45:00Z","vertical_rate":0.0,"altitude_baro":null,"takeoff_time":null,"departure_estimated_time":null,"landing_time":null},{"ingestion_time":"2024-03-01T16:39:05.596Z","icao_address":"4B0293","flight_id":"ef9fb457-0f70-4780-9154-6a5362e39862","timestamp":"2024-03-01T16:39:03Z","latitude":47.455032,"longitude":8.558332,"heading":95.79738,"speed":15.0,"squawk":"1000","on_ground":true,"callsign":"SWR64C","tail_number":"HB-AZJ","source":"ADSB","collection_type":"terrestrial","flight_number":"LX644","aircraft_type_icao":"E295","aircraft_type_name":"Embraer 195-400STD-E2","airline_iata":"LX","airline_name":"Swiss International Air Lines","departure_utc_offset":"+0100","departure_airport_icao":"LSZH","departure_airport_iata":"ZRH","departure_scheduled_time":"2024-03-01T16:25:00Z","arrival_utc_offset":"+0100","arrival_airport_icao":"LFPG","arrival_airport_iata":"CDG","arrival_scheduled_time":"2024-03-01T17:40:00Z","arrival_estimated_time":"2024-03-01T17:45:00Z","vertical_rate":null,"altitude_baro":1575.0,"takeoff_time":null,"departure_estimated_time":null,"landing_time":null},{"ingestion_time":"2024-03-01T16:40:06.604Z","icao_address":"4B0293","flight_id":"ef9fb457-0f70-4780-9154-6a5362e39862","timestamp":"2024-03-01T16:40:02Z","latitude":47.455627,"longitude":8.563688,"heading":50.760803,"speed":14.0,"squawk":"1000","on_ground":true,"callsign":"SWR64C","tail_number":"HB-AZJ","source":"ADSB","collection_type":"terrestrial","flight_number":"LX644","aircraft_type_icao":"E295","aircraft_type_name":"Embraer 195-400STD-E2","airline_iata":"LX","airline_name":"Swiss International Air Lines","departure_utc_offset":"+0100","departure_airport_icao":"LSZH","departure_airport_iata":"ZRH","departure_scheduled_time":"2024-03-01T16:25:00Z","arrival_utc_offset":"+0100","arrival_airport_icao":"LFPG","arrival_airport_iata":"CDG","arrival_scheduled_time":"2024-03-01T17:40:00Z","arrival_estimated_time":"2024-03-01T17:45:00Z","vertical_rate":0.0,"altitude_baro":1575.0,"takeoff_time":null,"departure_estimated_time":null,"landing_time":null},{"ingestion_time":"2024-03-01T16:41:07.031Z","icao_address":"4B0293","flight_id":"ef9fb457-0f70-4780-9154-6a5362e39862","timestamp":"2024-03-01T16:41:02Z","latitude":47.455795,"longitude":8.567047,"heading":94.49763,"speed":1.0,"squawk":"1000","on_ground":true,"callsign":"SWR64C","tail_number":"HB-AZJ","source":"ADSB","collection_type":"terrestrial","flight_number":"LX644","aircraft_type_icao":"E295","aircraft_type_name":"Embraer 195-400STD-E2","airline_iata":"LX","airline_name":"Swiss International Air Lines","departure_utc_offset":"+0100","departure_airport_icao":"LSZH","departure_airport_iata":"ZRH","departure_scheduled_time":"2024-03-01T16:25:00Z","arrival_utc_offset":"+0100","arrival_airport_icao":"LFPG","arrival_airport_iata":"CDG","arrival_scheduled_time":"2024-03-01T17:40:00Z","arrival_estimated_time":"2024-03-01T17:45:00Z","vertical_rate":null,"altitude_baro":1575.0,"takeoff_time":null,"departure_estimated_time":null,"landing_time":null},{"ingestion_time":"2024-03-01T16:42:05.568Z","icao_address":"4B0293","flight_id":"ef9fb457-0f70-4780-9154-6a5362e39862","timestamp":"2024-03-01T16:42:01Z","latitude":47.45573,"longitude":8.567877,"heading":90.0,"speed":null,"squawk":"1000","on_ground":true,"callsign":"SWR64C","tail_number":"HB-AZJ","source":"ADSB","collection_type":"terrestrial","flight_number":"LX644","aircraft_type_icao":"E295","aircraft_type_name":"Embraer 195-400STD-E2","airline_iata":"LX","airline_name":"Swiss International Air Lines","departure_utc_offset":"+0100","departure_airport_icao":"LSZH","departure_airport_iata":"ZRH","departure_scheduled_time":"2024-03-01T16:25:00Z","arrival_utc_offset":"+0100","arrival_airport_icao":"LFPG","arrival_airport_iata":"CDG","arrival_scheduled_time":"2024-03-01T17:40:00Z","arrival_estimated_time":"2024-03-01T17:45:00Z","vertical_rate":null,"altitude_baro":null,"takeoff_time":null,"departure_estimated_time":null,"landing_time":null}]'
+
+
+msg = json.loads(pubsub_message)
+
+flight_info = None
+positions = []
+for rec in msg:
+    flight_info = SpireFlightInfo(
+        icao_address=rec.get("icao_address"),
+        flight_id=rec.get("flight_id"),
+        callsign=rec.get("callsign"),
+        tail_number=rec.get("tail_number"),
+        flight_number=rec.get("flight_number"),
+        aircraft_type_icao=rec.get("aircraft_type_icao"),
+        airline_iata=rec.get("airline_iata"),
+        departure_airport_icao=rec.get("departure_airport_icao"),
+        departure_scheduled_time=rec.get("departure_scheduled_time"),
+        arrival_airport_icao=rec.get("arrival_airport_icao"),
+        arrival_scheduled_time=rec.get("arrival_scheduled_time"),
+    )
+    position = SpireWaypointPositional(
+        ingestion_time=rec.get("ingestion_time"),
+        timestamp=rec.get("timestamp"),
+        latitude=rec.get("latitude"),
+        longitude=rec.get("longitude"),
+        source=rec.get("source"),
+        collection_type=rec.get("colection_type"),
+        altitude_baro=rec.get("altitude_baro"),
+        flight_level=None,
+        imputed=False,
+    )
+    positions.append(position)
+
+spire_records = SpireWaypointRecords(
+    flight_info=flight_info,
+    records=positions,
+)
