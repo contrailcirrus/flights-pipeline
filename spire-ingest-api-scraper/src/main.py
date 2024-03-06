@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import queue, schemas, spire, state
+from . import queue, resample, schemas, spire, state
 
 # SYNC_DELAY enforces we do not fetch data ingested by Spire after: now - SYNC_DELAY
 SYNC_DELAY = timedelta(minutes=5)
@@ -83,11 +83,14 @@ def main(
         is_flying = ~is_on_ground
         spire_df = spire_df.loc[is_flying, :]
 
-        spire_df = spire_df.sort_values(["icao_address", "timestamp"])
-
-        # TODO: downsample by icao_address to first/last TIMESTAMP ob per minute
+        # Reduce size of egress data by dropping records that have no use downstream.
+        # The first and last record for each minute provide the relevant position data
+        # to interpolate values for :00 second of each minute but drop records between
+        # the first and last which do not influence interpolation downstream.
+        spire_df = resample.downsample_icao_address_minutes_first_last(spire_df)
 
         logger.info(f"Publishing position records: {len(spire_df)}")
+        spire_df = spire_df.sort_values(["icao_address", "timestamp"])
         for icao_address, rows in spire_df.groupby("icao_address"):
             row = rows.iloc[0]
             dto = schemas.SpireWaypointRecords(
