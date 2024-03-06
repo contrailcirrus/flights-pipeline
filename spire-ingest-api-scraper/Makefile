@@ -8,8 +8,19 @@ help:
 	echo "See Makefile for recipe list"
 
 .PHONY: install
-install:  ## Install development and production dependencies in .venv
-	PIPENV_VENV_IN_PROJECT=1 pipenv install --dev
+prod-install:  ## Install production dependencies pinned in lockfile
+	pip install -U pip
+	pipenv sync
+
+.PHONY: install
+dev-install:  ## Install development and production dependencies in .venv
+	pip install -U pip
+	pipenv sync --dev
+
+clean-all:  # restore working environment to time-zero state
+	deactivate >/dev/null 2>&1 || true && pipenv --rm >/dev/null 2>&1 || true \
+	pipenv -- clear \
+	&& rm -rf .mypy_cache && rm -rf .pytest_cache && rm -f .coverage
 
 # -----
 # Hygiene & Testing
