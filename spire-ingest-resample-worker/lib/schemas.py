@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, asdict
 import json
+from typing import TypedDict, Tuple
 
 
 @dataclass
@@ -108,3 +109,30 @@ class SpireWaypointRecords:
             flight_info=json.loads(blob)["flight_info"],
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
+
+
+@dataclass
+class WaypointCache:
+    """
+    A record living in shared cache, indicating the last known waypoint for a flight instance.
+    Our CoCip calculation requires at minimum two segments (three waypoints),
+    in order to compute CoCip outputs.
+    i.e. suppose we wanted to calculate CoCip on a segment s0, formed by waypoints (w0, w1)
+         this requires taking [w0, w1, w2], forming segments {s0: (w0, w1), s1: (w1, w2)}
+         note that segment s1 is necessary, but CoCip is only calculated/available on s0.
+
+    As such, the WaypointCache object endeavors to retain the _two_ most recent waypoints
+    for a given flight instance.
+    """
+
+    class Waypoint(TypedDict):
+        flight_id: bytes  # UUID
+        latitude: float  # WSG ESPG:4326
+        longitude: float  # WSG ESPG:4326
+        altitude_ft: int  # feet MSL
+        timestamp: int  # unixtime
+
+    key: str  # <source_identifier>:<icao_address>, e.g. `spr:4B0293`
+    record: Tuple[
+        Waypoint | None, Waypoint
+    ]  # record[0].timestamp < record[1].timestamp
