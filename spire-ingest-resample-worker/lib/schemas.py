@@ -20,7 +20,7 @@ class SpireWaypointPositional:
     # on_ground: bool  # e.g. True
     source: str  # e.g. ADSB
     collection_type: str  # e.g. terrestrial
-    altitude_baro: float  # e.g. 26550.0 (MSL)
+    altitude_baro: int  # e.g. 26550.0 (MSL)
     flight_level: int  # 390 (imputed) altitude_baro//100 mapped -> list
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
@@ -106,7 +106,7 @@ class SpireWaypointRecords:
         Takes a utf8 json blob and marshals to an instance of this class.
         """
         return SpireWaypointRecords(
-            flight_info=json.loads(blob)["flight_info"],
+            flight_info=SpireFlightInfo(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
 
@@ -133,6 +133,6 @@ class WaypointCache:
         timestamp: int  # unixtime
 
     key: str  # <source_identifier>:<icao_address>, e.g. `spr:4B0293`
-    record: Tuple[
+    waypoints: Tuple[
         Waypoint | None, Waypoint
     ]  # record[0].timestamp < record[1].timestamp
