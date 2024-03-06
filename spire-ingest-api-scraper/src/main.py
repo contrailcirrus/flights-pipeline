@@ -72,7 +72,6 @@ def main(
 
     start_at = _floor_1min(last_sync_end_at)
     end_at = _floor_1min(do_not_sync_after)
-    logger.info(f"Syncing between: [{start_at.isoformat()}, {end_at.isoformat()})")
 
     for batch_start_at, batch_end_at in _time_windows(
         start_at=start_at,
