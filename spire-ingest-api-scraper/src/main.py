@@ -72,11 +72,19 @@ def main(
 
     start_at = _floor_1min(last_sync_end_at)
     end_at = _floor_1min(do_not_sync_after)
+    step = timedelta(minutes=5)
+
+    if (end_at - start_at) < step:
+        logger.info(
+            "Insufficient time elapsed since last trigger. "
+            + f"Must wait at least {step.seconds} seconds."
+        )
+        return
 
     for batch_start_at, batch_end_at in _time_windows(
         start_at=start_at,
         end_at=end_at,
-        step=timedelta(minutes=5),
+        step=step,
     ):
         logger.debug(f"Fetching: [{start_at.isoformat()}, {end_at.isoformat()})")
         spire_df = spire_client.get_data_between(batch_start_at, batch_end_at)
