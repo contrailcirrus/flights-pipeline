@@ -7,10 +7,16 @@ from threading import Thread
 from typing import Union
 
 from lib.log import logger, format_traceback
-from lib.schemas import SpireWaypointsRecord
+from lib.schemas import SpireWaypointRecords
+from lib.schemas import WaypointCache
+import lib.environment as env
 
 from google.api_core import retry
 from google.cloud import pubsub_v1
+
+import redis
+from redis.retry import Retry
+from redis.backoff import ExponentialBackoff
 
 import warnings
 
@@ -81,7 +87,7 @@ class PubSubSubscriptionHandler:
                     )
         logger.info("terminated ack lease management worker")
 
-    def fetch(self) -> SpireWaypointsRecord:
+    def fetch(self) -> SpireWaypointRecords:
         """
         Fetch a message from the subscription queue.
         This method will hang and wait until a message is available.
@@ -119,7 +125,7 @@ class PubSubSubscriptionHandler:
                 f"published_time: {msg.message.publish_time}, "
                 f"message_id: {msg.message.message_id}"
             )
-            return SpireWaypointsRecord.from_utf8_json(msg.message.data)
+            return SpireWaypointRecords.from_utf8_json(msg.message.data)
 
     def ack(self):
         """
@@ -143,3 +149,48 @@ class PubSubSubscriptionHandler:
         """
         self._kill_ack_manager = True
         self._client.close()
+
+
+class CacheHandler:
+    """
+    Handler for interfacing with the remote cache.
+    The remote cache stores the (2) last-known waypoints on a per flight-instance basis.
+    """
+
+    KEY_EXPIRY_SEC = 18 * 60 * 60  # seconds before a key expires
+
+    def __init__(self, host: str, port: int):
+        """
+        Parameters
+        ----------
+        host
+            the remote Redis host address (ipv4)
+        port
+            the remote Redis host port
+        """
+        self._host = host
+        self._port = port
+
+    def push(self, cache_entry: WaypointCache):
+        """
+        Parameters
+        ----------
+        cache_entry:
+            A WaypointCache object.
+            Contains the key to use for the redis index.
+            Contains the last two known waypoints for the flight instance.
+        """
+        # TODO: error handling
+        # TODO: do we want to persist a client class instance level? I think better to release conn.
+        redis_retry = Retry(ExponentialBackoff(), 3)
+        redis_client = redis.Redis(
+            host=env.REDIS_HOST,
+            port=env.REDIS_PORT,
+            retry=redis_retry,
+            retry_on_timeout=True,
+        )
+        # try writing single record w/ expiry as an atomic transaction
+        transaction = redis_client.pipeline()
+        transaction.hset(cache_entry.key, mapping=cache_entry.to_flatmap())
+        transaction.expire(cache_entry.key, self.KEY_EXPIRY_SEC)
+        transaction.execute()

@@ -20,7 +20,7 @@ class SpireWaypointPositional:
     # on_ground: bool  # e.g. True
     source: str  # e.g. ADSB
     collection_type: str  # e.g. terrestrial
-    altitude_baro: int | None  # e.g. 26550.0 (MSL)
+    altitude_baro: int  # e.g. 26550.0 (MSL)
     flight_level: int  # 390 (imputed) altitude_baro//100 mapped -> list
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
@@ -136,3 +136,45 @@ class WaypointCache:
     waypoints: Tuple[
         Waypoint | None, Waypoint
     ]  # record[0].timestamp < record[1].timestamp
+
+    def to_flatmap(self) -> dict:
+        """
+        Returns
+        -------
+        dict
+            Waypoints tuple flattened into a dict.
+            Tuple indexes prefixed to dict key as 'w{N}_'
+        """
+        out = {}
+        for n, waypoint in enumerate(self.waypoints):
+            for k, v in waypoint.items():
+                out.update({f"w{n}_{k}": v})
+        return out
+
+    @staticmethod
+    def from_flatmap(rec: dict):
+        """
+        Parameters
+        ----------
+        rec
+            A dictionary object representing a flattened set of two WaypointCache.Waypoint objects.
+
+        Returns
+        -------
+        Tuple[WaypointCache.Waypoint, WaypointCache.Waypoint]
+            Waypoint objects extracted from the flatmap,
+            ordered by flatmap key prefixes w0_, w1_
+        """
+        out: list[dict] = [{}, {}]
+        ix = {"w0": 0, "w1": 1}
+        for k, v in rec.items():
+            prefix = k.split("_")[0]
+            key = "_".join(k.split("_")[1:])
+            try:
+                out[ix[prefix]].update({key: v})
+            except KeyError:
+                raise KeyError(
+                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"expected one of {list(ix.keys())}"
+                )
+        return tuple(out)
