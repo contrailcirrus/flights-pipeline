@@ -1,8 +1,8 @@
-resource "google_project_service" "firestore" {
+resource "google_project_service" "firestore_dev" {
   service = "firestore.googleapis.com"
 }
 
-resource "google_firestore_database" "database" {
+resource "google_firestore_database" "database_dev" {
   name        = "flights-pipeline-dev"
   location_id = "nam5"
   type        = "FIRESTORE_NATIVE"

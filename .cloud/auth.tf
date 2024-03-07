@@ -1,4 +1,4 @@
-resource "google_service_account" "flights_pipeline_sa" {
+resource "google_service_account" "flights_pipeline_sa_dev" {
   account_id                   = "flights-pipeline-dev"
   create_ignore_already_exists = null
   description                  = null
@@ -10,7 +10,7 @@ resource "google_service_account" "flights_pipeline_sa" {
   }
 }
 
-resource "google_project_iam_custom_role" "flights_pipeline_role" {
+resource "google_project_iam_custom_role" "flights_pipeline_role_dev" {
   description = "Custom role for flights-pipeline services"
   permissions = [
     "datastore.databases.get",
@@ -30,7 +30,7 @@ resource "google_project_iam_custom_role" "flights_pipeline_role" {
   title   = "flights_pipeline_dev"
 }
 
-resource "google_project_iam_member" "flights_pipeline_sa_binding" {
+resource "google_project_iam_member" "flights_pipeline_sa_binding_dev" {
   member  = "serviceAccount:${google_service_account.flights_pipeline_sa.email}"
   project = "contrails-301217"
   role    = google_project_iam_custom_role.flights_pipeline_role.id
@@ -40,7 +40,7 @@ resource "google_project_iam_member" "flights_pipeline_sa_binding" {
   ]
 }
 
-resource "google_service_account_iam_binding" "k8s_sa_to_flights_pipeline_sa_binding" {
+resource "google_service_account_iam_binding" "k8s_sa_to_flights_pipeline_sa_binding_dev" {
   service_account_id = google_service_account.flights_pipeline_sa.id
   role               = "roles/iam.workloadIdentityUser"
 

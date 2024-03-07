@@ -1,4 +1,4 @@
-resource "kubernetes_namespace" "flights_pipeline" {
+resource "kubernetes_namespace" "flights_pipeline_dev" {
   metadata {
     annotations = {
       name = "flights-pipeline-dev"
@@ -10,7 +10,7 @@ resource "kubernetes_namespace" "flights_pipeline" {
   }
 }
 
-resource "kubernetes_service_account" "flights_pipeline_sa" {
+resource "kubernetes_service_account" "flights_pipeline_sa_dev" {
   metadata {
     name      = "flights-pipeline-default-sa"
     namespace = kubernetes_namespace.flights_pipeline.id
