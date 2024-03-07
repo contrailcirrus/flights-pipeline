@@ -18,5 +18,9 @@ __pycache__/
 .pytest_cache
 .ruff_cache
 
+# coverage reports
+.coverage
+
 # local environment
 .env
+.local
