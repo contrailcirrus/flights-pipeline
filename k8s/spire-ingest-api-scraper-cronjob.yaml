@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: spire-ingest-api-scraper-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 600
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: main
+              image: spire-ingest-api-scraper:latest
+              env:
+                - name: FIRESTORE_STATE_DB
+                  value: flights-pipeline-dev
+                - name: FIRESTORE_STATE_COLLECTION
+                  value: state
+                - name: FIRESTORE_STATE_DOC_ID
+                  value: spire-ingest-api-scraper
+                - name: PUBSUB_EGRESS_TOPIC_ID
+                  value: spire-ingest-api-scraper-egress-dev
+                - name: SPIRE_API_TOKEN
+                  # TODO: SPIRE_API_TOKEN from secret
+                  value: yTL5BIs8t2RdZ6qHpr7wVpbc3GwV2pHL
+                - name: LOG_LEVEL
+                  value: INFO
+              resources:
+                requests:
+                  cpu: 300m
+                  memory: 1000Mi
+                limits:
+                  cpu: 1000m
+                  memory: 1000Mi
