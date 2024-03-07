@@ -164,7 +164,7 @@ class WaypointCache:
 
         Returns
         -------
-        Tuple[WaypointCache.Waypoint, WaypointCache.Waypoint]
+        Tuple[WaypointCache.Waypoint | None , WaypointCache.Waypoint]
             Waypoint objects extracted from the flatmap,
             ordered by flatmap key prefixes w0_, w1_
         """
