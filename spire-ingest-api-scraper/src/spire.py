@@ -38,7 +38,7 @@ class SpireAPIClient:
         Returns
         -------
         pd.DataFrame
-            aircraft position rows of:
+            aircraft position rows with timestamp in [start_at, end_at) with columns:
             {
                 "ingestion_time": "2024-03-04T23:24:01.900Z",
                 "icao_address": "040172",
