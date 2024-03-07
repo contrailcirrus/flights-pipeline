@@ -12,7 +12,7 @@ resource "kubernetes_namespace" "flights_pipeline" {
 
 resource "kubernetes_service_account" "flights_pipeline_sa" {
   metadata {
-    name      = "flights-pipeline-default-sa-dev"
+    name      = "flights-pipeline-default-sa"
     namespace = kubernetes_namespace.flights_pipeline.id
     annotations = {
       "iam.gke.io/gcp-service-account" = google_service_account.flights_pipeline_sa.email
