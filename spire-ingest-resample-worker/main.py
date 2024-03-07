@@ -36,7 +36,8 @@ def run():
 
     # TODO: publish interpolated waypoints to pubsub topic, for injection into BQ
     logger.info(
-        f"published N={100} interpolated (imputed) waypoints to {env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}"
+        f"published N={100} interpolated (imputed) waypoints to "
+        f"{env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}"
     )
 
     # TODO: generate flight segments; publish flight segments to pubsub
@@ -46,6 +47,6 @@ def run():
 
 
 if __name__ == "__main__":
-    logger.info("starting api-preprocessor instance")
+    logger.info("starting spire-ingest-resample-worker instance")
     while True:
         run()

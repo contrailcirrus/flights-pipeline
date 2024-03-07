@@ -85,7 +85,7 @@ class SpireFlightInfo:
 
 
 @dataclass
-class SpireWaypointRecords:
+class SpireWaypointsRecord:
     """
     A list of temporally-contiguous flight-waypoints, belonging to a single flight instance.
     """
@@ -105,7 +105,7 @@ class SpireWaypointRecords:
         """
         Takes a utf8 json blob and marshals to an instance of this class.
         """
-        return SpireWaypointRecords(
+        return SpireWaypointsRecord(
             flight_info=SpireFlightInfo(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
