@@ -3,7 +3,7 @@ resource "google_project_service" "firestore" {
 }
 
 resource "google_firestore_database" "database" {
-  name        = "flights-pipeline-${var.env}"
+  name        = "flights-pipeline-dev"
   location_id = "nam5"
   type        = "FIRESTORE_NATIVE"
 

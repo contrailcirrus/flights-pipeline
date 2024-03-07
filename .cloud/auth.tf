@@ -1,9 +1,9 @@
 resource "google_service_account" "flights_pipeline_sa" {
-  account_id                   = "flights-pipeline-${var.env}"
+  account_id                   = "flights-pipeline-dev"
   create_ignore_already_exists = null
   description                  = null
   disabled                     = false
-  display_name                 = "flights-pipeline-service-account-${var.env}"
+  display_name                 = "flights-pipeline-service-account-dev"
   project                      = "contrails-301217"
   timeouts {
     create = null
@@ -25,9 +25,9 @@ resource "google_project_iam_custom_role" "flights_pipeline_role" {
     "pubsub.topics.publish",
   ]
   project = "contrails-301217"
-  role_id = "flights_pipeline_${var.env}"
+  role_id = "flights_pipeline_dev"
   stage   = null
-  title   = "flights_pipeline_${var.env}"
+  title   = "flights_pipeline_dev"
 }
 
 resource "google_project_iam_member" "flights_pipeline_sa_binding" {
