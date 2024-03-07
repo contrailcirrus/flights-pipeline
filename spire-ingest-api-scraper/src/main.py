@@ -171,6 +171,7 @@ if __name__ == "__main__":
     queue_client = queue.QueueClient(environment.PUBSUB_EGRESS_TOPIC_ID)
     spire_client = spire.SpireAPIClient(environment.SPIRE_API_TOKEN)
     state_client = state.PersistentStateClient(
+        environment.FIRESTORE_STATE_DB,
         environment.FIRESTORE_STATE_COLLECTION,
         environment.FIRESTORE_STATE_DOC_ID,
     )

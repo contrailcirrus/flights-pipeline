@@ -7,9 +7,15 @@ logger = logging.getLogger(__name__)
 
 
 class PersistentStateClient:
-    def __init__(self, firestore_collection: str, firestore_doc_id: str) -> None:
-        _db = firestore.Client()
-        self._doc_ref = _db.collection(firestore_collection).document(firestore_doc_id)
+    def __init__(
+        self,
+        firestore_database: str,
+        firestore_collection: str,
+        firestore_doc_id: str,
+    ) -> None:
+        _db = firestore.Client(database=firestore_database)
+        collection = _db.collection(firestore_collection)
+        self._doc_ref = collection.document(firestore_doc_id)
 
     def set_last_sync_end_at(self, value: datetime) -> None:
         """Update checkpoint to signal data has been processed up to this time."""
