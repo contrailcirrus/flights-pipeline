@@ -20,9 +20,9 @@ class SpireWaypointPositional:
     source: str  # e.g. ADSB
     collection_type: str  # e.g. terrestrial
     altitude_baro: int  # e.g. 26550.0 (MSL)
-    # flight_level: int  # 390 (imputed) altitude_baro//100 mapped -> list
+    flight_level: int | None  # 390 (imputed) altitude_baro//100 mapped -> list
     # vertical_rate: float  # e.g. -64.0
-    # imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
+    imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
 
     def as_utf8_json(self) -> bytes:
         """
