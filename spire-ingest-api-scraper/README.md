@@ -6,24 +6,7 @@ This service maintains a checkpoint in FireStore to indicate what time period of
 
 ## Egress interface
 
-Messages are serialized as JSON and published to a PubSub topic configured by the `PUBSUB_EGRESS_TOPIC_ID` environment variable. Each message contains a payload structured as:
-
-```json
-{
-  "records": [
-    {
-      "flight_id": "string | null",
-      "icao_address": "string",
-      "timestamp": "string",
-      "latitude": "number",
-      "longitude": "number",
-      "altitude": "number",
-      "aircraft_type_icao": "string",
-      "aircraft_type_name": "string"
-    }
-  ]
-}
-```
+Messages are serialized as JSON and published to a PubSub topic configured by the `PUBSUB_EGRESS_TOPIC_ID` environment variable. Each message contains a JSON-formatted payload following the conventions in [`src/schemas.py`](src/schemas.py)
 
 ## Development environment
 
