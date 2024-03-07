@@ -1,7 +1,10 @@
 import logging
 from collections.abc import Iterator
+from dataclasses import fields
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
+import pandas as pd
 
 from . import queue, schemas, spire, state, transform
 
@@ -54,6 +57,19 @@ def _time_windows(
         next_end_at = next_start_at + step
 
 
+def _log_invariant_violations(df: pd.DataFrame) -> None:
+    static_fields = fields(schemas.SpireFlightInfo)
+
+    for column in static_fields:
+        values = df[column].unique()
+        if len(values) > 1:
+            logger.warning(
+                "Assumed static values are not unique. "
+                + f"Column: {column}"
+                + f"Values: {', '.join(values)}"
+            )
+
+
 def main(
     triggered_at: datetime,
     queue_client: queue.QueueClient,
@@ -90,20 +106,22 @@ def main(
         logger.info(f"Publishing position records: {len(spire_df)}")
         spire_df = spire_df.sort_values(["icao_address", "timestamp"])
         for icao_address, rows in spire_df.groupby("icao_address"):
-            row = rows.iloc[0]
+            _log_invariant_violations(rows)
+
+            first_row = rows.iloc[0]
             dto = schemas.SpireWaypointRecords(
                 flight_info=schemas.SpireFlightInfo(
-                    icao_address=str(row["icao_address"]),
-                    flight_id=_to_string_or_none(row["flight_id"]),
-                    callsign=str(row["callsign"]),
-                    tail_number=str(row["tail_number"]),
-                    flight_number=(row["flight_number"]),
-                    aircraft_type_icao=str(row["aircraft_type_icao"]),
-                    airline_iata=str(row["airline_iata"]),
-                    departure_airport_icao=str(row["departure_airport_icao"]),
-                    departure_scheduled_time=str(row["departure_scheduled_time"]),
-                    arrival_airport_icao=str(row["arrival_airport_icao"]),
-                    arrival_scheduled_time=str(row["arrival_scheduled_time"]),
+                    icao_address=str(first_row["icao_address"]),
+                    flight_id=_to_string_or_none(first_row["flight_id"]),
+                    callsign=str(first_row["callsign"]),
+                    tail_number=str(first_row["tail_number"]),
+                    flight_number=(first_row["flight_number"]),
+                    aircraft_type_icao=str(first_row["aircraft_type_icao"]),
+                    airline_iata=str(first_row["airline_iata"]),
+                    departure_airport_icao=str(first_row["departure_airport_icao"]),
+                    departure_scheduled_time=str(first_row["departure_scheduled_time"]),
+                    arrival_airport_icao=str(first_row["arrival_airport_icao"]),
+                    arrival_scheduled_time=str(first_row["arrival_scheduled_time"]),
                 ),
                 records=[
                     schemas.SpireWaypointPositional(
