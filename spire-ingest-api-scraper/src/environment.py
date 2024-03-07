@@ -4,8 +4,8 @@ Exposes environment as module level variables.
 
 import os
 
-PUBSUB_EGRESS_TOPIC_ID = os.environ["PUBSUB_EGRESS_TOPIC_ID"]
 FIRESTORE_STATE_COLLECTION = os.environ["FIRESTORE_STATE_COLLECTION"]
 FIRESTORE_STATE_DOC_ID = os.environ["FIRESTORE_STATE_DOC_ID"]
 LOG_LEVEL = os.environ["LOG_LEVEL"]
+PUBSUB_EGRESS_TOPIC_ID = os.environ["PUBSUB_EGRESS_TOPIC_ID"]
 SPIRE_API_TOKEN = os.environ["SPIRE_API_TOKEN"]
