@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Iterator
-from dataclasses import fields
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -58,8 +57,19 @@ def _time_windows(
 
 
 def _log_invariant_violations(df: pd.DataFrame) -> None:
-    static_fields = fields(schemas.SpireFlightInfo)
-
+    """Log warning if expected-static fields contain multiple unique values."""
+    static_fields = [
+        "flight_id",
+        "callsign",
+        "tail_number",
+        "flight_number",
+        "aircraft_type_icao",
+        "airline_iata",
+        "departure_airport_icao",
+        "departure_scheduled_time",
+        "arrival_airport_icao",
+        "arrival_scheduled_time",
+    ]
     for column in static_fields:
         values = df[column].unique()
         if len(values) > 1:
