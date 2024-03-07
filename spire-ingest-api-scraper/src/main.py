@@ -1,10 +1,9 @@
 import logging
-import math
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import queue, resample, schemas, spire, state
+from . import queue, schemas, spire, state, transform
 
 # SYNC_DELAY enforces we do not fetch data ingested by Spire after: now - SYNC_DELAY
 SYNC_DELAY = timedelta(minutes=5)
@@ -16,13 +15,6 @@ def _to_string_or_none(x: Any) -> str | None:
     """Stringify value if truthy, otherwise return None."""
     if x:
         return str(x)
-    return None
-
-
-def _to_int_or_none(x: Any) -> int | None:
-    """Cast to int if truthy, otherwise return None."""
-    if x and not math.isnan(x):
-        return int(x)
     return None
 
 
@@ -42,7 +34,11 @@ def _time_windows(
         time at which first window should begin, inclusive.
     end_at
         time at which last window should end, inclusive, if end_at - start_at is evenly
-        divisible by step
+        divisible by step. If end_at - start_at is not evenly divisible by step, the
+        last window returned will be:
+            [start_at + (n) * step, start_at + (n + 1) * step)
+        where (start_at + (n + 1) * step) < end_at. In other words, all windows will be
+        of length step and no partial windows will be returned.
 
     Yields
     ------
@@ -89,20 +85,7 @@ def main(
         logger.debug(f"Fetching: [{start_at.isoformat()}, {end_at.isoformat()})")
         spire_df = spire_client.get_data_between(batch_start_at, batch_end_at)
 
-        # Retain records when aircraft is not on ground. on_ground is a nullable boolean
-        # type which may be nan if unknown.
-        is_on_ground = spire_df["on_ground"].fillna(False)
-        drop_count_on_ground = is_on_ground.sum()
-        if drop_count_on_ground > 0:
-            logger.info(f"Drop {drop_count_on_ground} records on ground")
-        is_flying = ~is_on_ground
-        spire_df = spire_df.loc[is_flying, :]
-
-        # Reduce size of egress data by dropping records that have no use downstream.
-        # The first and last record for each minute provide the relevant position data
-        # to interpolate values for :00 second of each minute but drop records between
-        # the first and last which do not influence interpolation downstream.
-        spire_df = resample.downsample_icao_address_minutes_first_last(spire_df)
+        spire_df = transform.filter_ingest_rules(spire_df)
 
         logger.info(f"Publishing position records: {len(spire_df)}")
         spire_df = spire_df.sort_values(["icao_address", "timestamp"])
@@ -130,7 +113,7 @@ def main(
                         longitude=float(row["longitude"]),
                         source=str(row["source"]),
                         collection_type=str(row["collection_type"]),
-                        altitude_baro=_to_int_or_none(row["altitude_baro"]),
+                        altitude_baro=int(row["altitude_baro"]),
                     )
                     for _, row in rows.iterrows()
                 ],
