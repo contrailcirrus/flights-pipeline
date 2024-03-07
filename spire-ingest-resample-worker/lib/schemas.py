@@ -182,44 +182,55 @@ class WaypointCache:
                 )
         return tuple(out)
 
+    @staticmethod
+    def to_spire_waypoint_positional(
+        wp: Waypoint,
+    ) -> tuple[str, SpireWaypointPositional]:
+        """
+        Convert a single waypoint cache object to a SpireWaypointPositional object.
+        Return the flight_id.
+        """
+        flight_id = str(UUID(bytes=wp["flight_id"]))
+        swp = SpireWaypointPositional(
+            latitude=float(wp["latitude"].decode("utf-8")),
+            longitude=float(wp["latitude"].decode("utf-8")),
+            altitude_baro=int(wp["altitude_ft"].decode("utf-8")),
+            timestamp=datetime.fromtimestamp(
+                int(wp["timestamp"].decode("utf-8")), UTC
+            ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            ingestion_time=None,
+            source=None,
+            collection_type=None,
+            flight_level=None,
+            imputed=False,
+        )
+        return flight_id, swp
+
     def to_spire_waypoints_positional(
         self,
     ) -> tuple[str, tuple[SpireWaypointPositional | None, SpireWaypointPositional]]:
         """
-        Converts the cached object to a tuple of sparse SpirePositional object.
+        Converts this instance of cached object to a tuple of sparse SpirePositional object.
         Returns the flight id, and the tuple of positional objects.
         Perform type casting for available fields.
         Leaves unavailable fields None.
         """
         resp: list[SpireWaypointPositional | None] = []
-        flight_id: str = None
+
         waypoint: WaypointCache.Waypoint | None
+        flight_id: str | None = None
         for waypoint in self.waypoints:
             if not waypoint:
                 resp.append(None)
                 continue
 
-            fid = str(UUID(bytes=waypoint["flight_id"]))
+            fid, swp = self.to_spire_waypoint_positional(waypoint)
             if flight_id and flight_id != fid:
                 raise ValueError(
                     f"cache returned waypoints with different flight_ids: "
                     f"{flight_id} and {fid}"
                 )
             flight_id = fid
-
-            swp = SpireWaypointPositional(
-                latitude=float(waypoint["latitude"].decode("utf-8")),
-                longitude=float(waypoint["latitude"].decode("utf-8")),
-                altitude_baro=int(waypoint["altitude_ft"].decode("utf-8")),
-                timestamp=datetime.fromtimestamp(
-                    int(waypoint["timestamp"].decode("utf-8")), UTC
-                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                ingestion_time=None,
-                source=None,
-                collection_type=None,
-                flight_level=None,
-                imputed=False,
-            )
             resp.append(swp)
         return flight_id, tuple(resp)
 
