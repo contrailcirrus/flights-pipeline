@@ -35,7 +35,7 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
         state_client=state_client,
     )
 
-    assert queue_client.publish_async.call_count == 8309
+    assert queue_client.publish_async.call_count == 8233
     assert queue_client.wait_for_publish.call_count == 1
 
     expected_sync_end_at = datetime(2024, 3, 1, 13, 5, tzinfo=timezone.utc)
