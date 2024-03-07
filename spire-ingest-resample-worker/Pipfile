@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 google-cloud-pubsub = "==2.19.7"
+pandas = "==2.2.1"
 redis = "==5.0.2"
 
 [dev-packages]
