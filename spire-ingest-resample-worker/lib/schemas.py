@@ -113,6 +113,28 @@ class SpireWaypointsRecord:
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
 
+    @staticmethod
+    def from_waypoint_cache(wp) -> tuple[str, SpireWaypointPositional]:
+        """
+        Convert a single WaypointCache.Waypoint object, to a sparse SpireWaypointPositional object.
+        Also, extracts and returns the flight_id.
+        """
+        flight_id = str(UUID(bytes=wp["flight_id"]))
+        swp = SpireWaypointPositional(
+            latitude=wp["latitude"],
+            longitude=wp["latitude"],
+            altitude_baro=wp["altitude_ft"],
+            timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+            ingestion_time=None,
+            source=None,
+            collection_type=None,
+            flight_level=None,
+            imputed=False,
+        )
+        return flight_id, swp
+
 
 @dataclass
 class WaypointCache:
@@ -168,71 +190,30 @@ class WaypointCache:
             Waypoint objects extracted from the flatmap,
             ordered by flatmap key prefixes w0_, w1_
         """
-        out: list[dict] = [{}, {}]
+        extracted: list[dict] = [{}, {}]
         ix = {"w0": 0, "w1": 1}
         for k, v in rec.items():
             prefix = k.decode("utf-8").split("_")[0]
             key = "_".join(k.decode("utf-8").split("_")[1:])
             try:
-                out[ix[prefix]].update({key: v})
+                extracted[ix[prefix]].update({key: v})
             except KeyError:
                 raise KeyError(
                     f"cannot marshal flatmap with key prefix: {prefix}. "
                     f"expected one of {list(ix.keys())}"
                 )
+
+        def type_cast(w: dict[str, bytes]) -> WaypointCache.Waypoint:
+            return WaypointCache.Waypoint(
+                flight_id=w["flight_id"],
+                latitude=float(w["latitude"].decode("utf-8")),
+                longitude=float(w["longitude"].decode("utf-8")),
+                altitude_ft=int(w["altitude_ft"].decode("utf-8")),
+                timestamp=int(w["timestamp"].decode("utf-8")),
+            )
+
+        out = [type_cast(w) if w else None for w in extracted]
         return tuple(out)
-
-    @staticmethod
-    def to_spire_waypoint_positional(
-        wp: Waypoint,
-    ) -> tuple[str, SpireWaypointPositional]:
-        """
-        Convert a single waypoint cache object to a SpireWaypointPositional object.
-        Return the flight_id.
-        """
-        flight_id = str(UUID(bytes=wp["flight_id"]))
-        swp = SpireWaypointPositional(
-            latitude=float(wp["latitude"].decode("utf-8")),
-            longitude=float(wp["latitude"].decode("utf-8")),
-            altitude_baro=int(wp["altitude_ft"].decode("utf-8")),
-            timestamp=datetime.fromtimestamp(
-                int(wp["timestamp"].decode("utf-8")), UTC
-            ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            ingestion_time=None,
-            source=None,
-            collection_type=None,
-            flight_level=None,
-            imputed=False,
-        )
-        return flight_id, swp
-
-    def to_spire_waypoints_positional(
-        self,
-    ) -> tuple[str, tuple[SpireWaypointPositional | None, SpireWaypointPositional]]:
-        """
-        Converts this instance of cached object to a tuple of sparse SpirePositional object.
-        Returns the flight id, and the tuple of positional objects.
-        Perform type casting for available fields.
-        Leaves unavailable fields None.
-        """
-        resp: list[SpireWaypointPositional | None] = []
-
-        waypoint: WaypointCache.Waypoint | None
-        flight_id: str | None = None
-        for waypoint in self.waypoints:
-            if not waypoint:
-                resp.append(None)
-                continue
-
-            fid, swp = self.to_spire_waypoint_positional(waypoint)
-            if flight_id and flight_id != fid:
-                raise ValueError(
-                    f"cache returned waypoints with different flight_ids: "
-                    f"{flight_id} and {fid}"
-                )
-            flight_id = fid
-            resp.append(swp)
-        return flight_id, tuple(resp)
 
     @staticmethod
     def from_spire_waypoint_positional(

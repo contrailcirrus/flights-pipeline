@@ -4,6 +4,6 @@ redis_response = {
     b"w1_flight_id": b"\xef\x9f\xb4W\x0fpG\x80\x91TjSb\xe3\x98b",
     b"w1_latitude": b"37.333333",
     b"w1_longitude": b"-7.001100",
-    b"w1_altitude_ft": b"36480",
+    b"w1_altitude_ft": b"32120",
     b"w1_timestamp": b"1709305382",
 }

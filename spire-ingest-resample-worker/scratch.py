@@ -4,6 +4,6 @@ from stub import pubsub_message, redis_response
 
 recs = SpireWaypointsRecord.from_utf8_json(pubsub_message)
 w0, w1 = WaypointCache.from_flatmap(redis_response)
-cached_flight_id, cached_wp = WaypointCache.to_spire_waypoint_positional(w1)
+cached_flight_id, cached_wp = SpireWaypointsRecord.from_waypoint_cache(w1)
 
 df = pd.DataFrame([cached_wp, *recs.records])
