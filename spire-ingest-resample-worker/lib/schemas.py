@@ -225,7 +225,7 @@ class WaypointCache:
         Builds a cache object from SpireWaypointPositional objects.
         """
         waypoints: list[WaypointCache.Waypoint | None] = []
-        wp: SpireWaypointPositional
+        wp: SpireWaypointPositional | None
         for wp in spire_wps:
             if not spire_wps:
                 waypoints.append(None)
