@@ -5,5 +5,5 @@ redis_response = {
     b"w1_latitude": b"37.333333",
     b"w1_longitude": b"-7.001100",
     b"w1_altitude_ft": b"32120",
-    b"w1_timestamp": b"1709305382",
+    b"w1_timestamp": b"1709305380",
 }
