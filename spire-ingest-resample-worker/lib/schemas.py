@@ -183,6 +183,7 @@ class WaypointCache:
         ----------
         rec
             A dictionary object representing a flattened set of two WaypointCache.Waypoint objects.
+            Dictionary has bytes k-v, as is the flatmap when returned from redis.
 
         Returns
         -------
