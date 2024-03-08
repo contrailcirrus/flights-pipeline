@@ -162,7 +162,7 @@ class WaypointCache:
         Waypoint | None, Waypoint
     ]  # record[0].timestamp < record[1].timestamp
 
-    def to_flatmap(self) -> dict:
+    def to_flatmap(self) -> dict[str, object]:
         """
         Returns
         -------
