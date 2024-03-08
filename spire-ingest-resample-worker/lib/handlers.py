@@ -7,7 +7,7 @@ from threading import Thread
 from typing import Union
 
 from lib.log import logger, format_traceback
-from lib.schemas import SpireWaypointRecords
+from lib.schemas import SpireWaypointsRecord
 from lib.schemas import WaypointCache
 import lib.environment as env
 
@@ -87,7 +87,7 @@ class PubSubSubscriptionHandler:
                     )
         logger.info("terminated ack lease management worker")
 
-    def fetch(self) -> SpireWaypointRecords:
+    def fetch(self) -> SpireWaypointsRecord:
         """
         Fetch a message from the subscription queue.
         This method will hang and wait until a message is available.
@@ -125,7 +125,7 @@ class PubSubSubscriptionHandler:
                 f"published_time: {msg.message.publish_time}, "
                 f"message_id: {msg.message.message_id}"
             )
-            return SpireWaypointRecords.from_utf8_json(msg.message.data)
+            return SpireWaypointsRecord.from_utf8_json(msg.message.data)
 
     def ack(self):
         """

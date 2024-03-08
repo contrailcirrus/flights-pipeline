@@ -1,5 +1,5 @@
 from stub import pubsub_message
-from lib.schemas import SpireWaypointRecords, WaypointCache, SpireWaypointPositional
+from lib.schemas import SpireWaypointsRecord, WaypointCache, SpireWaypointPositional
 from uuid import UUID
 from datetime import datetime
 import redis
@@ -9,7 +9,7 @@ from redis.backoff import ExponentialBackoff
 import json
 
 #  batch of flight instance waypoints from the spire-ingest-api-scraper
-flight_waypoints = SpireWaypointRecords.from_utf8_json(pubsub_message)
+flight_waypoints = SpireWaypointsRecord.from_utf8_json(pubsub_message)
 
 # grab 2 waypoints to test out marshalling to the data cache obj
 w0: SpireWaypointPositional = flight_waypoints.records[
