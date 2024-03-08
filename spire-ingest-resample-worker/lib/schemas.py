@@ -116,7 +116,7 @@ class SpireWaypointsRecord:
     @staticmethod
     def from_waypoint_cache(wp) -> tuple[str, SpireWaypointPositional]:
         """
-        Convert a single WaypointCache.Waypoint object, to a sparse SpireWaypointPositional object.
+        Convert a single WaypointCache.Waypoint object to a sparse SpireWaypointPositional object.
         Also, extracts and returns the flight_id.
         """
         flight_id = str(UUID(bytes=wp["flight_id"]))
