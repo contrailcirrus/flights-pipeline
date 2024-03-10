@@ -136,12 +136,9 @@ def main(
                 ),
                 records=[
                     schemas.SpireWaypointPositional(
-                        ingestion_time=str(row["ingestion_time"]),
                         timestamp=str(row["timestamp"]),
                         latitude=float(row["latitude"]),
                         longitude=float(row["longitude"]),
-                        source=str(row["source"]),
-                        collection_type=str(row["collection_type"]),
                         altitude_baro=int(row["altitude_baro"]),
                         flight_level=None,
                         imputed=False,

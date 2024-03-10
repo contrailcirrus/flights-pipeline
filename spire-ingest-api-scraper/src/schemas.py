@@ -10,19 +10,19 @@ class SpireWaypointPositional:
     A single flight waypoint record.
     """
 
-    ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
+    # ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
     timestamp: str  # e.g. 2024-03-01T16:37:54Z
     latitude: float  # e.g. 47.453758
     longitude: float  # e.g. 8.555093
     # heading: float  # e.g. 334.5535
     # speed: float  # e.g. 16.0
     # on_ground: bool  # e.g. True
-    source: str  # e.g. ADSB
-    collection_type: str  # e.g. terrestrial
-    altitude_baro: int  # e.g. 26550.0 (MSL)
-    flight_level: int | None  # 390 (imputed) altitude_baro//100 mapped -> list
+    # source: str  # e.g. ADSB
+    # collection_type: str  # e.g. terrestrial
+    altitude_baro: int  # e.g. 26550 (MSL)
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
+    flight_level: int | None = None  # 390 (imputed) altitude_baro//100 mapped -> list
 
     def as_utf8_json(self) -> bytes:
         """
