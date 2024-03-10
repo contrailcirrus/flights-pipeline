@@ -194,3 +194,43 @@ class CacheHandler:
         transaction.hset(cache_entry.key, mapping=cache_entry.to_flatmap())
         transaction.expire(cache_entry.key, self.KEY_EXPIRY_SEC)
         transaction.execute()
+
+
+class ResampleHandler:
+    """
+    Handles interpolation & data model coercing for a sequence of waypoints for a flight instance.
+    This handler takes:
+     (A) a sample of waypoints within a closed time window, and
+     (B) 1 or 2 waypoints** at some time prior to (A) (cached waypoints)
+         (**these are the waypoints from the right-hand-side of the previous window)
+
+     BB......................A.AA.AAA
+
+    Work includes:
+    - intra-window interpolation; i.e. interpolation within the window (A)
+    - inter-window interpolation; i.e. backward interpolation between A_0 and B
+    """
+
+    FLIGHT_LEVELS = [
+        270,
+        280,
+        290,
+        300,
+        310,
+        320,
+        330,
+        340,
+        350,
+        360,
+        370,
+        380,
+        390,
+        400,
+        410,
+        420,
+        430,
+        440,
+    ]
+
+    def __init__(self):
+        """ """
