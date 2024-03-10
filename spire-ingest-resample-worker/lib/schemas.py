@@ -127,10 +127,6 @@ class SpireWaypointsRecord:
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             ),
-            ingestion_time=None,
-            source=None,
-            collection_type=None,
-            flight_level=None,
             imputed=False,
         )
         return flight_id, swp
