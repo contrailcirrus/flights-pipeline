@@ -53,14 +53,13 @@ flight_resampled: pd.DataFrame = pyc_flight.resample_and_fill(
 # note: index 0 of pyc_flight is our cached waypoint
 #       index 1: of pyc_flight is our spire waypoint records window
 ix_waypoint_records = flight_resampled["time"] >= pyc_flight.dataframe["time"][1]
-ffill_cols = ["source", "collection_type", "imputed"]
+ffill_cols = ["imputed"]
 ffill = flight_resampled.loc[ix_waypoint_records, ffill_cols].ffill()
 flight_resampled.loc[ix_waypoint_records, ffill_cols] = ffill
-
 # for waypoints backward interpolated over the inter-window interval
 # we assign imputed=True,
 # and we do not assign source or collection_type
-flight_resampled.fillna({"imputed": "True"}, inplace=True)
+flight_resampled.fillna({"imputed": True}, inplace=True)
 
 # drop the rows with non-interpolated values (note: we retained these for the ffill)
 flight_resampled = flight_resampled[flight_resampled["ingestion_time"].isna()]
