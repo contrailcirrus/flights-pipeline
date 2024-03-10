@@ -2,7 +2,7 @@ import pandas as pd
 
 from pycontrails.core.flight import Flight
 
-from lib.schemas import SpireWaypointsRecord, WaypointCache
+from lib.schemas import SpireWaypointsRecord, WaypointCache, SpireWaypointPositional
 from stub import pubsub_message, redis_response
 
 FLIGHT_LEVELS = [
@@ -27,42 +27,49 @@ FLIGHT_LEVELS = [
 ]
 
 recs = SpireWaypointsRecord.from_utf8_json(pubsub_message)
-w0, w1 = WaypointCache.from_flatmap(redis_response)
-cached_flight_id, cached_wp = SpireWaypointsRecord.from_waypoint_cache(w1)
+# TODO: logic as to whether or not to use cache
+cached = WaypointCache.from_flatmap(redis_response)
+cached = [w for w in cached if w is not None]  # prune null WaypointCache.Waypoint objs
+cached_flight_ids: list[str] = [
+    SpireWaypointsRecord.from_waypoint_cache(w)[0] for w in cached
+]
+cached_waypoints: list[SpireWaypointPositional] = [
+    SpireWaypointsRecord.from_waypoint_cache(w)[1] for w in cached
+]
 
-df = pd.DataFrame([cached_wp, *recs.records])
-df.rename(columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True)
+
+df_cached = pd.DataFrame(cached_waypoints)
+df_cached.rename(
+    columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True
+)
+# note: pycontrails resample_and_fill returns df w/ naive timestamps, hence:
+df_cached["time"] = pd.to_datetime(df_cached["time"]).apply(
+    lambda r: r.tz_localize(None)
+)
+max_cache_ts = df_cached["time"].max()
+
+
+df_records = pd.DataFrame([*recs.records])
+df_records.rename(
+    columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True
+)
+# note: pycontrails resample_and_fill returns df w/ naive timestamps, hence:
+df_records["time"] = pd.to_datetime(df_records["time"]).apply(
+    lambda r: r.tz_localize(None)
+)
+min_records_ts = df_records["time"].min()
+
+df = pd.concat([df_cached, df_records])
 
 pyc_flight = Flight(df)
 pyc_flight_df = pyc_flight.dataframe
-flight_resampled: pd.DataFrame = pyc_flight.resample_and_fill(
-    keep_original_index=True, drop=False
-).dataframe
+flight_resampled: pd.DataFrame = pyc_flight.resample_and_fill().dataframe
 
-# the following non-numeric fields were lost in the interpolation:
-#     source, collection_type, imputed
-#
-# we forward fill these values ONLY for the rows
-# that were interpolated within the spire waypoints record window
-# essentially, we say that if the interpolated waypoint happened
-# within a minute or so of the actual observation,
-# then it inherits the source, collection_type, etc.
-# (i.e. between the spire waypoints record window and the cached waypoint)
-# ----------------
-# index range for records interpolated within our spire waypoints window
-# note: index 0 of pyc_flight is our cached waypoint
-#       index 1: of pyc_flight is our spire waypoint records window
-ix_waypoint_records = flight_resampled["time"] >= pyc_flight.dataframe["time"][1]
-ffill_cols = ["imputed"]
-ffill = flight_resampled.loc[ix_waypoint_records, ffill_cols].ffill()
-flight_resampled.loc[ix_waypoint_records, ffill_cols] = ffill
-# for waypoints backward interpolated over the inter-window interval
-# we assign imputed=True,
-# and we do not assign source or collection_type
-flight_resampled.fillna({"imputed": True}, inplace=True)
-
-# drop the rows with non-interpolated values (note: we retained these for the ffill)
-flight_resampled = flight_resampled[flight_resampled["ingestion_time"].isna()]
+# add imputation flags
+flight_resampled["imputed"] = True
+is_cached = flight_resampled["time"] <= max_cache_ts
+is_records_window = flight_resampled["time"] >= min_records_ts
+flight_resampled.loc[(is_cached | is_records_window), "imputed"] = False
 
 # compute the altitude_ft from altitude (note: pycontrails Flight operates on altitude [m])
 flight_resampled.loc[:, "altitude_ft"] = (flight_resampled["altitude"] * 3.28).astype(
