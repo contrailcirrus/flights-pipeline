@@ -40,27 +40,17 @@ resource "google_project_iam_member" "flights_pipeline_sa_binding" {
   ]
 }
 
-resource "google_service_account_iam_binding" "k8s_sa_to_flights_pipeline_sa_binding_dev" {
+
+resource "google_service_account_iam_binding" "k8s_sa_to_flights_pipeline_sa_binding" {
   service_account_id = google_service_account.flights_pipeline_sa.id
   role               = "roles/iam.workloadIdentityUser"
 
   members = [
     "serviceAccount:contrails-301217.svc.id.goog[${kubernetes_service_account.flights_pipeline_sa_dev.id}]",
-  ]
-  depends_on = [
-    kubernetes_service_account.flights_pipeline_sa_dev,
-    google_service_account.flights_pipeline_sa,
-  ]
-}
-
-resource "google_service_account_iam_binding" "k8s_sa_to_flights_pipeline_sa_binding_prod" {
-  service_account_id = google_service_account.flights_pipeline_sa.id
-  role               = "roles/iam.workloadIdentityUser"
-
-  members = [
     "serviceAccount:contrails-301217.svc.id.goog[${kubernetes_service_account.flights_pipeline_sa_prod.id}]",
   ]
   depends_on = [
+    kubernetes_service_account.flights_pipeline_sa_dev,
     kubernetes_service_account.flights_pipeline_sa_prod,
     google_service_account.flights_pipeline_sa,
   ]
