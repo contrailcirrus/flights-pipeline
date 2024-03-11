@@ -26,7 +26,7 @@ FLIGHT_LEVELS = [
     440,
 ]
 
-recs = SpireWaypointsRecord.from_utf8_json(pubsub_message)
+recs: SpireWaypointsRecord = SpireWaypointsRecord.from_utf8_json(pubsub_message)
 # TODO: logic as to whether or not to use cache
 cached = WaypointCache.from_flatmap(redis_response)
 cached = [w for w in cached if w is not None]  # prune null WaypointCache.Waypoint objs
@@ -49,7 +49,7 @@ df_cached["time"] = pd.to_datetime(df_cached["time"]).apply(
 max_cache_ts = df_cached["time"].max()
 
 
-df_records = pd.DataFrame([*recs.records])
+df_records = pd.DataFrame(recs.records)
 df_records.rename(
     columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True
 )
