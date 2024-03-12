@@ -347,6 +347,10 @@ class ValidationHandler:
             # case (C)
             return None
 
+    @property
+    def records(self):
+        return self._records
+
 
 class ResampleHandler:
     """
