@@ -29,7 +29,6 @@ FLIGHT_LEVELS = [
 recs: SpireWaypointsRecord = SpireWaypointsRecord.from_utf8_json(pubsub_message)
 # TODO: logic as to whether or not to use cache
 cached = WaypointCache.from_flatmap(redis_response)
-cached = [w for w in cached if w is not None]  # prune null WaypointCache.Waypoint objs
 cached_flight_ids: list[str] = [
     SpireWaypointsRecord.from_waypoint_cache(w)[0] for w in cached
 ]
