@@ -55,3 +55,31 @@ resource "google_service_account_iam_binding" "k8s_sa_to_flights_pipeline_sa_bin
     google_service_account.flights_pipeline_sa,
   ]
 }
+
+# this is a pre-existing, google-managed service account tied to pubsub
+# ----------------
+# these roles are required for the pubsub -> bigquery integration
+resource "google_project_iam_member" "pubsub_to_bigquery_sa_binding_viever" {
+  project = "contrails-301217"
+  role   = "roles/bigquery.metadataViewer"
+  member = "serviceAccount:service-577335432373@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "pubsub_to_bigquery_sa_binding_editor" {
+  project = "contrails-301217"
+  role   = "roles/bigquery.dataEditor"
+  member = "serviceAccount:service-577335432373@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+# these roles are required for subscribers to publish failed msgs to a dead letter topic
+resource "google_project_iam_member" "pubsub_to_dead_letter_sa_binding_publisher" {
+  project = "contrails-301217"
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:service-577335432373@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "pubsub_to_dead_letter_sa_binding_subscriber" {
+  project = "contrails-301217"
+  role   = "roles/pubsub.subscriber"
+  member = "serviceAccount:service-577335432373@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
