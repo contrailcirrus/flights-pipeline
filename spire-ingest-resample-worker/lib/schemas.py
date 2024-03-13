@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass, asdict
 import json
-from typing import TypedDict, Tuple
+from typing import TypedDict
+from uuid import UUID
+from datetime import datetime, UTC
 
 
 @dataclass
@@ -11,19 +13,19 @@ class SpireWaypointPositional:
     A single flight waypoint record.
     """
 
-    ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
+    # ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
     timestamp: str  # e.g. 2024-03-01T16:37:54Z
     latitude: float  # e.g. 47.453758
     longitude: float  # e.g. 8.555093
     # heading: float  # e.g. 334.5535
     # speed: float  # e.g. 16.0
     # on_ground: bool  # e.g. True
-    source: str  # e.g. ADSB
-    collection_type: str  # e.g. terrestrial
-    altitude_baro: int | None  # e.g. 26550.0 (MSL)
-    flight_level: int  # 390 (imputed) altitude_baro//100 mapped -> list
+    # source: str  # e.g. ADSB
+    # collection_type: str  # e.g. terrestrial
+    altitude_baro: int  # e.g. 26550 (MSL)
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
+    flight_level: int | None = None  # 390 (imputed) altitude_baro//100 mapped -> list
 
     def as_utf8_json(self) -> bytes:
         """
@@ -67,6 +69,7 @@ class SpireFlightInfo:
     arrival_airport_icao: str  # e.g. LFPG
     # arrival_airport_iata: str  # e.g. CDG
     arrival_scheduled_time: str  # e.g. 2024-03-01T17:40:00Z
+
     # arrival_estimated_time: str  # e.g. 2024-03-01T17:45:00Z
 
     def as_utf8_json(self) -> bytes:
@@ -85,7 +88,7 @@ class SpireFlightInfo:
 
 
 @dataclass
-class SpireWaypointRecords:
+class SpireWaypointsRecord:
     """
     A list of temporally-contiguous flight-waypoints, belonging to a single flight instance.
     """
@@ -105,10 +108,28 @@ class SpireWaypointRecords:
         """
         Takes a utf8 json blob and marshals to an instance of this class.
         """
-        return SpireWaypointRecords(
+        return SpireWaypointsRecord(
             flight_info=SpireFlightInfo(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
+
+    @staticmethod
+    def from_waypoint_cache(wp) -> tuple[str, SpireWaypointPositional]:
+        """
+        Convert a single WaypointCache.Waypoint object to a sparse SpireWaypointPositional object.
+        Also, extracts and returns the flight_id.
+        """
+        flight_id = str(UUID(bytes=wp["flight_id"]))
+        swp = SpireWaypointPositional(
+            latitude=wp["latitude"],
+            longitude=wp["latitude"],
+            altitude_baro=wp["altitude_ft"],
+            timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+            imputed=False,
+        )
+        return flight_id, swp
 
 
 @dataclass
@@ -133,6 +154,86 @@ class WaypointCache:
         timestamp: int  # unixtime
 
     key: str  # <source_identifier>:<icao_address>, e.g. `spr:4B0293`
-    waypoints: Tuple[
+    waypoints: tuple[
         Waypoint | None, Waypoint
     ]  # record[0].timestamp < record[1].timestamp
+
+    def to_flatmap(self) -> dict[str, object]:
+        """
+        Returns
+        -------
+        dict
+            Waypoints tuple flattened into a dict.
+            Tuple indexes prefixed to dict key as 'w{N}_'
+        """
+        out = {}
+        for n, waypoint in enumerate(self.waypoints):
+            for k, v in waypoint.items():
+                out.update({f"w{n}_{k}": v})
+        return out
+
+    @staticmethod
+    def from_flatmap(rec: dict[bytes, bytes]):
+        """
+        Parameters
+        ----------
+        rec
+            A dictionary object representing a flattened set of two WaypointCache.Waypoint objects.
+            Dictionary has bytes k-v, as is the flatmap when returned from redis.
+
+        Returns
+        -------
+        List[WaypointCache.Waypoint]
+            Waypoint objects extracted from the flatmap,
+            ordered by flatmap key prefixes w0_, w1_
+        """
+        extracted: list[dict] = [{}, {}]
+        ix = {"w0": 0, "w1": 1}
+        for k, v in rec.items():
+            prefix = k.decode("utf-8").split("_")[0]
+            key = "_".join(k.decode("utf-8").split("_")[1:])
+            try:
+                extracted[ix[prefix]].update({key: v})
+            except KeyError:
+                raise KeyError(
+                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"expected one of {list(ix.keys())}"
+                )
+
+        def type_cast(w: dict[str, bytes]) -> WaypointCache.Waypoint:
+            return WaypointCache.Waypoint(
+                flight_id=w["flight_id"],
+                latitude=float(w["latitude"].decode("utf-8")),
+                longitude=float(w["longitude"].decode("utf-8")),
+                altitude_ft=int(w["altitude_ft"].decode("utf-8")),
+                timestamp=int(w["timestamp"].decode("utf-8")),
+            )
+
+        out = [type_cast(w) for w in extracted if w]
+        return out
+
+    @staticmethod
+    def from_spire_waypoint_positional(
+        flight_id: str,
+        spire_wps: tuple[SpireWaypointPositional | None, SpireWaypointPositional],
+    ):
+        """
+        Builds a cache object from SpireWaypointPositional objects.
+        """
+        waypoints: list[WaypointCache.Waypoint | None] = []
+        wp: SpireWaypointPositional | None
+        for wp in spire_wps:
+            if not spire_wps:
+                waypoints.append(None)
+                continue
+            waypoints.append(
+                WaypointCache.Waypoint(
+                    flight_id=UUID(flight_id).bytes,
+                    latitude=wp.latitude,
+                    longitude=wp.longitude,
+                    altitude_ft=wp.altitude_baro,
+                    timestamp=int(datetime.fromisoformat(wp.timestamp).timestamp()),
+                )
+            )
+
+        return WaypointCache(key=f"spr:{flight_id}", waypoints=tuple(waypoints))
