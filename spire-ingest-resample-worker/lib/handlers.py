@@ -193,7 +193,6 @@ class CacheHandler:
             Contains the last two known waypoints for the flight instance.
         """
         # TODO: error handling
-        # TODO: do we want to persist a client class instance level? I think better to release conn.
         redis_retry = Retry(ExponentialBackoff(), 3)
         redis_client = redis.Redis(
             host=env.REDIS_HOST,
@@ -201,11 +200,14 @@ class CacheHandler:
             retry=redis_retry,
             retry_on_timeout=True,
         )
-        # try writing single record w/ expiry as an atomic transaction
-        transaction = redis_client.pipeline()
-        transaction.hset(cache_entry.key, mapping=cache_entry.to_flatmap())
-        transaction.expire(cache_entry.key, self.KEY_EXPIRY_SEC)
-        transaction.execute()
+        try:
+            # try writing single record w/ expiry as an atomic transaction
+            transaction = redis_client.pipeline()
+            transaction.hset(cache_entry.key, mapping=cache_entry.to_flatmap())
+            transaction.expire(cache_entry.key, self.KEY_EXPIRY_SEC)
+            transaction.execute()
+        finally:
+            redis_client.connection_pool.disconnect()
 
 
 class ValidationHandler:
