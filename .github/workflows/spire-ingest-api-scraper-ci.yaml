@@ -1,10 +1,10 @@
-name: spire-ingest-job-publisher-ci
+name: spire-ingest-api-scraper-ci
 
 on:
   pull_request:
     paths:
-      - "spire-ingest-job-publisher/**"
-      - ".github/spire-ingest-job-publisher-deploy-dev.yaml"
+      - "spire-ingest-api-scraper/**"
+      - ".github/workflows/spire-ingest-api-scraper-ci.yaml"
 
 jobs:
   test:
