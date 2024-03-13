@@ -183,7 +183,7 @@ class WaypointCache:
 
         Returns
         -------
-        Tuple[WaypointCache.Waypoint | None , WaypointCache.Waypoint]
+        List[WaypointCache.Waypoint]
             Waypoint objects extracted from the flatmap,
             ordered by flatmap key prefixes w0_, w1_
         """
@@ -209,8 +209,8 @@ class WaypointCache:
                 timestamp=int(w["timestamp"].decode("utf-8")),
             )
 
-        out = [type_cast(w) if w else None for w in extracted]
-        return tuple(out)
+        out = [type_cast(w) for w in extracted if w]
+        return out
 
     @staticmethod
     def from_spire_waypoint_positional(

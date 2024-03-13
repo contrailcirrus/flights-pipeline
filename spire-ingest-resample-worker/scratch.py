@@ -2,8 +2,9 @@ import pandas as pd
 
 from pycontrails.core.flight import Flight
 
-from lib.schemas import SpireWaypointsRecord, WaypointCache, SpireWaypointPositional
+from lib.schemas import SpireWaypointsRecord, WaypointCache
 from stub import pubsub_message, redis_response
+from lib.handlers import ValidationHandler
 
 FLIGHT_LEVELS = [
     270,
@@ -27,18 +28,12 @@ FLIGHT_LEVELS = [
 ]
 
 recs: SpireWaypointsRecord = SpireWaypointsRecord.from_utf8_json(pubsub_message)
-# TODO: logic as to whether or not to use cache
-cached = WaypointCache.from_flatmap(redis_response)
-cached = [w for w in cached if w is not None]  # prune null WaypointCache.Waypoint objs
-cached_flight_ids: list[str] = [
-    SpireWaypointsRecord.from_waypoint_cache(w)[0] for w in cached
-]
-cached_waypoints: list[SpireWaypointPositional] = [
-    SpireWaypointsRecord.from_waypoint_cache(w)[1] for w in cached
-]
+cached: list[WaypointCache.Waypoint] = WaypointCache.from_flatmap(redis_response)
+
+validation_handler = ValidationHandler(cached, recs)
 
 
-df_cached = pd.DataFrame(cached_waypoints)
+df_cached = pd.DataFrame(validation_handler.cached_records)
 df_cached.rename(
     columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True
 )
@@ -49,7 +44,7 @@ df_cached["time"] = pd.to_datetime(df_cached["time"]).apply(
 max_cache_ts = df_cached["time"].max()
 
 
-df_records = pd.DataFrame(recs.records)
+df_records = pd.DataFrame(validation_handler.records)
 df_records.rename(
     columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True
 )
