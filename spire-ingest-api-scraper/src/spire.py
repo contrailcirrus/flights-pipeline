@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 # [start_at, end_at) are dropped before data leaves this module.
 INGEST_LAG_TIME = timedelta(minutes=5)
 
+# Spire reported that the following icao_address values are not unique to a specific
+# aircraft. We drop related records to avoid downstream inconsistencies.
+IGNORE_ICAO_ADDRESS = {"000000", "00000a"}
+
 
 class SpireAPIClient:
     def __init__(
@@ -127,6 +131,19 @@ class SpireAPIClient:
                 target_records.append(target_record)
 
         df = pd.DataFrame(target_records)
+
+        # Spire API may return icao_address values that are not unique to a specific
+        # aircraft. Drop values known to be duplicated across aircraft.
+        is_ignored_icao_address = df["icao_address"].isin(IGNORE_ICAO_ADDRESS)
+        is_unique_icao_address = ~is_ignored_icao_address
+        df = df.loc[is_unique_icao_address, :]
+
+        drop_count_ignored_icao_address = is_ignored_icao_address.sum()
+        if drop_count_ignored_icao_address > 0:
+            logger.info(
+                f"Drop {drop_count_ignored_icao_address} records with non-unique "
+                + f"icao_address in {IGNORE_ICAO_ADDRESS}"
+            )
 
         # Spire API may return records out of the request time window. Drop records
         # with timestamps outside of [start_at, end_at).
