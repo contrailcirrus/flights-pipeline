@@ -1,0 +1,14 @@
+# image is the docker image uri to be deployed including the image tag
+image:
+
+# spireIngestWaypointsSubscriptionId is the fully-qualified uri for the waypoints record pubsub subscription
+spireIngestWaypointsSubscriptionId:
+# spireWaypointsBigQueryTopicId is the fully-qualifed uri for the pubsub topic that writes to BQ
+spireWaypointsBigQueryTopicId:
+# SpireFlightSegmentsTopicId is the fully-qualifed uri for the flights segment pubsub topic
+SpireFlightSegmentsTopicId:
+
+# redisHost is the ipv4 address of the redis instance
+redisHost:
+# redisPort is the port for the redis instance
+redisPort:

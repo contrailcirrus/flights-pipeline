@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spire-ingest-resample-worker
+  labels:
+    app: spire-ingest-resample-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-ingest-resample-worker
+  template:
+    metadata:
+      labels:
+        app: spire-ingest-resample-worker
+    spec:
+      serviceAccountName: TBD
+      containers:
+      - name: spire-ingest-resample-worker
+        image: {{ .Values.image | required ".Values.image is required" | quote }}
+        env:
+          - name: SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
+            value: {{ .Values.spireIngestWaypointsSubscriptionId | required ".Values.spireIngestWaypointsSubscriptionId is required" | quote }}
+          - name: SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID
+            value: {{ .Values.spireWaypointsBigQueryTopicId | required ".Values.spireWaypointsBigQueryTopicId is required" | quote }}
+          - name: SPIRE_FLIGHT_SEGMENTS_TOPIC_ID
+            value: {{ .Values.SpireFlightSegmentsTopicId | required ".Values.SpireFlightSegmentsTopicId is required" | quote }}
+          - name: REDIS_HOST
+            value: {{ .Values.redisHost | required ".Values.redisHost is required" | quote }}
+          - name: REDIS_PORT
+            value: {{ .Values.redisPort | required ".Values.redisPort is required" }}
+          - name: LOG_LEVEL
+            value: INFO
+        resources:
+          limits:
+            cpu: "2"
+            ephemeral-storage: "1Gi"
+            memory: "8Gi"
+          requests:
+            cpu: "2"
+            ephemeral-storage: "1Gi"
+            memory: "8Gi"
