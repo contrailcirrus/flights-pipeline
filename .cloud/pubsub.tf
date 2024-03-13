@@ -19,6 +19,10 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_ingress_dev"
     maximum_backoff = "60s"
   }
 
+  expiration_policy {
+    ttl = ""
+  }
+
   depends_on = [
     google_pubsub_topic.spire_ingest_api_scraper_egress_dev,
   ]
@@ -36,6 +40,10 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_ingress_prod
   retry_policy {
     minimum_backoff = "30s"
     maximum_backoff = "60s"
+  }
+
+  expiration_policy {
+    ttl = ""
   }
 
   depends_on = [
@@ -66,6 +74,10 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_bigquery_del
     dead_letter_topic = google_pubsub_topic.spire_ingest_resample_worker_bigquery_dead_letter_dev.id
   }
 
+  expiration_policy {
+    ttl = ""
+  }
+
   depends_on = [
     google_bigquery_table.spire-flights-resampled-dev,
   ]
@@ -75,4 +87,8 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_bigquery_dea
   name  = "spire-ingest-resample-worker-bigquery-dead-letter-dev"
   topic = google_pubsub_topic.spire_ingest_resample_worker_bigquery_dead_letter_dev.id
   message_retention_duration = "86400s"  # 1 day
+
+  expiration_policy {
+    ttl = ""
+  }
 }
