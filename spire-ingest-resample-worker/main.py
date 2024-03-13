@@ -1,23 +1,27 @@
 """Entrypoint for the Spire Ingest Resample Worker."""
 
 import lib.environment as env
-from lib.log import logger
+from lib.log import logger, format_traceback
 import stub  # temp
-from lib.schemas import SpireWaypointsRecord
+from lib.schemas import (
+    SpireWaypointsRecord,
+    WaypointCache,
+)
+from lib.handlers import ValidationHandler
 
 
 def run():
     """
     Main entrypoint.
 
-    - Dequeues a "waypoint record" (list of waypoints) for a given flight-instance.
-    - Fetches the last known waypoint for the flight-instance from remote store.
+    - Dequeues a "waypoints record" (batch window of waypoints) for a given flight-instance.
+    - Fetches the last known 1-2 waypoint(s) for the flight-instance from remote cache.
     - Interpolates backwards (1Min sampling) for missing waypoints between
     the waypoint record and the last known waypoint.
-    - Publishes the interpolated waypoints to a pubsub topic
+    - Publishes the interpolated waypoints to a pubsub topic (egress to Big Query)
     - Builds flight segments (tuple of consecutive waypoints),
       and publishes flight segments to pubsub
-    - Updates the last known waypoint for the flight-instance instance in remote store
+    - Updates the last known 1-2 waypoint(s) for the flight-instance in remote cache
     """
     logger.info(f"fetching record from {env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID}")
     # TODO: fetch from subscription
@@ -25,10 +29,27 @@ def run():
 
     # STUBBED
     job = SpireWaypointsRecord.from_utf8_json(stub.pubsub_message)
-    logger.info(f"got SpireWaypointsRecord: {job.as_utf8_json()}")  # noqa:F821
+    cached = WaypointCache.from_flatmap(stub.redis_response)
 
-    # TODO: fetch last known waypoint for flight-instance from remote store
-    logger.info(f"last known waypoint was at: {'some_timestamp'}")
+    # cases where we don't process the batch window received from pubsub
+    try:
+        validation_handler = ValidationHandler(cached, job)
+    except Exception:
+        logger.warning(
+            f"cache and/or records invalid. "
+            f"not processing batch with icao_address {job.flight_info.icao_address} "
+            f"and timestamp {job.records[0].timestamp}. "
+            f"traceback: {format_traceback()}"
+        )
+        return
+    if not validation_handler.flight_info:
+        logger.warning(
+            f"no flight_id available in records batch, "
+            f"and flight_id could not be inferred. "
+            f"not processing batch with icao_address {job.flight_info.icao_address} "
+            f"and timestamp {job.records[0].timestamp}."
+        )
+        return
 
     # TODO: do backward interpolation
     # TODO: infer spire.flight-id for records with spire.flight-id.is_null()
@@ -36,7 +57,8 @@ def run():
 
     # TODO: publish interpolated waypoints to pubsub topic, for injection into BQ
     logger.info(
-        f"published N={100} interpolated (imputed) waypoints to {env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}"
+        f"published N={100} interpolated (imputed) waypoints to "
+        f"{env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}"
     )
 
     # TODO: generate flight segments; publish flight segments to pubsub
@@ -46,6 +68,6 @@ def run():
 
 
 if __name__ == "__main__":
-    logger.info("starting api-preprocessor instance")
+    logger.info("starting spire-ingest-resample-worker instance")
     while True:
         run()
