@@ -8,5 +8,5 @@ firestoreStateCollection:
 # firestoreStateDocId is the id of the firestore document used to store state checkpoints
 firestoreStateDocId:
 
-# pubSubEgressTopicId is the id of the firestore document used to store state checkpoints
+# pubSubEgressTopicId is the id of the pubsub topic used to publish egress messages
 pubSubEgressTopicId:
