@@ -1,6 +1,6 @@
 .PHONY: deploy
 deploy: --check-env
-	helm upgrade --install spire-ingest-api-scraper . \
+	helm upgrade --install spire-ingest-resample-worker . \
 		--namespace=$(NAMESPACE) \
 		--set image=$(IMAGE) \
 		--set spireIngestWaypointsSubscriptionId=$(SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID) \

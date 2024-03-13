@@ -1,6 +1,6 @@
 .PHONY: deploy
 deploy: --check-env
-	helm upgrade --install spire-ingest-api-scraper . \
+	helm upgrade --install flights-pipeline-common . \
 		--namespace=$(NAMESPACE) \
 		--set spireAirsafeApiToken=$(SPIRE_AIRSAFE_API_TOKEN)
 
