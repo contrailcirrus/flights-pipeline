@@ -9,7 +9,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-# Requesting data between [start_at, end_at) will fetch [start_at, end_at + WALL_TIME]
+# Requesting data [start_at, end_at) will fetch [start_at, end_at + INGEST_LAG_TIME]
 # from Spire's API to load data observations that occurred during [start_at, end_at)
 # but were ingested after end_at. Records with observation timestamps outside of
 # [start_at, end_at) are dropped before data leaves this module.
