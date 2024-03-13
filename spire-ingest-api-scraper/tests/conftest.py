@@ -1,8 +1,19 @@
+import os
 from functools import cache
 from typing import Iterator
 
 import pytest
 import responses
+
+# Fake environment variables. This is required since lib.log inherited from existing
+# services has an import-time dependency on lib.environment, so the service's
+# environment variables must be present to test any modules which import lib.log.
+os.environ["FIRESTORE_STATE_DB"] = "fake-test"
+os.environ["FIRESTORE_STATE_COLLECTION"] = "fake-test"
+os.environ["FIRESTORE_STATE_DOC_ID"] = "fake-test"
+os.environ["PUBSUB_EGRESS_TOPIC_ID"] = "fake-test"
+os.environ["SPIRE_API_TOKEN"] = "fake-test"
+os.environ["LOG_LEVEL"] = "DEBUG"
 
 
 @cache

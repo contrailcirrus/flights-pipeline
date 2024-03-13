@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from src import spire, transform
+from lib import spire, transform
 
 
 def test_downsample(mock_spire_airsafe_api: str) -> None:

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
-from src import spire
+from lib import spire
 
 
 def test_spire_airsafe_target_parsing(mock_spire_airsafe_api: str) -> None:

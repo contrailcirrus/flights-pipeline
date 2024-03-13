@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
-from src import queue, spire, state
-from src.main import _time_windows, main
+from lib import queue, spire, state
+from main import _time_windows, main
 
 
 def test_time_windows_within_range() -> None:

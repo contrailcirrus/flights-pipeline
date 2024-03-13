@@ -2,6 +2,8 @@
 
 import json
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from uuid import UUID
 
 
 @dataclass
@@ -66,6 +68,7 @@ class SpireFlightInfo:
     arrival_airport_icao: str  # e.g. LFPG
     # arrival_airport_iata: str  # e.g. CDG
     arrival_scheduled_time: str  # e.g. 2024-03-01T17:40:00Z
+
     # arrival_estimated_time: str  # e.g. 2024-03-01T17:45:00Z
 
     def as_utf8_json(self) -> bytes:
@@ -84,7 +87,7 @@ class SpireFlightInfo:
 
 
 @dataclass
-class SpireWaypointRecords:
+class SpireWaypointsRecord:
     """
     A list of temporally-contiguous flight-waypoints, belonging to a single flight instance.
     """
@@ -104,7 +107,25 @@ class SpireWaypointRecords:
         """
         Takes a utf8 json blob and marshals to an instance of this class.
         """
-        return SpireWaypointRecords(
-            flight_info=json.loads(blob)["flight_info"],
+        return SpireWaypointsRecord(
+            flight_info=SpireFlightInfo(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
+
+    @staticmethod
+    def from_waypoint_cache(wp) -> tuple[str, SpireWaypointPositional]:
+        """
+        Convert a single WaypointCache.Waypoint object to a sparse SpireWaypointPositional object.
+        Also, extracts and returns the flight_id.
+        """
+        flight_id = str(UUID(bytes=wp["flight_id"]))
+        swp = SpireWaypointPositional(
+            latitude=wp["latitude"],
+            longitude=wp["latitude"],
+            altitude_baro=wp["altitude_ft"],
+            timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+            imputed=False,
+        )
+        return flight_id, swp

@@ -35,8 +35,9 @@ ENV PATH /usr/src/.venv/bin:$PATH
 
 # Copy the application code
 WORKDIR /
-COPY src src
+COPY lib lib
+COPY main.py .
 
 ENV VERSION v0.0.0-dev.0
 
-CMD ["python3", "-m", "src.main"]
+CMD ["python3", "main.py"]

@@ -1,18 +1,10 @@
 DOCKER_COMMAND = docker
 IMAGE_NAME = spire-ingest-api-scraper
-TAG ?= $(shell git describe --tags)
 
+# -------
+# Develop
+# -------
 
-.PHONY: help
-help:
-	echo "See Makefile for recipe list"
-
-.PHONY: install
-prod-install:  ## Install production dependencies pinned in lockfile
-	pip install -U pip
-	pipenv sync
-
-.PHONY: install
 dev-install:  ## Install development and production dependencies in .venv
 	pip install -U pip
 	pipenv sync --dev
@@ -34,14 +26,14 @@ dependency-check:
 	pipenv verify
 
 lint:
-	pipenv run ruff format --check src tests
-	pipenv run ruff check src tests
+	pipenv run ruff format --check .
+	pipenv run ruff check .
 
 type-check:
-	pipenv run mypy --install-types --non-interactive src tests
+	pipenv run mypy --install-types --non-interactive .
 
 pytest:
-	pipenv run pytest --cov app --cov-report term-missing
+	pipenv run pytest --cov . --cov-report term-missing
 
 test: dependency-check lint type-check pytest
 
@@ -57,22 +49,6 @@ docker-build:
 	-$(DOCKER_COMMAND) build --tag $(IMAGE_NAME) .
 	$(DOCKER_COMMAND) image prune -f
 
-docker-test:
-	$(DOCKER_COMMAND) build --tag $(IMAGE_NAME) --target test .
-	$(DOCKER_COMMAND) image prune -f
-
 docker-build-fresh:
 	$(DOCKER_COMMAND) build --no-cache --tag $(IMAGE_NAME) .
 	$(DOCKER_COMMAND) image prune -f
-
-docker-bash:
-	$(DOCKER_COMMAND) run --rm -e CONTRAILS_API_DEBUG=1 -it --entrypoint bash $(IMAGE_NAME)
-
-docker-run:
-	$(DOCKER_COMMAND) run --rm -e CONTRAILS_API_DEBUG=1 -p 8000:8000 -it $(IMAGE_NAME)
-
-# reclaim disk space eaten up by docker
-# https://docs.docker.com/docker-for-mac/space/
-docker-clean:
-	-buildah rm --all
-	$(DOCKER_COMMAND) system prune

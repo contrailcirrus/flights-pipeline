@@ -1,16 +1,18 @@
-import logging
+"""
+Entrypoint for spire-ingest-api-scraper CronJob.
+"""
+
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pandas as pd
 
-from . import queue, schemas, spire, state, transform
+from lib import queue, schemas, spire, state, transform
+from lib.log import logger
 
 # SYNC_DELAY enforces we do not fetch data ingested by Spire after: now - SYNC_DELAY
 SYNC_DELAY = timedelta(minutes=5)
-
-logger = logging.getLogger(__name__)
 
 
 def _to_string_or_none(x: Any) -> str | None:
@@ -120,7 +122,8 @@ def main(
             _log_invariant_violations(rows)
 
             first_row = rows.iloc[0]
-            dto = schemas.SpireWaypointRecords(
+
+            dto = schemas.SpireWaypointsRecord(
                 flight_info=schemas.SpireFlightInfo(
                     icao_address=str(first_row["icao_address"]),
                     flight_id=_to_string_or_none(first_row["flight_id"]),
@@ -159,9 +162,9 @@ def main(
 
 
 if __name__ == "__main__":
-    from . import environment, log
+    from lib import environment
 
-    log.logger.info("Starting spire-ingest-api-scraper service")
+    logger.info("Starting spire-ingest-api-scraper service")
 
     triggered_at = datetime.now(tz=timezone.utc)
 

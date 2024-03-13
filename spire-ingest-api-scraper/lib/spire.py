@@ -1,13 +1,11 @@
 import json
-import logging
 import time
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import requests
 
-logger = logging.getLogger(__name__)
-
+from lib.log import logger
 
 # Requesting data [start_at, end_at) will fetch [start_at, end_at + INGEST_LAG_TIME]
 # from Spire's API to load data observations that occurred during [start_at, end_at)

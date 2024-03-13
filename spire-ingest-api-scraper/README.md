@@ -18,14 +18,17 @@ make install
 
 This will create a virtual environment in the `.venv` directory. You may need to configure your IDE to reference the interpreter within this virtual environment.
 
-Run static analysis checks for formatting, linting, and type checking with:
+Run static analysis checks for linting and type checking with:
 
 ```bash
-make check
+make lint
+make type-check
 ```
 
 Run tests with
 
 ```bash
+make pytest
+# or to run tests and static analyses
 make test
 ```

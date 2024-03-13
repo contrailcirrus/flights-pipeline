@@ -1,8 +1,6 @@
-import logging
-
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from lib.log import logger
 
 
 def _downsample_icao_address_minutes_first_last(df: pd.DataFrame) -> pd.DataFrame:

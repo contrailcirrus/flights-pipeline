@@ -1,9 +1,8 @@
-import logging
 from datetime import datetime
 
 from google.cloud import firestore  # type: ignore
 
-logger = logging.getLogger(__name__)
+from lib.log import logger
 
 
 class PersistentStateClient:
