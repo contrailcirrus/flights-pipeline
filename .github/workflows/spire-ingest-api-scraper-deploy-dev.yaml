@@ -1,14 +1,12 @@
-# [DEV] Build, Push & Deploy spire-ingest-api-scraper
-
 name: spire-ingest-api-scraper-deploy-dev
 
 on:
   push:
     branches:
-      - 'develop'
+      - develop
     paths:
-      - 'spire-ingest-api-scraper/**'
-      - '.github/spire-ingest-api-scraper-deploy-dev.yaml'
+      - spire-ingest-api-scraper/**
+      - .github/spire-ingest-api-scraper-deploy-dev.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -16,23 +14,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  run-deploy:
+  deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: ./spire-ingest-api-scraper
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: 'Authenticate to Google Cloud'
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - name: Set up GCP auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-    - name: 'Set up Google Cloud SDK'
-      uses: google-github-actions/setup-gcloud@v2
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
 
+      - name: Set up kubectl auth
+        run: gcloud container clusters get-credentials contrails-gke-general --region us-east1
 
-   # - name: 'build, push, deploy to dev'
-   #   run: |
-   #     gcloud some_command
+      - name: Set up docker auth
+        run: gcloud auth configure-docker us-east1-docker.pkg.dev
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-api-scraper:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy helm resources
+        working-directory: spire-ingest-api-scraper/helm
+        run: make deploy
+        env:
+          NAMESPACE: flights-pipeline-dev
+          IMAGE: ${{ steps.build-push.outputs.imageid }}
+          FIRESTORE_STATE_DB: flights-pipeline-dev
+          FIRESTORE_STATE_COLLECTION: state
+          FIRESTORE_STATE_DOC_ID: spire-ingest-api-scraper
+          PUBSUB_EGRESS_TOPIC_ID: spire-ingest-api-scraper-egress-dev
