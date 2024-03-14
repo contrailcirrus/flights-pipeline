@@ -1,15 +1,27 @@
 [
   {
+    "name": "_instance_hash",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "unique hash for a discrete instance of flight waypoint"
+  },
+  {
     "name": "timestamp",
     "type": "TIMESTAMP",
     "mode": "REQUIRED",
     "description": "event/observation timestamp for the waypoint"
   },
   {
-    "name": "latlon",
-    "type": "GEOGRAPHY",
+    "name": "latitude",
+    "type": "FLOAT64",
     "mode": "REQUIRED",
-    "description": "a latitude/longitude point object for the waypoint"
+    "description": "WSG84 latitude for the for the waypoint"
+  },
+  {
+    "name": "longitude",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "WSG84 latitude for the for the waypoint"
   },
   {
     "name": "altitude_baro",
