@@ -7,3 +7,6 @@ redis_response = {
     b"w1_altitude_ft": b"32120",
     b"w1_timestamp": b"1709305380",
 }
+
+# note: timestamp as int epoch in microseconds
+pubsub_bq_out = b'{"_instance_hash": 1443113554245, "timestamp": 1710321881000000, "latitude": 33.4, "longitude": -119.3, "altitude_baro": 36344, "flight_level": 360, "imputed": true, "icao_address": "foo4bar", "flight_id": "3333-abss-2112..."}'
