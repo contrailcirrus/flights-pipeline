@@ -6,7 +6,7 @@ on:
       - develop
     paths:
       - spire-ingest-api-scraper/**
-      - .github/spire-ingest-api-scraper-deploy-dev.yaml
+      - .github/workflows/spire-ingest-api-scraper-deploy-dev.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
