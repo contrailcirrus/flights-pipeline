@@ -1,19 +1,34 @@
 # Spire Ingest API Scraper
-A Kubernetes deployment that performs ETL from the [Spire API](https://aviation-docs.spire.com/api/tracking-stream/usage/#batch-mode) into this system.
 
-This service consumes ordered jobs from the [Spire Ingest Job Publisher](../spire-ingest-job-publisher).
-Ordered jobs means the Spire Ingest API Scraper will scrape the API contiguously in time.
-e.g.
-```text
-job1: 2024-02-01T10:05:00 -> 2024-02-01T10:10:00
-job2: 2024-02-01T10:10:00 -> 2024-02-01T10:15:00
-...
+A Kubernetes `CronJob` that ingests flight position data from the [Spire API](https://aviation-docs.spire.com/api/tracking-stream/usage/#batch-mode) and publishes position updates to a PubSub topic. This is the primary trigger for async event-driven consumers downstream in the flights-pipeline.
+
+This service maintains a checkpoint in FireStore to indicate what time period of data has already been fetched from Spire's AirSafe API. On each invocation, it determines what data can be synced after the last checkpoint, fetches time-batches of flight position updates, and publishes results to PubSub ordered in time. The flight's `icao_address` is used as the ordering key to guarantee consumers process position updates per-flight ascending in time.
+
+## Egress interface
+
+Messages are serialized as JSON and published to a PubSub topic configured by the `PUBSUB_EGRESS_TOPIC_ID` environment variable. Each message contains a JSON-formatted payload following the conventions in [`src/schemas.py`](src/schemas.py)
+
+## Development environment
+
+Set the `spire-ignest-api-scraper` path as your working directory and install development dependencies:
+
+```bash
+make install
 ```
 
-The Spire Ingest API Scraper will pull a batch of data from the Spire API,
-resample flight trajectories on a per-flight-instance basis,
-and publish to PubSub an ordered list of flight waypoints (on a per-flight-instance-basis).
-Specifically, flight waypoints are published to PubSub in order (temporally),
-and the PubSub ordering key is the flight-instance identifier.
+This will create a virtual environment in the `.venv` directory. You may need to configure your IDE to reference the interpreter within this virtual environment.
 
-The Spire Waypoint Resampler service consumes messages from this service.
+Run static analysis checks for linting and type checking with:
+
+```bash
+make lint
+make type-check
+```
+
+Run tests with
+
+```bash
+make pytest
+# or to run tests and static analyses
+make test
+```

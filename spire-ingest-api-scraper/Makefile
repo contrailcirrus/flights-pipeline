@@ -1,0 +1,54 @@
+DOCKER_COMMAND = docker
+IMAGE_NAME = spire-ingest-api-scraper
+
+# -------
+# Develop
+# -------
+
+dev-install:  ## Install development and production dependencies in .venv
+	pip install -U pip
+	pipenv sync --dev
+
+clean-all:  # restore working environment to time-zero state
+	deactivate >/dev/null 2>&1 || true && pipenv --rm >/dev/null 2>&1 || true \
+	pipenv -- clear \
+	&& rm -rf .mypy_cache && rm -rf .pytest_cache && rm -f .coverage
+
+# -----
+# Hygiene & Testing
+# -----
+
+format:
+	pipenv run black .
+
+dependency-check:
+	pipenv check
+	pipenv verify
+
+lint:
+	pipenv run ruff format --check .
+	pipenv run ruff check .
+
+type-check:
+	pipenv run mypy --install-types --non-interactive .
+
+pytest:
+	pipenv run pytest --cov . --cov-report term-missing
+
+test: dependency-check lint type-check pytest
+
+# Don't capture stdout: pytest will capture logs
+test-with-logs:
+	pipenv run pytest --log-cli-level=DEBUG --show-capture=no
+
+# ---------------
+# Docker / podman
+# ---------------
+
+docker-build:
+	-$(DOCKER_COMMAND) build --tag $(IMAGE_NAME) .
+	$(DOCKER_COMMAND) image prune -f
+
+docker-build-fresh:
+	$(DOCKER_COMMAND) build --no-cache --tag $(IMAGE_NAME) .
+	$(DOCKER_COMMAND) image prune -f

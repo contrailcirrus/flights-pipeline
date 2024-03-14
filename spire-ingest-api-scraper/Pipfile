@@ -4,13 +4,21 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+google-cloud-firestore = "==2.15.0"
 google-cloud-pubsub = "==2.19.7"
-
+pandas = "==2.2.1"
+requests = "==2.31.0"
 
 [dev-packages]
-ruff = "0.2.1"
-black = "24.2.0"
-pre-commit = "==3.6.0"
+black = "*"
+mypy = "*"
+pandas-stubs = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-cov = "*"
+responses = "*"
+ruff = "*"
+types-requests = "*"
 
 [requires]
 python_version = "3.12"
