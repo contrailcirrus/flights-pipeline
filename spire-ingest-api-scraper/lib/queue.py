@@ -21,7 +21,11 @@ class QueueClient:
         # The backoff is limited to [0.1, 60] seconds and increases by *1.3 on each
         # publish error. Retries are managed separately for each ordering key.
         # See: https://cloud.google.com/pubsub/docs/retry-requests
-        self._publisher = pubsub_v1.PublisherClient()
+        self._publisher = pubsub_v1.PublisherClient(
+            publisher_options=pubsub_v1.types.PublisherOptions(
+                enable_message_ordering=True,
+            )
+        )
 
         self._publish_futures: list[concurrent.futures.Future] = []
 

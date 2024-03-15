@@ -9,11 +9,11 @@ spec:
 
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 600
+      activeDeadlineSeconds: 900
       backoffLimit: 2
       template:
         spec:
-          restartPolicy: OnFailure
+          restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
           containers:
             - name: main
@@ -36,8 +36,8 @@ spec:
                   value: INFO
               resources:
                 requests:
-                  cpu: "300m"
-                  memory: "1000Mi"
+                  cpu: "0.3"
+                  memory: "7500Mi"
                 limits:
-                  cpu: "1000m"
-                  memory: "1000Mi"
+                  cpu: "1"
+                  memory: "7500Mi"
