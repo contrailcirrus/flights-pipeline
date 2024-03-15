@@ -41,7 +41,7 @@ def run():
         env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
     ) as job_handler:
         job: SpireWaypointsRecord = job_handler.fetch()
-        logger.info(f"got job: {job}.")
+        logger.info(f"got job with {len(job.records)} records: {job}.")
 
         cache_key = f"spr: {job.flight_info.icao_address}"
         logger.info(f"fetching from cache to {env.REDIS_HOST}:{env.REDIS_PORT}")
@@ -124,8 +124,9 @@ def run():
             records=resampled_records,
         )
 
+        # TODO: publish to bq queue
         logger.info(
-            f"published N={len(resampled_records)} interpolated (imputed) waypoints to "
+            f"published N={len(egress_records.records)} interpolated (imputed) waypoints to "
             f"{env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}"
         )
 
@@ -133,6 +134,15 @@ def run():
         logger.info(
             f"published N={103} flight segments to {env.SPIRE_FLIGHT_SEGMENTS_TOPIC_ID}"
         )
+
+        logger.info(
+            f"finished processing batch "
+            f"for icao_address: {egress_records.flight_info.icao_address}. "
+            f"exported {len(egress_records.records)} resampled records "
+            f"spanning {egress_records.records[0].timestamp} "
+            f"to {egress_records.records[-1].timestamp}."
+        )
+        job_handler.ack()
 
 
 if __name__ == "__main__":

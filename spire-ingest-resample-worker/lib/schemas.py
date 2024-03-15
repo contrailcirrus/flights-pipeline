@@ -5,6 +5,7 @@ import json
 from typing import TypedDict
 from uuid import UUID
 from datetime import datetime, UTC
+import hashlib
 
 
 @dataclass
@@ -138,10 +139,52 @@ class SpireWaypointsRecord:
 
         Converts "timestamp" to microseconds epoch.
 
+        Converts "departure_scheduled_time" to microseconds epoch.
+
+        Converts "arrival_scheduled_time" to microseconds epoch.
+
         Adds an `_instance_hash` k-v, of type int,
         generated as a hash of the composite <icao_address><timestamp>,
         where timestamp is epoch time in microseconds
         """
+
+        def iso_to_microseconds(timestamp: str | None) -> int | None:
+            if not timestamp:
+                return timestamp
+            ts: int = int(datetime.fromisoformat(timestamp).timestamp() * 1e6)
+            return ts
+
+        out = []
+        for record in self.records:
+            # _instance_hash is an int64 in bq
+            ts = iso_to_microseconds(record.timestamp)
+            hash = hashlib.md5(f"{self.flight_info.icao_address}{ts}".encode("utf-8"))
+            # truncate to 8 bytes; avoid overflow
+            hash_trunc = hash.hexdigest()[:16]
+            hash_int = int(hash_trunc, 16)
+            blob = {
+                "_instance_hash": hash_int,
+                "timestamp": ts,
+                "latitude": record.latitude,
+                "longitude": record.longitude,
+                "altitude_baro": record.altitude_baro,
+                "flight_level": record.flight_level,
+                "imputed": record.imputed,
+                "icao_address": self.flight_info.icao_address,
+                "flight_id": self.flight_info.flight_id,
+                "callsign": self.flight_info.callsign,
+                "tail_number": self.flight_info.tail_number,
+                "flight_number": self.flight_info.flight_number,
+                "airline_iata": self.flight_info.airline_iata,
+                "departure_airport_icao": self.flight_info.departure_airport_icao,
+                "departure_scheduled_time": iso_to_microseconds(
+                    self.flight_info.departure_scheduled_time
+                ),
+                "arrival_airport_icao": self.flight_info.arrival_airport_icao,
+                "arrival_scheduled_time": self.flight_info.arrival_scheduled_time,
+            }
+            out.append(json.dumps(blob).encode("utf-8"))
+        return out
 
 
 @dataclass
