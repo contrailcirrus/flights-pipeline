@@ -14,7 +14,7 @@ spec:
       labels:
         app: spire-ingest-resample-worker
     spec:
-      serviceAccountName: TBD
+      serviceAccountName: flights-pipeline-default-sa
       containers:
       - name: spire-ingest-resample-worker
         image: {{ .Values.image | required ".Values.image is required" | quote }}

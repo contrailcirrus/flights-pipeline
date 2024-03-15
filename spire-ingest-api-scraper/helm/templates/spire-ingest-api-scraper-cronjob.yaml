@@ -14,6 +14,7 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          serviceAccountName: flights-pipeline-default-sa
           containers:
             - name: main
               image: {{ .Values.image | required ".Values.image is required" | quote }}
