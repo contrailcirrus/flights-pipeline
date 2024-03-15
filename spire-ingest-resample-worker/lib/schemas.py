@@ -131,6 +131,18 @@ class SpireWaypointsRecord:
         )
         return flight_id, swp
 
+    def to_bq_flatmap(self):
+        """
+        Flattens records into a list of utf-8 encoded json string literals,
+        ready for egress to big query.
+
+        Converts "timestamp" to microseconds epoch.
+
+        Adds an `_instance_hash` k-v, of type int,
+        generated as a hash of the composite <icao_address><timestamp>,
+        where timestamp is epoch time in microseconds
+        """
+
 
 @dataclass
 class WaypointCache:

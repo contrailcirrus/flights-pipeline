@@ -179,7 +179,7 @@ class CacheHandler:
         self._host = host
         self._port = port
 
-    def pull(self, key: str) -> list[WaypointCache]:
+    def pull(self, key: str) -> list[WaypointCache.Waypoint]:
         """
         Parameters
         ----------
@@ -192,6 +192,7 @@ class CacheHandler:
             port=self._port,
             retry=redis_retry,
             retry_on_timeout=True,
+            socket_timeout=1,
         )
         cache_resp = redis_client.hgetall(key)
         return WaypointCache.from_flatmap(cache_resp)
@@ -211,6 +212,7 @@ class CacheHandler:
             port=self._port,
             retry=redis_retry,
             retry_on_timeout=True,
+            socket_timeout=1,
         )
         try:
             # try writing single record w/ expiry as an atomic transaction
@@ -422,12 +424,15 @@ class ResampleHandler:
         pycontrails_name_map = {"altitude_baro": "altitude_ft", "timestamp": "time"}
 
         df_cached = pd.DataFrame(cache)
-        df_cached.rename(pycontrails_name_map, inplace=True)
-        # note: pycontrails resample_and_fill returns df w/ naive timestamps, hence:
-        df_cached["time"] = pd.to_datetime(df_cached["time"]).apply(
-            lambda r: r.tz_localize(None)
-        )
-        self._max_cache_ts = df_cached["time"].max()
+        if not df_cached.empty:
+            df_cached.rename(columns=pycontrails_name_map, inplace=True)
+            # note: pycontrails resample_and_fill returns df w/ naive timestamps, hence:
+            df_cached["time"] = pd.to_datetime(df_cached["time"]).apply(
+                lambda r: r.tz_localize(None)
+            )
+            self._max_cache_ts = df_cached["time"].max()
+        else:
+            self._max_cache_ts = pd.to_datetime("1970")
 
         df_records = pd.DataFrame(records_window)
         df_records.rename(
@@ -482,7 +487,7 @@ class ResampleHandler:
         List of SpireWaypointPositional objects, representing the resampled waypoints
         between the cached waypoints and the records waypoints passed to this handler.
         """
-        if not self._waypoints_df_resampled:
+        if not isinstance(self._waypoints_df_resampled, pd.DataFrame):
             raise ValueError(
                 "interpolate() must be run before fetching the resampled waypoints."
             )

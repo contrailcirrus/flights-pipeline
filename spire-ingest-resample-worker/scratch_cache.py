@@ -65,7 +65,7 @@ redis_client = redis.Redis(
 # try writing single record w/ expiry as an atomic transaction
 transaction = redis_client.pipeline()
 transaction.hset(cache_entry.key, mapping=cache_entry.to_flatmap())
-transaction.expire(cache_entry.key, 10)
+transaction.expire(cache_entry.key, 600)
 transaction.execute()
 
 # redis_client.hget(cache_entry.key, "w1_flight_id")
