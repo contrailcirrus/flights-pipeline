@@ -21,7 +21,6 @@ from lib.schemas import (
     SpireFlightInfo,
 )
 from lib.schemas import WaypointCache
-import lib.environment as env
 
 from google.api_core import retry
 from google.cloud import pubsub_v1
@@ -180,6 +179,23 @@ class CacheHandler:
         self._host = host
         self._port = port
 
+    def pull(self, key: str) -> list[WaypointCache]:
+        """
+        Parameters
+        ----------
+        key
+            redis key corresponding to the target cache k-v
+        """
+        redis_retry = Retry(ExponentialBackoff(), 8)
+        redis_client = redis.Redis(
+            host=self._host,
+            port=self._port,
+            retry=redis_retry,
+            retry_on_timeout=True,
+        )
+        cache_resp = redis_client.hgetall(key)
+        return WaypointCache.from_flatmap(cache_resp)
+
     def push(self, cache_entry: WaypointCache):
         """
         Parameters
@@ -189,11 +205,10 @@ class CacheHandler:
             Contains the key to use for the redis index.
             Contains the last two known waypoints for the flight instance.
         """
-        # TODO: error handling
         redis_retry = Retry(ExponentialBackoff(), 3)
         redis_client = redis.Redis(
-            host=env.REDIS_HOST,
-            port=env.REDIS_PORT,
+            host=self._host,
+            port=self._port,
             retry=redis_retry,
             retry_on_timeout=True,
         )
