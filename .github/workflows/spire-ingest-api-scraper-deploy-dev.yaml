@@ -60,4 +60,4 @@ jobs:
           FIRESTORE_STATE_DB: flights-pipeline-dev
           FIRESTORE_STATE_COLLECTION: state
           FIRESTORE_STATE_DOC_ID: spire-ingest-api-scraper
-          PUBSUB_EGRESS_TOPIC_ID: spire-ingest-api-scraper-egress-dev
+          PUBSUB_EGRESS_TOPIC_ID: projects/contrails-301217/topics/spire-ingest-api-scraper-egress-dev
