@@ -40,7 +40,7 @@ class PubSubSubscriptionHandler:
 
     # the number of seconds the subscriber client will hang, waiting for available messages
     MSG_WAIT_TIME_SEC = 60.0
-    ACK_EXTENSION_SEC = 300.0
+    ACK_EXTENSION_SEC: int = 300
 
     def __init__(self, subscription: str):
         """
@@ -49,9 +49,6 @@ class PubSubSubscriptionHandler:
         subscription
             The fully-qualified URI for the pubsub subscription.
             e.g. 'projects/contrails-301217/subscriptions/api-preprocessor-sub-dev'
-        ack_extension_sec
-            This handler will indefinitely extend the active message's ack deadline by
-            ack_extension_sec until self.ack() is called
         """
         self.subscription = subscription
         self._client = None
