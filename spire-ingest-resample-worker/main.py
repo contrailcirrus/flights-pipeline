@@ -14,6 +14,7 @@ from lib.schemas import (
 )
 from lib.handlers import (
     PubSubSubscriptionHandler,
+    PubSubPublishHandler,
     CacheHandler,
     ValidationHandler,
     ResampleHandler,
@@ -35,6 +36,7 @@ def run():
     """
 
     cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
+    bq_publish_handler = PubSubPublishHandler(env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID)
 
     logger.info(f"fetching record from {env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID}")
     with PubSubSubscriptionHandler(
@@ -119,12 +121,18 @@ def run():
             )
             sys.exit(1)
 
-        egress_records = SpireWaypointsRecord(  # noqa:F841
+        egress_records = SpireWaypointsRecord(
             flight_info=validated_flight_info,
             records=resampled_records,
         )
 
-        # TODO: publish to bq queue
+        logger.info(
+            f"publishing records to BigQuery pubsub topic:"
+            f" {env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}."
+        )
+        for bq_json_ln in egress_records.to_bq_flatmap():
+            bq_publish_handler.publish_async(bq_json_ln)
+        bq_publish_handler.wait_for_publish()
         logger.info(
             f"published N={len(egress_records.records)} interpolated (imputed) waypoints to "
             f"{env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}"

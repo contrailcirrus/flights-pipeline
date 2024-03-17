@@ -161,7 +161,7 @@ class PubSubSubscriptionHandler:
         self._client.close()
 
 
-class QueueClient:
+class PubSubPublishHandler:
     def __init__(
         self,
         topic_id: str,

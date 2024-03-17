@@ -132,7 +132,7 @@ class SpireWaypointsRecord:
         )
         return flight_id, swp
 
-    def to_bq_flatmap(self):
+    def to_bq_flatmap(self) -> list[bytes]:
         """
         Flattens records into a list of utf-8 encoded json string literals,
         ready for egress to big query.
