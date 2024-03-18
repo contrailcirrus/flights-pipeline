@@ -47,7 +47,9 @@ jobs:
         with:
           context: spire-ingest-api-scraper/
           push: true
-          tags: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-api-scraper:${{ github.sha }}
+          tags: |
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-api-scraper-dev:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-api-scraper-dev:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -56,7 +58,7 @@ jobs:
         run: make deploy
         env:
           NAMESPACE: flights-pipeline-dev
-          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-api-scraper:${{ github.sha }}
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-api-scraper-dev:${{ github.sha }}
           FIRESTORE_STATE_DB: flights-pipeline-dev
           FIRESTORE_STATE_COLLECTION: state
           FIRESTORE_STATE_DOC_ID: spire-ingest-api-scraper
