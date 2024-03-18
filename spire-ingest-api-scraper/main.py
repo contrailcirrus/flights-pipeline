@@ -182,6 +182,6 @@ if __name__ == "__main__":
             spire_client=spire_client,
             state_client=state_client,
         )
-    except Exception as e:
-        logger.error("Unhandled exception:" + format_traceback(e))
+    except Exception:
+        logger.error("Unhandled exception:" + format_traceback())
         exit(1)
