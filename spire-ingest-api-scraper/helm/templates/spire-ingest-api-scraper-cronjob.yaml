@@ -37,8 +37,8 @@ spec:
               resources:
                 requests:
                   cpu: "1"
-                  # OOM when allocated memory < 5GB
-                  memory: "8000Mi"
+                  # OOM when allocated memory < 7GB
+                  memory: "10000Mi"
                 limits:
                   cpu: "1"
-                  memory: "8000Mi"
+                  memory: "10000Mi"
