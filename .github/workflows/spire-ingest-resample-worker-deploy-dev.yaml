@@ -47,7 +47,9 @@ jobs:
         with:
           context: spire-ingest-resample-worker/
           push: true
-          tags: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:${{ github.sha }}
+          tags: |
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
