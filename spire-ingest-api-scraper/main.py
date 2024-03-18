@@ -7,9 +7,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pandas as pd
-
 from lib import queue, schemas, spire, state, transform
-from lib.log import logger
+from lib.log import format_traceback, logger
 
 # SYNC_DELAY enforces we do not fetch data ingested by Spire after: now - SYNC_DELAY
 SYNC_DELAY = timedelta(minutes=5)
@@ -162,23 +161,27 @@ def main(
 
 
 if __name__ == "__main__":
-    from lib import environment
+    try:
+        from lib import environment
 
-    logger.info("Starting spire-ingest-api-scraper service")
+        logger.info("Starting spire-ingest-api-scraper service")
 
-    triggered_at = datetime.now(tz=timezone.utc)
+        triggered_at = datetime.now(tz=timezone.utc)
 
-    queue_client = queue.QueueClient(environment.PUBSUB_EGRESS_TOPIC_ID)
-    spire_client = spire.SpireAPIClient(environment.SPIRE_API_TOKEN)
-    state_client = state.PersistentStateClient(
-        environment.FIRESTORE_STATE_DB,
-        environment.FIRESTORE_STATE_COLLECTION,
-        environment.FIRESTORE_STATE_DOC_ID,
-    )
+        queue_client = queue.QueueClient(environment.PUBSUB_EGRESS_TOPIC_ID)
+        spire_client = spire.SpireAPIClient(environment.SPIRE_API_TOKEN)
+        state_client = state.PersistentStateClient(
+            environment.FIRESTORE_STATE_DB,
+            environment.FIRESTORE_STATE_COLLECTION,
+            environment.FIRESTORE_STATE_DOC_ID,
+        )
 
-    main(
-        triggered_at=triggered_at,
-        queue_client=queue_client,
-        spire_client=spire_client,
-        state_client=state_client,
-    )
+        main(
+            triggered_at=triggered_at,
+            queue_client=queue_client,
+            spire_client=spire_client,
+            state_client=state_client,
+        )
+    except Exception as e:
+        logger.error("Unhandled exception:" + format_traceback(e))
+        exit(1)
