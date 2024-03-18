@@ -7,7 +7,7 @@ deploy: --check-env
 		--set spireWaypointsBigQueryTopicId=$(SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID) \
 		--set SpireFlightSegmentsTopicId=$(SPIRE_FLIGHT_SEGMENTS_TOPIC_ID) \
 		--set redisHost=$(REDIS_HOST) \
-		--set redisPort=$(REDIS_PORT) --dry-run
+		--set redisPort=$(REDIS_PORT)
 
 .PHONY: --check-env
 --check-env:
