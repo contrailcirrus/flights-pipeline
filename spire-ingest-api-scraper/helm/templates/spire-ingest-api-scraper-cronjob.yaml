@@ -36,9 +36,9 @@ spec:
                   value: INFO
               resources:
                 requests:
-                  cpu: "0.3"
+                  cpu: "1"
                   # OOM when allocated memory < 5GB
-                  memory: "6000Mi"
+                  memory: "8000Mi"
                 limits:
                   cpu: "1"
-                  memory: "6000Mi"
+                  memory: "8000Mi"
