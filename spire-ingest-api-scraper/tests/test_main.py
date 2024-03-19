@@ -1,4 +1,6 @@
+import json
 from datetime import datetime, timedelta, timezone
+from types import NoneType
 from unittest.mock import Mock
 
 from lib import queue, spire, state
@@ -37,6 +39,31 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
 
     assert queue_client.publish_async.call_count == 8233
     assert queue_client.wait_for_publish.call_count == 1
+
+    for args, kwargs in queue_client.publish_async.call_args_list:
+        assert kwargs == {}
+        data, ordering_key = args
+        assert isinstance(ordering_key, str)
+        dto = json.loads(data)
+        flight_info = dto["flight_info"]
+        assert isinstance(flight_info["icao_address"], str)
+        assert isinstance(flight_info["flight_id"], (str, NoneType))
+        assert isinstance(flight_info["callsign"], (str, NoneType))
+        assert isinstance(flight_info["tail_number"], (str, NoneType))
+        assert isinstance(flight_info["flight_number"], (str, NoneType))
+        assert isinstance(flight_info["aircraft_type_icao"], (str, NoneType))
+        assert isinstance(flight_info["airline_iata"], (str, NoneType))
+        assert isinstance(flight_info["departure_airport_icao"], (str, NoneType))
+        assert isinstance(flight_info["departure_scheduled_time"], (str, NoneType))
+        assert isinstance(flight_info["arrival_airport_icao"], (str, NoneType))
+        assert isinstance(flight_info["arrival_scheduled_time"], (str, NoneType))
+        for record in dto["records"]:
+            assert isinstance(record["timestamp"], str)
+            assert isinstance(record["latitude"], float)
+            assert isinstance(record["longitude"], float)
+            assert isinstance(record["altitude_baro"], (int, NoneType))
+            assert record["flight_level"] is None
+            assert not record["imputed"]
 
     expected_sync_end_at = datetime(2024, 3, 1, 13, 5, tzinfo=timezone.utc)
     state_client.set_last_sync_end_at.assert_called_once_with(expected_sync_end_at)
