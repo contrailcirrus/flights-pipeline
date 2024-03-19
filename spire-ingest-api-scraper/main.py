@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pandas as pd
+
 from lib import queue, schemas, spire, state, transform
 from lib.log import format_traceback, logger
 
@@ -14,10 +15,17 @@ from lib.log import format_traceback, logger
 SYNC_DELAY = timedelta(minutes=5)
 
 
-def _to_string_or_none(x: Any) -> str | None:
-    """Stringify value if truthy, otherwise return None."""
+def _to_str_or_none(x: Any) -> str | None:
+    """Cast to string if truthy, otherwise return None."""
     if x:
         return str(x)
+    return None
+
+
+def _to_int_or_none(x: Any) -> int | None:
+    """Cast to int if truthy, otherwise return None."""
+    if x:
+        return int(x)
     return None
 
 
@@ -125,23 +133,31 @@ def main(
             dto = schemas.SpireWaypointsRecord(
                 flight_info=schemas.SpireFlightInfo(
                     icao_address=str(first_row["icao_address"]),
-                    flight_id=_to_string_or_none(first_row["flight_id"]),
-                    callsign=str(first_row["callsign"]),
-                    tail_number=str(first_row["tail_number"]),
-                    flight_number=(first_row["flight_number"]),
-                    aircraft_type_icao=str(first_row["aircraft_type_icao"]),
-                    airline_iata=str(first_row["airline_iata"]),
-                    departure_airport_icao=str(first_row["departure_airport_icao"]),
-                    departure_scheduled_time=str(first_row["departure_scheduled_time"]),
-                    arrival_airport_icao=str(first_row["arrival_airport_icao"]),
-                    arrival_scheduled_time=str(first_row["arrival_scheduled_time"]),
+                    flight_id=_to_str_or_none(first_row["flight_id"]),
+                    callsign=_to_str_or_none(first_row["callsign"]),
+                    tail_number=_to_str_or_none(first_row["tail_number"]),
+                    flight_number=_to_str_or_none(first_row["flight_number"]),
+                    aircraft_type_icao=_to_str_or_none(first_row["aircraft_type_icao"]),
+                    airline_iata=_to_str_or_none(first_row["airline_iata"]),
+                    departure_airport_icao=_to_str_or_none(
+                        first_row["departure_airport_icao"]
+                    ),
+                    departure_scheduled_time=_to_str_or_none(
+                        first_row["departure_scheduled_time"]
+                    ),
+                    arrival_airport_icao=_to_str_or_none(
+                        first_row["arrival_airport_icao"]
+                    ),
+                    arrival_scheduled_time=_to_str_or_none(
+                        first_row["arrival_scheduled_time"]
+                    ),
                 ),
                 records=[
                     schemas.SpireWaypointPositional(
                         timestamp=str(row["timestamp"]),
                         latitude=float(row["latitude"]),
                         longitude=float(row["longitude"]),
-                        altitude_baro=int(row["altitude_baro"]),
+                        altitude_baro=_to_int_or_none(row["altitude_baro"]),
                         flight_level=None,
                         imputed=False,
                     )
