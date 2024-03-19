@@ -3,6 +3,7 @@
 import sys
 
 from datetime import datetime
+from random import randint
 
 import lib.environment as env
 from lib.log import logger, format_traceback
@@ -14,6 +15,7 @@ from lib.schemas import (
 )
 from lib.handlers import (
     PubSubSubscriptionHandler,
+    PubSubPublishHandler,
     CacheHandler,
     ValidationHandler,
     ResampleHandler,
@@ -35,6 +37,7 @@ def run():
     """
 
     cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
+    bq_publish_handler = PubSubPublishHandler(env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID)
 
     logger.info(f"fetching record from {env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID}")
     with PubSubSubscriptionHandler(
@@ -42,6 +45,9 @@ def run():
     ) as job_handler:
         job: SpireWaypointsRecord = job_handler.fetch()
         logger.info(f"got job with {len(job.records)} records: {job}.")
+        if randint(0, 20) != 10:
+            job_handler.ack()
+            return
 
         cache_key = f"spr: {job.flight_info.icao_address}"
         logger.info(f"fetching from cache to {env.REDIS_HOST}:{env.REDIS_PORT}")
@@ -84,6 +90,7 @@ def run():
             validated_flight_info: SpireFlightInfo | None = (
                 validation_handler.flight_info
             )
+            validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
         except Exception:
             logger.warning(
                 f"cache and/or records invalid. "
@@ -100,6 +107,20 @@ def run():
                 f"not processing batch with icao_address {job.flight_info.icao_address} "
                 f"and timestamp {job.records[0].timestamp}."
             )
+            job_handler.ack()
+            return
+        if not validated_gt_1min_span:
+            logger.info(
+                f"no cache present and records don't span more than 1 minute. "
+                f"updating cache for icao_address {job.flight_info.icao_address}. "
+                f"no export of records."
+            )
+            new_cache = WaypointCache.from_spire_waypoint_positional(
+                key=f"spr:{validated_flight_info.icao_address}",
+                flight_id=validated_flight_info.flight_id,
+                spire_wps=(validated_records[-1],),
+            )
+            cache_handler.push(new_cache)
             job_handler.ack()
             return
 
@@ -119,20 +140,58 @@ def run():
             )
             sys.exit(1)
 
-        egress_records = SpireWaypointsRecord(  # noqa:F841
-            flight_info=validated_flight_info,
-            records=resampled_records,
+        # hold out cache records, as they would have been published previously
+        cache_ts = [
+            int(datetime.fromisoformat(w.timestamp).timestamp())
+            for w in validated_cache
+        ]
+        resampled_records_prune = [
+            v
+            for v in resampled_records
+            if int(datetime.fromisoformat(v.timestamp).timestamp()) not in cache_ts
+        ]
+        logger.info(
+            f"prune cache from records: dropped "
+            f"{len(resampled_records)-len(resampled_records_prune)} "
+            f"records from resampled records."
         )
 
-        # TODO: publish to bq queue
+        egress_records = SpireWaypointsRecord(
+            flight_info=validated_flight_info,
+            records=resampled_records_prune,
+        )
+
+        logger.info(
+            f"publishing records to BigQuery pubsub topic:"
+            f" {env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}."
+        )
+        for bq_json_ln in egress_records.to_bq_flatmap():
+            bq_publish_handler.publish_async(bq_json_ln)
+        bq_publish_handler.wait_for_publish()
         logger.info(
             f"published N={len(egress_records.records)} interpolated (imputed) waypoints to "
             f"{env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}"
         )
 
         # TODO: generate flight segments; publish flight segments to pubsub
+        # logger.info(
+        #    f"published N={103} flight segments to {env.SPIRE_FLIGHT_SEGMENTS_TOPIC_ID}"
+        # )
+
+        # update cache
+        if len(resampled_records) > 1:
+            new_cache_records = tuple(resampled_records[-2:])
+        else:
+            new_cache_records = tuple(resampled_records[-1:])
+        new_cache = WaypointCache.from_spire_waypoint_positional(
+            key=f"spr:{validated_flight_info.icao_address}",
+            flight_id=validated_flight_info.flight_id,
+            spire_wps=new_cache_records,
+        )
+        cache_handler.push(new_cache)
         logger.info(
-            f"published N={103} flight segments to {env.SPIRE_FLIGHT_SEGMENTS_TOPIC_ID}"
+            f"updated cache with {len(new_cache.waypoints)} waypoints "
+            f"for icao address {validated_flight_info.icao_address}"
         )
 
         logger.info(

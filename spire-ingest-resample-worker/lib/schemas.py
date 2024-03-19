@@ -132,7 +132,7 @@ class SpireWaypointsRecord:
         )
         return flight_id, swp
 
-    def to_bq_flatmap(self):
+    def to_bq_flatmap(self) -> list[bytes]:
         """
         Flattens records into a list of utf-8 encoded json string literals,
         ready for egress to big query.
@@ -181,7 +181,9 @@ class SpireWaypointsRecord:
                     self.flight_info.departure_scheduled_time
                 ),
                 "arrival_airport_icao": self.flight_info.arrival_airport_icao,
-                "arrival_scheduled_time": self.flight_info.arrival_scheduled_time,
+                "arrival_scheduled_time": iso_to_microseconds(
+                    self.flight_info.arrival_scheduled_time
+                ),
             }
             out.append(json.dumps(blob).encode("utf-8"))
         return out
@@ -209,9 +211,7 @@ class WaypointCache:
         timestamp: int  # unixtime
 
     key: str  # <source_identifier>:<icao_address>, e.g. `spr:4B0293`
-    waypoints: tuple[
-        Waypoint | None, Waypoint
-    ]  # record[0].timestamp < record[1].timestamp
+    waypoints: tuple[Waypoint]  # record[0].timestamp < record[1].timestamp
 
     def to_flatmap(self) -> dict[str, object]:
         """
@@ -269,18 +269,24 @@ class WaypointCache:
 
     @staticmethod
     def from_spire_waypoint_positional(
+        key: str,
         flight_id: str,
-        spire_wps: tuple[SpireWaypointPositional | None, SpireWaypointPositional],
+        spire_wps: tuple[SpireWaypointPositional],
     ):
         """
         Builds a cache object from SpireWaypointPositional objects.
+        Parameters
+        ----------
+        key
+            the key to use for the cache lookup
+        flight_id
+            the unique flight identifier for the flight_instance
+        spire_wps
+            the 1 or two waypoints to cache
         """
-        waypoints: list[WaypointCache.Waypoint | None] = []
-        wp: SpireWaypointPositional | None
+        waypoints: list[WaypointCache.Waypoint] = []
+        wp: SpireWaypointPositional
         for wp in spire_wps:
-            if not spire_wps:
-                waypoints.append(None)
-                continue
             waypoints.append(
                 WaypointCache.Waypoint(
                     flight_id=UUID(flight_id).bytes,
@@ -291,4 +297,4 @@ class WaypointCache:
                 )
             )
 
-        return WaypointCache(key=f"spr:{flight_id}", waypoints=tuple(waypoints))
+        return WaypointCache(key=key, waypoints=tuple(waypoints))
