@@ -12,6 +12,7 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_ingress_dev"
 
   ack_deadline_seconds         = 600
   enable_message_ordering      = true
+  enable_exactly_once_delivery = true
   message_retention_duration = "86400s"  # 1 day
 
   retry_policy {
@@ -34,6 +35,7 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_ingress_prod
 
   ack_deadline_seconds         = 600
   enable_message_ordering      = true
+  enable_exactly_once_delivery = true
   message_retention_duration = "302400s"  # 3.5 day
 
 
