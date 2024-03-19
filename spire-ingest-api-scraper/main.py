@@ -157,7 +157,7 @@ def main(
                         timestamp=str(row["timestamp"]),
                         latitude=float(row["latitude"]),
                         longitude=float(row["longitude"]),
-                        altitude_baro=_to_int_or_none(row["altitude_baro"]),
+                        altitude_baro=int(row["altitude_baro"]),
                         flight_level=None,
                         imputed=False,
                     )

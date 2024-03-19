@@ -61,7 +61,7 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
             assert isinstance(record["timestamp"], str)
             assert isinstance(record["latitude"], float)
             assert isinstance(record["longitude"], float)
-            assert isinstance(record["altitude_baro"], (int, NoneType))
+            assert isinstance(record["altitude_baro"], int)
             assert record["flight_level"] is None
             assert not record["imputed"]
 
