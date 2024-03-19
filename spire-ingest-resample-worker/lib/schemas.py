@@ -51,26 +51,25 @@ class SpireFlightInfo:
 
     icao_address: str  # e.g. 4B0293
     flight_id: str | None  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
-    callsign: str  # e.g. SWR64C
+    callsign: str | None  # e.g. SWR64C
     # squawk: str  # e.g. 1000
-    tail_number: str  # e.g. HB-AZJ
-    flight_number: str  # e.g. LX644
-    aircraft_type_icao: str  # e.g. E295
+    tail_number: str | None  # e.g. HB-AZJ
+    flight_number: str | None  # e.g. LX644
+    aircraft_type_icao: str | None  # e.g. E295
     # aircraft_type_name: str  # e.g. Embraer 195-400STD-E2
-    airline_iata: str  # e.g. LX
+    airline_iata: str | None  # e.g. LX
     # airline_name: str  # e.g. Swiss International Air Lines
     # departure_utc_offset: str  # e.g. +0100
     # takeoff_time: str  # e.g. 2024-03-01T16:37:56.123Z
     # departure_estimated_time: str  # e.g. 2024-03-01T16:37:56.123Z
     # landing_time: str  # 2024-03-01T16:37:56.123Z
-    departure_airport_icao: str  # e.g. LSZH
+    departure_airport_icao: str | None  # e.g. LSZH
     # departure_airport_iata: str  # e.g. ZRH
-    departure_scheduled_time: str  # e.g. 2024-03-01T16:25:00Z
+    departure_scheduled_time: str | None  # e.g. 2024-03-01T16:25:00Z
     # arrival_utc_offset: str  # e.g. +0100
-    arrival_airport_icao: str  # e.g. LFPG
+    arrival_airport_icao: str | None  # e.g. LFPG
     # arrival_airport_iata: str  # e.g. CDG
-    arrival_scheduled_time: str  # e.g. 2024-03-01T17:40:00Z
-
+    arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
     # arrival_estimated_time: str  # e.g. 2024-03-01T17:45:00Z
 
     def as_utf8_json(self) -> bytes:
