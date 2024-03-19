@@ -17,14 +17,14 @@ SYNC_DELAY = timedelta(minutes=5)
 
 def _to_str_or_none(x: Any) -> str | None:
     """Cast to string if truthy, otherwise return None."""
-    if x:
+    if x and not pd.isnull(x):
         return str(x)
     return None
 
 
 def _to_int_or_none(x: Any) -> int | None:
     """Cast to int if truthy, otherwise return None."""
-    if x:
+    if x and not pd.isnull(x):
         return int(x)
     return None
 
