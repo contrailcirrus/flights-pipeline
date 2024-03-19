@@ -370,6 +370,24 @@ class ValidationHandler:
                 f"cached timestamp {self._max_cached_ts.isoformat()}"
             )
 
+    def verify_gt_1min_span(self) -> bool:
+        """
+        Verifies that the cache->records spans at least 1 minute.
+        If the total time spanned does not exceed 1 minute, this returns false, else true.
+
+        This verification is relevant as resampling of records that don't span >1min
+        will result in an empty list of resampled records.
+        """
+        minutes = {
+            datetime.fromisoformat(rec.timestamp).minute for rec in self._records
+        }
+
+        if not self.cached_records and len(minutes) == 1:
+            # note: if both cache and records are not empty, then this condition is implicitly met,
+            #       since the cache will always reference a timestamp outside the records minute(s)
+            return False
+        return True
+
     @property
     def cached_records(self) -> list[SpireWaypointPositional]:
         """
