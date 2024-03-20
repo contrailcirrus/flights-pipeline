@@ -43,7 +43,7 @@ def run():
         env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
     ) as job_handler:
         job: SpireWaypointsRecord = job_handler.fetch()
-        logger.info(f"got job with {len(job.records)} records.")
+        logger.info(f"got job with {len(job.records)} records. job: {job}")
 
         cache_key = f"spr: {job.flight_info.icao_address}"
         logger.info(f"fetching from cache to {env.REDIS_HOST}:{env.REDIS_PORT}")
@@ -66,7 +66,7 @@ def run():
                 f"cache hit. found {len(cached)} prior waypoints "
                 f"for icao_address {job.flight_info.icao_address}, "
                 f"at {datetime.fromtimestamp(cached[-1]['timestamp']).isoformat()}."
-                f"interpolating until {job.records[0].timestamp}."
+                f"interpolating until {job.records[0].timestamp}. cache: {cached}"
             )
         else:
             logger.info(
