@@ -3,7 +3,6 @@
 import sys
 
 from datetime import datetime
-from random import randint
 
 import lib.environment as env
 from lib.log import logger, format_traceback
@@ -44,10 +43,7 @@ def run():
         env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
     ) as job_handler:
         job: SpireWaypointsRecord = job_handler.fetch()
-        logger.info(f"got job with {len(job.records)} records: {job}.")
-        if randint(0, 20) != 10:
-            job_handler.ack()
-            return
+        logger.info(f"got job with {len(job.records)} records.")
 
         cache_key = f"spr: {job.flight_info.icao_address}"
         logger.info(f"fetching from cache to {env.REDIS_HOST}:{env.REDIS_PORT}")
@@ -81,12 +77,12 @@ def run():
         # cases where we don't process the batch window received from pubsub
         try:
             validation_handler = ValidationHandler(cached, job)
-            validated_cache: list[SpireWaypointPositional] = (
-                validation_handler.cached_records
-            )
-            validated_records: list[SpireWaypointPositional] = (
-                validation_handler.records
-            )
+            validated_cache: list[
+                SpireWaypointPositional
+            ] = validation_handler.cached_records
+            validated_records: list[
+                SpireWaypointPositional
+            ] = validation_handler.records
             validated_flight_info: SpireFlightInfo | None = (
                 validation_handler.flight_info
             )
@@ -128,9 +124,9 @@ def run():
         try:
             transform_handler = ResampleHandler(validated_cache, validated_records)
             transform_handler.interpolate()
-            resampled_records: list[SpireWaypointPositional] = (
-                transform_handler.waypoints_resampled
-            )
+            resampled_records: list[
+                SpireWaypointPositional
+            ] = transform_handler.waypoints_resampled
         except Exception:
             logger.error(
                 f"failed to interpolate. "
@@ -207,4 +203,8 @@ def run():
 if __name__ == "__main__":
     logger.info("starting spire-ingest-resample-worker instance")
     while True:
-        run()
+        try:
+            run()
+        except Exception:
+            logger.error("Unhandled exception:" + format_traceback())
+            sys.exit(1)

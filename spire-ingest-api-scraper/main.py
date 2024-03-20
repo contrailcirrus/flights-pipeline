@@ -1,7 +1,7 @@
 """
 Entrypoint for spire-ingest-api-scraper CronJob.
 """
-
+import sys
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -200,4 +200,4 @@ if __name__ == "__main__":
         )
     except Exception:
         logger.error("Unhandled exception:" + format_traceback())
-        exit(1)
+        sys.exit(1)
