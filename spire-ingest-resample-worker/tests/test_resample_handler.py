@@ -22,12 +22,12 @@ recs_lt_intra_one_min: list[SpireWaypointPositional] = (
 )
 
 
-@pytest.mark.parametrize("recs", [recs_lt_inter_one_min, recs_lt_inter_one_min])
+@pytest.mark.parametrize("recs", [recs_lt_intra_one_min, recs_lt_inter_one_min])
 def test_interpolate_lt_one_min_span(recs: list[SpireWaypointPositional]):
     """
     case: no cache, multiple records,
-     2. records span less that 1min, crosses 1min timestamp
-     1. records span less than 1min, does not cross 1min timestamp
+     1. records span less that 1min, crosses 1min timestamp
+     2. records span less than 1min, does not cross 1min timestamp
     """
     h = lib.handlers.ResampleHandler(
         cache=[],
@@ -37,13 +37,16 @@ def test_interpolate_lt_one_min_span(recs: list[SpireWaypointPositional]):
     assert len(interpolated_waypoints) == 0
 
 
-def test_interpolate_multi_min():
+@pytest.mark.parametrize("recs", [recs_gt_one_min, recs_gt_one_min])
+def test_interpolate_gt_one_min_span(recs: list[SpireWaypointPositional]):
     """
-    case: no cache, multiple records, record span multiple minutes.
+    case: no cache, multiple records,
+     1. records greater slightly greater one minute, crosses 1min timestamp
+     2. records span many minutes
     """
     h = lib.handlers.ResampleHandler(
         cache=[],
-        records_window=recs_multi_min_span,
+        records_window=recs,
     )
     interpolated_waypoints = h.interpolate().waypoints_resampled
     assert len(interpolated_waypoints) > 0
