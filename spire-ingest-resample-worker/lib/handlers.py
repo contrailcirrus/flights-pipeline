@@ -372,19 +372,28 @@ class ValidationHandler:
 
     def verify_gt_1min_span(self) -> bool:
         """
-        Verifies that the cache->records spans at least 1 minute.
+        Verifies that the cache->records spans at least a 1-minute interval.
         If the total time spanned does not exceed 1 minute, this returns false, else true.
 
         This verification is relevant as resampling of records that don't span >1min
         will result in an empty list of resampled records.
-        """
-        minutes = {
-            datetime.fromisoformat(rec.timestamp).minute for rec in self._records
-        }
 
-        if not self.cached_records and len(minutes) == 1:
-            # note: if both cache and records are not empty, then this condition is implicitly met,
-            #       since the cache will always reference a timestamp outside the records minute(s)
+        this is not desirable behavior, but expected behavior from pycontrails.Flight.resample_and_fill()
+        ref, root: https://github.com/contrailcirrus/pycontrails/blame/7feed97d3e0eec5f7236d79122a5c11054d24fd5/pycontrails/core/flight.py#L2069
+
+        """
+
+        rht_unix = datetime.fromisoformat(self.records[-1].timestamp).timestamp()
+
+        if self.cached_records:
+            lht_unix = datetime.fromisoformat(
+                self.cached_records[0].timestamp
+            ).timestamp()
+        else:
+            lht_unix = datetime.fromisoformat(self.records[0].timestamp).timestamp()
+        time_span_sec = rht_unix - lht_unix
+
+        if time_span_sec <= 60:
             return False
         return True
 
@@ -591,6 +600,7 @@ class ResampleHandler:
         flight_resampled.drop(columns=["altitude"], inplace=True)
 
         self._waypoints_df_resampled = flight_resampled
+        return self
 
     @property
     def waypoints_resampled(self) -> list[SpireWaypointPositional]:

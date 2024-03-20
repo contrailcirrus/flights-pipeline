@@ -28,25 +28,20 @@ clean-all:  # restore working environment to time-zero state
 # -----
 
 format:
-	black .
+	black main.py lib
 
 dependency-check:
 	pipenv check
 	pipenv verify
 
 lint:
-	ruff app tests
+	ruff main.py lib
 
 type-check:
-	mypy --install-types --non-interactive app tests
+	mypy --install-types --non-interactive main.py lib
 
 pytest:
-	python -m pytest --cov app --cov-report term-missing
-
-# There are often issues with workers crashing, hence reruns on failures
-pytest-parallel:
-	USE_MULTIPROCESS_LRU_STORE=1 python -m pytest --durations 10 -n auto --reruns 10
-	--reruns-delay 1
+	python -m pytest --cov . --cov-report term-missing
 
 test: dependency-check lint type-check pytest
 

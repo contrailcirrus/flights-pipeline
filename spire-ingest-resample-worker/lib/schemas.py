@@ -270,7 +270,7 @@ class WaypointCache:
     def from_spire_waypoint_positional(
         key: str,
         flight_id: str,
-        spire_wps: tuple[SpireWaypointPositional],
+        spire_wps: tuple[SpireWaypointPositional, ...],
     ):
         """
         Builds a cache object from SpireWaypointPositional objects.

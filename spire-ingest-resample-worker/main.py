@@ -77,12 +77,12 @@ def run():
         # cases where we don't process the batch window received from pubsub
         try:
             validation_handler = ValidationHandler(cached, job)
-            validated_cache: list[
-                SpireWaypointPositional
-            ] = validation_handler.cached_records
-            validated_records: list[
-                SpireWaypointPositional
-            ] = validation_handler.records
+            validated_cache: list[SpireWaypointPositional] = (
+                validation_handler.cached_records
+            )
+            validated_records: list[SpireWaypointPositional] = (
+                validation_handler.records
+            )
             validated_flight_info: SpireFlightInfo | None = (
                 validation_handler.flight_info
             )
@@ -111,10 +111,19 @@ def run():
                 f"updating cache for icao_address {job.flight_info.icao_address}. "
                 f"no export of records."
             )
+            lh_wpt: SpireWaypointPositional  # left-hand waypoint for cache
+            rh_wpt: SpireWaypointPositional  # right-hand waypoint for cache
+            if validated_cache:
+                lh_wpt = validated_cache[0]
+            else:
+                lh_wpt = validated_records[0]
+            rh_wpt = validated_records[-1]
+
+            # note: possible that lh_wpt == rh_wpt. that is OK.
             new_cache = WaypointCache.from_spire_waypoint_positional(
                 key=f"spr:{validated_flight_info.icao_address}",
                 flight_id=validated_flight_info.flight_id,
-                spire_wps=(validated_records[-1],),
+                spire_wps=(lh_wpt, rh_wpt),
             )
             cache_handler.push(new_cache)
             job_handler.ack()
@@ -124,9 +133,9 @@ def run():
         try:
             transform_handler = ResampleHandler(validated_cache, validated_records)
             transform_handler.interpolate()
-            resampled_records: list[
-                SpireWaypointPositional
-            ] = transform_handler.waypoints_resampled
+            resampled_records: list[SpireWaypointPositional] = (
+                transform_handler.waypoints_resampled
+            )
         except Exception:
             logger.error(
                 f"failed to interpolate. "
