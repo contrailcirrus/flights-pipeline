@@ -111,19 +111,18 @@ def run():
                 f"updating cache for icao_address {job.flight_info.icao_address}. "
                 f"no export of records."
             )
-            lh_wpt: SpireWaypointPositional  # left-hand waypoint for cache
-            rh_wpt: SpireWaypointPositional  # right-hand waypoint for cache
+            new_cache_wpts: list[SpireWaypointPositional] = []
             if validated_cache:
-                lh_wpt = validated_cache[0]
+                new_cache_wpts.append(validated_cache[0])
             else:
-                lh_wpt = validated_records[0]
-            rh_wpt = validated_records[-1]
+                new_cache_wpts.append(validated_records[0])
+            if validated_records[-1].timestamp != new_cache_wpts[0].timestamp:
+                new_cache_wpts.append(validated_records[-1])
 
-            # note: possible that lh_wpt == rh_wpt. that is OK.
             new_cache = WaypointCache.from_spire_waypoint_positional(
                 key=f"spr:{validated_flight_info.icao_address}",
                 flight_id=validated_flight_info.flight_id,
-                spire_wps=(lh_wpt, rh_wpt),
+                spire_wps=tuple(new_cache_wpts),
             )
             cache_handler.push(new_cache)
             job_handler.ack()
