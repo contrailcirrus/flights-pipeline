@@ -72,12 +72,12 @@ def run():
         # cases where we don't process the batch window received from pubsub
         try:
             validation_handler = ValidationHandler(cached, job)
-            validated_cache: list[SpireWaypointPositional] = (
-                validation_handler.cached_records
-            )
-            validated_records: list[SpireWaypointPositional] = (
-                validation_handler.records
-            )
+            validated_cache: list[
+                SpireWaypointPositional
+            ] = validation_handler.cached_records
+            validated_records: list[
+                SpireWaypointPositional
+            ] = validation_handler.records
             validated_flight_info: SpireFlightInfo | None = (
                 validation_handler.flight_info
             )
@@ -87,7 +87,7 @@ def run():
                 f"cache and/or records invalid. "
                 f"not processing batch. "
                 f"icao_address: {job.flight_info.icao_address} "
-                f"cache: {cached}. job: {job}."
+                f"job: {job}"
                 f"traceback: {format_traceback()}"
             )
             job_handler.ack()
@@ -98,7 +98,7 @@ def run():
                 f"and flight_id could not be inferred. "
                 f"not processing batch."
                 f"icao_address: {job.flight_info.icao_address} "
-                f"cache: {cached}. job: {job}"
+                f"job: {job}"
             )
             job_handler.ack()
             return
@@ -107,7 +107,7 @@ def run():
                 f"cache & records don't span more than 1 minute. "
                 f"icao_address: {job.flight_info.icao_address} "
                 f"updating cache. no export of records. "
-                f"cache: {cached}. job: {job}"
+                f"job: {job}"
             )
             new_cache_wpts: list[SpireWaypointPositional] = []
             if validated_cache:
@@ -132,15 +132,15 @@ def run():
         try:
             transform_handler = ResampleHandler(validated_cache, validated_records)
             transform_handler.interpolate()
-            resampled_records: list[SpireWaypointPositional] = (
-                transform_handler.waypoints_resampled
-            )
+            resampled_records: list[
+                SpireWaypointPositional
+            ] = transform_handler.waypoints_resampled
         except Exception:
             logger.error(
                 f"failed to interpolate."
                 f"not updating cache. not exporting records."
                 f"icao_address: {job.flight_info.icao_address} "
-                f"cache: {cached}. job: {job}"
+                f"job: {job}"
                 f"traceback: {format_traceback()}"
             )
             return

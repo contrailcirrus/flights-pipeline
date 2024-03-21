@@ -40,7 +40,7 @@ class PubSubSubscriptionHandler:
     """
 
     # the number of seconds the subscriber client will hang, waiting for available messages
-    MSG_WAIT_TIME_SEC = 15.0
+    MSG_WAIT_TIME_SEC = 60.0
     ACK_EXTENSION_SEC: int = 10
 
     def __init__(self, subscription: str):
