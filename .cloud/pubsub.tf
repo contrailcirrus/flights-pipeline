@@ -96,8 +96,13 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_bigquery_del
   }
 
   dead_letter_policy {
-    max_delivery_attempts = 5
+    max_delivery_attempts = 10
     dead_letter_topic = google_pubsub_topic.spire_ingest_resample_worker_bigquery_dead_letter_dev.id
+  }
+
+    retry_policy {
+    minimum_backoff = "1s"
+    maximum_backoff = "60s"
   }
 
   expiration_policy {
