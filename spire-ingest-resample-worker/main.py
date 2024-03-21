@@ -51,7 +51,8 @@ def run():
 
         logger.info(
             f"got job with {len(job.records)} records. "
-            f"icao_address: {job.flight_info.icao_address}"
+            f"icao_address: {job.flight_info.icao_address}. "
+            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
         )
 
         try:
@@ -66,18 +67,25 @@ def run():
             return
 
         if cached:
-            logger.info(f"cache hit: {len(cached)} waypoints")
+            logger.info(
+                f"icao_address: {job.flight_info.icao_address}. "
+                f"cache hit: {len(cached)} waypoints. "
+                f"spanning {datetime.fromtimestamp(cached[0]['timestamp']).isoformat()} "
+                f"to {datetime.fromtimestamp(cached[-1]['timestamp']).isoformat()}"
+            )
         else:
-            logger.info("cache miss.")
+            logger.info(
+                f"icao_address: {job.flight_info.icao_address}. " f"cache miss."
+            )
         # cases where we don't process the batch window received from pubsub
         try:
             validation_handler = ValidationHandler(cached, job)
-            validated_cache: list[
-                SpireWaypointPositional
-            ] = validation_handler.cached_records
-            validated_records: list[
-                SpireWaypointPositional
-            ] = validation_handler.records
+            validated_cache: list[SpireWaypointPositional] = (
+                validation_handler.cached_records
+            )
+            validated_records: list[SpireWaypointPositional] = (
+                validation_handler.records
+            )
             validated_flight_info: SpireFlightInfo | None = (
                 validation_handler.flight_info
             )
@@ -130,11 +138,19 @@ def run():
 
         # apply resampling
         try:
+            if validated_cache:
+                logger.info(
+                    f"icao_address: {job.flight_info.icao_address}. cache valid."
+                )
+            else:
+                logger.info(
+                    f"icao_address: {job.flight_info.icao_address}. cache NOT valid."
+                )
             transform_handler = ResampleHandler(validated_cache, validated_records)
             transform_handler.interpolate()
-            resampled_records: list[
-                SpireWaypointPositional
-            ] = transform_handler.waypoints_resampled
+            resampled_records: list[SpireWaypointPositional] = (
+                transform_handler.waypoints_resampled
+            )
         except Exception:
             logger.error(
                 f"failed to interpolate."
@@ -156,6 +172,7 @@ def run():
             if int(datetime.fromisoformat(v.timestamp).timestamp()) not in cache_ts
         ]
         logger.info(
+            f"icao_address: {job.flight_info.icao_address}. "
             f"prune cache from records: dropped "
             f"{len(resampled_records)-len(resampled_records_prune)} "
             f"records from resampled records."
