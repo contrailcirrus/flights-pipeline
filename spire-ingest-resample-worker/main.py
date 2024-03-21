@@ -1,6 +1,7 @@
 """Entrypoint for the Spire Ingest Resample Worker."""
 
 import sys
+import time
 
 from datetime import datetime
 
@@ -42,6 +43,12 @@ def run():
         env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
     ) as job_handler:
         job: SpireWaypointsRecord = job_handler.fetch()
+        if not job:
+            # if the queue is empty -> we get back [], then pause before retry
+            logger.info("job empty. sleeping... ")
+            time.sleep(10)
+            return
+
         logger.info(
             f"got job with {len(job.records)} records. "
             f"icao_address: {job.flight_info.icao_address}"
