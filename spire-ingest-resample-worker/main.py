@@ -56,7 +56,7 @@ def run():
                 f"error fetching record(s) from cache. exiting... "
                 f"traceback: {format_traceback()}"
             )
-            sys.exit(1)
+            return
 
         if cached:
             logger.info(f"cache hit: {len(cached)} waypoints")
@@ -78,7 +78,8 @@ def run():
         except Exception:
             logger.warning(
                 f"cache and/or records invalid. "
-                f"not processing batch."
+                f"not processing batch. "
+                f"icao_address: {job.flight_info.icao_address} "
                 f"cache: {cached}. job: {job}."
                 f"traceback: {format_traceback()}"
             )
@@ -89,6 +90,7 @@ def run():
                 f"no flight_id available in records batch, "
                 f"and flight_id could not be inferred. "
                 f"not processing batch."
+                f"icao_address: {job.flight_info.icao_address} "
                 f"cache: {cached}. job: {job}"
             )
             job_handler.ack()
@@ -96,7 +98,9 @@ def run():
         if not validated_gt_1min_span:
             logger.info(
                 f"cache & records don't span more than 1 minute. "
-                f"updating cache. no export of records. cache: {cached}. job: {job}"
+                f"icao_address: {job.flight_info.icao_address} "
+                f"updating cache. no export of records. "
+                f"cache: {cached}. job: {job}"
             )
             new_cache_wpts: list[SpireWaypointPositional] = []
             if validated_cache:
@@ -128,10 +132,11 @@ def run():
             logger.error(
                 f"failed to interpolate."
                 f"not updating cache. not exporting records."
+                f"icao_address: {job.flight_info.icao_address} "
                 f"cache: {cached}. job: {job}"
                 f"traceback: {format_traceback()}"
             )
-            sys.exit(1)
+            return
 
         # hold out cache records, as they would have been published previously
         cache_ts = [
