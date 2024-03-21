@@ -34,7 +34,7 @@ def run():
       and publishes flight segments to pubsub
     - Updates the last known 1-2 waypoint(s) for the flight-instance in remote cache
     """
-
+    cache_key_fmt = "spr:{icao_address}"
     cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
     bq_publish_handler = PubSubPublishHandler(env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID)
 
@@ -45,10 +45,11 @@ def run():
         job: SpireWaypointsRecord = job_handler.fetch()
         logger.info(f"got job with {len(job.records)} records. job: {job}")
 
-        cache_key = f"spr: {job.flight_info.icao_address}"
         logger.info(f"fetching from cache to {env.REDIS_HOST}:{env.REDIS_PORT}")
         try:
-            cached: list[WaypointCache.Waypoint] = cache_handler.pull(cache_key)
+            cached: list[WaypointCache.Waypoint] = cache_handler.pull(
+                cache_key_fmt.format(icao_address=job.flight_info.icao_address)
+            )
         except Exception:
             logger.error(
                 f"failed to fetch record from cache. exiting... "
@@ -121,7 +122,9 @@ def run():
 
             # note: possible that lh_wpt == rh_wpt. that is OK.
             new_cache = WaypointCache.from_spire_waypoint_positional(
-                key=f"spr:{validated_flight_info.icao_address}",
+                key=cache_key_fmt.format(
+                    icao_address=validated_flight_info.icao_address
+                ),
                 flight_id=validated_flight_info.flight_id,
                 spire_wps=(lh_wpt, rh_wpt),
             )
@@ -189,7 +192,7 @@ def run():
         else:
             new_cache_records = tuple(resampled_records[-1:])
         new_cache = WaypointCache.from_spire_waypoint_positional(
-            key=f"spr:{validated_flight_info.icao_address}",
+            key=cache_key_fmt.format(icao_address=validated_flight_info.icao_address),
             flight_id=validated_flight_info.flight_id,
             spire_wps=new_cache_records,
         )
