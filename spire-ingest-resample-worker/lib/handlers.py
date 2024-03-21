@@ -152,21 +152,6 @@ class PubSubSubscriptionHandler:
         )
         self._ack_id = None
 
-    def nack(self):
-        """
-        Not-Acknowledge the outstanding message presently handled by the instance of this class.
-        """
-        if not self._ack_id:
-            raise ValueError(
-                "ack_id is not set. call fetch(). "
-                "handler instance must be handling an outstanding message."
-            )
-        self._client.acknowledge(
-            request={"subscription": self.subscription, "ack_ids": [self._ack_id]},
-            retry=retry.Retry(timeout=30.0),
-        )
-        self._ack_id = None
-
     def close(self):
         """
         Close pubsub client connection.
