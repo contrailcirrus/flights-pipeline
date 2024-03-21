@@ -167,7 +167,7 @@ def main(
             )
 
             data = dto.as_utf8_json()
-            ordering_key = str(icao_address)
+            ordering_key = f"api-scraper:{icao_address}"
             queue_client.publish_async(data, ordering_key)
 
         queue_client.wait_for_publish()
