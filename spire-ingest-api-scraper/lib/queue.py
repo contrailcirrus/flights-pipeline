@@ -24,7 +24,15 @@ class QueueClient:
         self._publisher = pubsub_v1.PublisherClient(
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=True,
-            )
+                # Flow control applies rate limits by blocking any time the staged data
+                # exceeds the following settings. Once the records are received by GCP
+                # PubSub, additional publish calls are unblocked.
+                flow_control=pubsub_v1.types.PublishFlowControl(
+                    message_limit=1000,
+                    byte_limit=10 * 1024 * 1024,  # 10 MiB
+                    limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
+                ),
+            ),
         )
 
         self._publish_futures: list[concurrent.futures.Future] = []
