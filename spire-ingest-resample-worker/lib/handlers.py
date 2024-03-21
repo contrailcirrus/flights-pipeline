@@ -150,6 +150,7 @@ class PubSubSubscriptionHandler:
             request={"subscription": self.subscription, "ack_ids": [self._ack_id]},
             retry=retry.Retry(timeout=30.0),
         )
+        logger.info("successfully ack'ed message.")
         self._ack_id = None
 
     def close(self):
