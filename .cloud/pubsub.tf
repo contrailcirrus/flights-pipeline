@@ -22,7 +22,7 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_ingress_dev"
 
   dead_letter_policy {
     max_delivery_attempts = 5
-    dead_letter_topic = google_pubsub_topic.spire_ingest_resample_worker_ingress_dead_letter_dev
+    dead_letter_topic = google_pubsub_topic.spire_ingest_resample_worker_ingress_dead_letter_dev.id
   }
 
   expiration_policy {
