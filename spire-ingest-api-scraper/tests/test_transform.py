@@ -14,4 +14,6 @@ def test_downsample(mock_spire_airsafe_api: str) -> None:
     assert len(result) == 18362
 
     # is result a subset of original df?
-    assert len(result.merge(spire_df)) == len(result)
+    inner = result.merge(spire_df, how="inner")
+    expected_count = len(inner.drop_duplicates(["icao_address", "timestamp"]))
+    assert len(result) == expected_count

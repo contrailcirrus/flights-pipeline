@@ -24,10 +24,12 @@ def _downsample_icao_address_minutes_first_last(df: pd.DataFrame) -> pd.DataFram
     minute = timestamp.dt.floor("1 min")
 
     grouped = df.sort_values("timestamp").groupby(["icao_address", minute])
-    first_min = grouped.head(1)
-    last_min = grouped.tail(1)
+    first = grouped.head(1)
+    last = grouped.tail(1)
 
-    result = pd.concat([first_min, last_min]).drop_duplicates()
+    # Spire truncates millis from the observation timestamp, so each is floored to the
+    # nearest second. Ensure the first and last points are not during the same second.
+    result = pd.concat([first, last]).drop_duplicates(["icao_address", "timestamp"])
     return result
 
 
