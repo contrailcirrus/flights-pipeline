@@ -27,6 +27,7 @@ class QueueClient:
                 # Flow control applies rate limits by blocking any time the staged data
                 # exceeds the following settings. Once the records are received by GCP
                 # PubSub, additional publish calls are unblocked.
+                # See: https://cloud.google.com/pubsub/docs/flow-control-messages
                 flow_control=pubsub_v1.types.PublishFlowControl(
                     message_limit=1000,
                     byte_limit=10 * 1024 * 1024,  # 10 MiB
