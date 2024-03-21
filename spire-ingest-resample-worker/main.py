@@ -56,7 +56,7 @@ def run():
                 f"error fetching record(s) from cache. exiting... "
                 f"traceback: {format_traceback()}"
             )
-            sys.exit(1)
+            return
 
         if cached:
             logger.info(f"cache hit: {len(cached)} waypoints")
@@ -131,7 +131,7 @@ def run():
                 f"cache: {cached}. job: {job}"
                 f"traceback: {format_traceback()}"
             )
-            sys.exit(1)
+            return
 
         # hold out cache records, as they would have been published previously
         cache_ts = [
