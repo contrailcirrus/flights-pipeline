@@ -1,6 +1,7 @@
 """
 Entrypoint for spire-ingest-api-scraper CronJob.
 """
+
 import sys
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
