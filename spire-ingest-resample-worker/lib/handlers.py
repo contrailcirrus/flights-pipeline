@@ -563,6 +563,11 @@ class ResampleHandler:
         df_records["time"] = pd.to_datetime(df_records["time"]).apply(
             lambda r: r.tz_localize(None)
         )
+
+        if df_records["time"].duplicated().sum():
+            logger.warning("duplicated waypoints found in cache+records.")
+            df_records.drop_duplicates(["time"], inplace=True)
+
         self._min_records_ts = df_records["time"].min()
 
         self._waypoints_df = pd.concat([df_cached, df_records])
