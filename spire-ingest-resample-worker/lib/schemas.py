@@ -158,8 +158,8 @@ class SpireWaypointsRecord:
             # _instance_hash is an int64 in bq
             ts = iso_to_microseconds(record.timestamp)
             hash = hashlib.md5(f"{self.flight_info.icao_address}{ts}".encode("utf-8"))
-            # truncate to 8 bytes; avoid overflow
-            hash_trunc = hash.hexdigest()[:16]
+            # truncate as to be equal or smaller than int64 space when represented as signed int
+            hash_trunc = hash.hexdigest()[:8]
             hash_int = int(hash_trunc, 16)
             blob = {
                 "_instance_hash": hash_int,
