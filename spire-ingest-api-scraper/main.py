@@ -161,6 +161,8 @@ def main(
                         longitude=float(row["longitude"]),
                         collection_type=str(row["collection_type"]),
                         altitude_baro=int(row["altitude_baro"]),
+                        imputed=False,
+                        flight_level=None,
                     )
                     for _, row in rows.iterrows()
                 ],
