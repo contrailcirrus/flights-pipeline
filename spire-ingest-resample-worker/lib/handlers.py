@@ -4,7 +4,7 @@ Application handlers.
 
 import copy
 import math
-import time
+import threading
 from threading import Thread
 from concurrent import futures
 from typing import Union
@@ -54,7 +54,7 @@ class PubSubSubscriptionHandler:
         self.subscription = subscription
         self._client = None
         self._ack_id: Union[None, str] = None
-        self._kill_ack_manager = False
+        self._kill_ack_manager = threading.Event()
         self._ack_manager = Thread(target=self._ack_management_worker, daemon=True)
         self._ack_manager.start()
 
@@ -76,8 +76,8 @@ class PubSubSubscriptionHandler:
         Extends the ack deadline for the currently outstanding message.
         """
         logger.info("starting ack lease management worker...")
-        while not self._kill_ack_manager:
-            time.sleep(self.ACK_EXTENSION_SEC // 2)
+        while not self._kill_ack_manager.is_set():
+            self._kill_ack_manager.wait(self.ACK_EXTENSION_SEC // 2)
             if self._ack_id:
                 logger.info(
                     f"extending ack deadline on ack_id: {self._ack_id[0:-150]}..."
@@ -157,7 +157,8 @@ class PubSubSubscriptionHandler:
         """
         Close pubsub client connection.
         """
-        self._kill_ack_manager = True
+        self._ack_id = None
+        self._kill_ack_manager.set()
         self._client.close()
 
 
