@@ -138,11 +138,8 @@ class SpireWaypointsRecord:
         Flattens records into a list of utf-8 encoded json string literals,
         ready for egress to big query.
 
-        Converts "timestamp" to microseconds epoch.
 
-        Converts "departure_scheduled_time" to microseconds epoch.
-
-        Converts "arrival_scheduled_time" to microseconds epoch.
+        Converts temporal string fields (ingestion_time, timestamp, ...)  to microseconds epoch.
 
         Adds an `_instance_hash` k-v, of type int,
         generated as a hash of the composite <icao_address><timestamp>,
