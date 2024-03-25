@@ -86,7 +86,7 @@ resource "google_pubsub_topic" "spire_ingest_resample_worker_bigquery_dead_lette
 }
 
 resource "google_pubsub_subscription" "spire_ingest_resample_worker_bigquery_delivery_dev" {
-  name  = "spire_ingest_resample_worker_bigquery_delivery_dev"
+  name  = "spire-ingest-resample-worker-bigquery-delivery-dev"
   topic = google_pubsub_topic.spire_ingest_resample_worker_bigquery_dev.id
 
   bigquery_config {
