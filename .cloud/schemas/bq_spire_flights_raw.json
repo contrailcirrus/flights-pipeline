@@ -42,18 +42,6 @@
     "description": "altitude in feet MSL for the waypoint"
   },
   {
-    "name": "flight_level",
-    "type": "INT64",
-    "mode": "REQUIRED",
-    "description": "flight level in hectofeet for the waypoint, snapped to our standard list of FLs"
-  },
-  {
-    "name": "imputed",
-    "type": "BOOL",
-    "mode": "REQUIRED",
-    "description": "`true` if the waypoint was backward interpolated over a window w/o observations"
-  },
-  {
     "name": "icao_address",
     "type": "STRING",
     "mode": "REQUIRED",
