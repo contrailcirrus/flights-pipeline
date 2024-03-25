@@ -14,7 +14,7 @@ class SpireWaypointPositional:
     A single flight waypoint record.
     """
 
-    # ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
+    ingestion_time: str | None  # e.g. 2024-03-01T16:37:56.123Z
     timestamp: str  # e.g. 2024-03-01T16:37:54Z
     latitude: float  # e.g. 47.453758
     longitude: float  # e.g. 8.555093
@@ -22,7 +22,7 @@ class SpireWaypointPositional:
     # speed: float  # e.g. 16.0
     # on_ground: bool  # e.g. True
     # source: str  # e.g. ADSB
-    # collection_type: str  # e.g. terrestrial
+    collection_type: str | None  # e.g. terrestrial
     altitude_baro: int  # e.g. 26550 (MSL)
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
@@ -121,8 +121,10 @@ class SpireWaypointsRecord:
         """
         flight_id = str(UUID(bytes=wp["flight_id"]))
         swp = SpireWaypointPositional(
+            ingestion_time=None,
             latitude=wp["latitude"],
             longitude=wp["latitude"],
+            collection_type=None,
             altitude_baro=wp["altitude_ft"],
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
@@ -163,9 +165,11 @@ class SpireWaypointsRecord:
             hash_int = int(hash_trunc, 16)
             blob = {
                 "_instance_hash": hash_int,
+                "ingestion_time": iso_to_microseconds(record.ingestion_time),
                 "timestamp": ts,
                 "latitude": record.latitude,
                 "longitude": record.longitude,
+                "collection_type": record.collection_type,
                 "altitude_baro": record.altitude_baro,
                 "flight_level": record.flight_level,
                 "imputed": record.imputed,

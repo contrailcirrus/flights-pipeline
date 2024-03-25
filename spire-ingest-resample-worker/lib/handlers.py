@@ -624,9 +624,11 @@ class ResampleHandler:
         waypoints: list[SpireWaypointPositional] = []
         for _, r in self._waypoints_df_resampled.iterrows():
             wp = SpireWaypointPositional(
+                ingestion_time=None,
                 timestamp=r["time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
                 latitude=r["latitude"],
                 longitude=r["longitude"],
+                collection_type=None,
                 altitude_baro=r["altitude_ft"],
                 imputed=r["imputed"],
                 flight_level=r["flight_level"],
