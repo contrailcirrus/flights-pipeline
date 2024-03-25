@@ -14,7 +14,7 @@ class SpireWaypointPositional:
     A single flight waypoint record.
     """
 
-    # ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
+    ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
     timestamp: str  # e.g. 2024-03-01T16:37:54Z
     latitude: float  # e.g. 47.453758
     longitude: float  # e.g. 8.555093
@@ -25,7 +25,7 @@ class SpireWaypointPositional:
     # collection_type: str  # e.g. terrestrial
     altitude_baro: int  # e.g. 26550 (MSL)
     # vertical_rate: float  # e.g. -64.0
-    imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
+    imputed: bool = False  # True if record was imputed, False is observed (i.e. in original Spire API data)
     flight_level: int | None = None  # 390 (imputed) altitude_baro//100 mapped -> list
 
     def as_utf8_json(self) -> bytes:
@@ -186,6 +186,35 @@ class SpireWaypointsRecord:
             }
             out.append(json.dumps(blob).encode("utf-8"))
         return out
+
+
+@dataclass
+class SpireWaypointRecordRaw:
+    """
+    A flat k-v object representing raw Spire waypoints.
+    """
+
+    icao_address: str  # e.g. 4B0293
+    flight_id: str | None  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
+    callsign: str | None  # e.g. SWR64C
+    tail_number: str | None  # e.g. HB-AZJ
+    flight_number: str | None  # e.g. LX644
+    aircraft_type_icao: str | None  # e.g. E295
+    airline_iata: str | None  # e.g. LX
+    departure_airport_icao: str | None  # e.g. LSZH
+    departure_scheduled_time: str | None  # e.g. 2024-03-01T16:25:00Z
+    arrival_airport_icao: str | None  # e.g. LFPG
+    arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
+    ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
+    timestamp: str  # e.g. 2024-03-01T16:37:54Z
+    latitude: float  # e.g. 47.453758
+    longitude: float  # e.g. 8.555093
+    # heading: float  # e.g. 334.5535
+    # speed: float  # e.g. 16.0
+    # on_ground: bool  # e.g. True
+    # source: str  # e.g. ADSB
+    # collection_type: str  # e.g. terrestrial
+    altitude_baro: int  # e.g. 26550 (MSL)
 
 
 @dataclass
