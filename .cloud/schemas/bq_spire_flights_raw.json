@@ -50,7 +50,7 @@
   {
     "name": "flight_id",
     "type": "STRING",
-    "mode": "REQUIRED",
+    "mode": "NULLABLE",
     "description": "Spire-provided UUID of the aircraft associated with the waypoint"
   },
   {
