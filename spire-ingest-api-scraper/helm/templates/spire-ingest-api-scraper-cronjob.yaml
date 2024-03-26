@@ -27,6 +27,8 @@ spec:
                   value: {{ .Values.firestoreStateDocId | required ".Values.firestoreStateDocId is required" | quote }}
                 - name: PUBSUB_EGRESS_TOPIC_ID
                   value: {{ .Values.pubSubEgressTopicId | required ".Values.pubSubEgressTopicId is required" | quote }}
+                - name: SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
+                  value: {{ .Values.spireRawWaypointsBigQueryTopicId | required ".Values.spireRawWaypointsBigQueryTopicId is required" | quote }}
                 - name: SPIRE_API_TOKEN
                   valueFrom:
                     secretKeyRef:

@@ -27,7 +27,11 @@ class SpireAPIClient:
         self._api_token = api_token
         self._airsafe_url = airsafe_url
 
-    def get_data_between(self, start_at: datetime, end_at: datetime) -> pd.DataFrame:
+    def get_data_between(
+        self,
+        start_at: datetime,
+        end_at: datetime,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Fetch global aircraft position records within time window.
 
         Parameters
@@ -39,7 +43,9 @@ class SpireAPIClient:
 
         Returns
         -------
-        pd.DataFrame
+        tuple[pd.DataFrame, pd.DataFrame]
+            first element is records with observation time in target window.
+            second element is records with tardy timestamps.
             aircraft position rows with timestamp in [start_at, end_at) with columns:
             {
                 "ingestion_time": "2024-03-04T23:24:01.900Z",
@@ -143,9 +149,31 @@ class SpireAPIClient:
                 + f"icao_address in {IGNORE_ICAO_ADDRESS}"
             )
 
-        # Spire API may return records out of the request time window. Drop records
-        # with timestamps outside of [start_at, end_at).
+        # Spire API's start_at and end_at query params reference ingestion_time
+        # sometimes, the SPIRE API will still return records outside of [start_at, end_at]
         timestamp = pd.to_datetime(df["timestamp"])
+        ingestion_time = pd.to_datetime(df["ingestion_time"])
+        ingest_at_or_after_start = ingestion_time >= pd.to_datetime(start_at_utc)
+        ingest_before_end_w_buffer = ingestion_time < pd.to_datetime(end_at_utc_buffer)
+        df = df.loc[ingest_at_or_after_start & ingest_before_end_w_buffer, :]
+
+        drop_ingest_outside_window = (~ingest_at_or_after_start).sum() + (
+            ~ingest_before_end_w_buffer
+        ).sum()
+        if drop_ingest_outside_window > 0:
+            logger.info(
+                f"Records outside query window. "
+                f"Drop {drop_ingest_outside_window} records."
+            )
+
+        # identify tardy records
+        timestamp = pd.to_datetime(df["timestamp"])
+        ingestion_time = pd.to_datetime(df["ingestion_time"])
+        is_tardy = (ingestion_time - timestamp) > INGEST_LAG_TIME
+        ingest_before_end = ingestion_time < pd.to_datetime(end_at_utc)
+        df_tardy = df.loc[is_tardy & ingest_before_end, :]
+
+        # Drop records with timestamps outside of [start_at, end_at).
         is_at_or_after_start = timestamp >= pd.to_datetime(start_at_utc)
         is_before_end = timestamp < pd.to_datetime(end_at_utc)
         df = df.loc[is_at_or_after_start & is_before_end, :]
@@ -158,4 +186,4 @@ class SpireAPIClient:
         if drop_count_after_end > 0:
             logger.info(f"Drop {drop_count_after_end} records after {end_at_utc}")
 
-        return df
+        return df, df_tardy

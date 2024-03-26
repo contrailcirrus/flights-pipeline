@@ -33,29 +33,15 @@ from the contiguous 1Min waypoints.
 ## Environment Variables
 The following environment variables are expected for production and development environments.
 
-### Prod
-
-| name                                   |                    value                    |                           description                            |
-|:---------------------------------------|:-------------------------------------------:|:----------------------------------------------------------------:|
-| SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID | projects/contrails-301217/subscriptions/TBD | fully-qualified uri for the waypoints record pubsub subscription |
-| SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID                        |    projects/contrails-301217/topics/TBD     |    fully-qualifed uri for the pubsub topic that writes to BQ     |
-| SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID  |    projects/contrails-301217/topics/TBD     | fully-qualified uri for the pubsub topic that writes raw waypoints to BQ |
-| SPIRE_FLIGHT_SEGMENTS_TOPIC_ID   |    projects/contrails-301217/topics/TBD     |     fully-qualifed uri for the flights segment pubsub topic      |
-| REDIS_HOST | TBD | ipv4 address of the redis instance |
-| REDIS_PORT | TBD | port for the redis instance |
-| LOG_LEVEL                              |                   WARNING                   |               log level for service in production                |
-
-### Dev
-
-| name                                   |                    value                    |                               description                                |
-|:---------------------------------------|:-------------------------------------------:|:------------------------------------------------------------------------:|
-| SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID | projects/contrails-301217/subscriptions/TBD |     fully-qualified uri for the waypoints record pubsub subscription     |
-| SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID      |    projects/contrails-301217/topics/TBD     |        fully-qualified uri for the pubsub topic that writes to BQ        |
-| SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID  |    projects/contrails-301217/topics/TBD     | fully-qualified uri for the pubsub topic that writes raw waypoints to BQ |
-| SPIRE_FLIGHT_SEGMENTS_TOPIC_ID         |    projects/contrails-301217/topics/TBD     |         fully-qualified uri for the flights segment pubsub topic         |
-| REDIS_HOST                             |                     TBD                     |                    ipv4 address of the redis instance                    |
-| REDIS_PORT                             |                     TBD                     |                       port for the redis instance                        |
-| LOG_LEVEL                              |                    INFO                     |                   log level for service in development                   |
+| name                                    |                               description                                |
+|:----------------------------------------|:------------------------------------------------------------------------:|
+| SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID  |     fully-qualified uri for the waypoints record pubsub subscription     |
+| SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID       |        fully-qualified uri for the pubsub topic that writes to BQ        |
+| SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID   | fully-qualified uri for the pubsub topic that writes raw waypoints to BQ |
+| SPIRE_FLIGHT_SEGMENTS_TOPIC_ID          |         fully-qualified uri for the flights segment pubsub topic         |
+| REDIS_HOST                              |                    ipv4 address of the redis instance                    |
+| REDIS_PORT                              |                       port for the redis instance                        |
+| LOG_LEVEL                               |                log level for service in cloud environment                |**
 
 ### Prerequisites
 

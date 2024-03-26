@@ -12,6 +12,7 @@ os.environ["FIRESTORE_STATE_DB"] = "fake-test"
 os.environ["FIRESTORE_STATE_COLLECTION"] = "fake-test"
 os.environ["FIRESTORE_STATE_DOC_ID"] = "fake-test"
 os.environ["PUBSUB_EGRESS_TOPIC_ID"] = "fake-test"
+os.environ["SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID"] = "fake-test"
 os.environ["SPIRE_API_TOKEN"] = "fake-test"
 os.environ["LOG_LEVEL"] = "DEBUG"
 
