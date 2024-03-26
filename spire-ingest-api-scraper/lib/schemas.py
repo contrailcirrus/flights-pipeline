@@ -147,7 +147,7 @@ class SpireWaypointsRecord:
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
             if not timestamp:
-                return timestamp
+                return None
             ts: int = int(datetime.fromisoformat(timestamp).timestamp() * 1e6)
             return ts
 

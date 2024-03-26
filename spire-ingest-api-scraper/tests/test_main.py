@@ -25,22 +25,24 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
     triggered_at = datetime(2024, 3, 1, 13, 10, 1, 2, tzinfo=timezone.utc)
     last_sync_end_at = datetime(2024, 3, 1, 13, 0, 0, tzinfo=timezone.utc)
 
-    queue_client = Mock(spec=queue.QueueClient)
+    egress_queue_client = Mock(spec=queue.QueueClient)
+    bq_queue_client = Mock(spec=queue.QueueClient)
     spire_client = spire.SpireAPIClient("fake-token", mock_spire_airsafe_api)
     state_client = Mock(spec=state.PersistentStateClient)
     state_client.get_last_sync_end_at = Mock(return_value=last_sync_end_at)
 
     main(
         triggered_at=triggered_at,
-        egress_queue_client=queue_client,
+        egress_queue_client=egress_queue_client,
+        bq_queue_client=bq_queue_client,
         spire_client=spire_client,
         state_client=state_client,
     )
 
-    assert queue_client.publish_async.call_count == 8233
-    assert queue_client.wait_for_publish.call_count == 1
+    assert egress_queue_client.publish_async.call_count == 8233
+    assert egress_queue_client.wait_for_publish.call_count == 1
 
-    for args, kwargs in queue_client.publish_async.call_args_list:
+    for args, kwargs in egress_queue_client.publish_async.call_args_list:
         assert kwargs == {}
         data, ordering_key = args
         assert isinstance(ordering_key, str)
@@ -73,17 +75,19 @@ def test_main_entrypoint_exits_if_less_than_5_minutes_elapsed() -> None:
     triggered_at = datetime(2024, 3, 1, 13, 1, 1, 2, tzinfo=timezone.utc)
     last_sync_end_at = datetime(2024, 3, 1, 13, 0, 0, tzinfo=timezone.utc)
 
-    queue_client = Mock(spec=queue.QueueClient)
+    egress_queue_client = Mock(spec=queue.QueueClient)
+    bq_queue_client = Mock(spec=queue.QueueClient)
     spire_client = Mock(spec=spire.SpireAPIClient)
     state_client = Mock(spec=state.PersistentStateClient)
     state_client.get_last_sync_end_at = Mock(return_value=last_sync_end_at)
 
     main(
         triggered_at=triggered_at,
-        egress_queue_client=queue_client,
+        egress_queue_client=egress_queue_client,
+        bq_queue_client=bq_queue_client,
         spire_client=spire_client,
         state_client=state_client,
     )
 
     assert spire_client.get_data_between.call_count == 0
-    assert queue_client.publish_async.call_count == 0
+    assert egress_queue_client.publish_async.call_count == 0

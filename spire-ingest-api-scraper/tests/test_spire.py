@@ -10,7 +10,7 @@ def test_spire_airsafe_target_parsing(mock_spire_airsafe_api: str) -> None:
     start_at = datetime(2024, 3, 1, 13, 0, 0, tzinfo=timezone.utc)
     end_at = datetime(2024, 3, 1, 13, 5, 0, tzinfo=timezone.utc)
     spire_client = spire.SpireAPIClient("fake-token", mock_spire_airsafe_api)
-    spire_df = spire_client.get_data_between(start_at, end_at)
+    spire_df, _ = spire_client.get_data_between(start_at, end_at)
 
     expected_target_record_count = 117439
     assert len(spire_df) == expected_target_record_count
