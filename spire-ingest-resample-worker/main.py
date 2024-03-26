@@ -37,11 +37,17 @@ def run():
     """
     cache_key_fmt = "spr:{icao_address}"
     cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
+    bq_raw_publish_handler = PubSubPublishHandler(
+        env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
+    )
     bq_publish_handler = PubSubPublishHandler(env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID)
 
     with PubSubSubscriptionHandler(
         env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
     ) as job_handler:
+        # ===================
+        # fetch records
+        # ===================
         job: SpireWaypointsRecord = job_handler.fetch()
         if not job:
             # if the queue is empty -> we get back [], then pause before retry
@@ -55,6 +61,14 @@ def run():
             f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
         )
 
+        # ===================
+        # publish raw records to BQ
+        # ===================
+        for raw_bq_json_ln in job.to_bq_flatmap():
+            bq_raw_publish_handler.publish_async(raw_bq_json_ln)
+        bq_raw_publish_handler.wait_for_publish()
+
+        # fetch cache
         try:
             cached: list[WaypointCache.Waypoint] = cache_handler.pull(
                 cache_key_fmt.format(icao_address=job.flight_info.icao_address)
@@ -77,7 +91,10 @@ def run():
             logger.info(
                 f"icao_address: {job.flight_info.icao_address}. " f"cache miss."
             )
-        # cases where we don't process the batch window received from pubsub
+
+        # ===================
+        # validate records
+        # ===================
         try:
             validation_handler = ValidationHandler(cached, job)
             validated_cache: list[SpireWaypointPositional] = (
@@ -136,7 +153,9 @@ def run():
             job_handler.ack()
             return
 
-        # apply resampling
+        # ===================
+        # resample records
+        # ===================
         try:
             if validated_cache:
                 logger.info(
@@ -183,6 +202,9 @@ def run():
             records=resampled_records_prune,
         )
 
+        # ===================
+        # publish resampled records to BQ
+        # ===================
         for bq_json_ln in egress_records.to_bq_flatmap():
             bq_publish_handler.publish_async(bq_json_ln)
         bq_publish_handler.wait_for_publish()
@@ -192,7 +214,9 @@ def run():
         #    f"published N={103} flight segments to {env.SPIRE_FLIGHT_SEGMENTS_TOPIC_ID}"
         # )
 
+        # ===================
         # update cache
+        # ===================
         if len(resampled_records) > 1:
             new_cache_records = tuple(resampled_records[-2:])
         else:
