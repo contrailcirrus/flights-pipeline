@@ -32,7 +32,7 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
 
     main(
         triggered_at=triggered_at,
-        queue_client=queue_client,
+        egress_queue_client=queue_client,
         spire_client=spire_client,
         state_client=state_client,
     )
@@ -80,7 +80,7 @@ def test_main_entrypoint_exits_if_less_than_5_minutes_elapsed() -> None:
 
     main(
         triggered_at=triggered_at,
-        queue_client=queue_client,
+        egress_queue_client=queue_client,
         spire_client=spire_client,
         state_client=state_client,
     )

@@ -14,7 +14,7 @@ def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
 
 
 class QueueClient:
-    def __init__(self, topic_id: str) -> None:
+    def __init__(self, topic_id: str, ordered_queue: bool = False) -> None:
         self._topic_id = topic_id
 
         # Uses default retry policy which uses exponential backoff to manage retries.
@@ -23,7 +23,7 @@ class QueueClient:
         # See: https://cloud.google.com/pubsub/docs/retry-requests
         self._publisher = pubsub_v1.PublisherClient(
             publisher_options=pubsub_v1.types.PublisherOptions(
-                enable_message_ordering=True,
+                enable_message_ordering=ordered_queue,
                 # Flow control applies rate limits by blocking any time the staged data
                 # exceeds the following settings. Once the records are received by GCP
                 # PubSub, additional publish calls are unblocked.
@@ -38,8 +38,8 @@ class QueueClient:
 
         self._publish_futures: list[concurrent.futures.Future] = []
 
-    def publish_async(self, data: bytes, ordering_key: str) -> None:
-        """Add data to current publish batch.
+    def publish_async(self, data: bytes, ordering_key: str = "") -> None:
+        """Add data to the current publish batch.
 
         Batches are pushed asynchronously to GCP PubSub in a separate thread. To wait
         for one or more publish calls until they have been received by the server, call
@@ -51,7 +51,9 @@ class QueueClient:
             byte encoded string payload
         ordering_key
             payloads sharing the same ordering_key are guaranteed to be delivered to
-            consumers in the order they are published
+            consumers in the order they are published. the publisher client,
+            and the subscription bound to the receiving topic,
+            must be configured to use ordered messages.
         """
         future: concurrent.futures.Future = self._publisher.publish(
             topic=self._topic_id,

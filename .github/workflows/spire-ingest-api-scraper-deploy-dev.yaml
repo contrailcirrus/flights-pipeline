@@ -63,3 +63,4 @@ jobs:
           FIRESTORE_STATE_COLLECTION: state
           FIRESTORE_STATE_DOC_ID: spire-ingest-api-scraper
           PUBSUB_EGRESS_TOPIC_ID: projects/contrails-301217/topics/spire-ingest-api-scraper-egress-dev
+          SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/spire-ingest-raw-bigquery-dev

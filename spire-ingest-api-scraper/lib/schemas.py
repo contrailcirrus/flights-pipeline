@@ -1,5 +1,6 @@
 """Data Object Models & Schemas"""
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -130,3 +131,58 @@ class SpireWaypointsRecord:
             imputed=False,
         )
         return flight_id, swp
+
+    def to_bq_flatmap(self) -> list[bytes]:
+        """
+        Flattens records into a list of utf-8 encoded json string literals,
+        ready for egress to big query.
+
+
+        Converts temporal string fields (ingestion_time, timestamp, ...)  to microseconds epoch.
+
+        Adds an `_instance_hash` k-v, of type int,
+        generated as a hash of the composite <icao_address><timestamp>,
+        where timestamp is epoch time in microseconds
+        """
+
+        def iso_to_microseconds(timestamp: str | None) -> int | None:
+            if not timestamp:
+                return timestamp
+            ts: int = int(datetime.fromisoformat(timestamp).timestamp() * 1e6)
+            return ts
+
+        out = []
+        for record in self.records:
+            # _instance_hash is an int64 in bq
+            ts = iso_to_microseconds(record.timestamp)
+            hash = hashlib.md5(f"{self.flight_info.icao_address}{ts}".encode("utf-8"))
+            # truncate as to be equal or smaller than int64 space when represented as signed int
+            hash_trunc = hash.hexdigest()[:8]
+            hash_int = int(hash_trunc, 16)
+            blob = {
+                "_instance_hash": hash_int,
+                "ingestion_time": iso_to_microseconds(record.ingestion_time),
+                "timestamp": ts,
+                "latitude": record.latitude,
+                "longitude": record.longitude,
+                "collection_type": record.collection_type,
+                "altitude_baro": record.altitude_baro,
+                "flight_level": record.flight_level,
+                "imputed": record.imputed,
+                "icao_address": self.flight_info.icao_address,
+                "flight_id": self.flight_info.flight_id,
+                "callsign": self.flight_info.callsign,
+                "tail_number": self.flight_info.tail_number,
+                "flight_number": self.flight_info.flight_number,
+                "airline_iata": self.flight_info.airline_iata,
+                "departure_airport_icao": self.flight_info.departure_airport_icao,
+                "departure_scheduled_time": iso_to_microseconds(
+                    self.flight_info.departure_scheduled_time
+                ),
+                "arrival_airport_icao": self.flight_info.arrival_airport_icao,
+                "arrival_scheduled_time": iso_to_microseconds(
+                    self.flight_info.arrival_scheduled_time
+                ),
+            }
+            out.append(json.dumps(blob).encode("utf-8"))
+        return out
