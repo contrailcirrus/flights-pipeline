@@ -175,6 +175,7 @@ class SpireWaypointsRecord:
                 "callsign": self.flight_info.callsign,
                 "tail_number": self.flight_info.tail_number,
                 "flight_number": self.flight_info.flight_number,
+                "aircraft_type_icao": self.flight_info.aircraft_type_icao,
                 "airline_iata": self.flight_info.airline_iata,
                 "departure_airport_icao": self.flight_info.departure_airport_icao,
                 "departure_scheduled_time": iso_to_microseconds(

@@ -72,6 +72,12 @@
     "description": "flight_number of the aircraft associated with the waypoint"
   },
   {
+    "name": "aircraft_type_icao",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "icao code for aircraft type associated with the waypoint"
+  },
+  {
     "name": "airline_iata",
     "type": "STRING",
     "mode": "NULLABLE",
