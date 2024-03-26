@@ -22,7 +22,7 @@ spec:
           - name: SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
             value: {{ .Values.spireIngestWaypointsSubscriptionId | required ".Values.spireIngestWaypointsSubscriptionId is required" | quote }}
           - name: SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
-            value: { { .Values.spireRawWaypointsBigQueryTopicId | required ".Values.spireRawWaypointsBigQueryTopicId is required" | quote } }
+            value: {{ .Values.spireRawWaypointsBigQueryTopicId | required ".Values.spireRawWaypointsBigQueryTopicId is required" | quote }}
           - name: SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID
             value: {{ .Values.spireWaypointsBigQueryTopicId | required ".Values.spireWaypointsBigQueryTopicId is required" | quote }}
           - name: SPIRE_FLIGHT_SEGMENTS_TOPIC_ID
