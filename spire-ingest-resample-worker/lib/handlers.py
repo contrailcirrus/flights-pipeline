@@ -11,7 +11,7 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from google.cloud.pubsub_v1.types import PublishFlowControl, LimitExceededBehavior
 from pycontrails.physics import geo
@@ -343,33 +343,33 @@ class ValidationHandler:
             SpireWaypointsRecord.from_waypoint_cache(w)[0] for w in cache
         ]
 
-        self._max_cached_ts: datetime | None
-        self._min_records_ts: datetime
+        self.max_cached_ts: datetime | None
+        self.min_records_ts: datetime
+        self.max_records_ts: datetime
         if self._cached_records:
-            self._max_cached_ts = datetime.fromisoformat(
+            self.max_cached_ts = datetime.fromisoformat(
                 self._cached_records[-1].timestamp
             )
         else:
-            self._max_cached_ts = None
-        self._min_records_ts = datetime.fromisoformat(self._records[0].timestamp)
+            self.max_cached_ts = None
+        self.min_records_ts = datetime.fromisoformat(self._records[0].timestamp)
+        self.max_records_ts = datetime.fromisoformat(self._records[-1].timestamp)
 
-        # raise on instantiation if data is invalid (possible out-of-order)
-        self._verify_temporal_order()
-
-    def _verify_temporal_order(self):
+    def correct_temporal_order(self) -> bool:
         """
         Verifies that the batch window of records trails the cached records in time.
+        If the maximum cached timestamp is due to the previous iteration's interpolation,
+        then the new records should trail by at least 1 minutes from the max cache ts.
         Failure to meet this criteria may indicate out-of-order delivery of records.
         """
 
         # possible out-of-order delivery
-        if self._max_cached_ts and self._min_records_ts < self._max_cached_ts:
-            raise Exception(
-                f"records must have timestamp after cached timestamp. "
-                f"received records for icao_address {self._flight_info.icao_address} "
-                f"with timestamp {self._min_records_ts.isoformat()} occurring before "
-                f"cached timestamp {self._max_cached_ts.isoformat()}"
-            )
+        if self.max_cached_ts and self.max_records_ts < (
+            self.max_cached_ts + timedelta(seconds=60)
+        ):
+            return False
+        else:
+            return True
 
     def verify_gt_1min_span(self) -> bool:
         """
@@ -421,7 +421,7 @@ class ValidationHandler:
             return self._cached_records
 
         cache_to_records_elapsed_hr = (
-            self._min_records_ts - self._max_cached_ts
+            self.min_records_ts - self.max_cached_ts
         ).seconds / 3600
         cache_to_records_distance_km = 0.001 * math.sqrt(
             (
@@ -451,7 +451,7 @@ class ValidationHandler:
             # case (B)
             logger.info(
                 f"new flight instance inferred for icao_address {self._flight_info.icao_address} "
-                f"at {self._min_records_ts.isoformat()}. invalidating cache."
+                f"at {self.min_records_ts.isoformat()}. invalidating cache."
             )
             return []
         else:

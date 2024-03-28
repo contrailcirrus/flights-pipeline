@@ -95,25 +95,21 @@ def run():
         # ===================
         # validate records
         # ===================
-        try:
-            validation_handler = ValidationHandler(cached, job)
-            validated_cache: list[SpireWaypointPositional] = (
-                validation_handler.cached_records
-            )
-            validated_records: list[SpireWaypointPositional] = (
-                validation_handler.records
-            )
-            validated_flight_info: SpireFlightInfo | None = (
-                validation_handler.flight_info
-            )
-            validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
-        except Exception:
+        validation_handler = ValidationHandler(cached, job)
+        validated_cache: list[SpireWaypointPositional] = (
+            validation_handler.cached_records
+        )
+        validated_records: list[SpireWaypointPositional] = validation_handler.records
+        validated_flight_info: SpireFlightInfo | None = validation_handler.flight_info
+        validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
+        if not validation_handler.correct_temporal_order():
             logger.warning(
-                f"cache and/or records invalid. "
-                f"not processing batch. "
-                f"icao_address: {job.flight_info.icao_address} "
-                f"job: {job}"
-                f"traceback: {format_traceback()}"
+                f"possible out-of-order delivery."
+                f"not processing batch."
+                f"records must have timestamp after cached timestamp. "
+                f"received records for icao_address {job.flight_info.icao_address} "
+                f"with timestamp {validation_handler.max_records_ts.isoformat()} occurring before "
+                f"cached timestamp {validation_handler.max_cached_ts.isoformat()}"
             )
             job_handler.ack()
             return
