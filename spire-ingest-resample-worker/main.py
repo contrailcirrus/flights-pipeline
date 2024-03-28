@@ -104,7 +104,7 @@ def run():
         validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
         if not validation_handler.correct_temporal_order():
             logger.warning(
-                f"possible out-of-order delivery."
+                f"possible out-of-order or re-delivery."
                 f"not processing batch."
                 f"records must have timestamp after cached timestamp. "
                 f"received records for icao_address {job.flight_info.icao_address} "
