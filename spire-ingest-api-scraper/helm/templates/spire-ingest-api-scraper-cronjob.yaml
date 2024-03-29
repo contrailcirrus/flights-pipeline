@@ -40,7 +40,7 @@ spec:
                 requests:
                   cpu: "1"
                   # OOM when allocated memory < 7GB
-                  memory: "14000Mi"
+                  memory: "20000Mi"
                 limits:
                   cpu: "1"
-                  memory: "14000Mi"
+                  memory: "20000Mi"
