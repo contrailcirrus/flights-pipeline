@@ -345,7 +345,6 @@ class ValidationHandler:
 
         self.max_cached_ts: datetime | None
         self.min_records_ts: datetime
-        self.max_records_ts: datetime
         if self._cached_records:
             self.max_cached_ts = datetime.fromisoformat(
                 self._cached_records[-1].timestamp
@@ -353,18 +352,17 @@ class ValidationHandler:
         else:
             self.max_cached_ts = None
         self.min_records_ts = datetime.fromisoformat(self._records[0].timestamp)
-        self.max_records_ts = datetime.fromisoformat(self._records[-1].timestamp)
 
     def correct_temporal_order(self) -> bool:
         """
         Verifies that the batch window of records trails the cached records in time.
         If the maximum cached timestamp is due to the previous iteration's interpolation,
-        then the new records should trail by at least 1 minutes from the max cache ts.
+        then the new records should trail by at least 1 minutes from the cache ts.
         Failure to meet this criteria may indicate out-of-order delivery of records.
         """
 
         # possible out-of-order delivery
-        if self.max_cached_ts and self.max_records_ts < (
+        if self.max_cached_ts and self.min_records_ts < (
             self.max_cached_ts + timedelta(seconds=60)
         ):
             return False

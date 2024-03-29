@@ -108,7 +108,7 @@ def run():
                 f"not processing batch."
                 f"records must have timestamp after cached timestamp. "
                 f"received records for icao_address {job.flight_info.icao_address} "
-                f"with timestamp {validation_handler.max_records_ts.isoformat()} occurring before "
+                f"with timestamp {validation_handler.min_records_ts.isoformat()} occurring before "
                 f"cached timestamp {validation_handler.max_cached_ts.isoformat()}"
             )
             job_handler.ack()
