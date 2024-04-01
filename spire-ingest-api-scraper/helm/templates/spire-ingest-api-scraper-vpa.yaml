@@ -11,7 +11,7 @@ spec:
     updateMode: "Auto"
   resourcePolicy:
     containerPolicies:
-      - containerName: main
+      - containerName: "*"
         controlledResources: ["memory"]
         minAllowed:
           memory: "6Gi"
