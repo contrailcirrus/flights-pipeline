@@ -12,8 +12,7 @@ spec:
   resourcePolicy:
     containerPolicies:
       - containerName: main
-        controlledResources:
-          - ResourceMemory
+        controlledResources: ["memory"]
         minAllowed:
           memory: "6Gi"
         maxAllowed:
