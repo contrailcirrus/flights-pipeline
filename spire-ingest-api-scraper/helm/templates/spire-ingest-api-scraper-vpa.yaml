@@ -15,6 +15,6 @@ spec:
         controlledResources:
           - ResourceMemory
         minAllowed:
-          memory: "8Gi"
+          memory: "6Gi"
         maxAllowed:
           memory: "24Gi"
