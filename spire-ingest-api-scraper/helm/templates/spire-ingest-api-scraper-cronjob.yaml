@@ -9,8 +9,7 @@ spec:
 
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 900
-      backoffLimit: 2
+      backoffLimit: 1
       template:
         spec:
           restartPolicy: Never
