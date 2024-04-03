@@ -9,8 +9,8 @@ spec:
 
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 900
-      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      backoffLimit: 1
       template:
         spec:
           restartPolicy: Never
@@ -39,8 +39,7 @@ spec:
               resources:
                 requests:
                   cpu: "1"
-                  # OOM when allocated memory < 7GB
-                  memory: "20000Mi"
+                  memory: "15Gi"
                 limits:
                   cpu: "1"
-                  memory: "20000Mi"
+                  memory: "15Gi"
