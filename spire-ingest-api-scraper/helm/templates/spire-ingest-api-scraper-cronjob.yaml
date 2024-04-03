@@ -15,6 +15,7 @@ spec:
         spec:
           restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
+          terminationGracePeriodSeconds: 300
           containers:
             - name: main
               image: {{ .Values.image | required ".Values.image is required" | quote }}

@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from lib import queue, schemas, spire, state, transform
+from lib import queue, schemas, spire, state, transform, utils
 from lib.log import format_traceback, logger
 
 # SYNC_DELAY enforces we do not fetch data ingested by Spire after: now - SYNC_DELAY
@@ -95,6 +95,7 @@ def main(
     triggered_at: datetime,
     egress_queue_client: queue.QueueClient,
     bq_queue_client: queue.QueueClient,
+    sigterm_handler: utils.SigtermHandler,
     spire_client: spire.SpireAPIClient,
     state_client: state.PersistentStateClient,
 ) -> None:
@@ -120,6 +121,9 @@ def main(
         end_at=end_at,
         step=step,
     ):
+        if sigterm_handler.should_exit:
+            sys.exit(0)
+
         logger.debug(f"Fetching: [{start_at.isoformat()}, {end_at.isoformat()})")
         spire_df, tardy_df = spire_client.get_data_between(batch_start_at, batch_end_at)
         logger.info(
@@ -185,7 +189,7 @@ def main(
         del tardy_df
 
         # ----------------
-        # publish tardy records
+        # publish on-time records
         # ---------------
         spire_df = spire_df.sort_values(["icao_address", "timestamp"])
         for icao_address, rows in spire_df.groupby("icao_address"):
@@ -257,6 +261,7 @@ if __name__ == "__main__":
             environment.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
             ordered_queue=False,
         )
+        sigterm_handler = utils.SigtermHandler()
         spire_client = spire.SpireAPIClient(environment.SPIRE_API_TOKEN)
         state_client = state.PersistentStateClient(
             environment.FIRESTORE_STATE_DB,
@@ -268,6 +273,7 @@ if __name__ == "__main__":
             triggered_at=triggered_at,
             egress_queue_client=egress_queue_client,
             bq_queue_client=bq_queue_client,
+            sigterm_handler=sigterm_handler,
             spire_client=spire_client,
             state_client=state_client,
         )

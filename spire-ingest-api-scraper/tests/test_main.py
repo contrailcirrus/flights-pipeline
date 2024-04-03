@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from types import NoneType
 from unittest.mock import Mock
 
-from lib import queue, spire, state
+from lib import queue, spire, state, utils
 from main import _time_windows, main
 
 
@@ -27,6 +27,7 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
 
     egress_queue_client = Mock(spec=queue.QueueClient)
     bq_queue_client = Mock(spec=queue.QueueClient)
+    sigterm_handler = utils.SigtermHandler()
     spire_client = spire.SpireAPIClient("fake-token", mock_spire_airsafe_api)
     state_client = Mock(spec=state.PersistentStateClient)
     state_client.get_last_sync_end_at = Mock(return_value=last_sync_end_at)
@@ -35,6 +36,7 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
         triggered_at=triggered_at,
         egress_queue_client=egress_queue_client,
         bq_queue_client=bq_queue_client,
+        sigterm_handler=sigterm_handler,
         spire_client=spire_client,
         state_client=state_client,
     )
@@ -77,6 +79,7 @@ def test_main_entrypoint_exits_if_less_than_5_minutes_elapsed() -> None:
 
     egress_queue_client = Mock(spec=queue.QueueClient)
     bq_queue_client = Mock(spec=queue.QueueClient)
+    sigterm_handler = utils.SigtermHandler()
     spire_client = Mock(spec=spire.SpireAPIClient)
     state_client = Mock(spec=state.PersistentStateClient)
     state_client.get_last_sync_end_at = Mock(return_value=last_sync_end_at)
@@ -85,6 +88,7 @@ def test_main_entrypoint_exits_if_less_than_5_minutes_elapsed() -> None:
         triggered_at=triggered_at,
         egress_queue_client=egress_queue_client,
         bq_queue_client=bq_queue_client,
+        sigterm_handler=sigterm_handler,
         spire_client=spire_client,
         state_client=state_client,
     )
