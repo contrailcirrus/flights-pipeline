@@ -142,7 +142,6 @@ def main(
             )
             for raw_bq_json_ln in dto.to_bq_flatmap():
                 bq_queue_client.publish_async(raw_bq_json_ln)
-            bq_queue_client.wait_for_publish()
 
         del tardy_df
 
@@ -196,6 +195,7 @@ def main(
             ordering_key = f"api-scraper:{icao_address}"
             egress_queue_client.publish_async(data, ordering_key)
 
+        bq_queue_client.wait_for_publish()
         egress_queue_client.wait_for_publish()
         logger.info(f"Published records successfully: {len(spire_df)}")
 
