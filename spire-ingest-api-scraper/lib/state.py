@@ -18,7 +18,7 @@ class PersistentStateClient:
 
     def set_last_sync_end_at(self, value: datetime) -> None:
         """Update checkpoint to signal data has been processed up to this time."""
-        logger.info(f"Updated last sync endcheckpoint: {value.isoformat()}")
+        logger.info(f"Updated last sync end checkpoint: {value.isoformat()}")
         self._doc_ref.update({"last_sync_end_at": value})
 
     def get_last_sync_end_at(self) -> datetime:

@@ -48,7 +48,7 @@ def _log_invariant_violations(df: pd.DataFrame) -> None:
             values_str = ", ".join(str(v) for v in values)
             logger.warning(
                 "Assumed static values are not unique. "
-                + f"Column: {column}"
+                + f"Column: {column} "
                 + f"Values: {values_str}"
             )
 
