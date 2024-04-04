@@ -44,6 +44,8 @@ spec:
                 requests:
                   cpu: "1"
                   memory: "15Gi"
+                  ephemeral-storage: "1Gi"
                 limits:
                   cpu: "1"
                   memory: "15Gi"
+                  ephemeral-storage: "1Gi"
