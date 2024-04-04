@@ -23,13 +23,6 @@ def _to_str_or_none(x: Any) -> str | None:
     return None
 
 
-def _to_int_or_none(x: Any) -> int | None:
-    """Cast to int if truthy, otherwise return None."""
-    if x and not pd.isnull(x):
-        return int(x)
-    return None
-
-
 def _floor_1min(x: datetime) -> datetime:
     """Truncate seconds and microseconds from datetime object."""
     return x - timedelta(seconds=x.second, microseconds=x.microsecond)
@@ -82,7 +75,8 @@ def _log_invariant_violations(df: pd.DataFrame) -> None:
     ]
     for column in static_fields:
         values = df[column].unique()
-        if len(values) > 1:
+        non_nan_values = [v for v in values if not pd.isna(v)]
+        if len(non_nan_values) > 1:
             values_str = ", ".join(str(v) for v in values)
             logger.warning(
                 "Assumed static values are not unique. "
