@@ -4,7 +4,7 @@ from types import NoneType
 from unittest.mock import Mock
 
 from lib import queue, spire, state, utils
-from main import _time_windows, main
+from main import main
 
 
 def test_time_windows_within_range() -> None:
@@ -13,7 +13,7 @@ def test_time_windows_within_range() -> None:
     step = timedelta(minutes=5)
 
     count = 0
-    for batch_start_at, batch_end_at in _time_windows(start_at, end_at, step):
+    for batch_start_at, batch_end_at in utils.time_windows(start_at, end_at, step):
         assert (batch_end_at - batch_start_at) == step
         assert start_at <= batch_start_at < end_at
         assert start_at < batch_end_at <= end_at

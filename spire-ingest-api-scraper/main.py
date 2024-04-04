@@ -3,7 +3,6 @@ Entrypoint for spire-ingest-api-scraper CronJob.
 """
 
 import sys
-from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -26,37 +25,6 @@ def _to_str_or_none(x: Any) -> str | None:
 def _floor_1min(x: datetime) -> datetime:
     """Truncate seconds and microseconds from datetime object."""
     return x - timedelta(seconds=x.second, microseconds=x.microsecond)
-
-
-def _time_windows(
-    start_at: datetime, end_at: datetime, step: timedelta
-) -> Iterator[tuple[datetime, datetime]]:
-    """Constructs ordered time windows between start_at and end_at of size step.
-
-    Parameters
-    ----------
-    start_at
-        time at which first window should begin, inclusive.
-    end_at
-        time at which last window should end, inclusive, if end_at - start_at is evenly
-        divisible by step. If end_at - start_at is not evenly divisible by step, the
-        last window returned will be:
-            [start_at + (n) * step, start_at + (n + 1) * step)
-        where (start_at + (n + 1) * step) < end_at. In other words, all windows will be
-        of length step and no partial windows will be returned.
-
-    Yields
-    ------
-    tuple[window_start_at, window_end_at]
-        indicates bounds of each window where start_at <= window_start_at < end_at and
-        start_at < window_end_at <= end_at
-    """
-    next_start_at = start_at
-    next_end_at = next_start_at + step
-    while next_end_at <= end_at:
-        yield (next_start_at, next_end_at)
-        next_start_at = next_end_at
-        next_end_at = next_start_at + step
 
 
 def _log_invariant_violations(df: pd.DataFrame) -> None:
@@ -110,11 +78,7 @@ def main(
         )
         return
 
-    for batch_start_at, batch_end_at in _time_windows(
-        start_at=start_at,
-        end_at=end_at,
-        step=step,
-    ):
+    for batch_start_at, batch_end_at in utils.time_windows(start_at, end_at, step):
         if sigterm_handler.should_exit:
             sys.exit(0)
 
