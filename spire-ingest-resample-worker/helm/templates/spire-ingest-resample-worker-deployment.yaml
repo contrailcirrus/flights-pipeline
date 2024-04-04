@@ -15,6 +15,10 @@ spec:
         app: spire-ingest-resample-worker
     spec:
       serviceAccountName: flights-pipeline-default-sa
+      # terminationGracePeriodSeconds should be greater than the time to
+      # perform a single job iteration. When a SIGTERM is received, the job
+      # has this much time to gracefully exit before being killed.
+      terminationGracePeriodSeconds: 30
       containers:
       - name: spire-ingest-resample-worker
         image: {{ .Values.image | required ".Values.image is required" | quote }}

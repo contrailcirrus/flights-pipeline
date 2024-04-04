@@ -2,23 +2,23 @@
 
 import sys
 import time
-
 from datetime import datetime
 
 import lib.environment as env
-from lib.log import logger, format_traceback
-from lib.schemas import (
-    SpireWaypointsRecord,
-    SpireWaypointPositional,
-    SpireFlightInfo,
-    WaypointCache,
-)
+from lib import utils
 from lib.handlers import (
-    PubSubSubscriptionHandler,
-    PubSubPublishHandler,
     CacheHandler,
-    ValidationHandler,
+    PubSubPublishHandler,
+    PubSubSubscriptionHandler,
     ResampleHandler,
+    ValidationHandler,
+)
+from lib.log import format_traceback, logger
+from lib.schemas import (
+    SpireFlightInfo,
+    SpireWaypointPositional,
+    SpireWaypointsRecord,
+    WaypointCache,
 )
 
 
@@ -237,7 +237,10 @@ def run():
 
 if __name__ == "__main__":
     logger.info("starting spire-ingest-resample-worker instance")
+    sigterm_handler = utils.SigtermHandler()
     while True:
+        if sigterm_handler.should_exit:
+            sys.exit(0)
         try:
             run()
         except Exception:
