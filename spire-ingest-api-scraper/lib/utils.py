@@ -18,5 +18,5 @@ class SigtermHandler:
         signal.signal(signal.SIGTERM, self._handler)
 
     def _handler(self, *args, **kwargs):
-        logger.warning("Received SIGTERM.")
+        logger.info("Received SIGTERM.")
         self.should_exit = True
