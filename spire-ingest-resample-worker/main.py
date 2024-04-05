@@ -12,6 +12,7 @@ from lib.handlers import (
     PubSubSubscriptionHandler,
     ResampleHandler,
     ValidationHandler,
+    SegmentHandler,
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
@@ -189,7 +190,7 @@ def run():
         logger.info(
             f"icao_address: {job.flight_info.icao_address}. "
             f"prune cache from records: dropped "
-            f"{len(resampled_records)-len(resampled_records_prune)} "
+            f"{len(resampled_records) - len(resampled_records_prune)} "
             f"records from resampled records."
         )
 
@@ -205,10 +206,18 @@ def run():
             bq_publish_handler.publish_async(bq_json_ln)
         bq_publish_handler.wait_for_publish()
 
-        # TODO: generate flight segments; publish flight segments to pubsub
-        # logger.info(
-        #    f"published N={103} flight segments to {env.SPIRE_FLIGHT_SEGMENTS_TOPIC_ID}"
-        # )
+        # ===================
+        # construct and publish flight segments from resampled records
+        # ===================
+
+        # note: we use the resampled_records that includes the 2 cached waypoints
+        #       this provides us with 1 segment that overlaps (is duplicated)
+        #       among consecutive, ordered runs of the resample-worker.
+        #       this one additional segment is necessary for CoCip to run.
+        #       CoCip does not, however, calculate value for this leading segment,
+        #       hence we will not have dupes in outputs from the CoCip trajectory worker.
+
+        segment_handler = SegmentHandler(resampled_records)  # noqa:F841
 
         # ===================
         # update cache

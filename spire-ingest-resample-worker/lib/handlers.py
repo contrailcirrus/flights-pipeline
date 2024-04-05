@@ -7,7 +7,6 @@ import math
 import threading
 from threading import Thread
 from concurrent import futures
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -21,6 +20,7 @@ from lib.schemas import (
     SpireWaypointsRecord,
     SpireWaypointPositional,
     SpireFlightInfo,
+    FlightSegment,
 )
 from lib.schemas import WaypointCache
 
@@ -53,7 +53,7 @@ class PubSubSubscriptionHandler:
         """
         self.subscription = subscription
         self._client = None
-        self._ack_id: Union[None, str] = None
+        self._ack_id: None | str = None
         self._kill_ack_manager = threading.Event()
         self._ack_manager = Thread(target=self._ack_management_worker, daemon=True)
         self._ack_manager.start()
@@ -642,3 +642,27 @@ class ResampleHandler:
         diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
         min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
         return cls.FLIGHT_LEVELS[min_ix]
+
+
+class SegmentHandler:
+    """
+    Handles generating flight segments from resampled waypoints.
+    Flight segments are consumed by a worker that applies the cocip model to flight segments.
+    """
+
+    def __init__(self, resampled_records: list[SpireWaypointPositional]):
+        """
+        Parameters
+        ----------
+        resampled_records
+            a list of waypoints, waypoints being contiguous in time
+            for any given group of icao_address values.
+            resampled records include the 2 previously cached waypoints,
+            as to allow for a sacrificial leading segment, as required by cocip.
+        """
+        self._resampled_records = resampled_records
+
+    @property
+    def segments(self) -> list[FlightSegment]:
+        # TODO
+        return []
