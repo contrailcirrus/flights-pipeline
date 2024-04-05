@@ -232,6 +232,10 @@ def run():
             ordering_key=validated_flight_info.icao_address,
         )
         trajectory_publish_handler.wait_for_publish()
+        logger.info(
+            f"published {len(resampled_records)} records to trajectory chunk queue "
+            f"for icao_address {validated_flight_info.icao_address}."
+        )
 
         # ===================
         # update cache
