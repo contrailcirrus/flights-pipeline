@@ -12,7 +12,7 @@ from lib.handlers import (
     PubSubSubscriptionHandler,
     ResampleHandler,
     ValidationHandler,
-    SegmentHandler,
+    TrajectoryHandler,
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
@@ -207,7 +207,7 @@ def run():
         bq_publish_handler.wait_for_publish()
 
         # ===================
-        # construct and publish flight segments from resampled records
+        # construct and publish flight trajectory chunks from resampled records
         # ===================
 
         # note: we use the resampled_records that includes the 2 cached waypoints
@@ -217,7 +217,7 @@ def run():
         #       CoCip does not, however, calculate value for this leading segment,
         #       hence we will not have dupes in outputs from the CoCip trajectory worker.
 
-        segment_handler = SegmentHandler(resampled_records)  # noqa:F841
+        trajectory_handler = TrajectoryHandler(resampled_records)  # noqa:F841
 
         # ===================
         # update cache

@@ -299,13 +299,3 @@ class WaypointCache:
             )
 
         return WaypointCache(key=key, waypoints=tuple(waypoints))
-
-
-@dataclass
-class FlightSegment:
-    """
-    An object representing a temporal contiguous set of waypoints (1min interval)
-    for a given flight instance.
-    """
-
-    # TODO

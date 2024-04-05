@@ -20,7 +20,6 @@ from lib.schemas import (
     SpireWaypointsRecord,
     SpireWaypointPositional,
     SpireFlightInfo,
-    FlightSegment,
 )
 from lib.schemas import WaypointCache
 
@@ -644,10 +643,15 @@ class ResampleHandler:
         return cls.FLIGHT_LEVELS[min_ix]
 
 
-class SegmentHandler:
+class TrajectoryHandler:
     """
-    Handles generating flight segments from resampled waypoints.
-    Flight segments are consumed by a worker that applies the cocip model to flight segments.
+    Handles generating flight trajectory chunks from resampled waypoints.
+    "flight trajectory chunk" means sequence of temporally contiguous flight segments (1min sample).
+    It is a "chunk" because it is not a complete start-end flight trajectory;
+    it is a chunk of that full trajectory, spanning the time period handled by an iteration of the
+    resample worker.
+
+    Flight trajectory chunks are consumed by a worker that applies the cocip model to trajectory.
     """
 
     def __init__(self, resampled_records: list[SpireWaypointPositional]):
@@ -663,6 +667,6 @@ class SegmentHandler:
         self._resampled_records = resampled_records
 
     @property
-    def segments(self) -> list[FlightSegment]:
+    def segments(self) -> list[SpireWaypointsRecord]:
         # TODO
         return []
