@@ -12,7 +12,6 @@ from lib.handlers import (
     PubSubSubscriptionHandler,
     ResampleHandler,
     ValidationHandler,
-    TrajectoryHandler,
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
@@ -42,7 +41,10 @@ def run():
         env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
     )
     bq_publish_handler = PubSubPublishHandler(env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID)
-
+    trajectory_publish_handler = PubSubPublishHandler(
+        env.TRAJECTORY_CHUNK_TOPIC_ID,
+        ordered_queue=True,
+    )
     with PubSubSubscriptionHandler(
         env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
     ) as job_handler:
@@ -210,14 +212,26 @@ def run():
         # construct and publish flight trajectory chunks from resampled records
         # ===================
 
-        # note: we use the resampled_records that includes the 2 cached waypoints
-        #       this provides us with 1 segment that overlaps (is duplicated)
-        #       among consecutive, ordered runs of the resample-worker.
-        #       this one additional segment is necessary for CoCip to run.
-        #       CoCip does not, however, calculate value for this leading segment,
-        #       hence we will not have dupes in outputs from the CoCip trajectory worker.
-
-        trajectory_handler = TrajectoryHandler(resampled_records)  # noqa:F841
+        #     "flight trajectory chunk" means sequence of temporally contiguous
+        #     flight segments (1min sample).
+        #     It is a "chunk" because it is not a complete start-end flight trajectory;
+        #     it is a chunk of that full trajectory, spanning the time period
+        #     handled by an iteration of the resample worker.
+        #     we use the resampled_records that includes the 2 cached waypoints
+        #     this provides us with 1 segment that overlaps (is duplicated)
+        #     among consecutive, ordered runs of the resample-worker.
+        #     this one additional segment is necessary for CoCip to run.
+        #     CoCip does not, however, calculate value for this leading segment,
+        #     hence we will not have dupes in outputs from the CoCip trajectory worker.
+        trajectory_chunk = SpireWaypointsRecord(
+            flight_info=validated_flight_info,
+            records=resampled_records,
+        )
+        trajectory_publish_handler.publish_async(
+            trajectory_chunk.as_utf8_json(),
+            ordering_key=validated_flight_info.icao_address,
+        )
+        trajectory_publish_handler.wait_for_publish()
 
         # ===================
         # update cache

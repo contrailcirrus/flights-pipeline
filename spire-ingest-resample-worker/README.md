@@ -33,15 +33,15 @@ from the contiguous 1Min waypoints.
 ## Environment Variables
 The following environment variables are expected for production and development environments.
 
-| name                                    |                               description                                |
-|:----------------------------------------|:------------------------------------------------------------------------:|
-| SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID  |     fully-qualified uri for the waypoints record pubsub subscription     |
-| SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID       |        fully-qualified uri for the pubsub topic that writes to BQ        |
-| SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID   | fully-qualified uri for the pubsub topic that writes raw waypoints to BQ |
-| SPIRE_FLIGHT_SEGMENTS_TOPIC_ID          |         fully-qualified uri for the flights segment pubsub topic         |
-| REDIS_HOST                              |                    ipv4 address of the redis instance                    |
-| REDIS_PORT                              |                       port for the redis instance                        |
-| LOG_LEVEL                               |                log level for service in cloud environment                |**
+| name                                   |                               description                                |
+|:---------------------------------------|:------------------------------------------------------------------------:|
+| SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID |     fully-qualified uri for the waypoints record pubsub subscription     |
+| SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID      |        fully-qualified uri for the pubsub topic that writes to BQ        |
+| SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID  | fully-qualified uri for the pubsub topic that writes raw waypoints to BQ |
+| TRAJECTORY_CHUNK_TOPIC_ID              |    fully-qualified uri for the flights trajectory chunks pubsub topic    |
+| REDIS_HOST                             |                    ipv4 address of the redis instance                    |
+| REDIS_PORT                             |                       port for the redis instance                        |
+| LOG_LEVEL                              |                log level for service in cloud environment                |**
 
 ### Prerequisites
 

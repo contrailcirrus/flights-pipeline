@@ -178,3 +178,54 @@ resource "google_pubsub_subscription" "spire_ingest_raw_bigquery_dead_letter_dev
     google_pubsub_topic.spire_ingest_raw_bigquery_dead_letter_dev,
   ]
 }
+
+resource "google_pubsub_topic" "trajectory_chunk_egress_dev" {
+  name = "trajectory-chunk-egress-dev"
+}
+
+resource "google_pubsub_subscription" "trajectory_chunk_ingress_dev" {
+  name  = "trajectory-chunk-ingress-dev"
+  topic = google_pubsub_topic.trajectory_chunk_egress_dev.id
+
+  ack_deadline_seconds         = 600
+  enable_message_ordering      = true
+  enable_exactly_once_delivery = true
+  message_retention_duration = "86400s"  # 1 day
+
+  retry_policy {
+    minimum_backoff = "1s"
+    maximum_backoff = "4s"
+  }
+
+  dead_letter_policy {
+    max_delivery_attempts = 2
+    dead_letter_topic = google_pubsub_topic.trajectory_chunk_dead_letter_dev.id
+  }
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.trajectory_chunk_egress_dev,
+    google_pubsub_topic.trajectory_chunk_dead_letter_dev,
+  ]
+}
+
+resource "google_pubsub_topic" "trajectory_chunk_dead_letter_dev" {
+  name = "trajectory-chunk-dead-letter-dev"
+}
+
+resource "google_pubsub_subscription" "trajectory_chunk_dead_letter_dev" {
+  name  = "trajectory_chunk-dead-letter-dev"
+  topic = google_pubsub_topic.trajectory_chunk_dead_letter_dev.id
+  message_retention_duration = "86400s"  # 1 day
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.trajectory_chunk_dead_letter_dev,
+  ]
+}

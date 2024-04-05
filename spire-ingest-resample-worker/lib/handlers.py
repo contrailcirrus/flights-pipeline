@@ -641,32 +641,3 @@ class ResampleHandler:
         diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
         min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
         return cls.FLIGHT_LEVELS[min_ix]
-
-
-class TrajectoryHandler:
-    """
-    Handles generating flight trajectory chunks from resampled waypoints.
-    "flight trajectory chunk" means sequence of temporally contiguous flight segments (1min sample).
-    It is a "chunk" because it is not a complete start-end flight trajectory;
-    it is a chunk of that full trajectory, spanning the time period handled by an iteration of the
-    resample worker.
-
-    Flight trajectory chunks are consumed by a worker that applies the cocip model to trajectory.
-    """
-
-    def __init__(self, resampled_records: list[SpireWaypointPositional]):
-        """
-        Parameters
-        ----------
-        resampled_records
-            a list of waypoints, waypoints being contiguous in time
-            for any given group of icao_address values.
-            resampled records include the 2 previously cached waypoints,
-            as to allow for a sacrificial leading segment, as required by cocip.
-        """
-        self._resampled_records = resampled_records
-
-    @property
-    def segments(self) -> list[SpireWaypointsRecord]:
-        # TODO
-        return []
