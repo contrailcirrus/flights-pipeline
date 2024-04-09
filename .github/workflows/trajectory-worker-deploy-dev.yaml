@@ -1,12 +1,12 @@
-name: spire-ingest-resample-worker-deploy-dev
+name: trajectory-worker-deploy-dev
 
 on:
   push:
     branches:
       - develop
     paths:
-      - spire-ingest-resample-worker/**
-      - .github/workflows/spire-ingest-resample-worker-deploy-dev.yaml
+      - trajectory-worker/**
+      - .github/workflows/trajectory-worker-deploy-dev.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -45,23 +45,18 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: spire-ingest-resample-worker/
+          context: trajectory-worker/
           push: true
           tags: |
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:${{ github.sha }}
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:latest
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-dev:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-dev:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Deploy helm resources
-        working-directory: spire-ingest-resample-worker/helm
+        working-directory: trajectory-worker/helm
         run: make deploy
         env:
           NAMESPACE: flights-pipeline-dev
-          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:${{ github.sha }}
-          SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/spire-ingest-resample-worker-ingress-dev
-          SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/spire-ingest-raw-bigquery-dev
-          SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/spire-ingest-resample-worker-bigquery-dev
-          TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/trajectory-chunk-dev
-          REDIS_HOST: 10.151.213.124
-          REDIS_PORT: 6379
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-dev:${{ github.sha }}
+          TRAJECTORY_CHUNK_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/trajectory-chunk-ingress-dev
