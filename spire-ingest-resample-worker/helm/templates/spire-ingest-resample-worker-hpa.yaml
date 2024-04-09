@@ -8,11 +8,15 @@ spec:
     kind: Deployment
     name: spire-ingest-resample-worker
   minReplicas: 1
-  maxReplicas: 5
+  maxReplicas: 50
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 50
+   - external:
+       metric:
+        name: pubsub.googleapis.com|subscription|num_undelivered_messages
+        selector:
+          matchLabels:
+            resource.labels.subscription_id: {{ .Values.spireIngestWaypointsSubscriptionId | required ".Values.spireIngestWaypointsSubscriptionId is required" | quote }}
+       target:
+         type: AverageValue
+         averageValue: 100
+     type: External
