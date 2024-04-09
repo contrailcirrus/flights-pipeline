@@ -41,6 +41,10 @@ def run():
         env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
     )
     bq_publish_handler = PubSubPublishHandler(env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID)
+    trajectory_publish_handler = PubSubPublishHandler(
+        env.TRAJECTORY_CHUNK_TOPIC_ID,
+        ordered_queue=True,
+    )
 
     with PubSubSubscriptionHandler(
         env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
@@ -96,9 +100,9 @@ def run():
         # validate records
         # ===================
         validation_handler = ValidationHandler(cached, job)
-        validated_cache: list[SpireWaypointPositional] = (
-            validation_handler.cached_records
-        )
+        validated_cache: list[
+            SpireWaypointPositional
+        ] = validation_handler.cached_records
         validated_records: list[SpireWaypointPositional] = validation_handler.records
         validated_flight_info: SpireFlightInfo | None = validation_handler.flight_info
         validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
@@ -163,9 +167,9 @@ def run():
                 )
             transform_handler = ResampleHandler(validated_cache, validated_records)
             transform_handler.interpolate()
-            resampled_records: list[SpireWaypointPositional] = (
-                transform_handler.waypoints_resampled
-            )
+            resampled_records: list[
+                SpireWaypointPositional
+            ] = transform_handler.waypoints_resampled
         except Exception:
             logger.error(
                 f"failed to interpolate."
@@ -205,10 +209,15 @@ def run():
             bq_publish_handler.publish_async(bq_json_ln)
         bq_publish_handler.wait_for_publish()
 
-        # TODO: generate flight segments; publish flight segments to pubsub
-        # logger.info(
-        #    f"published N={103} flight segments to {env.SPIRE_FLIGHT_SEGMENTS_TOPIC_ID}"
-        # )
+        # ===================
+        # trajectory worker: publish resampled records as trajectory chunk to pubsub
+        # ===================
+        trajectory_chunk = SpireWaypointsRecord(
+            flight_info=validated_flight_info,
+            records=resampled_records,
+        )
+        trajectory_publish_handler.publish_async(trajectory_chunk.as_utf8_json())
+        trajectory_publish_handler.wait_for_publish()
 
         # ===================
         # update cache
