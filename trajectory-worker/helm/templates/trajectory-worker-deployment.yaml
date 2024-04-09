@@ -24,7 +24,9 @@ spec:
         image: {{ .Values.image | required ".Values.image is required" | quote }}
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
-            value: {{ .Values.TrajectoryChunkSubscriptionId | required ".Values.TrajectoryChunkSubscriptionId is required" | quote }}
+            value: {{ .Values.trajectoryChunkSubscriptionId | required ".Values.trajectoryChunkSubscriptionId is required" | quote }}
+          - name: HRES_SOURCE_PATH
+            value: {{ .Values.hresSourcePath | required ".Values.hresSourcePath is required" | quote }}
           - name: LOG_LEVEL
             value: INFO
         resources:
