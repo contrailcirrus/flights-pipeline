@@ -2,8 +2,6 @@ import concurrent.futures
 
 from google.cloud import pubsub_v1  # type: ignore
 
-from lib.log import logger
-
 
 def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
     """Re-raise any exceptions raised by the future's execution thread.
