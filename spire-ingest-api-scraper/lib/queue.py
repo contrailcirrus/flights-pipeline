@@ -2,6 +2,8 @@ import concurrent.futures
 
 from google.cloud import pubsub_v1  # type: ignore
 
+from lib.log import logger
+
 
 def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
     """Re-raise any exceptions raised by the future's execution thread.
@@ -22,6 +24,13 @@ class QueueClient:
         # publish error. Retries are managed separately for each ordering key.
         # See: https://cloud.google.com/pubsub/docs/retry-requests
         self._publisher = pubsub_v1.PublisherClient(
+            # Batch settings increase payload size to execute fewer, larger requests.
+            # See: https://cloud.google.com/pubsub/docs/batch-messaging
+            batch_settings=pubsub_v1.types.BatchSettings(
+                max_messages=1000,
+                max_bytes=10 * 1000 * 1000,  # 10 MB max server-side request size
+                max_latency=0.01,  # 10 ms, equivalent to default
+            ),
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=ordered_queue,
                 # Flow control applies rate limits by blocking any time the staged data
@@ -29,7 +38,7 @@ class QueueClient:
                 # PubSub, additional publish calls are unblocked.
                 # See: https://cloud.google.com/pubsub/docs/flow-control-messages
                 flow_control=pubsub_v1.types.PublishFlowControl(
-                    message_limit=10000,
+                    message_limit=10 * 1000,
                     byte_limit=1024 * 1024 * 1024,  # 1 GiB
                     limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
                 ),
@@ -63,7 +72,7 @@ class QueueClient:
         future.add_done_callback(_raise_exception_if_failed)
         self._publish_futures.append(future)
 
-    def wait_for_publish(self, timeout: float | None = None) -> None:
+    def wait_for_publish(self, timeout: float) -> None:
         """Block until all current publish batches are received by server.
 
         Raises
@@ -71,5 +80,18 @@ class QueueClient:
         concurrent.futures.TimeoutError: server did not respond
         Exception: will re-raise exceptions raised by the batch execution threads
         """
-        concurrent.futures.wait(self._publish_futures, timeout=timeout)
+        # concurrent.futures.wait(self._publish_futures, timeout=timeout)
+
+        count = 0
+        total_count = len(self._publish_futures)
+        for future in concurrent.futures.as_completed(
+            self._publish_futures,
+            timeout=timeout,
+        ):
+            result = future.result()
+            logger.info(
+                f"Publish future {count}/{total_count} completed. Result: %s", result
+            )
+            count += 1
+
         self._publish_futures = []
