@@ -84,7 +84,7 @@ def main(
             sys.exit(0)
 
         time_start = time.time()
-        logger.debug(
+        logger.info(
             f"Fetching: [{batch_start_at.isoformat()}, {batch_end_at.isoformat()})"
         )
         spire_df, tardy_df = spire_client.get_data_between(batch_start_at, batch_end_at)
@@ -208,7 +208,7 @@ def main(
 
         time_end = time.time()
         elapsed_seconds = time_end - time_start
-        logger.info(f"Completed job after {elapsed_seconds} s")
+        logger.info(f"Completed job after {elapsed_seconds:.1f} s")
 
 
 if __name__ == "__main__":
