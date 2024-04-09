@@ -3,6 +3,7 @@ Entrypoint for spire-ingest-api-scraper CronJob.
 """
 
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -82,6 +83,7 @@ def main(
         if sigterm_handler.should_exit:
             sys.exit(0)
 
+        time_start = time.time()
         logger.debug(
             f"Fetching: [{batch_start_at.isoformat()}, {batch_end_at.isoformat()})"
         )
@@ -203,6 +205,10 @@ def main(
 
         state_client.set_last_sync_end_at(batch_end_at)
         last_sync_end_at = batch_end_at
+
+        time_end = time.time()
+        elapsed_seconds = time_end - time_start
+        logger.info(f"Completed job after {elapsed_seconds} s")
 
 
 if __name__ == "__main__":

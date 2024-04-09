@@ -38,7 +38,7 @@ class QueueClient:
                 # PubSub, additional publish calls are unblocked.
                 # See: https://cloud.google.com/pubsub/docs/flow-control-messages
                 flow_control=pubsub_v1.types.PublishFlowControl(
-                    message_limit=10 * 1000,
+                    message_limit=100 * 1000,
                     byte_limit=1024 * 1024 * 1024,  # 1 GiB
                     limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
                 ),
@@ -80,18 +80,5 @@ class QueueClient:
         concurrent.futures.TimeoutError: server did not respond
         Exception: will re-raise exceptions raised by the batch execution threads
         """
-        # concurrent.futures.wait(self._publish_futures, timeout=timeout)
-
-        count = 0
-        total_count = len(self._publish_futures)
-        for future in concurrent.futures.as_completed(
-            self._publish_futures,
-            timeout=timeout,
-        ):
-            result = future.result()
-            count += 1
-            logger.info(
-                f"Publish future {count}/{total_count} completed. Result: %s", result
-            )
-
+        concurrent.futures.wait(self._publish_futures, timeout=timeout)
         self._publish_futures = []
