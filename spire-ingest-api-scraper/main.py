@@ -82,7 +82,9 @@ def main(
         if sigterm_handler.should_exit:
             sys.exit(0)
 
-        logger.debug(f"Fetching: [{start_at.isoformat()}, {end_at.isoformat()})")
+        logger.debug(
+            f"Fetching: [{batch_start_at.isoformat()}, {batch_end_at.isoformat()})"
+        )
         spire_df, tardy_df = spire_client.get_data_between(batch_start_at, batch_end_at)
         logger.info(
             f"Fetched {len(spire_df)} target records, and {len(tardy_df)} tardy records."

@@ -89,9 +89,9 @@ class QueueClient:
             timeout=timeout,
         ):
             result = future.result()
+            count += 1
             logger.info(
                 f"Publish future {count}/{total_count} completed. Result: %s", result
             )
-            count += 1
 
         self._publish_futures = []
