@@ -3,7 +3,7 @@ deploy: --check-env
 	helm upgrade --install spire-ingest-resample-worker . \
 		--namespace=$(NAMESPACE) \
 		--set image=$(IMAGE) \
-		--set trajectoryChunkSubscriptionId=$(TRAJECTORY_CHUNK_SUBSCRIPTION_ID)
+		--set trajectoryChunkSubscriptionId=$(TRAJECTORY_CHUNK_SUBSCRIPTION_ID) \
 		--set hresSourcePath=$(HRES_SOURCE_PATH)
 
 .PHONY: --check-env
