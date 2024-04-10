@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trajectory-worker
+  labels:
+    app: trajectory-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trajectory-worker
+  template:
+    metadata:
+      labels:
+        app: trajectory-worker
+    spec:
+      serviceAccountName: flights-pipeline-default-sa
+      # terminationGracePeriodSeconds should be greater than the time to
+      # perform a single job iteration. When a SIGTERM is received, the job
+      # has this much time to gracefully exit before being killed.
+      terminationGracePeriodSeconds: 600
+      containers:
+      - name: trajectory-worker
+        image: {{ .Values.image | required ".Values.image is required" | quote }}
+        env:
+          - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
+            value: {{ .Values.trajectoryChunkSubscriptionId | required ".Values.trajectoryChunkSubscriptionId is required" | quote }}
+          - name: HRES_SOURCE_PATH
+            value: {{ .Values.hresSourcePath | required ".Values.hresSourcePath is required" | quote }}
+          - name: LOG_LEVEL
+            value: INFO
+        resources:
+          limits:
+            cpu: "0.1"
+            memory: "140Mi"
+          requests:
+            cpu: "0.1"
+            memory: "140Mi"

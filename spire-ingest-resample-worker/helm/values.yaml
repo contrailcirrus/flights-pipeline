@@ -5,8 +5,8 @@ image:
 spireIngestWaypointsSubscriptionId:
 # spireWaypointsBigQueryTopicId is the fully-qualifed uri for the pubsub topic that writes to BQ
 spireWaypointsBigQueryTopicId:
-# SpireFlightSegmentsTopicId is the fully-qualifed uri for the flights segment pubsub topic
-SpireFlightSegmentsTopicId:
+
+trajectoryChunkTopicId:
 
 # redisHost is the ipv4 address of the redis instance
 redisHost:
