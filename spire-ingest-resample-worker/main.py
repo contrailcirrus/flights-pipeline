@@ -216,7 +216,12 @@ def run():
             flight_info=validated_flight_info,
             records=resampled_records,
         )
-        trajectory_publish_handler.publish_async(trajectory_chunk.as_utf8_json())
+        trajectory_publish_handler.publish_async(
+            trajectory_chunk.as_utf8_json(),
+            ordering_key=cache_key_fmt.format(
+                icao_address=validated_flight_info.icao_address,
+            ),
+        )
         trajectory_publish_handler.wait_for_publish()
 
         # ===================
