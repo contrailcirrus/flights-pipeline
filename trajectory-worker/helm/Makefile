@@ -1,6 +1,6 @@
 .PHONY: deploy
 deploy: --check-env
-	helm upgrade --install spire-ingest-resample-worker . \
+	helm upgrade --install trajectory-worker-deployment . \
 		--namespace=$(NAMESPACE) \
 		--set image=$(IMAGE) \
 		--set trajectoryChunkSubscriptionId=$(TRAJECTORY_CHUNK_SUBSCRIPTION_ID) \
