@@ -46,6 +46,7 @@ def run():
 
         # gs://contrails-301217-ecmwf-hres-forecast-v2-short-term
         zarr_store = env.HRES_SOURCE_PATH  # noqa:F841
+        aircraft_class = "default"  # noqa:F841
         # job.records is the flight waypoints defining the trajectory chunk
         # job.flight_info is the flight time-invariant data (e.g. flight_info.aircraft type)
 
