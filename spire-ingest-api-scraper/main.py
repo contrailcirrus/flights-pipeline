@@ -3,6 +3,7 @@ Entrypoint for spire-ingest-api-scraper CronJob.
 """
 
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -82,7 +83,10 @@ def main(
         if sigterm_handler.should_exit:
             sys.exit(0)
 
-        logger.debug(f"Fetching: [{start_at.isoformat()}, {end_at.isoformat()})")
+        time_start = time.time()
+        logger.info(
+            f"Fetching: [{batch_start_at.isoformat()}, {batch_end_at.isoformat()})"
+        )
         spire_df, tardy_df = spire_client.get_data_between(batch_start_at, batch_end_at)
         logger.info(
             f"Fetched {len(spire_df)} target records, and {len(tardy_df)} tardy records."
@@ -195,12 +199,16 @@ def main(
             ordering_key = f"api-scraper:{icao_address}"
             egress_queue_client.publish_async(data, ordering_key)
 
-        bq_queue_client.wait_for_publish()
-        egress_queue_client.wait_for_publish()
+        bq_queue_client.wait_for_publish(30)
+        egress_queue_client.wait_for_publish(30)
         logger.info(f"Published records successfully: {len(spire_df)}")
 
         state_client.set_last_sync_end_at(batch_end_at)
         last_sync_end_at = batch_end_at
+
+        time_end = time.time()
+        elapsed_seconds = time_end - time_start
+        logger.info(f"Completed job after {elapsed_seconds:.1f} s")
 
 
 if __name__ == "__main__":
