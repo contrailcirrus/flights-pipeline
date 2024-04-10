@@ -5,7 +5,7 @@ metadata:
   labels:
     app: spire-ingest-resample-worker
 spec:
-  replicas: 1
+  replicas: 10
   selector:
     matchLabels:
       app: spire-ingest-resample-worker
