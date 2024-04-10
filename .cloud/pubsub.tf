@@ -197,7 +197,7 @@ resource "google_pubsub_subscription" "trajectory_chunk_ingress_dev" {
   message_retention_duration = "302400s"  # 3.5 day
 
   dead_letter_policy {
-    max_delivery_attempts = 2
+    max_delivery_attempts = 5
     dead_letter_topic = google_pubsub_topic.trajectory_chunk_dead_letter_dev.id
   }
 
