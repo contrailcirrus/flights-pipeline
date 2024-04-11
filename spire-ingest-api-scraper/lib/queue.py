@@ -25,9 +25,9 @@ class QueueClient:
             # Batch settings increase payload size to execute fewer, larger requests.
             # See: https://cloud.google.com/pubsub/docs/batch-messaging
             batch_settings=pubsub_v1.types.BatchSettings(
-                max_messages=1000,
-                max_bytes=10 * 1000 * 1000,  # 10 MB max server-side request size
-                max_latency=0.01,  # 10 ms, equivalent to default
+                max_messages=5000,
+                max_bytes=20 * 1000 * 1000,  # 10 MB max server-side request size
+                max_latency=1,  # default: 10 ms
             ),
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=ordered_queue,
