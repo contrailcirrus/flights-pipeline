@@ -123,7 +123,7 @@ class SpireWaypointsRecord:
         swp = SpireWaypointPositional(
             ingestion_time=None,
             latitude=wp["latitude"],
-            longitude=wp["latitude"],
+            longitude=wp["longitude"],
             collection_type=None,
             altitude_baro=wp["altitude_ft"],
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
