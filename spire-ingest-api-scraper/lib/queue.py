@@ -1,4 +1,7 @@
 import concurrent.futures
+from concurrent.futures import TimeoutError, CancelledError
+
+from lib.log import logger
 
 from google.cloud import pubsub_v1  # type: ignore
 
@@ -10,7 +13,17 @@ def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
     has already completed using:
         future.add_done_callback(_raise_exception_if_failed)
     """
-    future.result()
+    try:
+        future.result(timeout=10)
+    except TimeoutError:
+        logger.error("timeout. failed to publish blob.")
+        # TODO: raise this to our main application, and exit (are we stuck in a forever retry?)
+    except CancelledError:
+        logger.error("publish future cancelled. failed to publish blob.")
+        # TODO: raise ...
+    except Exception:
+        logger.error("publish future failed.")
+        # TODO: ...
 
 
 class QueueClient:

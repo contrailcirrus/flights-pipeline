@@ -9,7 +9,7 @@ spec:
 
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 3600
+      activeDeadlineSeconds: 900
       backoffLimit: 1
       template:
         spec:
@@ -44,10 +44,10 @@ spec:
                   value: DEBUG
               resources:
                 requests:
-                  cpu: "1"
-                  memory: "15Gi"
+                  cpu: "3"  # 1:4 ratio for Scale-Out enforced
+                  memory: "12Gi"
                   ephemeral-storage: "1Gi"
                 limits:
-                  cpu: "1"
-                  memory: "15Gi"
+                  cpu: "3"
+                  memory: "12Gi"
                   ephemeral-storage: "1Gi"
