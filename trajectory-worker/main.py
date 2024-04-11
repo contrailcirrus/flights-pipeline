@@ -33,9 +33,24 @@ STATIC_PARAMS = dict(
     interpolation_bounds_error=False,
     filter_sac=True,
     copy_source=True,
-    met_level_buffer=(20, 20),
+    met_longitude_buffer=(10., 10.), # default; potential perf gains fomr reducing
+    met_latitude_buffer=(10., 10.),  # default; potential perf gains from reducing
+    met_level_buffer=(20, 20),       # reduced to same buffer used in api preprocessor
     max_age=np.timedelta64(1, "h")
 )
+
+MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
+
+
+class UnsupportedAircraftTypeException(Exception):
+    """Raised if the aircraft type is not supported by the selected performance model."""
+    pass
+
+
+class FlightSegmentAltitudeException(Exception):
+    """Raised if the entire flight segment is too low to intersect met data."""
+    pass
+
 
 def _perf_lookup(job: SpireWaypointsRecord) -> tuple[AircraftPerformance, str]:
     """
@@ -50,20 +65,45 @@ def _perf_lookup(job: SpireWaypointsRecord) -> tuple[AircraftPerformance, str]:
     will be represented by a str engine_uid, and the type hint in the
     function signature will match the actual return type.
     """
-    performance_model = PSFlight()
+    return PSFlight(), None
 
+
+def _check_perf(job: SpireWaypointsRecord, performance_model: AircraftPerformance) -> None:
+    """Check if the the segment aircraft type is supported by the selected performance model.
+
+    Raises UnsupportedAircraftTypeException if it is not.
+    """
     # checking if an aircraft type is supported is not a method of
     # the abstract `AircraftPerformance` class, so have to check by subtype
     if isinstance(performance_model, PSFlight):
-        performance_model.check_aircraft_type_availability(
+        if not performance_model.check_aircraft_type_availability(
             job.flight_info.aircraft_type_icao,
-            raise_error=True
-        )
+            raise_error=False
+        ):
+            msg = (
+                f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}, "
+                f"performance model: {type(performance_model)}"
+            )
+            raise UnsupportedAircraftTypeException(msg)
     else:
         raise ValueError(f"Unexpected performance model {type(performance_model)}")
 
-    engine_uid = None  # TODO: replace with str from static lookup
-    return performance_model, engine_uid
+
+def _check_altitude(job: SpireWaypointsRecord) -> None:
+    """Check if the maximum segment altitude is high enough for intersection with met data.
+
+    To avoid opening met data before short-circuiting, this check relies on a hard-coded value
+    for the minimum altitude included in met data.
+
+    Raises FlightSegmentAltitudeException if the entire flight segment is below the minimum
+    altitude included in met data.
+    """
+    if (max_altitude := max(w.altitude_baro for w in job.records)) < MET_MIN_ALTITUDE_FT:
+        msg = (
+            f"maximum segment altitude (ft): {max_altitude}, "
+            f"minimum met altitude (ft): {MET_MIN_ALTITUDE_FT}."
+        )
+        raise FlightSegmentAltitudeException(msg)
 
 
 def _open_met_rad(job: SpireWaypointsRecord, zarr_store: str) -> tuple[MetDataset, MetDataset]:
@@ -75,30 +115,33 @@ def _open_met_rad(job: SpireWaypointsRecord, zarr_store: str) -> tuple[MetDatase
     waypoint to provide a buffer for differencing accumulated radiative fluxes.
 
     Checks that the selected forecast extends long enough into the future to
-    cover the entire simulation (requires half an hour beyond latest waypoint)
+    cover the entire simulation (requires half an hour beyond latest waypoint + max age)
     and raises an exception if it does not.
 
     Logic currently assumes that the zarr store will include a forecast 
     initialized every 6h (0z, 6z, 12z, 18z each day).
     """
-    earliest = job.records[0].timestamp  # is jobs.records guaranteed to be sorted by time?
-    forecast_time = (pd.Timestamp(earliest) - pd.Timedelta(30, "m")).floor("6h")
+    earliest = pd.Timestamp(job.records[0].timestamp)  # is jobs.records guaranteed to be sorted by time?
+    forecast_time = (earliest - pd.Timedelta(30, "m")).floor("6h")
     forecast_path = f"{zarr_store}/{forecast_time.strftime('%Y%m%d%H')}"
 
     pl = xr.open_zarr(f"{forecast_path}/pl.zarr")
     met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
-
-    breakpoint()
-
     variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
     met.standardize_variables(variables)
     
     sl = xr.open_zarr(f"{forecast_path}/sl.zarr")
     rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
     variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables)
-    met.standardize_variables(variables)
+    rad.standardize_variables(variables)
 
-    breakpoint()
+    latest = pd.Timestamp(job.records[-1].timestamp)
+    latest_possible = pd.Timestamp(
+        rad.data["time"].max().item(),  # rad will be limiting because of required buffer
+        tz="UTC"
+    ) - pd.Timedelta(30, "min") - STATIC_PARAMS["max_age"]
+    if latest_possible < latest:
+        raise ValueError("Latest waypoint is after latest possible prediction time")
 
     return met, rad
 
@@ -109,10 +152,10 @@ def _create_flight(job: SpireWaypointsRecord, engine_uid: str) -> Flight:
     Aircraft and engine type are associated with the flight here.
     """
     return Flight(
-        longtiude=[w.longitude for w in job.records],
+        longitude=[w.longitude for w in job.records],
         latitude=[w.latitude for w in job.records],
-        altitude=[w.altitude for w in job.records],
-        time=[w.time for w in job.records],
+        altitude_ft=[w.altitude_baro for w in job.records],
+        time=[w.timestamp for w in job.records],
         attrs=dict(
             flight_id=job.flight_info.flight_id,
             aircraft_type=job.flight_info.aircraft_type_icao,
@@ -162,24 +205,29 @@ def run():
         # ===================
         # apply CoCip Trajectory model
         # ===================
-
-        # gs://contrails-301217-ecmwf-hres-forecast-v2-short-term
-        zarr_store = env.HRES_SOURCE_PATH  # noqa:F841
+        
+        # skip immediately if segment is too low to intersect met data
+        _check_altitude(job)
 
         # look up performance model and engine uid to use with job's aircraft type
-        # will raise an exception if aircraft type isn't supported by selected
+        # skip if performance model does not support aircraft type
         performance_model, engine_uid = _perf_lookup(job)
+        _check_perf(job, performance_model)
         
         # set up and run CoCiP
+        # gs://contrails-301217-ecmwf-hres-forecast-v2-short-term
+        zarr_store = env.HRES_SOURCE_PATH  # noqa:F841
         met, rad = _open_met_rad(job, zarr_store)
         flight = _create_flight(job, engine_uid)
         model = _create_cocip_model(met, rad, performance_model)
         result = model.eval(flight)
 
-        breakpoint()
-
         # list of len(job.records) - 2; one cocip ef [J/segment] value
-        cocip_output: list[float]  # noqa:F842
+        sl = slice(1, -1)  # assuming we want to drop the first segment?
+        cocip_output = result["ef"][sl]/result["segment_length"][sl]
+        logger.info(
+            f"Calculated segment energy forcings (J/m) of {cocip_output}"
+        )
 
         time.sleep(500)
         job_handler.ack()
