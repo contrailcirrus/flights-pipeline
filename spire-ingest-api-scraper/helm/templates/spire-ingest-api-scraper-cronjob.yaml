@@ -13,6 +13,8 @@ spec:
       backoffLimit: 1
       template:
         spec:
+          nodeSelector:
+            cloud.google.com/compute-class: "Scale-Out"
           restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
           # terminationGracePeriodSeconds should be greater than the time to
