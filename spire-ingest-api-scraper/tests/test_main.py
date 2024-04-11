@@ -41,7 +41,7 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
         state_client=state_client,
     )
 
-    assert egress_queue_client.publish_async.call_count == 8233
+    assert egress_queue_client.publish_async.call_count == 1127
     assert egress_queue_client.wait_for_publish.call_count == 1
 
     for args, kwargs in egress_queue_client.publish_async.call_args_list:

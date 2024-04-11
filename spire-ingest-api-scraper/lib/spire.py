@@ -100,9 +100,10 @@ class SpireAPIClient:
             )
 
         # Decompose job into multiple windows that can be fetched concurrently.
-        window_size = timedelta(minutes=5)
+        concurrency = 10
+        window_size = (end_at_plus_lag - start_at) // concurrency
         windows = utils.time_windows(start_at, end_at_plus_lag, window_size)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(concurrency) as executor:
             results = executor.map(
                 lambda window: self._fetch_target_records_with_retry(*window),
                 windows,
@@ -198,6 +199,10 @@ class SpireAPIClient:
             if response.status_code == 200:
                 break
 
+            logger.warning(
+                "Spire request failed with error "
+                f"{response.status_code}: {response.text}"
+            )
             can_retry = retry_count < max_retry_count
             if can_retry:
                 time.sleep(backoff_seconds)
