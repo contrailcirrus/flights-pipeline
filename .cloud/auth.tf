@@ -23,6 +23,8 @@ resource "google_project_iam_custom_role" "flights_pipeline_role" {
     "pubsub.subscriptions.consume",
     "pubsub.topics.attachSubscription",
     "pubsub.topics.publish",
+    "storage.objects.list",
+    "storage.objects.get",
   ]
   project = "contrails-301217"
   role_id = "flights_pipeline"
