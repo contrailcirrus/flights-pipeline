@@ -145,7 +145,12 @@ def main(
                 ],
             )
             for raw_bq_json_ln in dto.to_bq_flatmap():
-                bq_queue_client.publish_async(raw_bq_json_ln)
+                bq_queue_client.publish_async(
+                    raw_bq_json_ln,
+                    client_name="bq_queue_client",
+                    icao_address=icao_address,
+                    batch_first_ts=dto.records[0].timestamp,
+                )
 
         del tardy_df
 
@@ -197,7 +202,13 @@ def main(
 
             data = dto.as_utf8_json()
             ordering_key = f"api-scraper:{icao_address}"
-            egress_queue_client.publish_async(data, ordering_key)
+            egress_queue_client.publish_async(
+                data,
+                ordering_key,
+                client_name="egress_queue_client",
+                icao_address=icao_address,
+                batch_first_ts=dto.records[0].timestamp,
+            )
 
         bq_queue_client.wait_for_publish(60)
         egress_queue_client.wait_for_publish(60)

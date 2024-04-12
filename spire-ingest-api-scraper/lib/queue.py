@@ -1,29 +1,44 @@
 import concurrent.futures
 from concurrent.futures import TimeoutError, CancelledError
+from typing import Callable
 
 from lib.log import logger, format_traceback
 
 from google.cloud import pubsub_v1  # type: ignore
 
 
-def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
-    """Re-raise any exceptions raised by the future's execution thread.
-
-    This should be registered as a callback that will only be invoked when the future
-    has already completed using:
-        future.add_done_callback(_raise_exception_if_failed)
+def _get_futures_callback(**kwargs) -> Callable[[concurrent.futures.Future], None]:
     """
-    try:
-        future.result(timeout=10)
-    except TimeoutError:
-        logger.error("timeout. failed to publish blob.")
-        # TODO: raise this to our main application, and exit
-    except CancelledError:
-        logger.error("publish future cancelled. failed to publish blob.")
-        # TODO: raise ...
-    except Exception:
-        logger.error(f"publish future failed. traceback: {format_traceback()}")
-        # TODO: ...
+    returns a function to use as a callback.
+    Constructs a log message annotating with any k-vs passed to this method.
+    """
+
+    msg = ""
+    for k, v in kwargs.items():
+        msg += f"{k}={v}"
+
+    def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
+        """Re-raise any exceptions raised by the future's execution thread.
+
+        This should be registered as a callback that will only be invoked when the future
+        has already completed using:
+            future.add_done_callback(_raise_exception_if_failed)
+        """
+        try:
+            future.result(timeout=10)
+        except TimeoutError:
+            logger.error(f"timeout. failed to publish blob. {msg}")
+            # TODO: raise this to our main application, and exit
+        except CancelledError:
+            logger.error(f"publish future cancelled. failed to publish blob. {msg}")
+            # TODO: raise ...
+        except Exception:
+            logger.error(
+                f"publish future failed. {msg}. traceback: {format_traceback()}"
+            )
+            # TODO: ...
+
+    return _raise_exception_if_failed
 
 
 class QueueClient:
@@ -58,7 +73,7 @@ class QueueClient:
 
         self._publish_futures: list[concurrent.futures.Future] = []
 
-    def publish_async(self, data: bytes, ordering_key: str = "") -> None:
+    def publish_async(self, data: bytes, ordering_key: str = "", **metadata) -> None:
         """Add data to the current publish batch.
 
         Batches are pushed asynchronously to GCP PubSub in a separate thread. To wait
@@ -74,13 +89,17 @@ class QueueClient:
             consumers in the order they are published. the publisher client,
             and the subscription bound to the receiving topic,
             must be configured to use ordered messages.
+        metadata
+            any additional k-vs that contextualize the publish event.
+            these will be added as context to the publisher callback,
+            which includes them in any failure logs.
         """
         future: concurrent.futures.Future = self._publisher.publish(
             topic=self._topic_id,
             data=data,
             ordering_key=ordering_key,
         )
-        future.add_done_callback(_raise_exception_if_failed)
+        future.add_done_callback(_get_futures_callback(**metadata))
         self._publish_futures.append(future)
 
     def wait_for_publish(self, timeout: float) -> None:
