@@ -2,7 +2,7 @@ import concurrent.futures
 from concurrent.futures import TimeoutError, CancelledError
 from typing import Callable
 
-from lib.log import logger, format_traceback
+from lib.log import logger
 
 from google.cloud import pubsub_v1  # type: ignore
 
@@ -33,9 +33,7 @@ def _get_futures_callback(**kwargs) -> Callable[[concurrent.futures.Future], Non
             logger.error(f"publish future cancelled. failed to publish blob. {msg}")
             # TODO: raise ...
         except Exception:
-            logger.error(
-                f"publish future failed. {msg}. traceback: {format_traceback()}"
-            )
+            logger.error(f"publish future failed. {msg}")
             # TODO: ...
 
     return _raise_exception_if_failed
