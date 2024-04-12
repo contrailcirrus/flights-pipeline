@@ -15,7 +15,7 @@ def _get_futures_callback(**kwargs) -> Callable[[concurrent.futures.Future], Non
 
     msg = ""
     for k, v in kwargs.items():
-        msg += f"{k}={v}"
+        msg += f" {k}={v} "
 
     def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
         """Re-raise any exceptions raised by the future's execution thread.
