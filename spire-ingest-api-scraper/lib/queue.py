@@ -1,7 +1,7 @@
 import concurrent.futures
 from concurrent.futures import TimeoutError, CancelledError
 
-from lib.log import logger
+from lib.log import logger, format_traceback
 
 from google.cloud import pubsub_v1  # type: ignore
 
@@ -22,7 +22,7 @@ def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
         logger.error("publish future cancelled. failed to publish blob.")
         # TODO: raise ...
     except Exception:
-        logger.error("publish future failed.")
+        logger.error(f"publish future failed. traceback: {format_traceback()}")
         # TODO: ...
 
 
