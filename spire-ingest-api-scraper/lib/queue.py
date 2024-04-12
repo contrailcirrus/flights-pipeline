@@ -25,7 +25,7 @@ def _get_futures_callback(**kwargs) -> Callable[[concurrent.futures.Future], Non
             future.add_done_callback(_raise_exception_if_failed)
         """
         try:
-            future.result(timeout=10)
+            future.result(timeout=55)
         except TimeoutError:
             logger.error(f"timeout. failed to publish blob. {msg}")
             # TODO: raise this to our main application, and exit
