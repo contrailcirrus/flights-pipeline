@@ -41,7 +41,7 @@ STATIC_PARAMS = dict(
     max_age=np.timedelta64(1, "h"),
 )
 
-MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
+MET_MIN_ALTITUDE_FT = 30_000  # hard-coding allows more efficient skip-over
 
 
 def _perf_lookup(job: SpireWaypointsRecord) -> tuple[AircraftPerformance, str]:
