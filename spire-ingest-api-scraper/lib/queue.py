@@ -17,7 +17,7 @@ def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
         future.result(timeout=10)
     except TimeoutError:
         logger.error("timeout. failed to publish blob.")
-        # TODO: raise this to our main application, and exit (are we stuck in a forever retry?)
+        # TODO: raise this to our main application, and exit
     except CancelledError:
         logger.error("publish future cancelled. failed to publish blob.")
         # TODO: raise ...
