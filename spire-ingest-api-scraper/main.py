@@ -152,8 +152,6 @@ def main(
                     batch_first_ts=dto.records[0].timestamp,
                 )
 
-        del tardy_df
-
         # ----------------
         # publish on-time records
         # ---------------
@@ -210,8 +208,8 @@ def main(
                 batch_first_ts=dto.records[0].timestamp,
             )
 
-        bq_queue_client.wait_for_publish(60)
-        egress_queue_client.wait_for_publish(60)
+        bq_queue_client.wait_for_publish()
+        egress_queue_client.wait_for_publish()
         logger.info(f"Published records successfully: {len(spire_df)}")
 
         state_client.set_last_sync_end_at(batch_end_at)
