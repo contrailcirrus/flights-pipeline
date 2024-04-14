@@ -307,7 +307,7 @@ class FlightInfoWide(SpireFlightInfo):
     Flight info object expanding on those values provided in Spire.
     """
 
-    engine_uid: str  # icao edb engine uid identifier
+    engine_uid: str | None  # icao edb engine uid identifier
 
 
 @dataclass
