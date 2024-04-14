@@ -1,4 +1,5 @@
 """ Data Object Models & Schemas"""
+
 from dataclasses import dataclass, asdict
 import json
 from uuid import UUID
@@ -186,3 +187,40 @@ class SpireWaypointsRecord:
             }
             out.append(json.dumps(blob).encode("utf-8"))
         return out
+
+
+@dataclass
+class FlightInfoWide(SpireFlightInfo):
+    """
+    Flight info object expanding on those values provided in Spire.
+    """
+
+    engine_uid: str | None  # icao edb engine uid identifier
+
+
+@dataclass
+class WaypointsRecord:
+    """
+    A representation of a series of waypoints and flight metadata,
+    expanded and generalized from the SpireWaypointsRecord.
+    """
+
+    flight_info: FlightInfoWide
+    records: list[SpireWaypointPositional]
+
+    def as_utf8_json(self) -> bytes:
+        """
+        Builds a utf-8 encoded JSON blob from the class' attributes.
+        """
+        js = json.dumps(asdict(self))
+        return js.encode("utf-8")
+
+    @staticmethod
+    def from_utf8_json(blob: bytes):
+        """
+        Takes a utf8 json blob and marshals to an instance of this class.
+        """
+        return SpireWaypointsRecord(
+            flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
+            records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
+        )

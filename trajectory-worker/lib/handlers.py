@@ -9,7 +9,7 @@ from typing import Union
 
 from lib.log import logger, format_traceback
 from lib.schemas import (
-    SpireWaypointsRecord,
+    WaypointsRecord,
 )
 
 from google.api_core import retry
@@ -81,7 +81,7 @@ class PubSubSubscriptionHandler:
                     )
         logger.info("terminated ack lease management worker")
 
-    def fetch(self) -> SpireWaypointsRecord:
+    def fetch(self) -> WaypointsRecord:
         """
         Fetch a message from the subscription queue.
         This method will hang and wait until a message is available.
@@ -119,7 +119,7 @@ class PubSubSubscriptionHandler:
                 f"published_time: {msg.message.publish_time}, "
                 f"message_id: {msg.message.message_id}"
             )
-            return SpireWaypointsRecord.from_utf8_json(msg.message.data)
+            return WaypointsRecord.from_utf8_json(msg.message.data)
 
     def ack(self):
         """

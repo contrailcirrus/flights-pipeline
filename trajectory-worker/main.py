@@ -10,7 +10,7 @@ from lib.handlers import (
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
-    SpireWaypointsRecord,
+    WaypointsRecord,
 )
 
 import pandas as pd
@@ -44,7 +44,7 @@ STATIC_PARAMS = dict(
 MET_MIN_ALTITUDE_FT = 30_000  # hard-coding allows more efficient skip-over
 
 
-def _perf_lookup(job: SpireWaypointsRecord) -> tuple[AircraftPerformance, str]:
+def _perf_lookup(job: WaypointsRecord) -> tuple[AircraftPerformance, str]:
     """
     Look up performance model and engine type for a job's aircraft type.
 
@@ -61,7 +61,7 @@ def _perf_lookup(job: SpireWaypointsRecord) -> tuple[AircraftPerformance, str]:
 
 
 def _aircraft_type_is_recognized(
-    job: SpireWaypointsRecord,
+    job: WaypointsRecord,
     performance_model: AircraftPerformance,
 ) -> bool:
     """Check if the aircraft type is supported by the selected performance model.
@@ -79,7 +79,7 @@ def _aircraft_type_is_recognized(
         raise ValueError(f"Unexpected performance model {type(performance_model)}")
 
 
-def _alt_below_met_data(job: SpireWaypointsRecord) -> bool:
+def _alt_below_met_data(job: WaypointsRecord) -> bool:
     """Check if the maximum segment altitude is high enough for intersection with met data.
 
     To avoid opening met data before short-circuiting, this check relies on a hard-coded value
@@ -94,7 +94,7 @@ def _alt_below_met_data(job: SpireWaypointsRecord) -> bool:
 
 
 def _open_met_rad(
-    job: SpireWaypointsRecord, zarr_store: str
+    job: WaypointsRecord, zarr_store: str
 ) -> tuple[MetDataset, MetDataset]:
     """Open forecast zarr stores.
 
@@ -143,7 +143,7 @@ def _open_met_rad(
     return met, rad
 
 
-def _create_flight(job: SpireWaypointsRecord, engine_uid: str) -> Flight:
+def _create_flight(job: WaypointsRecord, engine_uid: str) -> Flight:
     """Create Flight from job waypoints.
 
     Aircraft and engine type are associated with the flight here.
@@ -183,7 +183,7 @@ def run():
         # ===================
         # fetch records
         # ===================
-        job: SpireWaypointsRecord = job_handler.fetch()
+        job: WaypointsRecord = job_handler.fetch()
         if not job:
             # if the queue is empty -> we get back [], then pause before retry
             logger.info("job empty. sleeping... ")
