@@ -3,6 +3,7 @@
 import sys
 import time
 from datetime import datetime
+from dataclasses import asdict
 
 import lib.environment as env
 from lib import utils
@@ -19,6 +20,8 @@ from lib.schemas import (
     SpireWaypointPositional,
     SpireWaypointsRecord,
     WaypointCache,
+    FlightInfoWide,
+    WaypointsRecord,
 )
 
 
@@ -100,9 +103,9 @@ def run():
         # validate records
         # ===================
         validation_handler = ValidationHandler(cached, job)
-        validated_cache: list[
-            SpireWaypointPositional
-        ] = validation_handler.cached_records
+        validated_cache: list[SpireWaypointPositional] = (
+            validation_handler.cached_records
+        )
         validated_records: list[SpireWaypointPositional] = validation_handler.records
         validated_flight_info: SpireFlightInfo | None = validation_handler.flight_info
         validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
@@ -167,9 +170,9 @@ def run():
                 )
             transform_handler = ResampleHandler(validated_cache, validated_records)
             transform_handler.interpolate()
-            resampled_records: list[
-                SpireWaypointPositional
-            ] = transform_handler.waypoints_resampled
+            resampled_records: list[SpireWaypointPositional] = (
+                transform_handler.waypoints_resampled
+            )
         except Exception:
             logger.error(
                 f"failed to interpolate."
@@ -212,8 +215,12 @@ def run():
         # ===================
         # trajectory worker: publish resampled records as trajectory chunk to pubsub
         # ===================
-        trajectory_chunk = SpireWaypointsRecord(
-            flight_info=validated_flight_info,
+        validated_flight_info_wide = FlightInfoWide(
+            **asdict(validated_flight_info),
+            engine_uid=None,
+        )
+        trajectory_chunk = WaypointsRecord(
+            flight_info=validated_flight_info_wide,
             records=resampled_records,
         )
         trajectory_publish_handler.publish_async(
