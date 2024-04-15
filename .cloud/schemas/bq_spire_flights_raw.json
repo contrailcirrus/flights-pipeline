@@ -5,6 +5,12 @@
     "mode": "REQUIRED",
     "description": "unique hash for a discrete instance of flight waypoint"
   },
+  {
+    "name": "src_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "an identifier for the immediate or transitive source/origin of these records"
+  },
     {
     "name": "ingestion_time",
     "type": "TIMESTAMP",

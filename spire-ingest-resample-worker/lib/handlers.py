@@ -7,7 +7,7 @@ import math
 import threading
 from threading import Thread
 from concurrent import futures
-from typing import Union
+from typing import Union, Callable
 
 import numpy as np
 import pandas as pd
@@ -97,7 +97,7 @@ class PubSubSubscriptionHandler:
                     )
         logger.info("terminated ack lease management worker")
 
-    def fetch(self) -> SpireWaypointsRecord:
+    def fetch(self) -> (SpireWaypointsRecord, str):
         """
         Fetch a message from the subscription queue.
         This method will hang and wait until a message is available.
@@ -107,6 +107,8 @@ class PubSubSubscriptionHandler:
         -------
         str
             The dequeued message from the pubsub subscription.
+        str
+            The ordering key for the fetched record.
         """
         if not self._client:
             self._client = pubsub_v1.SubscriberClient()
@@ -130,12 +132,13 @@ class PubSubSubscriptionHandler:
                 continue
             msg = resp.received_messages[0]
             self._ack_id = msg.ack_id
+            ordering_key = msg.message.ordering_key
             logger.info(
                 f"received 1 message from {self.subscription}. "
                 f"published_time: {msg.message.publish_time}, "
                 f"message_id: {msg.message.message_id}"
             )
-            return SpireWaypointsRecord.from_utf8_json(msg.message.data)
+            return SpireWaypointsRecord.from_utf8_json(msg.message.data), ordering_key
 
     def ack(self):
         """
@@ -210,16 +213,38 @@ class PubSubPublishHandler:
         self._publish_futures: list[futures.Future] = []
 
     @staticmethod
-    def _raise_exception_if_failed(future: futures.Future) -> None:
-        """Re-raise any exceptions raised by the future's execution thread.
-
-        This should be registered as a callback that will only be invoked when the future
-        has already completed using:
-            future.add_done_callback(_raise_exception_if_failed)
+    def _get_futures_callback(**kwargs) -> Callable[[futures.Future], None]:
         """
-        future.result()
+        returns a function to use as a callback.
+        Constructs a log message annotating with any k-vs passed to this method.
+        """
 
-    def publish_async(self, data: bytes, ordering_key: str = "") -> None:
+        msg = ""
+        for k, v in kwargs.items():
+            msg += f" {k}={v} "
+
+        def _raise_exception_if_failed(future: futures.Future) -> None:
+            """Re-raise any exceptions raised by the future's execution thread.
+
+            This should be registered as a callback that will only be invoked when the future
+            has already completed using:
+                future.add_done_callback(_raise_exception_if_failed)
+            """
+            try:
+                future.result(timeout=55)
+            except futures.TimeoutError:
+                logger.error(f"timeout. failed to publish blob. {msg}")
+                # TODO: raise this to our main application, and exit
+            except futures.CancelledError:
+                logger.error(f"publish future cancelled. failed to publish blob. {msg}")
+                # TODO: raise ...
+            except Exception:
+                logger.error(f"publish future failed. {msg}")
+                # TODO: ...
+
+        return _raise_exception_if_failed
+
+    def publish_async(self, data: bytes, ordering_key: str = "", **metadata) -> None:
         """Add data to the current publish batch.
 
         Batches are pushed asynchronously to GCP PubSub in a separate thread. To wait
@@ -234,16 +259,20 @@ class PubSubPublishHandler:
             required if handler was instantiated with ordered_queue=True
             payloads sharing the same ordering_key are guaranteed to be delivered to
             consumers in the order they are published
+        metadata
+            any additional k-vs that contextualize the publish event.
+            these will be added as context to the publisher callback,
+            which includes them in any failure logs.
         """
         future: futures.Future = self._publisher.publish(
             topic=self._topic_id,
             data=data,
             ordering_key=ordering_key,
         )
-        future.add_done_callback(self._raise_exception_if_failed)
+        future.add_done_callback(self._get_futures_callback(**metadata))
         self._publish_futures.append(future)
 
-    def wait_for_publish(self, timeout: float | None = None) -> None:
+    def wait_for_publish(self) -> None:
         """Block until all current publish batches are received by server.
 
         Raises
@@ -251,7 +280,7 @@ class PubSubPublishHandler:
         concurrent.futures.TimeoutError: server did not respond
         Exception: will re-raise exceptions raised by the batch execution threads
         """
-        futures.wait(self._publish_futures, timeout=timeout)
+        futures.wait(self._publish_futures)
         self._publish_futures = []
 
 

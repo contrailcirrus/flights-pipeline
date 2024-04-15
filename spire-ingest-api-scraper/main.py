@@ -14,6 +14,7 @@ from lib.log import format_traceback, logger
 
 # SYNC_DELAY enforces we do not fetch data ingested by Spire after: now - SYNC_DELAY
 SYNC_DELAY = timedelta(minutes=5)
+EGRESS_ORDERING_KEY_TEMPLATE = "spire:{icao_address}"
 
 
 def _to_str_or_none(x: Any) -> str | None:
@@ -144,7 +145,9 @@ def main(
                     for _, row in rows.iterrows()
                 ],
             )
-            for raw_bq_json_ln in dto.to_bq_flatmap():
+            for raw_bq_json_ln in dto.to_bq_flatmap(
+                source_id=EGRESS_ORDERING_KEY_TEMPLATE.split(":")[0],
+            ):
                 bq_queue_client.publish_async(
                     raw_bq_json_ln,
                     client_name="bq_queue_client",
@@ -154,7 +157,7 @@ def main(
 
         # ----------------
         # publish on-time records
-        # ---------------
+        # ----------------
         spire_df = spire_df.sort_values(["icao_address", "timestamp"])
         for icao_address, rows in spire_df.groupby("icao_address"):
             _log_invariant_violations(rows)
@@ -199,10 +202,9 @@ def main(
             )
 
             data = dto.as_utf8_json()
-            ordering_key = f"api-scraper:{icao_address}"
             egress_queue_client.publish_async(
                 data,
-                ordering_key,
+                EGRESS_ORDERING_KEY_TEMPLATE.format(icao_address=icao_address),
                 client_name="egress_queue_client",
                 icao_address=icao_address,
                 batch_first_ts=dto.records[0].timestamp,

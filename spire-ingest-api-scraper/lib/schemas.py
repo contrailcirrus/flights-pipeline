@@ -132,7 +132,7 @@ class SpireWaypointsRecord:
         )
         return flight_id, swp
 
-    def to_bq_flatmap(self) -> list[bytes]:
+    def to_bq_flatmap(self, source_id: str) -> list[bytes]:
         """
         Flattens records into a list of utf-8 encoded json string literals,
         ready for egress to big query.
@@ -143,6 +143,11 @@ class SpireWaypointsRecord:
         Adds an `_instance_hash` k-v, of type int,
         generated as a hash of the composite <icao_address><timestamp>,
         where timestamp is epoch time in microseconds
+
+        Parameters
+        ----------
+        source_id
+            An identifier appended to the biq query record, indicating the origin of these records
         """
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
@@ -161,6 +166,7 @@ class SpireWaypointsRecord:
             hash_int = int(hash_trunc, 16)
             blob = {
                 "_instance_hash": hash_int,
+                "src_id": source_id,
                 "ingestion_time": iso_to_microseconds(record.ingestion_time),
                 "timestamp": ts,
                 "latitude": record.latitude,
