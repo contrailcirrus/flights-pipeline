@@ -10,7 +10,7 @@ resource "google_pubsub_subscription" "spire_ingest_resample_worker_ingress_dev"
   name  = "spire-ingest-resample-worker-ingress-dev"
   topic = google_pubsub_topic.spire_ingest_api_scraper_egress_dev.id
 
-  ack_deadline_seconds         = 16
+  ack_deadline_seconds         = 300
   enable_message_ordering      = true
   enable_exactly_once_delivery = true
   message_retention_duration = "86400s"  # 1 day
