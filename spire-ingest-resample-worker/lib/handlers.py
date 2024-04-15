@@ -4,8 +4,6 @@ Application handlers.
 
 import copy
 import math
-import threading
-from threading import Thread
 from concurrent import futures
 from typing import Union, Callable
 
@@ -16,7 +14,7 @@ from datetime import datetime, timedelta
 from google.cloud.pubsub_v1.types import PublishFlowControl, LimitExceededBehavior
 from pycontrails.physics import geo
 
-from lib.log import logger, format_traceback
+from lib.log import logger
 from lib.schemas import (
     SpireWaypointsRecord,
     SpireWaypointPositional,
@@ -41,7 +39,6 @@ class PubSubSubscriptionHandler:
 
     # the number of seconds the subscriber client will hang, waiting for available messages
     MSG_WAIT_TIME_SEC = 60.0
-    ACK_EXTENSION_SEC: int = 10
 
     def __init__(self, subscription: str):
         """
@@ -54,9 +51,6 @@ class PubSubSubscriptionHandler:
         self.subscription = subscription
         self._client = None
         self._ack_id: Union[None, str] = None
-        self._kill_ack_manager = threading.Event()
-        self._ack_manager = Thread(target=self._ack_management_worker, daemon=True)
-        self._ack_manager.start()
 
     def __enter__(self):
         """
@@ -70,32 +64,6 @@ class PubSubSubscriptionHandler:
         Ensure client connection to pubsub is closed.
         """
         self.close()
-
-    def _ack_management_worker(self):
-        """
-        Extends the ack deadline for the currently outstanding message.
-        """
-        logger.info("starting ack lease management worker...")
-        while not self._kill_ack_manager.is_set():
-            self._kill_ack_manager.wait(self.ACK_EXTENSION_SEC // 2)
-            if self._ack_id:
-                logger.info(
-                    f"extending ack deadline on ack_id: {self._ack_id[0:-150]}..."
-                )
-                try:
-                    self._client.modify_ack_deadline(
-                        request={
-                            "subscription": self.subscription,
-                            "ack_ids": [self._ack_id],
-                            "ack_deadline_seconds": self.ACK_EXTENSION_SEC,
-                        }
-                    )
-                except Exception:
-                    logger.error(
-                        f"failed to extend ack deadline for message. "
-                        f"traceback: {format_traceback()}"
-                    )
-        logger.info("terminated ack lease management worker")
 
     def fetch(self) -> (SpireWaypointsRecord, str):
         """
@@ -160,8 +128,6 @@ class PubSubSubscriptionHandler:
         """
         Close pubsub client connection.
         """
-        self._ack_id = None
-        self._kill_ack_manager.set()
         self._client.close()
 
 
