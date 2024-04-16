@@ -29,6 +29,8 @@ spec:
             value: {{ .Values.trajectoryChunkSubscriptionId | required ".Values.trajectoryChunkSubscriptionId is required" | quote }}
           - name: HRES_SOURCE_PATH
             value: {{ .Values.hresSourcePath | required ".Values.hresSourcePath is required" | quote }}
+          - name: GIT_SHA
+            value: {{ .Values.gitSha | required ".Values.gitSha is required" | quote }}
           - name: LOG_LEVEL
             value: INFO
         resources:
