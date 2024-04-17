@@ -224,3 +224,32 @@ class WaypointsRecord:
             flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
+
+
+@dataclass
+class CocipTrajectoryChunk:
+    """
+    Object that holds chunk-level summary values from running Cocip against the flight traj chunk.
+    """
+
+    _chunk_hash: int  # unique identifier for the specific chunk
+
+    seg_cnt: int  # total number of segments in the chunk
+    seg_ef_cnt: int  # number of segments with non-zero ef in chunk
+    chunk_len_km: float  # total length of the flight chunk
+    lat_start: float  # latitude of first waypoint in chunk
+    lon_start: float  # lon of " " "
+    lat_end: float  # lat of last waypoint in chunk
+    lon_end: float  # lon of " " "
+    time_start: str  #  timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+
+    pycontrails_ver: str  # version of pycontrails used in model run
+    perf_model_id: str  # identifier of the perf model
+    source_id: str  # the source identifier for the trajectory chunk job
+    git_sha: str  # git sha of the trajectory-worker
+
+    sum_ef_mj: float  # sum of the calculated ef values, units 10^6*[J]
+
+    aircraft_type_icao: str  # icao aircraft type identifier used in model e.g. B788
+    engine_uid: str  # engine uid used in model
