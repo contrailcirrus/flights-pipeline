@@ -100,3 +100,8 @@ result_ef = result["ef"]
 
 if (result_ef > 0).sum():
     print(f"found non-zero cocip values for flight_id: {job.flight_info.flight_id}")
+
+sl = slice(1, -1)  # assuming we want to drop the first segment?
+cocip_output = result["ef"][sl] / result["segment_length"][sl]
+
+sum_ef = sum(cocip_output)

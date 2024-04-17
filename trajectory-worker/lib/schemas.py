@@ -241,7 +241,9 @@ class CocipTrajectoryChunk:
     lon_start: float  # lon of " " "
     lat_end: float  # lat of last waypoint in chunk
     lon_end: float  # lon of " " "
-    time_start: str  #  timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    time_start: (
+        str  #  timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    )
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
 
     pycontrails_ver: str  # version of pycontrails used in model run
@@ -250,6 +252,97 @@ class CocipTrajectoryChunk:
     git_sha: str  # git sha of the trajectory-worker
 
     sum_ef_mj: float  # sum of the calculated ef values, units 10^6*[J]
+    total_fuel_burn_kg: int  # total kg of fuel burn for chunk
+    total_co2_kg: int | None  # total kg of co2 from fuel combustion for chunk
+    total_h2o_kg: int | None  # total kg of h20 from fuel combustion " "
+    total_so2_kg: float | None  # total kg of so2 " " "
+    total_sulphates_kg: float | None  # total kg of sulphates  " " "
+    total_oc_kg: float | None  # total kg of organic carbon " " "
+    total_nox_kg: float | None  # total kg of nox " " "
+    total_co_kg: float | None  # total kg of CO " " "
+    total_hc_kg: float | None  # total kg of hydrocarbon " " "
+    total_nvpm_kg: float | None  # total kg non-volatile PM  " " "
+    total_nvpm_giga_cnt: int | None  # total cnt (*10^9) of non-volatile PM " " "
 
     aircraft_type_icao: str  # icao aircraft type identifier used in model e.g. B788
     engine_uid: str  # engine uid used in model
+
+    icao_address: str  # e.g. 4B0293
+    flight_id: str  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
+    callsign: str | None  # e.g. SWR64C
+    tail_number: str | None  # e.g. HB-AZJ
+    flight_number: str | None  # e.g. LX644
+    airline_iata: str | None  # e.g. LX
+
+    def to_bq_flatmap(self) -> bytes:
+        """
+        Flattens records into a single utf-8 encoded json string literals,
+        ready for egress to big query.
+
+
+        Converts temporal string fields (time_start, time_end, ...)  to microseconds epoch.
+
+        Adds an `_instance_hash` k-v, of type int,
+        generated as a hash of composite record fields.
+        Specifically:
+
+        <pycontrails_ver><aircraft_type_icao><engine_uid>
+        <perf_model_id><icao_address>
+        <time_start><time_end>
+        """
+
+        def iso_to_microseconds(timestamp: str | None) -> int | None:
+            if not timestamp:
+                return timestamp
+            ts: int = int(datetime.fromisoformat(timestamp).timestamp() * 1e6)
+            return ts
+
+        time_start_us = iso_to_microseconds(self.time_start)
+        time_end_us = iso_to_microseconds(self.time_end)
+
+        # _instance_hash is an int64 in bq
+        hash = hashlib.md5(
+            f"{self.pycontrails_ver}{self.aircraft_type_icao}{self.engine_uid}"
+            f"{self.perf_model_id}{self.icao_address}"
+            f"{time_start_us}{time_end_us}".encode("utf-8")
+        )
+        # truncate as to be equal or smaller than int64 space when represented as signed int
+        hash_trunc = hash.hexdigest()[:8]
+        hash_int = int(hash_trunc, 16)
+        blob = {
+            "_chunk_hash": hash_int,
+            "seg_cnt": self.seg_cnt,
+            "seg_ef_cnt": self.seg_ef_cnt,
+            "chunk_len_km": self.chunk_len_km,
+            "lat_start": self.lat_start,
+            "lon_start": self.lon_start,
+            "lat_end": self.lat_end,
+            "lon_end": self.lon_end,
+            "time_start": time_start_us,
+            "time_end": time_end_us,
+            "pycontrails_ver": self.pycontrails_ver,
+            "perf_model_id": self.perf_model_id,
+            "source_id": self.source_id,
+            "git_sha": self.git_sha,
+            "sum_ef_mj": self.sum_ef_mj,
+            "total_fuel_burn_kg": self.total_fuel_burn_kg,
+            "total_co2_kg": self.total_co2_kg,
+            "total_h2o_kg": self.total_h2o_kg,
+            "total_so2_kg": self.total_so2_kg,
+            "total_sulphates_kg": self.total_sulphates_kg,
+            "total_oc_kg": self.total_oc_kg,
+            "total_nox_kg": self.total_nox_kg,
+            "total_co_kg": self.total_co_kg,
+            "total_hc_kg": self.total_hc_kg,
+            "total_nvpm_kg": self.total_nvpm_kg,
+            "total_nvpm_giga_cnt": self.total_nvpm_giga_cnt,
+            "aircraft_type_icao": self.aircraft_type_icao,
+            "engine_uid": self.engine_uid,
+            "icao_address": self.icao_address,
+            "flight_id": self.flight_id,
+            "callsign": self.callsign,
+            "tail_number": self.tail_number,
+            "flight_number": self.flight_number,
+            "airline_iata": self.airline_iata,
+        }
+        return json.dumps(blob).encode("utf-8")
