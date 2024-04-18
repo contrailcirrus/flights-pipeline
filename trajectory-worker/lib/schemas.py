@@ -5,6 +5,10 @@ import json
 from uuid import UUID
 from datetime import datetime, UTC
 import hashlib
+from typing import TypedDict
+
+import numpy as np
+import pycontrails.core
 
 
 @dataclass
@@ -232,10 +236,9 @@ class CocipTrajectoryChunk:
     Object that holds chunk-level summary values from running Cocip against the flight traj chunk.
     """
 
-    _chunk_hash: int  # unique identifier for the specific chunk
-
     seg_cnt: int  # total number of segments in the chunk
     seg_ef_cnt: int  # number of segments with non-zero ef in chunk
+    seg_ef_nan_cnt: int  # number of segments with nan ef values in chunk
     chunk_len_km: float  # total length of the flight chunk
     lat_start: float  # latitude of first waypoint in chunk
     lon_start: float  # lon of " " "
@@ -251,18 +254,18 @@ class CocipTrajectoryChunk:
     source_id: str  # the source identifier for the trajectory chunk job
     git_sha: str  # git sha of the trajectory-worker
 
-    sum_ef_mj: float  # sum of the calculated ef values, units 10^6*[J]
+    sum_ef_mj: int  # sum of the calculated ef values, units 10^6*[J]
     total_fuel_burn_kg: int  # total kg of fuel burn for chunk
-    total_co2_kg: int | None  # total kg of co2 from fuel combustion for chunk
-    total_h2o_kg: int | None  # total kg of h20 from fuel combustion " "
-    total_so2_kg: float | None  # total kg of so2 " " "
-    total_sulphates_kg: float | None  # total kg of sulphates  " " "
-    total_oc_kg: float | None  # total kg of organic carbon " " "
-    total_nox_kg: float | None  # total kg of nox " " "
-    total_co_kg: float | None  # total kg of CO " " "
-    total_hc_kg: float | None  # total kg of hydrocarbon " " "
-    total_nvpm_kg: float | None  # total kg non-volatile PM  " " "
-    total_nvpm_giga_cnt: int | None  # total cnt (*10^9) of non-volatile PM " " "
+    total_co2_kg: int  # total kg of co2 from fuel combustion for chunk
+    total_h2o_kg: int  # total kg of h20 from fuel combustion " "
+    total_so2_kg: float  # total kg of so2 " " "
+    total_sulphates_kg: float  # total kg of sulphates  " " "
+    total_oc_kg: float  # total kg of organic carbon " " "
+    total_nox_kg: float  # total kg of nox " " "
+    total_co_kg: float  # total kg of CO " " "
+    total_hc_kg: float  # total kg of hydrocarbon " " "
+    total_nvpm_kg: float  # total kg non-volatile PM  " " "
+    total_nvpm_giga_cnt: int  # total cnt (*10^9) of non-volatile PM " " "
 
     aircraft_type_icao: str  # icao aircraft type identifier used in model e.g. B788
     engine_uid: str  # engine uid used in model
@@ -273,6 +276,90 @@ class CocipTrajectoryChunk:
     tail_number: str | None  # e.g. HB-AZJ
     flight_number: str | None  # e.g. LX644
     airline_iata: str | None  # e.g. LX
+
+    @staticmethod
+    def from_cocip_result(
+        source_id: str,
+        git_sha: str,
+        input_chunk: WaypointsRecord,
+        result: pycontrails.core.Flight,
+    ):
+        """
+        Generate a CocipTrajectoryChunk from the output/result of a cocip trajectory model run.
+
+        Parameters
+        ----------
+        source_id
+            the source identifier for the job injected into the trajectory worker
+        git_sha
+            the git_sha for the trajectory worker
+        input_chunk
+            the job (list of waypoints) passed to the trajectory worker, w/ flightinfo metadata
+        result
+            the model result from running the cocip trajectory model
+        """
+
+        class CocipFlightAttributes(TypedDict):
+            aircraft_type: str  # B788 (icao aircraft type)
+            engine_uid: str  # 01P17GE210 (icao engine id)
+            aircraft_performance_model: str  # PSFlight
+            total_fuel_burn: float
+            total_co2: float
+            total_h2o: float
+            total_so2: float
+            total_sulphates: float
+            total_oc: float
+            total_nox: float
+            total_co: float
+            total_hc: float
+            total_nvpm_mass: float
+            total_nvpm_number: float
+            pycontrails_version: str
+
+        attrs: CocipFlightAttributes = dict(result.attrs)
+
+        # TODO: revise this slice; this drops both the first and last waypoint... not just the trailing segment
+        sl = slice(
+            1, -1
+        )  # drop last segment in all segment arrays, as it is sacrificial in cocip
+        segs_ef_j = result["ef"][sl] / result["segment_length"][sl]
+
+        return CocipTrajectoryChunk(
+            seg_cnt=len(segs_ef_j),
+            seg_ef_cnt=sum(segs_ef_j > 0),
+            seg_ef_nan_cnt=np.isnan(segs_ef_j).sum(),
+            chunk_len_km=np.nansum(result["segment_length"][sl]) / 1000.0,
+            lat_start=input_chunk.records[0].latitude,
+            lon_start=input_chunk.records[0].longitude,
+            lat_end=input_chunk.records[-1].latitude,
+            lon_end=input_chunk.records[-1].longitude,
+            time_start=input_chunk.records[0].timestamp,
+            time_end=input_chunk.records[-1].timestamp,
+            pycontrails_ver=attrs["pycontrails_version"],
+            perf_model_id=attrs["aircraft_performance_model"],
+            source_id=source_id,
+            git_sha=git_sha,
+            sum_ef_mj=int(np.nansum(segs_ef_j) // 10**6),
+            total_fuel_burn_kg=int(attrs["total_fuel_burn"]),
+            total_co2_kg=int(attrs["total_co2"]),
+            total_h2o_kg=int(attrs["total_h2o"]),
+            total_so2_kg=attrs["total_so2"],
+            total_sulphates_kg=attrs["total_sulphates"],
+            total_oc_kg=attrs["total_oc"],
+            total_nox_kg=attrs["total_nox"],
+            total_co_kg=attrs["total_co"],
+            total_hc_kg=attrs["total_hc"],
+            total_nvpm_kg=attrs["total_nvpm_mass"],
+            total_nvpm_giga_cnt=int(attrs["total_nvpm_number"] // 10**9),
+            aircraft_type_icao=attrs["aircraft_type"],
+            engine_uid=attrs["engine_uid"],
+            icao_address=input_chunk.flight_info.icao_address,
+            flight_id=input_chunk.flight_info.flight_id,
+            callsign=input_chunk.flight_info.callsign,
+            tail_number=input_chunk.flight_info.tail_number,
+            flight_number=input_chunk.flight_info.flight_number,
+            airline_iata=input_chunk.flight_info.airline_iata,
+        )
 
     def to_bq_flatmap(self) -> bytes:
         """
@@ -313,6 +400,7 @@ class CocipTrajectoryChunk:
             "_chunk_hash": hash_int,
             "seg_cnt": self.seg_cnt,
             "seg_ef_cnt": self.seg_ef_cnt,
+            "seg_ef_nan_cnt": self.seg_ef_nan_cnt,
             "chunk_len_km": self.chunk_len_km,
             "lat_start": self.lat_start,
             "lon_start": self.lon_start,

@@ -97,6 +97,7 @@ try:
 except Exception as e:
     print(f"failed to run model. {e}")
 result_ef = result["ef"]
+result_seg_lens = result["segment_length"]
 
 if (result_ef > 0).sum():
     print(f"found non-zero cocip values for flight_id: {job.flight_info.flight_id}")
