@@ -53,7 +53,7 @@ resource "google_bigquery_table" "trajectory-cocip-dev" {
   description = "model outputs for a trajectory chunk processed by the trajectory worker"
   deletion_protection = true
   time_partitioning {
-    field = "timestamp"
+    field = "time_start"
     type = "DAY"
   }
   schema = file("${path.module}/schemas/trajectory_worker_chunk.json")
