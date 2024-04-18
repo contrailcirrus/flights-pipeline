@@ -1,16 +1,17 @@
 """Entrypoint for the Spire Ingest Resample Worker."""
 
 import sys
-import time
 
 import lib.environment as env
 from lib import utils
 from lib.handlers import (
     PubSubSubscriptionHandler,
+    PubSubPublishHandler,
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
     WaypointsRecord,
+    CocipTrajectoryChunk,
 )
 
 import pandas as pd
@@ -183,12 +184,9 @@ def run():
         # ===================
         # fetch records
         # ===================
-        job: WaypointsRecord = job_handler.fetch()
-        if not job:
-            # if the queue is empty -> we get back [], then pause before retry
-            logger.info("job empty. sleeping... ")
-            time.sleep(10)
-            return
+        job: WaypointsRecord
+        ordering_key: str
+        job, ordering_key = job_handler.fetch()
 
         logger.info(
             f"got job with {len(job.records)} records. "
@@ -230,10 +228,30 @@ def run():
         model = _create_cocip_model(met, rad, performance_model)
         result = model.eval(flight)
 
-        # list of len(job.records) - 2; one cocip ef [J/segment] value
-        sl = slice(1, -1)  # assuming we want to drop the first segment?
-        cocip_output = result["ef"][sl] / result["segment_length"][sl]
-        logger.info(f"Calculated segment energy forcings (J/m) of {cocip_output}")
+        # ===================
+        # publish trajectory chunk model outputs to BQ
+        # ===================
+        output: CocipTrajectoryChunk = (  # noqa:F841
+            CocipTrajectoryChunk.from_cocip_result(
+                source_id=ordering_key.split(":")[0],
+                git_sha=env.GIT_SHA,
+                input_chunk=job,
+                result=result,
+            )
+        )
+
+        trajectory_cocip_bq_publisher = PubSubPublishHandler(
+            env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID
+        )
+        trajectory_cocip_bq_publisher.publish_async(
+            data=output.to_bq_flatmap(),
+            client_name="trajectory_cocip_bq_publisher",
+            icao_address=output.icao_address,
+            source_id=output.source_id,
+            time_start=output.time_start,
+        )
+        trajectory_cocip_bq_publisher.wait_for_publish()
+
         job_handler.ack()
 
 

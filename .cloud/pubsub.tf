@@ -229,3 +229,55 @@ resource "google_pubsub_subscription" "trajectory_chunk_ingress_dead_letter_dev"
     google_pubsub_topic.trajectory_chunk_dead_letter_dev,
   ]
 }
+
+resource "google_pubsub_topic" "trajectory_cocip_bigquery_dev" {
+  name = "trajectory-cocip-bigquery-dev"
+}
+
+resource "google_pubsub_topic" "trajectory_cocip_bigquery_dead_letter_dev" {
+  name = "trajectory-cocip-bigquery-dead-letter-dev"
+}
+
+resource "google_pubsub_subscription" "trajectory_cocip_bigquery_delivery_dev" {
+  name  = "trajectory-cocip-bigquery-delivery-dev"
+  topic = google_pubsub_topic.trajectory_cocip_bigquery_dev.id
+
+  bigquery_config {
+    table = "contrails-301217.${google_bigquery_table.trajectory-cocip-dev.dataset_id}.${google_bigquery_table.trajectory-cocip-dev.table_id}"
+    use_table_schema = true
+    drop_unknown_fields = true
+  }
+
+  dead_letter_policy {
+    max_delivery_attempts = 10
+    dead_letter_topic = google_pubsub_topic.trajectory_cocip_bigquery_dead_letter_dev.id
+  }
+
+    retry_policy {
+    minimum_backoff = "1s"
+    maximum_backoff = "60s"
+  }
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_bigquery_table.trajectory-cocip-dev,
+    google_pubsub_topic.trajectory_cocip_bigquery_dead_letter_dev,
+  ]
+}
+
+resource "google_pubsub_subscription" "trajectory_cocip_bigquery_dead_letter_dev" {
+  name  = "trajectory-cocip-bigquery-dead-letter-dev"
+  topic = google_pubsub_topic.trajectory_cocip_bigquery_dead_letter_dev.id
+  message_retention_duration = "86400s"  # 1 day
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.trajectory_cocip_bigquery_dead_letter_dev,
+  ]
+}

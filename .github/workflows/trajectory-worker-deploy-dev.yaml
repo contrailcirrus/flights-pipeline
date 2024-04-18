@@ -61,3 +61,4 @@ jobs:
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-dev:${{ github.sha }}
           TRAJECTORY_CHUNK_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/trajectory-chunk-ingress-dev
           HRES_SOURCE_PATH: gs://contrails-301217-ecmwf-hres-forecast-v2-short-term
+          GIT_SHA: ${{ github.sha }}

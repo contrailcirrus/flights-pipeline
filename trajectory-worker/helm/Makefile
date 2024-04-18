@@ -4,7 +4,8 @@ deploy: --check-env
 		--namespace=$(NAMESPACE) \
 		--set image=$(IMAGE) \
 		--set trajectoryChunkSubscriptionId=$(TRAJECTORY_CHUNK_SUBSCRIPTION_ID) \
-		--set hresSourcePath=$(HRES_SOURCE_PATH)
+		--set hresSourcePath=$(HRES_SOURCE_PATH) \
+		-- set gitSha=$(GIT_SHA)
 
 .PHONY: --check-env
 --check-env:
