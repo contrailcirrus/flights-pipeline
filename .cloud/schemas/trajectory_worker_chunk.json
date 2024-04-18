@@ -111,7 +111,7 @@
     "name": "total_h2o_kg",
     "type": "INT64",
     "mode": "REQUIRED",
-    "description": "total kg of h20 from fuel combustion ..."
+    "description": "total kg of h2o from fuel combustion ..."
   },
   {
     "name": "total_so2_kg",
