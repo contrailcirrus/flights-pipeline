@@ -183,7 +183,9 @@ def run():
         # ===================
         # fetch records
         # ===================
-        job: WaypointsRecord = job_handler.fetch()
+        job: WaypointsRecord
+        ordering_key: str
+        job, ordering_key = job_handler.fetch()
 
         logger.info(
             f"got job with {len(job.records)} records. "
@@ -227,7 +229,7 @@ def run():
 
         output: CocipTrajectoryChunk = (  # noqa:F841
             CocipTrajectoryChunk.from_cocip_result(
-                source_id="",
+                source_id=ordering_key.split(":")[0],
                 git_sha=env.GIT_SHA,
                 input_chunk=job,
                 result=result,
