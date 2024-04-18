@@ -43,10 +43,6 @@ class QueueClient:
     def __init__(self, topic_id: str, ordered_queue: bool = False) -> None:
         self._topic_id = topic_id
 
-        # Uses default retry policy which uses exponential backoff to manage retries.
-        # The backoff is limited to [0.1, 60] seconds and increases by *1.3 on each
-        # publish error. Retries are managed separately for each ordering key.
-        # See: https://cloud.google.com/pubsub/docs/retry-requests
         self._publisher = pubsub_v1.PublisherClient(
             # Batch settings increase payload size to execute fewer, larger requests.
             # See: https://cloud.google.com/pubsub/docs/batch-messaging
