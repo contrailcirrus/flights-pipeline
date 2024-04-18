@@ -1,21 +1,24 @@
 import concurrent.futures
-from concurrent.futures import TimeoutError, CancelledError
-from typing import Callable
+import os
+from typing import Any, Callable
 
-from lib.log import logger
-
+from google.api_core import retry  # type: ignore
 from google.cloud import pubsub_v1  # type: ignore
 
+from lib.log import format_traceback, logger
 
-def _get_futures_callback(**kwargs) -> Callable[[concurrent.futures.Future], None]:
+
+def _done_callback_factory(
+    log_context: dict[str, Any] | None,
+) -> Callable[[concurrent.futures.Future], None]:
     """
     returns a function to use as a callback.
     Constructs a log message annotating with any k-vs passed to this method.
     """
-
     msg = ""
-    for k, v in kwargs.items():
-        msg += f" {k}={v} "
+    if log_context:
+        for k, v in log_context.items():
+            msg += f" {k}={v} "
 
     def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
         """Re-raise any exceptions raised by the future's execution thread.
@@ -25,16 +28,13 @@ def _get_futures_callback(**kwargs) -> Callable[[concurrent.futures.Future], Non
             future.add_done_callback(_raise_exception_if_failed)
         """
         try:
-            future.result(timeout=55)
-        except TimeoutError:
-            logger.error(f"timeout. failed to publish blob. {msg}")
-            # TODO: raise this to our main application, and exit
-        except CancelledError:
-            logger.error(f"publish future cancelled. failed to publish blob. {msg}")
-            # TODO: raise ...
+            future.result(timeout=0)
         except Exception:
-            logger.error(f"publish future failed. {msg}")
-            # TODO: ...
+            logger.error(
+                f"Publish future failed: {msg}. Unhandled exception:"
+                + format_traceback()
+            )
+            os._exit(1)
 
     return _raise_exception_if_failed
 
@@ -66,12 +66,24 @@ class QueueClient:
                     byte_limit=1024 * 1024 * 1024,  # 1 GiB
                     limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
                 ),
+                retry=retry.Retry(
+                    initial=0.1,  # default: 0.1
+                    maximum=10,  # default: 60
+                    multiplier=1.3,  # default: 1.3
+                    deadline=120,  # default: 120
+                ),
             ),
         )
 
         self._publish_futures: list[concurrent.futures.Future] = []
 
-    def publish_async(self, data: bytes, ordering_key: str = "", **metadata) -> None:
+    def publish_async(
+        self,
+        data: bytes,
+        ordering_key: str = "",
+        timeout_seconds: float = 45,
+        log_context: dict[str, Any] | None = None,
+    ) -> None:
         """Add data to the current publish batch.
 
         Batches are pushed asynchronously to GCP PubSub in a separate thread. To wait
@@ -96,11 +108,14 @@ class QueueClient:
             topic=self._topic_id,
             data=data,
             ordering_key=ordering_key,
+            timeout=timeout_seconds,
         )
-        future.add_done_callback(_get_futures_callback(**metadata))
+
+        done_callback = _done_callback_factory(log_context)
+        future.add_done_callback(done_callback)
         self._publish_futures.append(future)
 
-    def wait_for_publish(self) -> None:
+    def wait_for_publish(self, timeout_seconds: float = 60) -> None:
         """Block until all current publish batches are received by server.
 
         Raises
@@ -108,5 +123,22 @@ class QueueClient:
         concurrent.futures.TimeoutError: server did not respond
         Exception: will re-raise exceptions raised by the batch execution threads
         """
-        concurrent.futures.wait(self._publish_futures)
+        _, not_done = concurrent.futures.wait(
+            self._publish_futures,
+            timeout=timeout_seconds,
+        )
+
+        # Exit if any publish futures have not completed before configured timeout.
+        #
+        # We cannot raise an exception or invoke sys.exit from the parent while child
+        # threads are still running, because cpython configures a shutdown handler to
+        # wait for spawned threads to complete before exiting:
+        # https://github.com/python/cpython/blob/8f25cc992021d6ffc62bb110545b97a92f7cb295/Lib/concurrent/futures/thread.py#L18-L37
+        #
+        # Errors in child threads trigger a separate exit using a future done_callback.
+        if not_done:
+            logger.critical("Futures did not complete before timeout: %s", not_done)
+            os._exit(1)
+
+        # All futures completed without error, reset pending futures state.
         self._publish_futures = []
