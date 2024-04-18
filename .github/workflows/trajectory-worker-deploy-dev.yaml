@@ -62,3 +62,4 @@ jobs:
           TRAJECTORY_CHUNK_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/trajectory-chunk-ingress-dev
           HRES_SOURCE_PATH: gs://contrails-301217-ecmwf-hres-forecast-v2-short-term
           GIT_SHA: ${{ github.sha }}
+          TRAJECTORY_COCIP_BQ_TOPIC_ID: projects/contrails-301217/topics/trajectory-cocip-bigquery-dev

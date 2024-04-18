@@ -13,8 +13,10 @@ running CoCip.
 ## Environment Variables
 The following environment variables are expected for production and development environments.
 
-| name                             |                                description                                |
-|:---------------------------------|:-------------------------------------------------------------------------:|
-| TRAJECTORY_CHUNK_SUBSCRIPTION_ID | fully-qualified uri for the flights trajectory chunks pubsub subscription |
-| HRES_SOURCE_PATH                 |  fully-qualified path in gcs for the hres zarr store used to run cocip    |
-| LOG_LEVEL                        |                log level for service in cloud environment                 |
+| name                             |                                         description                                          |
+|:---------------------------------|:--------------------------------------------------------------------------------------------:|
+| TRAJECTORY_CHUNK_SUBSCRIPTION_ID |          fully-qualified uri for the flights trajectory chunks pubsub subscription           |
+| HRES_SOURCE_PATH                 |            fully-qualified path in gcs for the hres zarr store used to run cocip             |
+| LOG_LEVEL                        |                          log level for service in cloud environment                          |
+| GIT_SHA                          | git hash for the trajectory worker; injected into the big query outputs for lineage tracking |
+| TRAJECTORY_COCIP_BQ_TOPIC_ID     |          fully-qualified uri for trajectory chunk cocip outputs, flows to BigQuery           |
