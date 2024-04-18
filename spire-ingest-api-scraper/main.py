@@ -151,7 +151,9 @@ def main(
                 source_id=EGRESS_ORDERING_KEY_SRC_ID,
             ):
                 bq_queue_client.publish_async(
-                    raw_bq_json_ln,
+                    data=raw_bq_json_ln,
+                    ordering_key="default",
+                    timeout_seconds=45,
                     log_context=dict(
                         client_name="bq_queue_client",
                         icao_address=icao_address,
@@ -206,9 +208,13 @@ def main(
             )
 
             data = dto.as_utf8_json()
+            ordering_key = EGRESS_ORDERING_KEY_TEMPLATE.format(
+                icao_address=icao_address
+            )
             egress_queue_client.publish_async(
-                data,
-                EGRESS_ORDERING_KEY_TEMPLATE.format(icao_address=icao_address),
+                data=data,
+                ordering_key=ordering_key,
+                timeout_seconds=45,
                 log_context=dict(
                     client_name="egress_queue_client",
                     icao_address=icao_address,
@@ -216,8 +222,8 @@ def main(
                 ),
             )
 
-        bq_queue_client.wait_for_publish()
-        egress_queue_client.wait_for_publish()
+        bq_queue_client.wait_for_publish(timeout_seconds=60)
+        egress_queue_client.wait_for_publish(timeout_seconds=60)
         logger.info(f"Published records successfully: {len(spire_df)}")
 
         state_client.set_last_sync_end_at(batch_end_at)
@@ -237,11 +243,11 @@ if __name__ == "__main__":
         triggered_at = datetime.now(tz=timezone.utc)
 
         egress_queue_client = queue.QueueClient(
-            environment.PUBSUB_EGRESS_TOPIC_ID,
+            topic_id=environment.PUBSUB_EGRESS_TOPIC_ID,
             ordered_queue=True,
         )
         bq_queue_client = queue.QueueClient(
-            environment.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
+            topic_id=environment.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
             ordered_queue=False,
         )
         sigterm_handler = utils.SigtermHandler()

@@ -40,13 +40,9 @@ def _done_callback_factory(
 
 
 class QueueClient:
-    def __init__(self, topic_id: str, ordered_queue: bool = False) -> None:
+    def __init__(self, topic_id: str, ordered_queue: bool) -> None:
         self._topic_id = topic_id
 
-        # Uses default retry policy which uses exponential backoff to manage retries.
-        # The backoff is limited to [0.1, 60] seconds and increases by *1.3 on each
-        # publish error. Retries are managed separately for each ordering key.
-        # See: https://cloud.google.com/pubsub/docs/retry-requests
         self._publisher = pubsub_v1.PublisherClient(
             # Batch settings increase payload size to execute fewer, larger requests.
             # See: https://cloud.google.com/pubsub/docs/batch-messaging
@@ -80,8 +76,8 @@ class QueueClient:
     def publish_async(
         self,
         data: bytes,
+        timeout_seconds: float,
         ordering_key: str = "",
-        timeout_seconds: float = 45,
         log_context: dict[str, Any] | None = None,
     ) -> None:
         """Add data to the current publish batch.
@@ -99,6 +95,8 @@ class QueueClient:
             consumers in the order they are published. the publisher client,
             and the subscription bound to the receiving topic,
             must be configured to use ordered messages.
+        timeout_seconds
+            timeout applied to each gRPC call to the PubSub API
         metadata
             any additional k-vs that contextualize the publish event.
             these will be added as context to the publisher callback,
@@ -115,13 +113,14 @@ class QueueClient:
         future.add_done_callback(done_callback)
         self._publish_futures.append(future)
 
-    def wait_for_publish(self, timeout_seconds: float = 60) -> None:
+    def wait_for_publish(self, timeout_seconds: float | None = None) -> None:
         """Block until all current publish batches are received by server.
 
-        Raises
-        ------
-        concurrent.futures.TimeoutError: server did not respond
-        Exception: will re-raise exceptions raised by the batch execution threads
+        Parameters
+        ----------
+        timeout_seconds
+            Duration to wait for all publish jobs to complete. If timeout_seconds is
+            exceeded, the process will be force exited with os._exit(1).
         """
         _, not_done = concurrent.futures.wait(
             self._publish_futures,
