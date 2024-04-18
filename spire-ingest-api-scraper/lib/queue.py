@@ -137,7 +137,7 @@ class QueueClient:
         #
         # Errors in child threads trigger a separate exit using a future done_callback.
         if not_done:
-            logger.critical("Futures did not complete before timeout: %s", not_done)
+            logger.error("Futures did not complete before timeout: %s", not_done)
             os._exit(1)
 
         # All futures completed without error, reset pending futures state.
