@@ -20,7 +20,7 @@ def _done_callback_factory(
         for k, v in log_context.items():
             msg += f" {k}={v} "
 
-    def _raise_exception_if_failed(future: concurrent.futures.Future) -> None:
+    def _exit_on_error(future: concurrent.futures.Future) -> None:
         """Re-raise any exceptions raised by the future's execution thread.
 
         This should be registered as a callback that will only be invoked when the future
@@ -36,7 +36,7 @@ def _done_callback_factory(
             )
             os._exit(1)
 
-    return _raise_exception_if_failed
+    return _exit_on_error
 
 
 class QueueClient:
