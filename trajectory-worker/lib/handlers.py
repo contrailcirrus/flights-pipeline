@@ -81,7 +81,7 @@ class PubSubSubscriptionHandler:
                     )
         logger.info("terminated ack lease management worker")
 
-    def fetch(self) -> WaypointsRecord:
+    def fetch(self) -> (WaypointsRecord, str):
         """
         Fetch a message from the subscription queue.
         This method will hang and wait until a message is available.
@@ -91,6 +91,8 @@ class PubSubSubscriptionHandler:
         -------
         str
             The dequeued message from the pubsub subscription.
+        str
+            The ordering key for the fetched record.
         """
         if not self._client:
             self._client = pubsub_v1.SubscriberClient()
@@ -114,12 +116,13 @@ class PubSubSubscriptionHandler:
                 continue
             msg = resp.received_messages[0]
             self._ack_id = msg.ack_id
+            ordering_key = msg.message.ordering_key
             logger.info(
                 f"received 1 message from {self.subscription}. "
                 f"published_time: {msg.message.publish_time}, "
                 f"message_id: {msg.message.message_id}"
             )
-            return WaypointsRecord.from_utf8_json(msg.message.data)
+            return WaypointsRecord.from_utf8_json(msg.message.data), ordering_key
 
     def ack(self):
         """

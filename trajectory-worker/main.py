@@ -1,7 +1,6 @@
 """Entrypoint for the Spire Ingest Resample Worker."""
 
 import sys
-import time
 
 import lib.environment as env
 from lib import utils
@@ -185,11 +184,6 @@ def run():
         # fetch records
         # ===================
         job: WaypointsRecord = job_handler.fetch()
-        if not job:
-            # if the queue is empty -> we get back [], then pause before retry
-            logger.info("job empty. sleeping... ")
-            time.sleep(10)
-            return
 
         logger.info(
             f"got job with {len(job.records)} records. "
