@@ -95,6 +95,8 @@ class QueueClient:
             consumers in the order they are published. the publisher client,
             and the subscription bound to the receiving topic,
             must be configured to use ordered messages.
+        timeout_seconds
+            timeout applied to each gRPC call to the PubSub API
         metadata
             any additional k-vs that contextualize the publish event.
             these will be added as context to the publisher callback,
