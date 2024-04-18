@@ -76,8 +76,8 @@ class QueueClient:
     def publish_async(
         self,
         data: bytes,
-        ordering_key: str = "",
-        timeout_seconds: float = 45,
+        ordering_key: str,
+        timeout_seconds: float,
         log_context: dict[str, Any] | None = None,
     ) -> None:
         """Add data to the current publish batch.
@@ -111,7 +111,7 @@ class QueueClient:
         future.add_done_callback(done_callback)
         self._publish_futures.append(future)
 
-    def wait_for_publish(self, timeout_seconds: float = 60) -> None:
+    def wait_for_publish(self, timeout_seconds: float | None = None) -> None:
         """Block until all current publish batches are received by server.
 
         Raises
