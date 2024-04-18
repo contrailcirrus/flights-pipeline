@@ -244,9 +244,7 @@ class CocipTrajectoryChunk:
     lon_start: float  # lon of " " "
     lat_end: float  # lat of last waypoint in chunk
     lon_end: float  # lon of " " "
-    time_start: (
-        str  #  timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
-    )
+    time_start: str  # timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
 
     pycontrails_ver: str  # version of pycontrails used in model run
