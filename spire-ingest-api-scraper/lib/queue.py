@@ -121,11 +121,6 @@ class QueueClient:
         timeout_seconds
             Duration to wait for all publish jobs to complete. If timeout_seconds is
             exceeded, the process will be force exited with os._exit(1).
-
-        Raises
-        ------
-        concurrent.futures.TimeoutError: server did not respond
-        Exception: will re-raise exceptions raised by the batch execution threads
         """
         _, not_done = concurrent.futures.wait(
             self._publish_futures,
