@@ -6,6 +6,7 @@ import lib.environment as env
 from lib import utils
 from lib.handlers import (
     PubSubSubscriptionHandler,
+    PubSubPublishHandler,
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
@@ -227,6 +228,9 @@ def run():
         model = _create_cocip_model(met, rad, performance_model)
         result = model.eval(flight)
 
+        # ===================
+        # publish trajectory chunk model outputs to BQ
+        # ===================
         output: CocipTrajectoryChunk = (  # noqa:F841
             CocipTrajectoryChunk.from_cocip_result(
                 source_id=ordering_key.split(":")[0],
@@ -235,6 +239,18 @@ def run():
                 result=result,
             )
         )
+
+        trajectory_cocip_bq_publisher = PubSubPublishHandler(
+            env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID
+        )
+        trajectory_cocip_bq_publisher.publish_async(
+            data=output.to_bq_flatmap(),
+            client_name="trajectory_cocip_bq_publisher",
+            icao_address=output.icao_address,
+            source_id=output.source_id,
+            time_start=output.time_start,
+        )
+        trajectory_cocip_bq_publisher.wait_for_publish()
 
         job_handler.ack()
 
