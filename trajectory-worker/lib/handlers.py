@@ -3,9 +3,11 @@ Application handlers.
 """
 
 import threading
+from concurrent import futures
 from threading import Thread
-from typing import Union
+from typing import Union, Callable
 
+from google.cloud.pubsub_v1.types import PublishFlowControl, LimitExceededBehavior
 
 from lib.log import logger, format_traceback
 from lib.schemas import (
@@ -147,3 +149,118 @@ class PubSubSubscriptionHandler:
         self._ack_id = None
         self._kill_ack_manager.set()
         self._client.close()
+
+
+class PubSubPublishHandler:
+    def __init__(
+        self,
+        topic_id: str,
+        ordered_queue: bool = False,
+        max_message_backlog: int = 1000,
+        max_mem_backlog_mb: int = 10,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        topic_id
+            fully-qualified uri for the pubsub topic.
+            e.g. `projects/contrails-301217/topics/my-topic-name-dev`
+        ordered_queue
+            type of queue.
+            True if ordered (requires ordering key).
+            False if unordered.
+        max_message_backlog
+            maximum number of messages backlogged for async publish.
+            if number of pending messages exceeds this limit, async publish will block.
+        max_mem_backlog_mb
+            maximum total memory (in mb) of messages backlogged for async publish.
+            if total mem exceeds this limit, async publish will block.
+        """
+
+        self._topic_id = topic_id
+        self._ordered_queue = ordered_queue
+
+        # Uses default retry policy which uses exponential backoff to manage retries.
+        # The backoff is limited to [0.1, 60] seconds and increases by *1.3 on each
+        # publish error. Retries are managed separately for each ordering key.
+        # See: https://cloud.google.com/pubsub/docs/retry-requests
+        flow_control_settings = PublishFlowControl(
+            message_limit=max_message_backlog,
+            byte_limit=max_mem_backlog_mb * 1024 * 1024,
+            limit_exceeded_behavior=LimitExceededBehavior.BLOCK,
+        )
+
+        self._publisher = pubsub_v1.PublisherClient(
+            publisher_options=pubsub_v1.types.PublisherOptions(
+                enable_message_ordering=ordered_queue,
+                flow_control=flow_control_settings,
+            )
+        )
+        self._publish_futures: list[futures.Future] = []
+
+    @staticmethod
+    def _get_futures_callback(**kwargs) -> Callable[[futures.Future], None]:
+        """
+        returns a function to use as a callback.
+        Constructs a log message annotating with any k-vs passed to this method.
+        """
+
+        msg = ""
+        for k, v in kwargs.items():
+            msg += f" {k}={v} "
+
+        def _raise_exception_if_failed(future: futures.Future) -> None:
+            """Re-raise any exceptions raised by the future's execution thread.
+
+            This should be registered as a callback that will only be invoked when the future
+            has already completed using:
+                future.add_done_callback(_raise_exception_if_failed)
+            """
+            try:
+                future.result(timeout=55)
+            except futures.TimeoutError:
+                logger.error(f"timeout. failed to publish blob. {msg}")
+                # TODO: raise this to our main application, and exit
+            except futures.CancelledError:
+                logger.error(f"publish future cancelled. failed to publish blob. {msg}")
+                # TODO: raise ...
+            except Exception:
+                logger.error(f"publish future failed. {msg}")
+                # TODO: ...
+
+        return _raise_exception_if_failed
+
+    def publish_async(self, data: bytes, ordering_key: str = "", **metadata) -> None:
+        """Add data to the current publish batch.
+
+        Batches are pushed asynchronously to GCP PubSub in a separate thread. To wait
+        for one or more publish calls until they have been received by the server, call
+        wait_for_publish.
+
+        Parameters
+        ----------
+        data
+            byte encoded string payload
+        ordering_key
+            required if handler was instantiated with ordered_queue=True
+            payloads sharing the same ordering_key are guaranteed to be delivered to
+            consumers in the order they are published
+        metadata
+            any additional k-vs that contextualize the publish event.
+            these will be added as context to the publisher callback,
+            which includes them in any failure logs.
+        """
+        future: futures.Future = self._publisher.publish(
+            topic=self._topic_id,
+            data=data,
+            ordering_key=ordering_key,
+        )
+        future.add_done_callback(self._get_futures_callback(**metadata))
+        self._publish_futures.append(future)
+
+    def wait_for_publish(self) -> None:
+        """
+        Block until all current publish batches are received by server.
+        """
+        futures.wait(self._publish_futures)
+        self._publish_futures = []

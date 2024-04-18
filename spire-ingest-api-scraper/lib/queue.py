@@ -101,12 +101,8 @@ class QueueClient:
         self._publish_futures.append(future)
 
     def wait_for_publish(self) -> None:
-        """Block until all current publish batches are received by server.
-
-        Raises
-        ------
-        concurrent.futures.TimeoutError: server did not respond
-        Exception: will re-raise exceptions raised by the batch execution threads
+        """
+        Block until all current publish batches are received by server.
         """
         concurrent.futures.wait(self._publish_futures)
         self._publish_futures = []
