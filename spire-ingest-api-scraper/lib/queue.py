@@ -40,7 +40,7 @@ def _done_callback_factory(
 
 
 class QueueClient:
-    def __init__(self, topic_id: str, ordered_queue: bool = False) -> None:
+    def __init__(self, topic_id: str, ordered_queue: bool) -> None:
         self._topic_id = topic_id
 
         self._publisher = pubsub_v1.PublisherClient(
@@ -76,8 +76,8 @@ class QueueClient:
     def publish_async(
         self,
         data: bytes,
-        ordering_key: str,
         timeout_seconds: float,
+        ordering_key: str = "",
         log_context: dict[str, Any] | None = None,
     ) -> None:
         """Add data to the current publish batch.

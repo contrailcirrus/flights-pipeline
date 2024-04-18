@@ -243,11 +243,11 @@ if __name__ == "__main__":
         triggered_at = datetime.now(tz=timezone.utc)
 
         egress_queue_client = queue.QueueClient(
-            environment.PUBSUB_EGRESS_TOPIC_ID,
+            topic_id=environment.PUBSUB_EGRESS_TOPIC_ID,
             ordered_queue=True,
         )
         bq_queue_client = queue.QueueClient(
-            environment.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
+            topic_id=environment.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
             ordered_queue=False,
         )
         sigterm_handler = utils.SigtermHandler()
