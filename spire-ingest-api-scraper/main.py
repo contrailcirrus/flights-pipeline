@@ -152,7 +152,6 @@ def main(
             ):
                 bq_queue_client.publish_async(
                     data=raw_bq_json_ln,
-                    ordering_key="default",
                     timeout_seconds=45,
                     log_context=dict(
                         client_name="bq_queue_client",
