@@ -11,6 +11,7 @@ from lib.handlers import (
 from lib.log import format_traceback, logger
 from lib.schemas import (
     WaypointsRecord,
+    CocipTrajectoryChunk,
 )
 
 import pandas as pd
@@ -230,10 +231,15 @@ def run():
         model = _create_cocip_model(met, rad, performance_model)
         result = model.eval(flight)
 
-        # list of len(job.records) - 2; one cocip ef [J/segment] value
-        sl = slice(1, -1)  # assuming we want to drop the first segment?
-        cocip_output = result["ef"][sl] / result["segment_length"][sl]
-        logger.info(f"Calculated segment energy forcings (J/m) of {cocip_output}")
+        output: CocipTrajectoryChunk = (  # noqa:F841
+            CocipTrajectoryChunk.from_cocip_result(
+                source_id="",
+                git_sha=env.GIT_SHA,
+                input_chunk=job,
+                result=result,
+            )
+        )
+
         job_handler.ack()
 
 
