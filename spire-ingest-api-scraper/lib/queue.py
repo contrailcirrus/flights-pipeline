@@ -116,6 +116,12 @@ class QueueClient:
     def wait_for_publish(self, timeout_seconds: float | None = None) -> None:
         """Block until all current publish batches are received by server.
 
+        Parameters
+        ----------
+        timeout_seconds
+            Duration to wait for all publish jobs to complete. If timeout_seconds is
+            exceeded, the process will be force exited with os._exit(1).
+
         Raises
         ------
         concurrent.futures.TimeoutError: server did not respond
