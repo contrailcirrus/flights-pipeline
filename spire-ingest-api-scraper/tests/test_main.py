@@ -1,6 +1,5 @@
 import json
 from datetime import datetime, timedelta, timezone
-from types import NoneType
 from typing import Any
 from unittest.mock import Mock
 
