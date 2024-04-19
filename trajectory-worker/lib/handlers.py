@@ -317,6 +317,7 @@ class CocipTrajectoryHandler:
         """
         self._hres_src = hres_src
         self._job = job
+        self._zarr_model_run_at: str | None = None
         self._met_dataset: MetDataset | None = None
         self._rad_dataset: MetDataset | None = None
 
@@ -399,11 +400,35 @@ class CocipTrajectoryHandler:
             ),
         )
 
-    def load(self):
+    @staticmethod
+    def _nearest_zarr_store(job: WaypointsRecord) -> str:
         """
-        Open forecast zarr stores.
+        Method for inferring the target zarr store, based on now() and the job's flight
+        timestamp range.
 
-        Will choose the most recent useable forecast.
+        Guarantees that the entire flight trajectory (start_time -> end_time),
+        plus requisite buffers, sit within the zarr store's forecast range.
+
+        ---------
+        Most Recently Available
+        ---------
+        The zarr store is generated from the ecmwf met data (by the hres-etl service).
+
+        A given zarr store is built from a batch of ecmwf files.
+        That batch _begins_ delivery approx. 6hrs after the model_run_at time.
+        It can take approx. 3 hrs after batch delivery starts for delivery to end,
+        and for all files to have been processed into zarr.
+
+        Provided there are no failures in hres-etl, the earliest we should assume zarr
+        availability is 6+3=9hrs after a given model_run_at.
+
+        model_run_at is available on 6hr intervals: %H [00, 06, 12, 18]
+
+        ---------
+        Trajectory Within Zarr Store Forecast Range
+        ---------
+
+        A zarr store spans 72hours, starting at time zero (model_run_at), to model_run_at+72.
 
         Note that the first forecast step must be at least half an hour before the earliest
         waypoint to provide a buffer for differencing accumulated radiative fluxes.
@@ -412,40 +437,57 @@ class CocipTrajectoryHandler:
         cover the entire simulation (requires half an hour beyond latest waypoint + max age)
         and raises an exception if it does not.
 
-        Logic currently assumes that the zarr store will include a forecast
-        initialized every 6h (0z, 6z, 12z, 18z each day).
-        """
-        # TODO: pop the hres zarr store uri selector into a separate method
-        # TODO: refine the hres zarr store selector; currently we're hitting non-existent stores
-        earliest = pd.Timestamp(
-            self._job.records[0].timestamp
-        )  # is jobs.records guaranteed to be sorted by time?
-        forecast_time = (earliest - pd.Timedelta(30, "m")).floor("6h")
-        forecast_path = f"{self._hres_src}/{forecast_time.strftime('%Y%m%d%H')}"
+        Parameters
+        ----------
+        job
+            Trajectory worker job w/ list of waypoints constituting the trajectory chunk
 
-        pl = xr.open_zarr(f"{forecast_path}/pl.zarr")
+        Returns
+        -------
+        The subdirectory matching the model_run_at time for the target zarr store
+        i.e. `model_run_at` in 'gs://<zarr_bucket>/<model_run_at>'
+        e.g. '2024041112' in 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term/2024041112'
+        """
+
+        earliest_waypoint = pd.Timestamp(job.records[0].timestamp)
+
+        earliest_forecast = earliest_waypoint - pd.Timedelta(minutes=30)
+        target_model_run_at = earliest_forecast.floor("6h")
+
+        latest_model_run_at = (
+            pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=9)
+        ).floor("6h")
+
+        if target_model_run_at > latest_model_run_at:
+            # case when the job is very fresh, and we don't have the latest zarr store yet
+            logger.warning(
+                f"target zarr store not available ({target_model_run_at}). "
+                f"fall back to latest ({latest_model_run_at}). "
+                f"icao_address {job.flight_info.icao_address}, "
+                f"job first waypoint {earliest_waypoint}"
+            )
+            target_model_run_at = latest_model_run_at
+
+        return target_model_run_at.strftime("%Y%m%d%H")
+
+    def load(self):
+        """
+        Open forecast zarr stores.
+
+        Will choose the most recent _usable_ forecast.
+        """
+        self._zarr_model_run_at = self._nearest_zarr_store(self._job)
+        zarr_path = f"{self._hres_src}/{self._zarr_model_run_at}"
+
+        pl = xr.open_zarr(f"{zarr_path}/pl.zarr")
         met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
         met.standardize_variables(variables)
 
-        sl = xr.open_zarr(f"{forecast_path}/sl.zarr")
+        sl = xr.open_zarr(f"{zarr_path}/sl.zarr")
         rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables)
         rad.standardize_variables(variables)
-
-        latest = pd.Timestamp(self._job.records[-1].timestamp)
-        latest_possible = (
-            pd.Timestamp(
-                rad.data["time"]
-                .max()
-                .item(),  # rad will be limiting because of required buffer
-                tz="UTC",
-            )
-            - pd.Timedelta(30, "min")
-            - self.STATIC_PARAMS["max_age"]
-        )
-        if latest_possible < latest:
-            raise ValueError("Latest waypoint is after latest possible prediction time")
 
         self._met_dataset = met
         self._rad_dataset = rad
@@ -468,3 +510,11 @@ class CocipTrajectoryHandler:
 
         result: Flight = model.eval(self._flight)
         return result
+
+    @property
+    def zarr_uri(self):
+        """
+        Returns the subdirectory that houses the hres zarr data
+        and uniquely identifies the store based on the model_run_at time.
+        """
+        return self._zarr_model_run_at

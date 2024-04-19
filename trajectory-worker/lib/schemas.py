@@ -251,6 +251,7 @@ class CocipTrajectoryChunk:
     perf_model_id: str  # identifier of the perf model
     source_id: str  # the source identifier for the trajectory chunk job
     git_sha: str  # git sha of the trajectory-worker
+    zarr_uri: str  # zarr store model_run_at identifier; e.g. '2024041506'
 
     sum_ef_mj: int  # sum of the calculated ef values, units 10^6*[J]
     total_fuel_burn_kg: int  # total kg of fuel burn for chunk
@@ -280,6 +281,7 @@ class CocipTrajectoryChunk:
         source_id: str,
         git_sha: str,
         input_chunk: WaypointsRecord,
+        zarr_uri: str,
         result: pycontrails.core.Flight,
     ):
         """
@@ -293,6 +295,9 @@ class CocipTrajectoryChunk:
             the git_sha for the trajectory worker
         input_chunk
             the job (list of waypoints) passed to the trajectory worker, w/ flightinfo metadata
+        zarr_uri
+            the identifier specifying the model run at time of the zarr store used in running cocip
+            e.g. `2024041506`
         result
             the model result from running the cocip trajectory model
         """
@@ -337,6 +342,7 @@ class CocipTrajectoryChunk:
             perf_model_id=attrs["aircraft_performance_model"],
             source_id=source_id,
             git_sha=git_sha,
+            zarr_uri=zarr_uri,
             sum_ef_mj=int(np.nansum(segs_ef_j) // 10**6),
             total_fuel_burn_kg=int(attrs["total_fuel_burn"]),
             total_co2_kg=int(attrs["total_co2"]),
@@ -410,6 +416,7 @@ class CocipTrajectoryChunk:
             "perf_model_id": self.perf_model_id,
             "source_id": self.source_id,
             "git_sha": self.git_sha,
+            "zarr_uri": self.zarr_uri,
             "sum_ef_mj": self.sum_ef_mj,
             "total_fuel_burn_kg": self.total_fuel_burn_kg,
             "total_co2_kg": self.total_co2_kg,

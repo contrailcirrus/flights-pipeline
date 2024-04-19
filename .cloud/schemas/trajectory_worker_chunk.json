@@ -90,6 +90,12 @@
     "description": "git sha of the trajectory-worker"
   },
   {
+    "name": "zarr_uri",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "id of the model_run_at time of the zarr store used in running cocip"
+  },
+  {
     "name": "sum_ef_mj",
     "type": "INT64",
     "mode": "REQUIRED",
