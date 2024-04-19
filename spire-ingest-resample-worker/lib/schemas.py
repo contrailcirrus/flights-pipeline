@@ -1,11 +1,11 @@
 """ Data Object Models & Schemas"""
 
-from dataclasses import dataclass, asdict
+import hashlib
 import json
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from typing import TypedDict
 from uuid import UUID
-from datetime import datetime, UTC
-import hashlib
 
 
 @dataclass
@@ -153,7 +153,7 @@ class SpireWaypointsRecord:
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
             if not timestamp:
-                return timestamp
+                return None
             ts: int = int(datetime.fromisoformat(timestamp).timestamp() * 1e6)
             return ts
 
@@ -218,7 +218,7 @@ class WaypointCache:
         timestamp: int  # unixtime
 
     key: str  # <source_identifier>:<icao_address>, e.g. `spr:4B0293`
-    waypoints: tuple[Waypoint]  # record[0].timestamp < record[1].timestamp
+    waypoints: tuple[Waypoint, ...]  # record[0].timestamp < record[1].timestamp
 
     def to_flatmap(self) -> dict[str, object]:
         """
