@@ -1,26 +1,25 @@
 """Entrypoint for the Spire Ingest Resample Worker."""
 
 import sys
-from datetime import datetime
 from dataclasses import asdict
+from datetime import datetime
 
 import lib.environment as env
-from lib import utils
+from lib import queue, utils
 from lib.handlers import (
     CacheHandler,
-    PubSubPublishHandler,
+    PerfModelLookup,
     PubSubSubscriptionHandler,
     ResampleHandler,
     ValidationHandler,
-    PerfModelLookup,
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
+    FlightInfoWide,
     SpireFlightInfo,
     SpireWaypointPositional,
     SpireWaypointsRecord,
     WaypointCache,
-    FlightInfoWide,
     WaypointsRecord,
 )
 
@@ -39,12 +38,17 @@ def run():
     - Updates the last known 1-2 waypoint(s) for the flight-instance in remote cache
     """
     cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
-    bq_raw_publish_handler = PubSubPublishHandler(
-        env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
+
+    bq_raw_publish_handler = queue.QueueClient(
+        topic_id=env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
+        ordered_queue=False,
     )
-    bq_publish_handler = PubSubPublishHandler(env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID)
-    trajectory_publish_handler = PubSubPublishHandler(
-        env.TRAJECTORY_CHUNK_TOPIC_ID,
+    bq_publish_handler = queue.QueueClient(
+        topic_id=env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID,
+        ordered_queue=False,
+    )
+    trajectory_publish_handler = queue.QueueClient(
+        topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
         ordered_queue=True,
     )
 
@@ -69,12 +73,15 @@ def run():
         # ===================
         for raw_bq_json_ln in job.to_bq_flatmap(ordering_key.split(":")[0]):
             bq_raw_publish_handler.publish_async(
-                raw_bq_json_ln,
-                client_name="bq_raw_publish_handler",
-                icao_address=job.flight_info.icao_address,
-                batch_first_ts=job.records[0].timestamp,
+                data=raw_bq_json_ln,
+                timeout_seconds=45,
+                log_context=dict(
+                    client_name="bq_raw_publish_handler",
+                    icao_address=job.flight_info.icao_address,
+                    batch_first_ts=job.records[0].timestamp,
+                ),
             )
-        bq_raw_publish_handler.wait_for_publish()
+        bq_raw_publish_handler.wait_for_publish(timeout_seconds=60)
 
         # fetch cache
         try:
@@ -115,6 +122,7 @@ def run():
                 f"records must have timestamp after cached timestamp. "
                 f"received records for icao_address {job.flight_info.icao_address} "
                 f"with timestamp {validation_handler.min_records_ts.isoformat()} occurring before "
+                # TODO: validation_handler.max_cached_ts could be None
                 f"cached timestamp {validation_handler.max_cached_ts.isoformat()}"
             )
             job_handler.ack()
@@ -146,6 +154,7 @@ def run():
 
             new_cache = WaypointCache.from_spire_waypoint_positional(
                 key=ordering_key,
+                # TODO: validated_flight_info.flight_id could be None
                 flight_id=validated_flight_info.flight_id,
                 spire_wps=tuple(new_cache_wpts),
             )
@@ -207,10 +216,13 @@ def run():
         # ===================
         for bq_json_ln in egress_records.to_bq_flatmap(ordering_key.split(":")[0]):
             bq_publish_handler.publish_async(
-                bq_json_ln,
-                client_name="bq_publish_handler",
-                icao_address=egress_records.flight_info.icao_address,
-                batch_first_ts=egress_records.records[0].timestamp,
+                data=bq_json_ln,
+                timeout_seconds=45,
+                log_context=dict(
+                    client_name="bq_publish_handler",
+                    icao_address=egress_records.flight_info.icao_address,
+                    batch_first_ts=egress_records.records[0].timestamp,
+                ),
             )
         bq_publish_handler.wait_for_publish()
 
@@ -230,11 +242,14 @@ def run():
                 records=resampled_records,
             )
             trajectory_publish_handler.publish_async(
-                trajectory_chunk.as_utf8_json(),
+                data=trajectory_chunk.as_utf8_json(),
                 ordering_key=ordering_key,
-                client_name="trajectory_publish_handler",
-                icao_address=trajectory_chunk.flight_info.icao_address,
-                batch_first_ts=trajectory_chunk.records[0].timestamp,
+                timeout_seconds=45,
+                log_context=dict(
+                    client_name="trajectory_publish_handler",
+                    icao_address=trajectory_chunk.flight_info.icao_address,
+                    batch_first_ts=trajectory_chunk.records[0].timestamp,
+                ),
             )
             trajectory_publish_handler.wait_for_publish()
 
@@ -247,6 +262,7 @@ def run():
             new_cache_records = tuple(resampled_records[-1:])
         new_cache = WaypointCache.from_spire_waypoint_positional(
             key=ordering_key,
+            # TODO: validated_flight_info.flight_id could be None
             flight_id=validated_flight_info.flight_id,
             spire_wps=new_cache_records,
         )
