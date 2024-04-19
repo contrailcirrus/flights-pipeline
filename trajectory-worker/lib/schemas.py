@@ -316,10 +316,10 @@ class CocipTrajectoryChunk:
 
         attrs: CocipFlightAttributes = dict(result.attrs)
 
-        # TODO: revise this slice; this drops both the first and last waypoint... not just the trailing segment
-        sl = slice(
-            1, -1
-        )  # drop last segment in all segment arrays, as it is sacrificial in cocip
+        # we drop the last segment in the cocip outputs
+        # because the resample-worker guarantees a leading edge overlap of 1 segment
+        # between consecutive jobs
+        sl = slice(0, -2)
         segs_ef_j = result["ef"][sl] / result["segment_length"][sl]
 
         return CocipTrajectoryChunk(

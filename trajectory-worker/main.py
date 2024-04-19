@@ -70,13 +70,11 @@ def run():
         # ===================
         # publish trajectory chunk model outputs to BQ
         # ===================
-        output: CocipTrajectoryChunk = (  # noqa:F841
-            CocipTrajectoryChunk.from_cocip_result(
-                source_id=ordering_key.split(":")[0],
-                git_sha=env.GIT_SHA,
-                input_chunk=job,
-                result=cocip_result,
-            )
+        output: CocipTrajectoryChunk = CocipTrajectoryChunk.from_cocip_result(
+            source_id=ordering_key.split(":")[0],
+            git_sha=env.GIT_SHA,
+            input_chunk=job,
+            result=cocip_result,
         )
 
         trajectory_cocip_bq_publisher = PubSubPublishHandler(
