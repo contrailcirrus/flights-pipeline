@@ -283,7 +283,7 @@ class CocipTrajectoryHandler:
     Manages the execution of the CoCip trajectory model on a flight trajectory chunk.
     """
 
-    MET_MIN_ALTITUDE_FT = 30_000  # hard-coding allows more efficient skip-over
+    MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
 
     # matched to values used by api-preprocessor
     STATIC_PARAMS = dict(
