@@ -80,7 +80,7 @@ def run():
         )
 
         trajectory_cocip_bq_publisher = PubSubPublishHandler(
-            env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID
+            env.TRAJECTORY_COCIP_BQ_TOPIC_ID
         )
         trajectory_cocip_bq_publisher.publish_async(
             data=output.to_bq_flatmap(),
