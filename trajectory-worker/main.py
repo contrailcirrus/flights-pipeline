@@ -74,7 +74,7 @@ def run():
             source_id=ordering_key.split(":")[0],
             git_sha=env.GIT_SHA,
             input_chunk=job,
-            zarr_uri=CocipTrajectoryHandler.zarr_uri,
+            zarr_uri=trajectory_cocip_handler.zarr_uri,
             result=cocip_result,
         )
 
