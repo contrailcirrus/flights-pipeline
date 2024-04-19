@@ -12,6 +12,7 @@ from lib.handlers import (
     PubSubSubscriptionHandler,
     ResampleHandler,
     ValidationHandler,
+    PerfModelLookup,
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
@@ -216,22 +217,26 @@ def run():
         # ===================
         # trajectory worker: publish resampled records as trajectory chunk to pubsub
         # ===================
-        validated_flight_info_wide = FlightInfoWide(
-            **asdict(validated_flight_info),
-            engine_uid=None,
-        )
-        trajectory_chunk = WaypointsRecord(
-            flight_info=validated_flight_info_wide,
-            records=resampled_records,
-        )
-        trajectory_publish_handler.publish_async(
-            trajectory_chunk.as_utf8_json(),
-            ordering_key=ordering_key,
-            client_name="trajectory_publish_handler",
-            icao_address=trajectory_chunk.flight_info.icao_address,
-            batch_first_ts=trajectory_chunk.records[0].timestamp,
-        )
-        trajectory_publish_handler.wait_for_publish()
+        if (
+            validated_flight_info.aircraft_type_icao
+            in PerfModelLookup().aircraft_type_icao
+        ):
+            validated_flight_info_wide = FlightInfoWide(
+                **asdict(validated_flight_info),
+                engine_uid=None,
+            )
+            trajectory_chunk = WaypointsRecord(
+                flight_info=validated_flight_info_wide,
+                records=resampled_records,
+            )
+            trajectory_publish_handler.publish_async(
+                trajectory_chunk.as_utf8_json(),
+                ordering_key=ordering_key,
+                client_name="trajectory_publish_handler",
+                icao_address=trajectory_chunk.flight_info.icao_address,
+                batch_first_ts=trajectory_chunk.records[0].timestamp,
+            )
+            trajectory_publish_handler.wait_for_publish()
 
         # ===================
         # update cache

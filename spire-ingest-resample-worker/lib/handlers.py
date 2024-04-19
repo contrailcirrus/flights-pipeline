@@ -3,6 +3,7 @@ Application handlers.
 """
 
 import copy
+import json
 import math
 from concurrent import futures
 from typing import Union, Callable
@@ -633,3 +634,26 @@ class ResampleHandler:
         diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
         min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
         return cls.FLIGHT_LEVELS[min_ix]
+
+
+class PerfModelLookup:
+    """
+    Simple wrapper to serve up the performance model lookup table.
+
+    The performance model lookup table provides a master reference
+    between an icao aircraft type identifier, and
+    1) our specified cocip performance model,
+    2) the engine type to use with that aircraft type.
+    """
+
+    PERF_LOOKUP_FP = "lib/perf_model_aircraft_lookup_no_bada_041824.json"
+
+    lookup: dict[str, dict[str, str]]
+    with open(PERF_LOOKUP_FP, "r") as fp:
+        lookup = json.load(fp)
+
+    def aircraft_type_icao(self) -> list[str]:
+        """
+        returns the supported aircraft types in the perf lookup
+        """
+        return list(self.lookup.keys())
