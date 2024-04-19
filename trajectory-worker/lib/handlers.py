@@ -7,12 +7,24 @@ from concurrent import futures
 from threading import Thread
 from typing import Union, Callable
 
+import numpy as np
+import xarray as xr
+import pandas as pd
+import pycontrails
 from google.cloud.pubsub_v1.types import PublishFlowControl, LimitExceededBehavior
+from pycontrails import Flight, MetDataset
+from pycontrails.core.aircraft_performance import AircraftPerformance
+from pycontrails.models.cocip import Cocip
+from pycontrails.models.humidity_scaling import (
+    ExponentialBoostLatitudeCorrectionHumidityScaling,
+)
+from pycontrails.models.ps_model import PSFlight
 
 from lib.log import logger, format_traceback
 from lib.schemas import (
     WaypointsRecord,
 )
+from lib.exceptions import FlightTooLowError, AircraftTypeUnrecognizedError
 
 from google.api_core import retry
 from google.cloud import pubsub_v1
@@ -194,6 +206,7 @@ class PubSubPublishHandler:
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=ordered_queue,
                 flow_control=flow_control_settings,
+                timeout=45,
             )
         )
         self._publish_futures: list[futures.Future] = []
@@ -217,7 +230,7 @@ class PubSubPublishHandler:
                 future.add_done_callback(_raise_exception_if_failed)
             """
             try:
-                future.result(timeout=55)
+                future.result(timeout=0)
             except futures.TimeoutError:
                 logger.error(f"timeout. failed to publish blob. {msg}")
                 # TODO: raise this to our main application, and exit
@@ -264,3 +277,172 @@ class PubSubPublishHandler:
         """
         futures.wait(self._publish_futures)
         self._publish_futures = []
+
+
+class CocipTrajectoryHandler:
+    """
+    Manages the execution of the CoCip trajectory model on a flight trajectory chunk.
+    """
+
+    MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
+
+    # matched to values used by api-preprocessor
+    STATIC_PARAMS = dict(
+        humidity_scaling=ExponentialBoostLatitudeCorrectionHumidityScaling(),
+        dt_integration="5min",
+        max_altitude_m=None,
+        min_altitude_m=None,
+        interpolation_use_indices=True,
+        interpolation_bounds_error=False,
+        filter_sac=True,
+        copy_source=True,
+        met_longitude_buffer=(
+            10.0,
+            10.0,
+        ),  # default; potential perf gains fomr reducing
+        met_latitude_buffer=(10.0, 10.0),  # default; potential perf gains from reducing
+        met_level_buffer=(20, 20),  # reduced to same buffer used in api preprocessor
+        max_age=np.timedelta64(1, "h"),
+    )
+
+    def __init__(self, job: WaypointsRecord, hres_src: str):
+        """
+        Parameters
+        ----------
+        job
+            A list of flight waypoints, sampled at contiguous, 1min intervals.
+        hres_src
+            Fully-qualified uri for the source path the the hres zarr store.
+            e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
+        """
+        self._hres_src = hres_src
+        self._job = job
+        self._met_dataset: MetDataset | None = None
+        self._rad_dataset: MetDataset | None = None
+
+        self._verify_altitude(self._job)
+        self._perf_model, self._engine_uid = self._perf_lookup(self._job)
+        self._flight: pycontrails.Flight = self._create_flight(
+            self._job, self._engine_uid
+        )
+
+    @classmethod
+    def _verify_altitude(cls, job: WaypointsRecord):
+        """
+        Check if the maximum segment altitude is high enough for intersection with met data.
+        """
+        if max(w.altitude_baro for w in job.records) < cls.MET_MIN_ALTITUDE_FT:
+            raise FlightTooLowError(
+                f"no waypoints in trajectory above alt threshold "
+                f"of {cls.MET_MIN_ALTITUDE_FT} feet."
+            )
+
+    @staticmethod
+    def _perf_lookup(job: WaypointsRecord) -> tuple[AircraftPerformance, str | None]:
+        """
+        Look up performance model and engine type for a job's aircraft type.
+
+        Currently defaults to PSFlight for the performance model
+        (open-source Poll-Schumann model designed for entire flights)
+        and None for the engine type
+        (which assigns responsibility to pycontrails for determining an appropriate value).
+
+        Both should be replaced by a static lookup. Once this is done, the engine type
+        will be represented by a str engine_uid, and the type hint in the
+        function signature will match the actual return type.
+        """
+        # TODO: implement lookup against static hashmap
+        if False:
+            raise AircraftTypeUnrecognizedError(
+                f"aircraft of type {job.flight_info.aircraft_type_icao} "
+                f"not in performance lookup."
+            )
+        return PSFlight(), None
+
+    @staticmethod
+    def _create_flight(job: WaypointsRecord, engine_uid: str) -> Flight:
+        """Create Flight from job waypoints.
+
+        Aircraft and engine type are associated with the flight here.
+        """
+        return Flight(
+            longitude=[w.longitude for w in job.records],
+            latitude=[w.latitude for w in job.records],
+            altitude_ft=[w.altitude_baro for w in job.records],
+            time=[w.timestamp for w in job.records],
+            attrs=dict(
+                flight_id=job.flight_info.flight_id,
+                aircraft_type=job.flight_info.aircraft_type_icao,
+                engine_uid=engine_uid,
+            ),
+        )
+
+    def load(self):
+        """
+        Open forecast zarr stores.
+
+        Will choose the most recent useable forecast.
+
+        Note that the first forecast step must be at least half an hour before the earliest
+        waypoint to provide a buffer for differencing accumulated radiative fluxes.
+
+        Checks that the selected forecast extends long enough into the future to
+        cover the entire simulation (requires half an hour beyond latest waypoint + max age)
+        and raises an exception if it does not.
+
+        Logic currently assumes that the zarr store will include a forecast
+        initialized every 6h (0z, 6z, 12z, 18z each day).
+        """
+        # TODO: pop the hres zarr store uri selector into a separate method
+        # TODO: refine the hres zarr store selector; currently we're hitting non-existent stores
+        earliest = pd.Timestamp(
+            self._job.records[0].timestamp
+        )  # is jobs.records guaranteed to be sorted by time?
+        forecast_time = (earliest - pd.Timedelta(30, "m")).floor("6h")
+        forecast_path = f"{self._hres_src}/{forecast_time.strftime('%Y%m%d%H')}"
+
+        pl = xr.open_zarr(f"{forecast_path}/pl.zarr")
+        met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
+        variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
+        met.standardize_variables(variables)
+
+        sl = xr.open_zarr(f"{forecast_path}/sl.zarr")
+        rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
+        variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables)
+        rad.standardize_variables(variables)
+
+        latest = pd.Timestamp(self._job.records[-1].timestamp)
+        latest_possible = (
+            pd.Timestamp(
+                rad.data["time"]
+                .max()
+                .item(),  # rad will be limiting because of required buffer
+                tz="UTC",
+            )
+            - pd.Timedelta(30, "min")
+            - self.STATIC_PARAMS["max_age"]
+        )
+        if latest_possible < latest:
+            raise ValueError("Latest waypoint is after latest possible prediction time")
+
+        self._met_dataset = met
+        self._rad_dataset = rad
+
+    def run(self) -> Flight:
+        """
+        Run the cocip trajectory model.
+        """
+        if not self._met_dataset or not self._rad_dataset:
+            raise ValueError(
+                "met dataset or rad dataset have not been loaded. Run load()."
+            )
+
+        model = Cocip(
+            met=self._met_dataset,
+            rad=self._rad_dataset,
+            aircraft_performance=self._perf_model,
+            **self.STATIC_PARAMS,
+        )
+
+        result: Flight = model.eval(self._flight)
+        return result
