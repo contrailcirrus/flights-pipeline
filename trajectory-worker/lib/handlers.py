@@ -2,6 +2,7 @@
 Application handlers.
 """
 
+import json
 import threading
 from concurrent import futures
 from threading import Thread
@@ -24,7 +25,11 @@ from lib.log import logger, format_traceback
 from lib.schemas import (
     WaypointsRecord,
 )
-from lib.exceptions import FlightTooLowError, AircraftTypeUnrecognizedError
+from lib.exceptions import (
+    FlightTooLowError,
+    AircraftTypeUnrecognizedError,
+    PerfModelUnsupportedError,
+)
 
 from google.api_core import retry
 from google.cloud import pubsub_v1
@@ -285,6 +290,7 @@ class CocipTrajectoryHandler:
     """
 
     MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
+    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_no_bada_041824.json"
 
     # matched to values used by api-preprocessor
     STATIC_PARAMS = dict(
@@ -337,27 +343,49 @@ class CocipTrajectoryHandler:
                 f"of {cls.MET_MIN_ALTITUDE_FT} feet."
             )
 
-    @staticmethod
-    def _perf_lookup(job: WaypointsRecord) -> tuple[AircraftPerformance, str | None]:
+    @classmethod
+    def _perf_lookup(cls, job: WaypointsRecord) -> tuple[AircraftPerformance, str]:
         """
         Look up performance model and engine type for a job's aircraft type.
 
-        Currently defaults to PSFlight for the performance model
-        (open-source Poll-Schumann model designed for entire flights)
-        and None for the engine type
-        (which assigns responsibility to pycontrails for determining an appropriate value).
+        We provide a static, manually maintained lookup that maps one-to-one,
+        between an aircraft type (icao identifier), and
+        1. an aircraft performance model,
+        2. an engine identifier (icao uid)
 
-        Both should be replaced by a static lookup. Once this is done, the engine type
-        will be represented by a str engine_uid, and the type hint in the
-        function signature will match the actual return type.
+        At present, we have only implemented the PSFlight performance model.
+        The BADA model may or may not be supported in the future.
+
+        Futhermore, please note that the engine_uid is not used in running the PS perf model
+        (it is for BADA). However, we still return a single, default engine_uid for aircrafts
+        associated with the PS model, since the engine_uid is used in setting emission indexes
+        for emissions calculations (emission calculations being separate from the perf model output)
         """
-        # TODO: implement lookup against static hashmap
-        if False:
+
+        with open(cls.PERF_MODEL_LOOKUP_FP, "r") as fp:
+            lookup = json.load(fp)
+
+        target: dict[str, str] | None = lookup.get(job.flight_info.aircraft_type_icao)
+
+        if not target:
             raise AircraftTypeUnrecognizedError(
                 f"aircraft of type {job.flight_info.aircraft_type_icao} "
                 f"not in performance lookup."
             )
-        return PSFlight(), None
+
+        engine_uid: str = target["engine_uid"]
+
+        perf_model: AircraftPerformance
+        match target["perf_model_id"]:
+            case "PS":
+                perf_model = PSFlight()
+            case _:
+                raise PerfModelUnsupportedError(
+                    f"perf model lookup returned an unsupported "
+                    f"perf_model_id of {target['perf_model_id']} "
+                    f"for aircraft_type_icao of {job.flight_info.aircraft_type_icao}"
+                )
+        return perf_model, engine_uid
 
     @staticmethod
     def _create_flight(job: WaypointsRecord, engine_uid: str) -> Flight:
