@@ -206,6 +206,7 @@ class PubSubPublishHandler:
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=ordered_queue,
                 flow_control=flow_control_settings,
+                timeout=45,
             )
         )
         self._publish_futures: list[futures.Future] = []
@@ -229,7 +230,7 @@ class PubSubPublishHandler:
                 future.add_done_callback(_raise_exception_if_failed)
             """
             try:
-                future.result(timeout=55)
+                future.result(timeout=0)
             except futures.TimeoutError:
                 logger.error(f"timeout. failed to publish blob. {msg}")
                 # TODO: raise this to our main application, and exit
