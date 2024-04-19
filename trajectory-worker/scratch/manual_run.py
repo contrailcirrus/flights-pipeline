@@ -1,7 +1,12 @@
 import pandas as pd
 from dataclasses import asdict
 
-from lib.schemas import SpireFlightInfo, SpireWaypointsRecord, SpireWaypointPositional
+from lib.schemas import (
+    SpireFlightInfo,
+    SpireWaypointsRecord,
+    SpireWaypointPositional,
+    CocipTrajectoryChunk,
+)
 from scratch.handlers import ResampleHandler
 from main import _open_met_rad, _create_flight, _create_cocip_model, _perf_lookup
 
@@ -96,13 +101,14 @@ try:
     result = model.eval(flight)
 except Exception as e:
     print(f"failed to run model. {e}")
-result_ef = result["ef"]
-result_seg_lens = result["segment_length"]
+# result_ef = result["ef"]
+# result_seg_lens = result["segment_length"]
 
-if (result_ef > 0).sum():
-    print(f"found non-zero cocip values for flight_id: {job.flight_info.flight_id}")
+# if (result_ef > 0).sum():
+#    print(f"found non-zero cocip values for flight_id: {job.flight_info.flight_id}")
+# sl = slice(1, -1)  # assuming we want to drop the first segment?
+# cocip_output = result["ef"][sl] / result["segment_length"][sl]
+# sum_ef = sum(cocip_output)
 
-sl = slice(1, -1)  # assuming we want to drop the first segment?
-cocip_output = result["ef"][sl] / result["segment_length"][sl]
-
-sum_ef = sum(cocip_output)
+egress_dto = CocipTrajectoryChunk.from_cocip_result("", "", job, result)
+bq_blob = egress_dto.to_bq_flatmap()

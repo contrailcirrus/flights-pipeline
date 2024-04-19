@@ -1,0 +1,230 @@
+{
+    "A20N": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P22PW163"
+    },
+    "A21N": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P20CM132"
+    },
+    "A306": {
+        "perf_model_id": "PS",
+        "engine_uid": "1PW048"
+    },
+    "A30B": {
+        "perf_model_id": "PS",
+        "engine_uid": "3GE074"
+    },
+    "A310": {
+        "perf_model_id": "PS",
+        "engine_uid": "1GE015"
+    },
+    "A318": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P08CM110"
+    },
+    "CRJ9": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P08GE190"
+    },
+    "A319": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P10IA019"
+    },
+    "A320": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P08CM105"
+    },
+    "A321": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P10IA024"
+    },
+    "A332": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P14RR102"
+    },
+    "DC93": {
+        "perf_model_id": "PS",
+        "engine_uid": "1PW008"
+    },
+    "A333": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P14RR101"
+    },
+    "A339": {
+        "perf_model_id": "PS",
+        "engine_uid": "02P23RR141"
+    },
+    "E135": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P06AL030"
+    },
+    "A342": {
+        "perf_model_id": "PS",
+        "engine_uid": "2CM015"
+    },
+    "E145": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P06AL028"
+    },
+    "A343": {
+        "perf_model_id": "PS",
+        "engine_uid": "2CM015"
+    },
+    "E170": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P08GE197"
+    },
+    "A345": {
+        "perf_model_id": "PS",
+        "engine_uid": "8RR044"
+    },
+    "A346": {
+        "perf_model_id": "PS",
+        "engine_uid": "6RR041"
+    },
+    "E195": {
+        "perf_model_id": "PS",
+        "engine_uid": "8GE119"
+    },
+    "A359": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P18RR124"
+    },
+    "A35K": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P21RR125"
+    },
+    "A388": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P18RR103"
+    },
+    "B38M": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P20CM136"
+    },
+    "B39M": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P20CM140"
+    },
+    "B712": {
+        "perf_model_id": "PS",
+        "engine_uid": "4BR002"
+    },
+    "B722": {
+        "perf_model_id": "PS",
+        "engine_uid": "1PW009"
+    },
+    "B732": {
+        "perf_model_id": "PS",
+        "engine_uid": "1PW009"
+    },
+    "B733": {
+        "perf_model_id": "PS",
+        "engine_uid": "1CM005"
+    },
+    "B734": {
+        "perf_model_id": "PS",
+        "engine_uid": "1CM008"
+    },
+    "B735": {
+        "perf_model_id": "PS",
+        "engine_uid": "1CM004"
+    },
+    "B736": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P11CM112"
+    },
+    "B737": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P11CM114"
+    },
+    "B738": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P11CM116"
+    },
+    "B739": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P11CM121"
+    },
+    "B742": {
+        "perf_model_id": "PS",
+        "engine_uid": "1RR008"
+    },
+    "B743": {
+        "perf_model_id": "PS",
+        "engine_uid": "1PW029"
+    },
+    "GLF5": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P06BR014"
+    },
+    "B744": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P02GE186"
+    },
+    "B748": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P17GE215"
+    },
+    "B752": {
+        "perf_model_id": "PS",
+        "engine_uid": "1RR013"
+    },
+    "B753": {
+        "perf_model_id": "PS",
+        "engine_uid": "3RR028"
+    },
+    "B762": {
+        "perf_model_id": "PS",
+        "engine_uid": "1GE012"
+    },
+    "B763": {
+        "perf_model_id": "PS",
+        "engine_uid": "1PW043"
+    },
+    "B764": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P02GE188"
+    },
+    "B772": {
+        "perf_model_id": "PS",
+        "engine_uid": "2RR027"
+    },
+    "B773": {
+        "perf_model_id": "PS",
+        "engine_uid": "2RR027"
+    },
+    "B77L": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P21GE216"
+    },
+    "B77W": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P21GE217"
+    },
+    "MD82": {
+        "perf_model_id": "PS",
+        "engine_uid": "4PW070"
+    },
+    "B788": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P17GE210"
+    },
+    "MD83": {
+        "perf_model_id": "PS",
+        "engine_uid": "1PW019"
+    },
+    "B789": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P17GE212"
+    },
+    "B78X": {
+        "perf_model_id": "PS",
+        "engine_uid": "01P17GE213"
+    },
+    "RJ1H": {
+        "perf_model_id": "PS",
+        "engine_uid": "1TL004"
+    }
+}
