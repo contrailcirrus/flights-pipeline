@@ -312,7 +312,7 @@ class CocipTrajectoryHandler:
         job
             A list of flight waypoints, sampled at contiguous, 1min intervals.
         hres_src
-            Fully-qualified uri for the source path the the hres zarr store.
+            Fully-qualified uri for the source path the hres zarr store.
             e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
         """
         self._hres_src = hres_src
