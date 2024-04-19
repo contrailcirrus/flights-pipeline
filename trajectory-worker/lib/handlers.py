@@ -235,15 +235,9 @@ class PubSubPublishHandler:
             """
             try:
                 future.result(timeout=0)
-            except futures.TimeoutError:
-                logger.error(f"timeout. failed to publish blob. {msg}")
-                # TODO: raise this to our main application, and exit
-            except futures.CancelledError:
-                logger.error(f"publish future cancelled. failed to publish blob. {msg}")
-                # TODO: raise ...
             except Exception:
-                logger.error(f"publish future failed. {msg}")
-                # TODO: ...
+                logger.error(f"publish future failed. {msg}. {format_traceback()}")
+                # TODO: raise this to our main application, and exit
 
         return _raise_exception_if_failed
 
