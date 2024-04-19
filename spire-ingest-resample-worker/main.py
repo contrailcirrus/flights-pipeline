@@ -1,24 +1,27 @@
 """Entrypoint for the Spire Ingest Resample Worker."""
 
 import sys
-
 from datetime import datetime
-from random import randint
+from dataclasses import asdict
 
 import lib.environment as env
-from lib.log import logger, format_traceback
-from lib.schemas import (
-    SpireWaypointsRecord,
-    SpireWaypointPositional,
-    SpireFlightInfo,
-    WaypointCache,
-)
+from lib import utils
 from lib.handlers import (
-    PubSubSubscriptionHandler,
-    PubSubPublishHandler,
     CacheHandler,
-    ValidationHandler,
+    PubSubPublishHandler,
+    PubSubSubscriptionHandler,
     ResampleHandler,
+    ValidationHandler,
+    PerfModelLookup,
+)
+from lib.log import format_traceback, logger
+from lib.schemas import (
+    SpireFlightInfo,
+    SpireWaypointPositional,
+    SpireWaypointsRecord,
+    WaypointCache,
+    FlightInfoWide,
+    WaypointsRecord,
 )
 
 
@@ -35,68 +38,84 @@ def run():
       and publishes flight segments to pubsub
     - Updates the last known 1-2 waypoint(s) for the flight-instance in remote cache
     """
-
     cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
+    bq_raw_publish_handler = PubSubPublishHandler(
+        env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
+    )
     bq_publish_handler = PubSubPublishHandler(env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID)
+    trajectory_publish_handler = PubSubPublishHandler(
+        env.TRAJECTORY_CHUNK_TOPIC_ID,
+        ordered_queue=True,
+    )
 
-    logger.info(f"fetching record from {env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID}")
     with PubSubSubscriptionHandler(
         env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
     ) as job_handler:
-        job: SpireWaypointsRecord = job_handler.fetch()
-        logger.info(f"got job with {len(job.records)} records: {job}.")
-        if randint(0, 20) != 10:
-            job_handler.ack()
-            return
+        # ===================
+        # fetch records
+        # ===================
+        job: SpireWaypointsRecord
+        ordering_key: str  # "{source_id}:{icao_address}" e.g. "spire-4B0293"
+        job, ordering_key = job_handler.fetch()
 
-        cache_key = f"spr: {job.flight_info.icao_address}"
-        logger.info(f"fetching from cache to {env.REDIS_HOST}:{env.REDIS_PORT}")
+        logger.info(
+            f"got job with {len(job.records)} records. "
+            f"icao_address: {job.flight_info.icao_address}. "
+            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
+        )
+
+        # ===================
+        # publish raw records to BQ
+        # ===================
+        for raw_bq_json_ln in job.to_bq_flatmap(ordering_key.split(":")[0]):
+            bq_raw_publish_handler.publish_async(
+                raw_bq_json_ln,
+                client_name="bq_raw_publish_handler",
+                icao_address=job.flight_info.icao_address,
+                batch_first_ts=job.records[0].timestamp,
+            )
+        bq_raw_publish_handler.wait_for_publish()
+
+        # fetch cache
         try:
-            cached: list[WaypointCache.Waypoint] = cache_handler.pull(cache_key)
+            cached: list[WaypointCache.Waypoint] = cache_handler.pull(ordering_key)
         except Exception:
             logger.error(
-                f"failed to fetch record from cache. exiting... "
+                f"error fetching record(s) from cache. exiting... "
                 f"traceback: {format_traceback()}"
             )
-            # TODO: choose preference here
-            # either exit w. code 1 (avoiding thrashing logs), so we have error level logs on the
-            # k8s infra log-stream
-            # - or - perpetual backoff and wait to parent loop, relying on error-level alert in
-            # application/service log stream
-            sys.exit(1)
+            return
 
         if cached:
             logger.info(
-                f"cache hit. found {len(cached)} prior waypoints "
-                f"for icao_address {job.flight_info.icao_address}, "
-                f"at {datetime.fromtimestamp(cached[-1]['timestamp']).isoformat()}."
-                f"interpolating until {job.records[0].timestamp}."
+                f"icao_address: {job.flight_info.icao_address}. "
+                f"cache hit: {len(cached)} waypoints. "
+                f"spanning {datetime.fromtimestamp(cached[0]['timestamp']).isoformat()} "
+                f"to {datetime.fromtimestamp(cached[-1]['timestamp']).isoformat()}"
             )
         else:
             logger.info(
-                f"cache miss. no prior waypoint(s) found for icao_address "
-                f"{job.flight_info.icao_address} at {job.records[0].timestamp}"
+                f"icao_address: {job.flight_info.icao_address}. " f"cache miss."
             )
 
-        # cases where we don't process the batch window received from pubsub
-        try:
-            validation_handler = ValidationHandler(cached, job)
-            validated_cache: list[SpireWaypointPositional] = (
-                validation_handler.cached_records
-            )
-            validated_records: list[SpireWaypointPositional] = (
-                validation_handler.records
-            )
-            validated_flight_info: SpireFlightInfo | None = (
-                validation_handler.flight_info
-            )
-            validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
-        except Exception:
+        # ===================
+        # validate records
+        # ===================
+        validation_handler = ValidationHandler(cached, job)
+        validated_cache: list[
+            SpireWaypointPositional
+        ] = validation_handler.cached_records
+        validated_records: list[SpireWaypointPositional] = validation_handler.records
+        validated_flight_info: SpireFlightInfo | None = validation_handler.flight_info
+        validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
+        if not validation_handler.correct_temporal_order():
             logger.warning(
-                f"cache and/or records invalid. "
-                f"not processing batch with icao_address {job.flight_info.icao_address} "
-                f"and timestamp {job.records[0].timestamp}. "
-                f"traceback: {format_traceback()}"
+                f"possible out-of-order or re-delivery."
+                f"not processing batch."
+                f"records must have timestamp after cached timestamp. "
+                f"received records for icao_address {job.flight_info.icao_address} "
+                f"with timestamp {validation_handler.min_records_ts.isoformat()} occurring before "
+                f"cached timestamp {validation_handler.max_cached_ts.isoformat()}"
             )
             job_handler.ack()
             return
@@ -104,41 +123,62 @@ def run():
             logger.warning(
                 f"no flight_id available in records batch, "
                 f"and flight_id could not be inferred. "
-                f"not processing batch with icao_address {job.flight_info.icao_address} "
-                f"and timestamp {job.records[0].timestamp}."
+                f"not processing batch."
+                f"icao_address: {job.flight_info.icao_address} "
+                f"job: {job}"
             )
             job_handler.ack()
             return
         if not validated_gt_1min_span:
             logger.info(
-                f"no cache present and records don't span more than 1 minute. "
-                f"updating cache for icao_address {job.flight_info.icao_address}. "
-                f"no export of records."
+                f"cache & records don't span more than 1 minute. "
+                f"icao_address: {job.flight_info.icao_address} "
+                f"updating cache. no export of records. "
+                f"job: {job}"
             )
+            new_cache_wpts: list[SpireWaypointPositional] = []
+            if validated_cache:
+                new_cache_wpts.append(validated_cache[0])
+            else:
+                new_cache_wpts.append(validated_records[0])
+            if validated_records[-1].timestamp != new_cache_wpts[0].timestamp:
+                new_cache_wpts.append(validated_records[-1])
+
             new_cache = WaypointCache.from_spire_waypoint_positional(
-                key=f"spr:{validated_flight_info.icao_address}",
+                key=ordering_key,
                 flight_id=validated_flight_info.flight_id,
-                spire_wps=(validated_records[-1],),
+                spire_wps=tuple(new_cache_wpts),
             )
             cache_handler.push(new_cache)
             job_handler.ack()
             return
 
-        # apply resampling
+        # ===================
+        # resample records
+        # ===================
         try:
+            if validated_cache:
+                logger.info(
+                    f"icao_address: {job.flight_info.icao_address}. cache valid."
+                )
+            else:
+                logger.info(
+                    f"icao_address: {job.flight_info.icao_address}. cache NOT valid."
+                )
             transform_handler = ResampleHandler(validated_cache, validated_records)
             transform_handler.interpolate()
-            resampled_records: list[SpireWaypointPositional] = (
-                transform_handler.waypoints_resampled
-            )
+            resampled_records: list[
+                SpireWaypointPositional
+            ] = transform_handler.waypoints_resampled
         except Exception:
             logger.error(
-                f"failed to interpolate. "
-                f"batch will not be ack'ed from queue "
-                f"for icao_address: {job.flight_info.icao_address}."
+                f"failed to interpolate."
+                f"not updating cache. not exporting records."
+                f"icao_address: {job.flight_info.icao_address} "
+                f"job: {job}"
                 f"traceback: {format_traceback()}"
             )
-            sys.exit(1)
+            return
 
         # hold out cache records, as they would have been published previously
         cache_ts = [
@@ -151,6 +191,7 @@ def run():
             if int(datetime.fromisoformat(v.timestamp).timestamp()) not in cache_ts
         ]
         logger.info(
+            f"icao_address: {job.flight_info.icao_address}. "
             f"prune cache from records: dropped "
             f"{len(resampled_records)-len(resampled_records_prune)} "
             f"records from resampled records."
@@ -161,43 +202,61 @@ def run():
             records=resampled_records_prune,
         )
 
-        logger.info(
-            f"publishing records to BigQuery pubsub topic:"
-            f" {env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}."
-        )
-        for bq_json_ln in egress_records.to_bq_flatmap():
-            bq_publish_handler.publish_async(bq_json_ln)
+        # ===================
+        # publish resampled records to BQ
+        # ===================
+        for bq_json_ln in egress_records.to_bq_flatmap(ordering_key.split(":")[0]):
+            bq_publish_handler.publish_async(
+                bq_json_ln,
+                client_name="bq_publish_handler",
+                icao_address=egress_records.flight_info.icao_address,
+                batch_first_ts=egress_records.records[0].timestamp,
+            )
         bq_publish_handler.wait_for_publish()
-        logger.info(
-            f"published N={len(egress_records.records)} interpolated (imputed) waypoints to "
-            f"{env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID}"
-        )
 
-        # TODO: generate flight segments; publish flight segments to pubsub
-        # logger.info(
-        #    f"published N={103} flight segments to {env.SPIRE_FLIGHT_SEGMENTS_TOPIC_ID}"
-        # )
+        # ===================
+        # trajectory worker: publish resampled records as trajectory chunk to pubsub
+        # ===================
+        if (
+            validated_flight_info.aircraft_type_icao
+            in PerfModelLookup().aircraft_type_icao
+        ):
+            validated_flight_info_wide = FlightInfoWide(
+                **asdict(validated_flight_info),
+                engine_uid=None,
+            )
+            trajectory_chunk = WaypointsRecord(
+                flight_info=validated_flight_info_wide,
+                records=resampled_records,
+            )
+            trajectory_publish_handler.publish_async(
+                trajectory_chunk.as_utf8_json(),
+                ordering_key=ordering_key,
+                client_name="trajectory_publish_handler",
+                icao_address=trajectory_chunk.flight_info.icao_address,
+                batch_first_ts=trajectory_chunk.records[0].timestamp,
+            )
+            trajectory_publish_handler.wait_for_publish()
 
+        # ===================
         # update cache
+        # ===================
         if len(resampled_records) > 1:
             new_cache_records = tuple(resampled_records[-2:])
         else:
             new_cache_records = tuple(resampled_records[-1:])
         new_cache = WaypointCache.from_spire_waypoint_positional(
-            key=f"spr:{validated_flight_info.icao_address}",
+            key=ordering_key,
             flight_id=validated_flight_info.flight_id,
             spire_wps=new_cache_records,
         )
         cache_handler.push(new_cache)
-        logger.info(
-            f"updated cache with {len(new_cache.waypoints)} waypoints "
-            f"for icao address {validated_flight_info.icao_address}"
-        )
+        logger.info(f"updated cache: {len(new_cache.waypoints)} waypoints")
 
         logger.info(
             f"finished processing batch "
             f"for icao_address: {egress_records.flight_info.icao_address}. "
-            f"exported {len(egress_records.records)} resampled records "
+            f"exported {len(egress_records.records)} resampled records to BigQuery"
             f"spanning {egress_records.records[0].timestamp} "
             f"to {egress_records.records[-1].timestamp}."
         )
@@ -206,5 +265,12 @@ def run():
 
 if __name__ == "__main__":
     logger.info("starting spire-ingest-resample-worker instance")
+    sigterm_handler = utils.SigtermHandler()
     while True:
-        run()
+        if sigterm_handler.should_exit:
+            sys.exit(0)
+        try:
+            run()
+        except Exception:
+            logger.error("Unhandled exception:" + format_traceback())
+            sys.exit(1)

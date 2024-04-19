@@ -60,7 +60,8 @@ jobs:
           NAMESPACE: flights-pipeline-dev
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:${{ github.sha }}
           SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/spire-ingest-resample-worker-ingress-dev
+          SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/spire-ingest-raw-bigquery-dev
           SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/spire-ingest-resample-worker-bigquery-dev
-          SPIRE_FLIGHT_SEGMENTS_TOPIC_ID: TBD
+          TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/trajectory-chunk-dev
           REDIS_HOST: 10.151.213.124
           REDIS_PORT: 6379

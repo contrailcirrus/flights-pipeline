@@ -1,10 +1,12 @@
 from lib.schemas import SpireWaypointsRecord, WaypointCache
-from stub import pubsub_message, redis_response
+from tests.stubs.stub import ingress_pubsub_bytes, redis_response_c81e54
 from lib.handlers import ValidationHandler, ResampleHandler
 
 
-recs: SpireWaypointsRecord = SpireWaypointsRecord.from_utf8_json(pubsub_message)
-cached: list[WaypointCache.Waypoint] = WaypointCache.from_flatmap(redis_response)
+recs: SpireWaypointsRecord = SpireWaypointsRecord.from_utf8_json(
+    ingress_pubsub_bytes["c81e54_waypoints"]
+)
+cached: list[WaypointCache.Waypoint] = WaypointCache.from_flatmap(redis_response_c81e54)
 
 validation_handler = ValidationHandler(cached, recs)
 resample_handler = ResampleHandler(

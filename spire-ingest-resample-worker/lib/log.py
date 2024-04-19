@@ -4,6 +4,7 @@ Module for configuring and managing application-wide logger.
 
 import logging
 import traceback
+import warnings
 
 import lib.environment as env
 
@@ -36,5 +37,12 @@ except KeyError:
 
 
 logging.basicConfig(encoding="utf-8", level=log_level, format=log_fmt)
-
 logger = logging.getLogger("spire-ingest-resample-worker")
+
+
+# capture and redirect warnings from the `warn` pkg to our logger
+def log_warn(message, category, filename, lineno, file=None, line=None):
+    logger.warning(message)
+
+
+warnings.showwarning = log_warn

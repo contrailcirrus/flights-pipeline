@@ -14,7 +14,7 @@ class SpireWaypointPositional:
     A single flight waypoint record.
     """
 
-    # ingestion_time: str  # e.g. 2024-03-01T16:37:56.123Z
+    ingestion_time: str | None  # e.g. 2024-03-01T16:37:56.123Z
     timestamp: str  # e.g. 2024-03-01T16:37:54Z
     latitude: float  # e.g. 47.453758
     longitude: float  # e.g. 8.555093
@@ -22,7 +22,7 @@ class SpireWaypointPositional:
     # speed: float  # e.g. 16.0
     # on_ground: bool  # e.g. True
     # source: str  # e.g. ADSB
-    # collection_type: str  # e.g. terrestrial
+    collection_type: str | None  # e.g. terrestrial
     altitude_baro: int  # e.g. 26550 (MSL)
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
@@ -121,8 +121,10 @@ class SpireWaypointsRecord:
         """
         flight_id = str(UUID(bytes=wp["flight_id"]))
         swp = SpireWaypointPositional(
+            ingestion_time=None,
             latitude=wp["latitude"],
-            longitude=wp["latitude"],
+            longitude=wp["longitude"],
+            collection_type=None,
             altitude_baro=wp["altitude_ft"],
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
@@ -131,20 +133,22 @@ class SpireWaypointsRecord:
         )
         return flight_id, swp
 
-    def to_bq_flatmap(self) -> list[bytes]:
+    def to_bq_flatmap(self, source_id: str) -> list[bytes]:
         """
         Flattens records into a list of utf-8 encoded json string literals,
         ready for egress to big query.
 
-        Converts "timestamp" to microseconds epoch.
 
-        Converts "departure_scheduled_time" to microseconds epoch.
-
-        Converts "arrival_scheduled_time" to microseconds epoch.
+        Converts temporal string fields (ingestion_time, timestamp, ...)  to microseconds epoch.
 
         Adds an `_instance_hash` k-v, of type int,
         generated as a hash of the composite <icao_address><timestamp>,
         where timestamp is epoch time in microseconds
+
+        Parameters
+        ----------
+        source_id
+            An identifier appended to the biq query record, indicating the origin of these records
         """
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
@@ -158,14 +162,17 @@ class SpireWaypointsRecord:
             # _instance_hash is an int64 in bq
             ts = iso_to_microseconds(record.timestamp)
             hash = hashlib.md5(f"{self.flight_info.icao_address}{ts}".encode("utf-8"))
-            # truncate to 8 bytes; avoid overflow
-            hash_trunc = hash.hexdigest()[:16]
+            # truncate as to be equal or smaller than int64 space when represented as signed int
+            hash_trunc = hash.hexdigest()[:8]
             hash_int = int(hash_trunc, 16)
             blob = {
                 "_instance_hash": hash_int,
+                "src_id": source_id,
+                "ingestion_time": iso_to_microseconds(record.ingestion_time),
                 "timestamp": ts,
                 "latitude": record.latitude,
                 "longitude": record.longitude,
+                "collection_type": record.collection_type,
                 "altitude_baro": record.altitude_baro,
                 "flight_level": record.flight_level,
                 "imputed": record.imputed,
@@ -174,6 +181,7 @@ class SpireWaypointsRecord:
                 "callsign": self.flight_info.callsign,
                 "tail_number": self.flight_info.tail_number,
                 "flight_number": self.flight_info.flight_number,
+                "aircraft_type_icao": self.flight_info.aircraft_type_icao,
                 "airline_iata": self.flight_info.airline_iata,
                 "departure_airport_icao": self.flight_info.departure_airport_icao,
                 "departure_scheduled_time": iso_to_microseconds(
@@ -270,7 +278,7 @@ class WaypointCache:
     def from_spire_waypoint_positional(
         key: str,
         flight_id: str,
-        spire_wps: tuple[SpireWaypointPositional],
+        spire_wps: tuple[SpireWaypointPositional, ...],
     ):
         """
         Builds a cache object from SpireWaypointPositional objects.
@@ -297,3 +305,40 @@ class WaypointCache:
             )
 
         return WaypointCache(key=key, waypoints=tuple(waypoints))
+
+
+@dataclass
+class FlightInfoWide(SpireFlightInfo):
+    """
+    Flight info object expanding on those values provided in Spire.
+    """
+
+    engine_uid: str | None  # icao edb engine uid identifier
+
+
+@dataclass
+class WaypointsRecord:
+    """
+    A representation of a series of waypoints and flight metadata,
+    expanded and generalized from the SpireWaypointsRecord.
+    """
+
+    flight_info: FlightInfoWide
+    records: list[SpireWaypointPositional]
+
+    def as_utf8_json(self) -> bytes:
+        """
+        Builds a utf-8 encoded JSON blob from the class' attributes.
+        """
+        js = json.dumps(asdict(self))
+        return js.encode("utf-8")
+
+    @staticmethod
+    def from_utf8_json(blob: bytes):
+        """
+        Takes a utf8 json blob and marshals to an instance of this class.
+        """
+        return SpireWaypointsRecord(
+            flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
+            records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
+        )

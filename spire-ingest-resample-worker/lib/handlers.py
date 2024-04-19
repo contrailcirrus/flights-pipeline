@@ -3,20 +3,19 @@ Application handlers.
 """
 
 import copy
+import json
 import math
-import time
-from threading import Thread
 from concurrent import futures
-from typing import Union
+from typing import Union, Callable
 
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from google.cloud.pubsub_v1.types import PublishFlowControl, LimitExceededBehavior
 from pycontrails.physics import geo
 
-from lib.log import logger, format_traceback
+from lib.log import logger
 from lib.schemas import (
     SpireWaypointsRecord,
     SpireWaypointPositional,
@@ -41,7 +40,6 @@ class PubSubSubscriptionHandler:
 
     # the number of seconds the subscriber client will hang, waiting for available messages
     MSG_WAIT_TIME_SEC = 60.0
-    ACK_EXTENSION_SEC: int = 300
 
     def __init__(self, subscription: str):
         """
@@ -54,9 +52,6 @@ class PubSubSubscriptionHandler:
         self.subscription = subscription
         self._client = None
         self._ack_id: Union[None, str] = None
-        self._kill_ack_manager = False
-        self._ack_manager = Thread(target=self._ack_management_worker, daemon=True)
-        self._ack_manager.start()
 
     def __enter__(self):
         """
@@ -71,33 +66,7 @@ class PubSubSubscriptionHandler:
         """
         self.close()
 
-    def _ack_management_worker(self):
-        """
-        Extends the ack deadline for the currently outstanding message.
-        """
-        logger.info("starting ack lease management worker...")
-        while not self._kill_ack_manager:
-            time.sleep(self.ACK_EXTENSION_SEC // 2)
-            if self._ack_id:
-                logger.info(
-                    f"extending ack deadline on ack_id: {self._ack_id[0:-150]}..."
-                )
-                try:
-                    self._client.modify_ack_deadline(
-                        request={
-                            "subscription": self.subscription,
-                            "ack_ids": [self._ack_id],
-                            "ack_deadline_seconds": self.ACK_EXTENSION_SEC,
-                        }
-                    )
-                except Exception:
-                    logger.error(
-                        f"failed to extend ack deadline for message. "
-                        f"traceback: {format_traceback()}"
-                    )
-        logger.info("terminated ack lease management worker")
-
-    def fetch(self) -> SpireWaypointsRecord:
+    def fetch(self) -> (SpireWaypointsRecord, str):
         """
         Fetch a message from the subscription queue.
         This method will hang and wait until a message is available.
@@ -107,6 +76,8 @@ class PubSubSubscriptionHandler:
         -------
         str
             The dequeued message from the pubsub subscription.
+        str
+            The ordering key for the fetched record.
         """
         if not self._client:
             self._client = pubsub_v1.SubscriberClient()
@@ -130,12 +101,13 @@ class PubSubSubscriptionHandler:
                 continue
             msg = resp.received_messages[0]
             self._ack_id = msg.ack_id
+            ordering_key = msg.message.ordering_key
             logger.info(
                 f"received 1 message from {self.subscription}. "
                 f"published_time: {msg.message.publish_time}, "
                 f"message_id: {msg.message.message_id}"
             )
-            return SpireWaypointsRecord.from_utf8_json(msg.message.data)
+            return SpireWaypointsRecord.from_utf8_json(msg.message.data), ordering_key
 
     def ack(self):
         """
@@ -157,7 +129,6 @@ class PubSubSubscriptionHandler:
         """
         Close pubsub client connection.
         """
-        self._kill_ack_manager = True
         self._client.close()
 
 
@@ -209,16 +180,38 @@ class PubSubPublishHandler:
         self._publish_futures: list[futures.Future] = []
 
     @staticmethod
-    def _raise_exception_if_failed(future: futures.Future) -> None:
-        """Re-raise any exceptions raised by the future's execution thread.
-
-        This should be registered as a callback that will only be invoked when the future
-        has already completed using:
-            future.add_done_callback(_raise_exception_if_failed)
+    def _get_futures_callback(**kwargs) -> Callable[[futures.Future], None]:
         """
-        future.result()
+        returns a function to use as a callback.
+        Constructs a log message annotating with any k-vs passed to this method.
+        """
 
-    def publish_async(self, data: bytes, ordering_key: str = "") -> None:
+        msg = ""
+        for k, v in kwargs.items():
+            msg += f" {k}={v} "
+
+        def _raise_exception_if_failed(future: futures.Future) -> None:
+            """Re-raise any exceptions raised by the future's execution thread.
+
+            This should be registered as a callback that will only be invoked when the future
+            has already completed using:
+                future.add_done_callback(_raise_exception_if_failed)
+            """
+            try:
+                future.result(timeout=55)
+            except futures.TimeoutError:
+                logger.error(f"timeout. failed to publish blob. {msg}")
+                # TODO: raise this to our main application, and exit
+            except futures.CancelledError:
+                logger.error(f"publish future cancelled. failed to publish blob. {msg}")
+                # TODO: raise ...
+            except Exception:
+                logger.error(f"publish future failed. {msg}")
+                # TODO: ...
+
+        return _raise_exception_if_failed
+
+    def publish_async(self, data: bytes, ordering_key: str = "", **metadata) -> None:
         """Add data to the current publish batch.
 
         Batches are pushed asynchronously to GCP PubSub in a separate thread. To wait
@@ -233,24 +226,24 @@ class PubSubPublishHandler:
             required if handler was instantiated with ordered_queue=True
             payloads sharing the same ordering_key are guaranteed to be delivered to
             consumers in the order they are published
+        metadata
+            any additional k-vs that contextualize the publish event.
+            these will be added as context to the publisher callback,
+            which includes them in any failure logs.
         """
         future: futures.Future = self._publisher.publish(
             topic=self._topic_id,
             data=data,
             ordering_key=ordering_key,
         )
-        future.add_done_callback(self._raise_exception_if_failed)
+        future.add_done_callback(self._get_futures_callback(**metadata))
         self._publish_futures.append(future)
 
-    def wait_for_publish(self, timeout: float | None = None) -> None:
-        """Block until all current publish batches are received by server.
-
-        Raises
-        ------
-        concurrent.futures.TimeoutError: server did not respond
-        Exception: will re-raise exceptions raised by the batch execution threads
+    def wait_for_publish(self) -> None:
         """
-        futures.wait(self._publish_futures, timeout=timeout)
+        Block until all current publish batches are received by server.
+        """
+        futures.wait(self._publish_futures)
         self._publish_futures = []
 
 
@@ -342,49 +335,56 @@ class ValidationHandler:
             SpireWaypointsRecord.from_waypoint_cache(w)[0] for w in cache
         ]
 
-        self._max_cached_ts: datetime | None
-        self._min_records_ts: datetime
+        self.max_cached_ts: datetime | None
+        self.min_records_ts: datetime
         if self._cached_records:
-            self._max_cached_ts = datetime.fromisoformat(
+            self.max_cached_ts = datetime.fromisoformat(
                 self._cached_records[-1].timestamp
             )
         else:
-            self._max_cached_ts = None
-        self._min_records_ts = datetime.fromisoformat(self._records[0].timestamp)
+            self.max_cached_ts = None
+        self.min_records_ts = datetime.fromisoformat(self._records[0].timestamp)
 
-        # raise on instantiation if data is invalid (possible out-of-order)
-        self._verify_temporal_order()
-
-    def _verify_temporal_order(self):
+    def correct_temporal_order(self) -> bool:
         """
         Verifies that the batch window of records trails the cached records in time.
+        If the maximum cached timestamp is due to the previous iteration's interpolation,
+        then the new records should trail by at least 1 minutes from the cache ts.
         Failure to meet this criteria may indicate out-of-order delivery of records.
         """
 
         # possible out-of-order delivery
-        if self._max_cached_ts and self._min_records_ts < self._max_cached_ts:
-            raise Exception(
-                f"records must have timestamp after cached timestamp. "
-                f"received records for icao_address {self._flight_info.icao_address} "
-                f"with timestamp {self._min_records_ts.isoformat()} occurring before "
-                f"cached timestamp {self._max_cached_ts.isoformat()}"
-            )
+        if self.max_cached_ts and self.min_records_ts < (
+            self.max_cached_ts + timedelta(seconds=60)
+        ):
+            return False
+        else:
+            return True
 
     def verify_gt_1min_span(self) -> bool:
         """
-        Verifies that the cache->records spans at least 1 minute.
+        Verifies that the cache->records spans at least a 1-minute interval.
         If the total time spanned does not exceed 1 minute, this returns false, else true.
 
         This verification is relevant as resampling of records that don't span >1min
         will result in an empty list of resampled records.
-        """
-        minutes = {
-            datetime.fromisoformat(rec.timestamp).minute for rec in self._records
-        }
 
-        if not self.cached_records and len(minutes) == 1:
-            # note: if both cache and records are not empty, then this condition is implicitly met,
-            #       since the cache will always reference a timestamp outside the records minute(s)
+        this is not desirable behavior, but expected behavior from pycontrails.Flight.resample_and_fill()
+        ref, root: https://github.com/contrailcirrus/pycontrails/blame/7feed97d3e0eec5f7236d79122a5c11054d24fd5/pycontrails/core/flight.py#L2069
+
+        """
+
+        rht_unix = datetime.fromisoformat(self.records[-1].timestamp).timestamp()
+
+        if self.cached_records:
+            lht_unix = datetime.fromisoformat(
+                self.cached_records[0].timestamp
+            ).timestamp()
+        else:
+            lht_unix = datetime.fromisoformat(self.records[0].timestamp).timestamp()
+        time_span_sec = rht_unix - lht_unix
+
+        if time_span_sec <= 60:
             return False
         return True
 
@@ -411,7 +411,7 @@ class ValidationHandler:
             return self._cached_records
 
         cache_to_records_elapsed_hr = (
-            self._min_records_ts - self._max_cached_ts
+            self.min_records_ts - self.max_cached_ts
         ).seconds / 3600
         cache_to_records_distance_km = 0.001 * math.sqrt(
             (
@@ -441,7 +441,7 @@ class ValidationHandler:
             # case (B)
             logger.info(
                 f"new flight instance inferred for icao_address {self._flight_info.icao_address} "
-                f"at {self._min_records_ts.isoformat()}. invalidating cache."
+                f"at {self.min_records_ts.isoformat()}. invalidating cache."
             )
             return []
         else:
@@ -554,6 +554,11 @@ class ResampleHandler:
         df_records["time"] = pd.to_datetime(df_records["time"]).apply(
             lambda r: r.tz_localize(None)
         )
+
+        if df_records["time"].duplicated().sum():
+            logger.warning("duplicated waypoints found in cache+records.")
+            df_records.drop_duplicates(["time"], inplace=True)
+
         self._min_records_ts = df_records["time"].min()
 
         self._waypoints_df = pd.concat([df_cached, df_records])
@@ -591,6 +596,7 @@ class ResampleHandler:
         flight_resampled.drop(columns=["altitude"], inplace=True)
 
         self._waypoints_df_resampled = flight_resampled
+        return self
 
     @property
     def waypoints_resampled(self) -> list[SpireWaypointPositional]:
@@ -608,9 +614,11 @@ class ResampleHandler:
         waypoints: list[SpireWaypointPositional] = []
         for _, r in self._waypoints_df_resampled.iterrows():
             wp = SpireWaypointPositional(
+                ingestion_time=None,
                 timestamp=r["time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
                 latitude=r["latitude"],
                 longitude=r["longitude"],
+                collection_type=None,
                 altitude_baro=r["altitude_ft"],
                 imputed=r["imputed"],
                 flight_level=r["flight_level"],
@@ -626,3 +634,27 @@ class ResampleHandler:
         diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
         min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
         return cls.FLIGHT_LEVELS[min_ix]
+
+
+class PerfModelLookup:
+    """
+    Simple wrapper to serve up the performance model lookup table.
+
+    The performance model lookup table provides a master reference
+    between an icao aircraft type identifier, and
+    1) our specified cocip performance model,
+    2) the engine type to use with that aircraft type.
+    """
+
+    PERF_LOOKUP_FP = "lib/perf_model_aircraft_lookup_no_bada_041824.json"
+
+    lookup: dict[str, dict[str, str]]
+    with open(PERF_LOOKUP_FP, "r") as fp:
+        lookup = json.load(fp)
+
+    @property
+    def aircraft_type_icao(self) -> list[str]:
+        """
+        returns the supported aircraft types in the perf lookup
+        """
+        return list(self.lookup.keys())

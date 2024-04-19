@@ -1,10 +1,11 @@
 """
 Scratch scripting to test publishing of a JSON blob to pubsub, and integration/streaming to BQ table
 """
+
 from concurrent import futures
 
 from google.cloud import pubsub_v1
-from stub import pubsub_bq_out
+from tests.stubs.stub import pubsub_bq_out
 
 
 client = pubsub_v1.PublisherClient()

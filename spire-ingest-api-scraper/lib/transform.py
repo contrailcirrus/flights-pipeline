@@ -2,6 +2,8 @@ import pandas as pd
 
 from lib.log import logger
 
+pd.set_option("future.no_silent_downcasting", True)
+
 
 def _downsample_icao_address_minutes_first_last(df: pd.DataFrame) -> pd.DataFrame:
     """Retains only the first and last rows for each [icao_address, minute].
@@ -24,10 +26,12 @@ def _downsample_icao_address_minutes_first_last(df: pd.DataFrame) -> pd.DataFram
     minute = timestamp.dt.floor("1 min")
 
     grouped = df.sort_values("timestamp").groupby(["icao_address", minute])
-    first_min = grouped.head(1)
-    last_min = grouped.tail(1)
+    first = grouped.head(1)
+    last = grouped.tail(1)
 
-    result = pd.concat([first_min, last_min]).drop_duplicates()
+    # Spire truncates millis from the observation timestamp, so each is floored to the
+    # nearest second. Ensure the first and last points are not during the same second.
+    result = pd.concat([first, last]).drop_duplicates(["icao_address", "timestamp"])
     return result
 
 
@@ -53,7 +57,7 @@ def filter_ingest_rules(spire_df: pd.DataFrame) -> pd.DataFrame:
     """
     # Retain records when aircraft is not on ground. on_ground is a nullable boolean
     # type which may be nan if unknown.
-    is_on_ground = spire_df["on_ground"].fillna(False)
+    is_on_ground = spire_df["on_ground"].fillna(False).astype(bool)
     drop_count_on_ground = is_on_ground.sum()
     if drop_count_on_ground > 0:
         logger.info(f"Drop {drop_count_on_ground} records on ground")

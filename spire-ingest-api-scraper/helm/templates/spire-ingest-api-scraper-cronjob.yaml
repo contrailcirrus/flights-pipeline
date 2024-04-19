@@ -10,11 +10,17 @@ spec:
   jobTemplate:
     spec:
       activeDeadlineSeconds: 900
-      backoffLimit: 2
+      backoffLimit: 1
       template:
         spec:
+          nodeSelector:
+            cloud.google.com/compute-class: "Scale-Out"
           restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
+          # terminationGracePeriodSeconds should be greater than the time to
+          # perform a single job iteration. When a SIGTERM is received, the job
+          # has this much time to gracefully exit before being killed.
+          terminationGracePeriodSeconds: 180
           containers:
             - name: main
               image: {{ .Values.image | required ".Values.image is required" | quote }}
@@ -27,6 +33,8 @@ spec:
                   value: {{ .Values.firestoreStateDocId | required ".Values.firestoreStateDocId is required" | quote }}
                 - name: PUBSUB_EGRESS_TOPIC_ID
                   value: {{ .Values.pubSubEgressTopicId | required ".Values.pubSubEgressTopicId is required" | quote }}
+                - name: SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
+                  value: {{ .Values.spireRawWaypointsBigQueryTopicId | required ".Values.spireRawWaypointsBigQueryTopicId is required" | quote }}
                 - name: SPIRE_API_TOKEN
                   valueFrom:
                     secretKeyRef:
@@ -36,9 +44,10 @@ spec:
                   value: INFO
               resources:
                 requests:
-                  cpu: "1"
-                  # OOM when allocated memory < 7GB
-                  memory: "10000Mi"
+                  cpu: "3"  # 1:4 ratio for Scale-Out enforced
+                  memory: "12Gi"
+                  ephemeral-storage: "1Gi"
                 limits:
-                  cpu: "1"
-                  memory: "10000Mi"
+                  cpu: "3"
+                  memory: "12Gi"
+                  ephemeral-storage: "1Gi"
