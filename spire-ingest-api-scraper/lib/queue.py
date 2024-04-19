@@ -66,7 +66,6 @@ class QueueClient:
                     initial=0.1,  # default: 0.1
                     maximum=10,  # default: 60
                     multiplier=1.3,  # default: 1.3
-                    deadline=120,  # default: 120
                 ),
             ),
         )
