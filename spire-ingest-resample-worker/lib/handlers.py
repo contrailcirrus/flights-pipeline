@@ -652,6 +652,7 @@ class PerfModelLookup:
     with open(PERF_LOOKUP_FP, "r") as fp:
         lookup = json.load(fp)
 
+    @property
     def aircraft_type_icao(self) -> list[str]:
         """
         returns the supported aircraft types in the perf lookup
