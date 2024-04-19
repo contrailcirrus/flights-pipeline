@@ -211,7 +211,6 @@ class PubSubPublishHandler:
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=ordered_queue,
                 flow_control=flow_control_settings,
-                timeout=45,
             )
         )
         self._publish_futures: list[futures.Future] = []
@@ -272,6 +271,7 @@ class PubSubPublishHandler:
             topic=self._topic_id,
             data=data,
             ordering_key=ordering_key,
+            timeout=45,
         )
         future.add_done_callback(self._get_futures_callback(**metadata))
         self._publish_futures.append(future)
