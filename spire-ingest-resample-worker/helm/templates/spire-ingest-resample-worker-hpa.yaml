@@ -15,7 +15,7 @@ spec:
     kind: Deployment
     name: spire-ingest-resample-worker
   minReplicas: 1
-  maxReplicas: 50
+  maxReplicas: 75
   metrics:
     - type: External
       external:
