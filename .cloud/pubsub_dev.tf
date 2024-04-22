@@ -10,20 +10,20 @@ resource "google_pubsub_topic" "dev_resample_worker_ingress_dead_letter" {
   name = "dev-fp-resample-worker-ingress-dead-letter"
 }
 
-resource "google_pubsub_topic" "dev_spire_ingest_resampled_bigquery" {
-  name = "dev-fp-spire-ingest-resampled-bigquery"
-}
-
-resource "google_pubsub_topic" "dev_spire_ingest_resampled_bigquery_dead_letter" {
-  name = "dev-fp-spire-ingest-resampled-bigquery-dead-letter"
-}
-
 resource "google_pubsub_topic" "dev_spire_ingest_raw_bigquery" {
   name = "dev-fp-spire-ingest-raw-bigquery"
 }
 
 resource "google_pubsub_topic" "dev_spire_ingest_raw_bigquery_dead_letter" {
   name = "dev-fp-spire-ingest-raw-bigquery-dead-letter"
+}
+
+resource "google_pubsub_topic" "dev_spire_ingest_resampled_bigquery" {
+  name = "dev-fp-spire-ingest-resampled-bigquery"
+}
+
+resource "google_pubsub_topic" "dev_spire_ingest_resampled_bigquery_dead_letter" {
+  name = "dev-fp-spire-ingest-resampled-bigquery-dead-letter"
 }
 
 resource "google_pubsub_topic" "dev_resample_worker_trajectory_chunk_egress" {
@@ -51,14 +51,14 @@ resource "google_pubsub_subscription" "dev_spire_ingest_raw_bigquery_delivery" {
   topic = google_pubsub_topic.dev_spire_ingest_raw_bigquery.id
 
   bigquery_config {
-    table = "contrails-301217.${google_bigquery_table.spire_flights_resampled_dev.dataset_id}.${google_bigquery_table.spire_flights_raw_dev.table_id}"
+    table = "contrails-301217.${google_bigquery_table.spire_flights_raw_dev.dataset_id}.${google_bigquery_table.spire_flights_raw_dev.table_id}"
     use_table_schema = true
     drop_unknown_fields = true
   }
 
   dead_letter_policy {
     max_delivery_attempts = 10
-    dead_letter_topic = google_pubsub_topic.dev_spire_ingest_resampled_bigquery_dead_letter.id
+    dead_letter_topic = google_pubsub_topic.dev_spire_ingest_raw_bigquery_dead_letter.id
   }
 
     retry_policy {
@@ -72,7 +72,7 @@ resource "google_pubsub_subscription" "dev_spire_ingest_raw_bigquery_delivery" {
 
   depends_on = [
     google_bigquery_table.spire_flights_raw_dev,
-    google_pubsub_topic.dev_spire_ingest_resampled_bigquery_dead_letter,
+    google_pubsub_topic.dev_spire_ingest_raw_bigquery_dead_letter,
   ]
 }
 
@@ -202,12 +202,12 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_chunk_ingress" {
 
   depends_on = [
     google_pubsub_topic.dev_resample_worker_trajectory_chunk_egress,
-    google_pubsub_topic.dev_resample_worker_ingress_dead_letter,
+    google_pubsub_topic.dev_resample_worker_trajectory_chunk_egress_dead_letter,
   ]
 }
 
 resource "google_pubsub_subscription" "dev_trajectory_chunk_ingress_dead_letter_dev" {
-  name  = "trajectory-chunk-ingress-dead-letter-dev"
+  name  = "dev-fp-trajectory-chunk-ingress-dead-letter"
   topic = google_pubsub_topic.dev_resample_worker_trajectory_chunk_egress_dead_letter.id
   message_retention_duration = "86400s"  # 1 day
 
