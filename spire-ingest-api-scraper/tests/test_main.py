@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta, timezone
-from types import NoneType
+from typing import Any
 from unittest.mock import Mock
 
 from lib import queue, spire, state, utils
@@ -19,6 +19,19 @@ def test_time_windows_within_range() -> None:
         assert start_at < batch_end_at <= end_at
         count += 1
     assert count == 2
+
+
+def _is_valid_str_or_none(x: Any) -> bool:
+    if x is None:
+        return True
+
+    if not isinstance(x, str):
+        return False
+
+    should_be_none = {"nan", "NaN", "nat", "NaT", "null", "NULL", "None"}
+    if x in should_be_none:
+        return False
+    return True
 
 
 def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
@@ -51,16 +64,16 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
         dto = json.loads(data)
         flight_info = dto["flight_info"]
         assert isinstance(flight_info["icao_address"], str)
-        assert isinstance(flight_info["flight_id"], (str, NoneType))
-        assert isinstance(flight_info["callsign"], (str, NoneType))
-        assert isinstance(flight_info["tail_number"], (str, NoneType))
-        assert isinstance(flight_info["flight_number"], (str, NoneType))
-        assert isinstance(flight_info["aircraft_type_icao"], (str, NoneType))
-        assert isinstance(flight_info["airline_iata"], (str, NoneType))
-        assert isinstance(flight_info["departure_airport_icao"], (str, NoneType))
-        assert isinstance(flight_info["departure_scheduled_time"], (str, NoneType))
-        assert isinstance(flight_info["arrival_airport_icao"], (str, NoneType))
-        assert isinstance(flight_info["arrival_scheduled_time"], (str, NoneType))
+        assert _is_valid_str_or_none(flight_info["flight_id"])
+        assert _is_valid_str_or_none(flight_info["callsign"])
+        assert _is_valid_str_or_none(flight_info["tail_number"])
+        assert _is_valid_str_or_none(flight_info["flight_number"])
+        assert _is_valid_str_or_none(flight_info["aircraft_type_icao"])
+        assert _is_valid_str_or_none(flight_info["airline_iata"])
+        assert _is_valid_str_or_none(flight_info["departure_airport_icao"])
+        assert _is_valid_str_or_none(flight_info["departure_scheduled_time"])
+        assert _is_valid_str_or_none(flight_info["arrival_airport_icao"])
+        assert _is_valid_str_or_none(flight_info["arrival_scheduled_time"])
         for record in dto["records"]:
             assert isinstance(record["timestamp"], str)
             assert isinstance(record["latitude"], float)
