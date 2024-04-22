@@ -51,7 +51,7 @@ resource "google_pubsub_subscription" "dev_spire_ingest_raw_bigquery_delivery" {
   topic = google_pubsub_topic.dev_spire_ingest_raw_bigquery.id
 
   bigquery_config {
-    table = "contrails-301217.${google_bigquery_table.spire-flights-resampled-dev.dataset_id}.${google_bigquery_table.spire-flights-raw-dev.table_id}"
+    table = "contrails-301217.${google_bigquery_table.spire_flights_resampled_dev.dataset_id}.${google_bigquery_table.spire_flights_raw_dev.table_id}"
     use_table_schema = true
     drop_unknown_fields = true
   }
@@ -71,7 +71,7 @@ resource "google_pubsub_subscription" "dev_spire_ingest_raw_bigquery_delivery" {
   }
 
   depends_on = [
-    google_bigquery_table.spire-flights-raw-dev,
+    google_bigquery_table.spire_flights_raw_dev,
     google_pubsub_topic.dev_spire_ingest_resampled_bigquery_dead_letter,
   ]
 }
@@ -138,7 +138,7 @@ resource "google_pubsub_subscription" "dev_spire_ingest_resampled_bigquery_deliv
   topic = google_pubsub_topic.dev_spire_ingest_resampled_bigquery.id
 
   bigquery_config {
-    table = "contrails-301217.${google_bigquery_table.spire-flights-resampled-dev.dataset_id}.${google_bigquery_table.spire-flights-resampled-dev.table_id}"
+    table = "contrails-301217.${google_bigquery_table.spire_flights_resampled_dev.dataset_id}.${google_bigquery_table.spire_flights_resampled_dev.table_id}"
     use_table_schema = true
     drop_unknown_fields = true
   }
@@ -158,7 +158,7 @@ resource "google_pubsub_subscription" "dev_spire_ingest_resampled_bigquery_deliv
   }
 
   depends_on = [
-    google_bigquery_table.spire-flights-resampled-dev,
+    google_bigquery_table.spire_flights_resampled_dev,
     google_pubsub_topic.dev_spire_ingest_resampled_bigquery_dead_letter
   ]
 }
@@ -225,7 +225,7 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_cocip_bigquery_deli
   topic = google_pubsub_topic.dev_trajectory_worker_cocip_egress_bigquery.id
 
   bigquery_config {
-    table = "contrails-301217.${google_bigquery_table.trajectory-cocip-dev.dataset_id}.${google_bigquery_table.trajectory-cocip-dev.table_id}"
+    table = "contrails-301217.${google_bigquery_table.trajectory_cocip_dev.dataset_id}.${google_bigquery_table.trajectory_cocip_dev.table_id}"
     use_table_schema = true
     drop_unknown_fields = true
   }
@@ -245,7 +245,7 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_cocip_bigquery_deli
   }
 
   depends_on = [
-    google_bigquery_table.trajectory-cocip-dev,
+    google_bigquery_table.trajectory_cocip_dev,
     google_pubsub_topic.dev_trajectory_worker_cocip_egress_bigquery_dead_letter,
   ]
 }
