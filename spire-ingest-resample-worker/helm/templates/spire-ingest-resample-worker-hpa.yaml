@@ -14,7 +14,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: spire-ingest-resample-worker
-  minReplicas: 0
+  minReplicas: 1
   maxReplicas: 75
   metrics:
     - type: External
