@@ -2,8 +2,9 @@ import os
 from functools import cache
 from typing import Iterator
 
+import httpx
 import pytest
-import responses
+import respx
 
 # Fake environment variables. This is required since lib.log inherited from existing
 # services has an import-time dependency on lib.environment, so the service's
@@ -28,9 +29,6 @@ def mock_spire_airsafe_api() -> Iterator[str]:
     """Return cached response json from given URL during testing."""
     mock_url = "https://api-mock.airsafe.spire.com/v2/targets/stream"
     mock_body = _read_text("tests/api/spire_response_10k.ndjson")
-    with responses.RequestsMock() as mock_responses:
-        mock_responses.get(
-            url=mock_url,
-            body=mock_body,
-        )
+    with respx.mock:
+        respx.get(mock_url).mock(return_value=httpx.Response(200, content=mock_body))
         yield mock_url

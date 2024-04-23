@@ -2,6 +2,7 @@
 Entrypoint for spire-ingest-api-scraper CronJob.
 """
 
+import asyncio
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -57,7 +58,7 @@ def _log_invariant_violations(df: pd.DataFrame) -> None:
             )
 
 
-def main(
+async def main(
     triggered_at: datetime,
     egress_queue_client: queue.QueueClient,
     bq_queue_client: queue.QueueClient,
@@ -90,7 +91,9 @@ def main(
         logger.info(
             f"Fetching: [{batch_start_at.isoformat()}, {batch_end_at.isoformat()})"
         )
-        spire_df, tardy_df = spire_client.get_data_between(batch_start_at, batch_end_at)
+        spire_df, tardy_df = await spire_client.get_data_between(
+            batch_start_at, batch_end_at
+        )
         logger.info(
             f"Fetched {len(spire_df)} target records, and {len(tardy_df)} tardy records."
         )
@@ -257,13 +260,15 @@ if __name__ == "__main__":
             environment.FIRESTORE_STATE_DOC_ID,
         )
 
-        main(
-            triggered_at=triggered_at,
-            egress_queue_client=egress_queue_client,
-            bq_queue_client=bq_queue_client,
-            sigterm_handler=sigterm_handler,
-            spire_client=spire_client,
-            state_client=state_client,
+        asyncio.run(
+            main(
+                triggered_at=triggered_at,
+                egress_queue_client=egress_queue_client,
+                bq_queue_client=bq_queue_client,
+                sigterm_handler=sigterm_handler,
+                spire_client=spire_client,
+                state_client=state_client,
+            )
         )
     except Exception:
         logger.error("Unhandled exception:" + format_traceback())
