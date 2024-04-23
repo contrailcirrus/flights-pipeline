@@ -6,18 +6,15 @@ import lib.environment as env
 from lib import utils
 from lib.exceptions import AircraftTypeUnrecognizedError, FlightTooLowError
 from lib.handlers import (
-    PubSubSubscriptionHandler,
-    PubSubPublishHandler,
     CocipTrajectoryHandler,
+    PubSubPublishHandler,
+    PubSubSubscriptionHandler,
 )
 from lib.log import format_traceback, logger
-from lib.schemas import (
-    WaypointsRecord,
-    CocipTrajectoryChunk,
-)
+from lib.schemas import CocipTrajectoryChunk, WaypointsRecord
 
 
-def run():
+def run() -> None:
     """
     Main entrypoint.
     - Dequeue a set of waypoints (trajectory chunk)
@@ -79,16 +76,20 @@ def run():
         )
 
         trajectory_cocip_bq_publisher = PubSubPublishHandler(
-            env.TRAJECTORY_COCIP_BQ_TOPIC_ID
+            topic_id=env.TRAJECTORY_COCIP_BQ_TOPIC_ID,
+            ordered_queue=False,
         )
         trajectory_cocip_bq_publisher.publish_async(
             data=output.to_bq_flatmap(),
-            client_name="trajectory_cocip_bq_publisher",
-            icao_address=output.icao_address,
-            source_id=output.source_id,
-            time_start=output.time_start,
+            timeout_seconds=45,
+            log_context=dict(
+                client_name="trajectory_cocip_bq_publisher",
+                icao_address=output.icao_address,
+                source_id=output.source_id,
+                time_start=output.time_start,
+            ),
         )
-        trajectory_cocip_bq_publisher.wait_for_publish()
+        trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=60)
 
         job_handler.ack()
 
