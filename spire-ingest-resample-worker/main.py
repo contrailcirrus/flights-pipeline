@@ -5,10 +5,11 @@ from dataclasses import asdict
 from datetime import datetime
 
 import lib.environment as env
-from lib import queue, utils
+from lib import utils
 from lib.handlers import (
     CacheHandler,
     PerfModelLookup,
+    PubSubPublishHandler,
     PubSubSubscriptionHandler,
     ResampleHandler,
     ValidationHandler,
@@ -24,7 +25,7 @@ from lib.schemas import (
 )
 
 
-def run():
+def run() -> None:
     """
     Main entrypoint.
 
@@ -39,15 +40,15 @@ def run():
     """
     cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
 
-    bq_raw_publish_handler = queue.QueueClient(
+    bq_raw_publish_handler = PubSubPublishHandler(
         topic_id=env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
         ordered_queue=False,
     )
-    bq_publish_handler = queue.QueueClient(
+    bq_publish_handler = PubSubPublishHandler(
         topic_id=env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID,
         ordered_queue=False,
     )
-    trajectory_publish_handler = queue.QueueClient(
+    trajectory_publish_handler = PubSubPublishHandler(
         topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
         ordered_queue=True,
     )
