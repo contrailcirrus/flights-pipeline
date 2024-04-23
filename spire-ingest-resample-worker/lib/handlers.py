@@ -14,8 +14,8 @@ from typing import Any, Callable, Union
 import numpy as np
 import pandas as pd
 import redis
-from google.api_core import retry  # type: ignore
-from google.cloud import pubsub_v1  # type: ignore  # type: ignore
+from google.api_core import retry
+from google.cloud import pubsub_v1  # type: ignore
 from pycontrails.core.flight import Flight
 from pycontrails.physics import geo
 from redis.backoff import ExponentialBackoff
