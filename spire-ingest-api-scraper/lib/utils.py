@@ -27,19 +27,26 @@ class SigtermHandler:
 def time_windows(
     start_at: datetime, end_at: datetime, step: timedelta
 ) -> Iterator[tuple[datetime, datetime]]:
-    """Constructs ordered time windows between start_at and end_at of size step.
+    """
+    Constructs ordered time windows between start_at and end_at of size step.
+
+    All windows are guaranteed to lie within the range of [start_at, end_at].
+    No partial window is returned if the start_at -> end_at range is not evenly divisible by step.
+
+    Specifically, if end_at - start_at is not evenly divisible by step,
+    the last window returned will be:
+            [start_at + (n) * step, start_at + (n + 1) * step)
+        where (start_at + (n + 1) * step) < end_at. In other words, all windows will be
+        of length step and no partial windows will be returned.
 
     Parameters
     ----------
     start_at
         time at which first window should begin, inclusive.
     end_at
-        time at which last window should end, inclusive, if end_at - start_at is evenly
-        divisible by step. If end_at - start_at is not evenly divisible by step, the
-        last window returned will be:
-            [start_at + (n) * step, start_at + (n + 1) * step)
-        where (start_at + (n + 1) * step) < end_at. In other words, all windows will be
-        of length step and no partial windows will be returned.
+        time at which last window should end, inclusive.
+    step
+        interval to use in slicing the range of start_at to end_at
 
     Yields
     ------

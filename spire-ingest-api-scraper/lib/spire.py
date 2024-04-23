@@ -14,7 +14,7 @@ from lib.log import logger
 # from Spire's API to load data observations that occurred during [start_at, end_at)
 # but were ingested after end_at. Records with observation timestamps outside of
 # [start_at, end_at) are dropped before data leaves this module.
-INGEST_LAG_TIME = timedelta(minutes=5)
+INGEST_LAG_TIME = timedelta(minutes=2)
 
 # Spire reported that the following icao_address values are not unique to a specific
 # aircraft. We drop related records to avoid downstream inconsistencies.
@@ -100,9 +100,8 @@ class SpireAPIClient:
             )
 
         # Decompose job into multiple windows that can be fetched concurrently.
-        concurrency = 10
-        window_size = (end_at_plus_lag - start_at) // concurrency
-        windows = utils.time_windows(start_at, end_at_plus_lag, window_size)
+        concurrency = (end_at_plus_lag - start_at) // timedelta(minutes=1)
+        windows = utils.time_windows(start_at, end_at_plus_lag, timedelta(minutes=1))
         with concurrent.futures.ThreadPoolExecutor(concurrency) as executor:
             results = executor.map(
                 lambda window: self._fetch_target_records_with_retry(*window),
@@ -177,10 +176,11 @@ class SpireAPIClient:
         This method is thread-safe.
         """
         headers = {"Authorization": f"Bearer {self._api_token}"}
-
+        start_at_fmt = start_at_utc.isoformat().replace("+00:00", "Z")
+        end_at_fmt = end_at_utc.isoformat().replace("+00:00", "Z")
         params = {
-            "start": start_at_utc.isoformat().replace("+00:00", "Z"),
-            "end": end_at_utc.isoformat().replace("+00:00", "Z"),
+            "start": start_at_fmt,
+            "end": end_at_fmt,
         }
 
         min_backoff_seconds = 1
@@ -190,6 +190,7 @@ class SpireAPIClient:
         backoff_seconds = min_backoff_seconds
         retry_count = 0
         while retry_count <= max_retry_count:
+            logger.info(f"calling Spire API: {start_at_fmt} to {end_at_fmt}")
             response = requests.get(
                 self._airsafe_url,
                 params=params,
