@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -45,13 +46,15 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
     state_client = Mock(spec=state.PersistentStateClient)
     state_client.get_last_sync_end_at = Mock(return_value=last_sync_end_at)
 
-    main(
-        triggered_at=triggered_at,
-        egress_queue_client=egress_queue_client,
-        bq_queue_client=bq_queue_client,
-        sigterm_handler=sigterm_handler,
-        spire_client=spire_client,
-        state_client=state_client,
+    asyncio.run(
+        main(
+            triggered_at=triggered_at,
+            egress_queue_client=egress_queue_client,
+            bq_queue_client=bq_queue_client,
+            sigterm_handler=sigterm_handler,
+            spire_client=spire_client,
+            state_client=state_client,
+        )
     )
 
     assert egress_queue_client.publish_async.call_count == 1127
@@ -97,13 +100,15 @@ def test_main_entrypoint_exits_if_less_than_5_minutes_elapsed() -> None:
     state_client = Mock(spec=state.PersistentStateClient)
     state_client.get_last_sync_end_at = Mock(return_value=last_sync_end_at)
 
-    main(
-        triggered_at=triggered_at,
-        egress_queue_client=egress_queue_client,
-        bq_queue_client=bq_queue_client,
-        sigterm_handler=sigterm_handler,
-        spire_client=spire_client,
-        state_client=state_client,
+    asyncio.run(
+        main(
+            triggered_at=triggered_at,
+            egress_queue_client=egress_queue_client,
+            bq_queue_client=bq_queue_client,
+            sigterm_handler=sigterm_handler,
+            spire_client=spire_client,
+            state_client=state_client,
+        )
     )
 
     assert spire_client.get_data_between.call_count == 0

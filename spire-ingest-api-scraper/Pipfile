@@ -6,8 +6,8 @@ name = "pypi"
 [packages]
 google-cloud-firestore = "==2.15.0"
 google-cloud-pubsub = "==2.19.7"
+httpx = "==0.27.0"
 pandas = "==2.2.1"
-requests = "==2.31.0"
 
 [dev-packages]
 black = "*"
@@ -15,10 +15,10 @@ mypy = "*"
 pandas-stubs = "*"
 pre-commit = "*"
 pytest = "*"
+pytest-asyncio = "*"
 pytest-cov = "*"
-responses = "*"
+respx = "*"
 ruff = "*"
-types-requests = "*"
 
 [requires]
 python_version = "3.12"

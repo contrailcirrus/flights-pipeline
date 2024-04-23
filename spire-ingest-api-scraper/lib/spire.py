@@ -1,14 +1,14 @@
-import concurrent.futures
+import asyncio
 import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 import pandas as pd
-import requests
 
 from lib import utils
-from lib.log import logger
+from lib.log import format_traceback, logger
 
 # Requesting data [start_at, end_at) will fetch [start_at, end_at + INGEST_LAG_TIME]
 # from Spire's API to load data observations that occurred during [start_at, end_at)
@@ -30,7 +30,7 @@ class SpireAPIClient:
         self._api_token = api_token
         self._airsafe_url = airsafe_url
 
-    def get_data_between(
+    async def get_data_between(
         self,
         start_at: datetime,
         end_at: datetime,
@@ -100,17 +100,16 @@ class SpireAPIClient:
             )
 
         # Decompose job into multiple windows that can be fetched concurrently.
-        concurrency = (end_at_plus_lag - start_at) // timedelta(minutes=1)
         windows = utils.time_windows(start_at, end_at_plus_lag, timedelta(minutes=1))
-        with concurrent.futures.ThreadPoolExecutor(concurrency) as executor:
-            results = executor.map(
-                lambda window: self._fetch_target_records_with_retry(*window),
-                windows,
-            )
 
-        # Flatten nested list of records returned by each worker thread.
-        target_records = [record for result in results for record in result]
-        df = pd.DataFrame(target_records)
+        coroutines = [
+            self._fetch_target_records_with_retry(*window) for window in windows
+        ]
+        results = await asyncio.gather(*coroutines)
+
+        # Flatten nested list of records.
+        records = [record for result in results for record in result]
+        df = pd.DataFrame(records)
         logger.info(f"Fetched {len(df)} total records from Spire.")
 
         # Spire API may return icao_address values that are not unique to a specific
@@ -123,49 +122,59 @@ class SpireAPIClient:
         if drop_count_ignored_icao_address > 0:
             logger.info(
                 f"Drop {drop_count_ignored_icao_address} records with non-unique "
-                + f"icao_address in {IGNORE_ICAO_ADDRESS}"
+                f"icao_address in: {IGNORE_ICAO_ADDRESS}"
             )
 
-        # Spire API's start_at and end_at query params reference ingestion_time
-        # sometimes, the SPIRE API will return records outside of ingestion_time:[start_at, end_at]
+        # Drop records with ingestion timestamps outside of [start_at, end_at_plus_lag).
+        # Spire API's start_at and end_at query params reference ingestion_time.
+        # Sometimes the SPIRE API will return records with ingestion_time outside of
+        # [start_at, end_at_plus_lag).
         timestamp = pd.to_datetime(df["timestamp"])
         ingestion_time = pd.to_datetime(df["ingestion_time"])
         ingest_at_or_after_start = ingestion_time >= pd.to_datetime(start_at)
         ingest_before_end_w_buffer = ingestion_time < pd.to_datetime(end_at_plus_lag)
         in_range_filter = ingest_at_or_after_start & ingest_before_end_w_buffer
         df = df.loc[in_range_filter, :]
-        logger.info(
-            f"Records outside window [{start_at}, {end_at_plus_lag}). "
-            f"Dropping {(~in_range_filter).sum()} records."
-        )
 
-        # identify tardy records
+        drop_count = (~in_range_filter).sum()
+        if drop_count > 0:
+            logger.info(
+                f"Drop {drop_count} records with "
+                f"ingestion time outside window: [{start_at}, {end_at_plus_lag})"
+            )
+
+        # Identify tardy records; target records which were ingested by Spire after the
+        # allowable INGEST_LAG_TIME has elapsed.
         timestamp = pd.to_datetime(df["timestamp"])
         ingestion_time = pd.to_datetime(df["ingestion_time"])
         is_tardy = (ingestion_time - timestamp) > INGEST_LAG_TIME
         ingest_before_end = ingestion_time < pd.to_datetime(end_at)
         df_tardy = df.loc[is_tardy & ingest_before_end, :]
 
-        # identify target records
-        # Drop records with timestamps equal or after end_at.
+        # Drop records with observation timestamps outside of [start_at, end_at), to
+        # guarantee ordering-in-time between subsequent invocations.
+        is_at_or_after_start = timestamp >= pd.to_datetime(start_at)
         is_before_end = timestamp < pd.to_datetime(end_at)
-        df = df.loc[is_before_end, :]
-        logger.info(
-            f"Target records. Dropping {(~is_before_end).sum()} records after end_at."
-        )
+        in_range_filter = is_at_or_after_start & is_before_end
+        df = df.loc[in_range_filter, :]
+
+        drop_count = (~in_range_filter).sum()
+        if drop_count > 0:
+            logger.info(
+                f"Drop {drop_count} records with "
+                f"observation time outside window: [{start_at}, {end_at})"
+            )
 
         return df, df_tardy
 
-    def _fetch_target_records_with_retry(
+    async def _fetch_target_records_with_retry(
         self,
         start_at_utc: datetime,
         end_at_utc: datetime,
     ) -> list[dict[str, Any]]:
-        """Sends GET request to Spire API and parses target records from response.
+        """Sends GET request to Spire API and parses "target" records from response.
 
         Failed requests are retried up to 5 times with exponential backoff.
-
-        This method is thread-safe.
         """
         headers = {"Authorization": f"Bearer {self._api_token}"}
         start_at_fmt = start_at_utc.isoformat().replace("+00:00", "Z")
@@ -182,28 +191,37 @@ class SpireAPIClient:
         backoff_seconds = min_backoff_seconds
         retry_count = 0
         while retry_count <= max_retry_count:
-            logger.info(f"calling Spire API: {start_at_fmt} to {end_at_fmt}")
-            response = requests.get(
-                self._airsafe_url,
-                params=params,
-                headers=headers,
-                timeout=120,
-            )
-            if response.status_code == 200:
+            logger.info(f"Calling Spire API: {start_at_fmt} to {end_at_fmt}")
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        self._airsafe_url,
+                        params=params,
+                        headers=headers,
+                        timeout=120,
+                    )
+                response.raise_for_status()
                 break
 
-            logger.warning(
-                "Spire request failed with error "
-                f"{response.status_code}: {response.text}"
-            )
-            can_retry = retry_count < max_retry_count
-            if can_retry:
-                time.sleep(backoff_seconds)
-                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
-                retry_count += 1
-            else:
-                response.raise_for_status()
+            except httpx.HTTPError as e:
+                logger.warning("Spire request failed with error " + format_traceback())
 
+                can_retry = retry_count < max_retry_count
+                if can_retry:
+                    logger.info(f"Retrying request after {backoff_seconds}s delay...")
+                    time.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+                    retry_count += 1
+                else:
+                    logger.warning("Retry limit exceeded")
+                    raise e
+
+        # Spire response is newline-delimited records where the first line contains
+        # "status" records containing metadata and subsequent lines contain "target"
+        # records containing flight data.
+        #
+        # Extract only the "target" records so all records returned contain the same
+        # structure with flight data, dropping the "status" records.
         target_records = []
         for line in response.iter_lines():
             record = json.loads(line)
