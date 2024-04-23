@@ -63,5 +63,5 @@ jobs:
           SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/dev-fp-spire-ingest-raw-bigquery
           SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/dev-fp-spire-ingest-resampled-bigquery
           TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/dev-fp-resample-worker-trajectory-chunk-egress
-          REDIS_HOST: 10.14.50.68
+          REDIS_HOST: 10.231.195.4
           REDIS_PORT: 6379
