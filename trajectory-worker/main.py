@@ -3,9 +3,13 @@
 import sys
 
 import lib.environment as env
-from lib import queue, utils
+from lib import utils
 from lib.exceptions import AircraftTypeUnrecognizedError, FlightTooLowError
-from lib.handlers import CocipTrajectoryHandler, PubSubSubscriptionHandler
+from lib.handlers import (
+    CocipTrajectoryHandler,
+    PubSubPublishHandler,
+    PubSubSubscriptionHandler,
+)
 from lib.log import format_traceback, logger
 from lib.schemas import CocipTrajectoryChunk, WaypointsRecord
 
@@ -70,7 +74,7 @@ def run() -> None:
             result=cocip_result,
         )
 
-        trajectory_cocip_bq_publisher = queue.QueueClient(
+        trajectory_cocip_bq_publisher = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_COCIP_BQ_TOPIC_ID,
             ordered_queue=False,
         )
