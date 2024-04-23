@@ -36,5 +36,6 @@ except KeyError:
 
 
 logging.basicConfig(encoding="utf-8", level=log_level, format=log_fmt)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger("spire-ingest-api-scraper")
