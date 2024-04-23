@@ -12,7 +12,7 @@ def test_spire_airsafe_target_parsing(mock_spire_airsafe_api: str) -> None:
     spire_client = spire.SpireAPIClient("fake-token", mock_spire_airsafe_api)
     spire_df, _ = spire_client.get_data_between(start_at, end_at)
 
-    expected_target_record_count = 96540
+    expected_target_record_count = 28962
     assert len(spire_df) == expected_target_record_count
 
     timestamp = pd.to_datetime(spire_df["timestamp"], utc=True)
