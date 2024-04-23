@@ -111,6 +111,7 @@ class SpireAPIClient:
         # Flatten nested list of records returned by each worker thread.
         target_records = [record for result in results for record in result]
         df = pd.DataFrame(target_records)
+        logger.info(f"Fetched {len(df)} total records from Spire.")
 
         # Spire API may return icao_address values that are not unique to a specific
         # aircraft. Drop values known to be duplicated across aircraft.
@@ -126,20 +127,17 @@ class SpireAPIClient:
             )
 
         # Spire API's start_at and end_at query params reference ingestion_time
-        # sometimes, the SPIRE API will still return records outside of [start_at, end_at]
+        # sometimes, the SPIRE API will return records outside of ingestion_time:[start_at, end_at]
         timestamp = pd.to_datetime(df["timestamp"])
         ingestion_time = pd.to_datetime(df["ingestion_time"])
         ingest_at_or_after_start = ingestion_time >= pd.to_datetime(start_at)
         ingest_before_end_w_buffer = ingestion_time < pd.to_datetime(end_at_plus_lag)
         in_range_filter = ingest_at_or_after_start & ingest_before_end_w_buffer
         df = df.loc[in_range_filter, :]
-
-        drop_ingest_outside_window = (~in_range_filter).sum()
-        if drop_ingest_outside_window > 0:
-            logger.info(
-                f"Records outside window [{start_at}, {end_at_plus_lag}). "
-                f"Dropping {drop_ingest_outside_window} records."
-            )
+        logger.info(
+            f"Records outside window [{start_at}, {end_at_plus_lag}). "
+            f"Dropping {(~in_range_filter).sum()} records."
+        )
 
         # identify tardy records
         timestamp = pd.to_datetime(df["timestamp"])
@@ -148,18 +146,13 @@ class SpireAPIClient:
         ingest_before_end = ingestion_time < pd.to_datetime(end_at)
         df_tardy = df.loc[is_tardy & ingest_before_end, :]
 
-        # Drop records with timestamps outside of [start_at, end_at).
-        is_at_or_after_start = timestamp >= pd.to_datetime(start_at)
+        # identify target records
+        # Drop records with timestamps equal or after end_at.
         is_before_end = timestamp < pd.to_datetime(end_at)
-        df = df.loc[is_at_or_after_start & is_before_end, :]
-
-        drop_count_before_start = (~is_at_or_after_start).sum()
-        if drop_count_before_start > 0:
-            logger.info(f"Drop {drop_count_before_start} records before {start_at}")
-
-        drop_count_after_end = (~is_before_end).sum()
-        if drop_count_after_end > 0:
-            logger.info(f"Drop {drop_count_after_end} records after {end_at}")
+        df = df.loc[is_before_end, :]
+        logger.info(
+            f"Target records. Dropping {(~is_before_end).sum()} records after end_at."
+        )
 
         return df, df_tardy
 
