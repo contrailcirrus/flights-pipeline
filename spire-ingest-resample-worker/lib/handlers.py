@@ -2,35 +2,32 @@
 Application handlers.
 """
 
+import concurrent.futures
 import copy
 import json
 import math
-from concurrent import futures
-from typing import Union, Callable
+import os
+import warnings
+from datetime import datetime, timedelta
+from typing import Any, Callable, Union
 
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-
-from google.cloud.pubsub_v1.types import PublishFlowControl, LimitExceededBehavior
-from pycontrails.physics import geo
-
-from lib.log import logger
-from lib.schemas import (
-    SpireWaypointsRecord,
-    SpireWaypointPositional,
-    SpireFlightInfo,
-)
-from lib.schemas import WaypointCache
-
-from google.api_core import retry
-from google.cloud import pubsub_v1
-from pycontrails.core.flight import Flight
 import redis
-from redis.retry import Retry
+from google.api_core import retry
+from google.cloud import pubsub_v1  # type: ignore
+from pycontrails.core.flight import Flight
+from pycontrails.physics import geo
 from redis.backoff import ExponentialBackoff
+from redis.retry import Retry
 
-import warnings
+from lib.log import format_traceback, logger
+from lib.schemas import (
+    SpireFlightInfo,
+    SpireWaypointPositional,
+    SpireWaypointsRecord,
+    WaypointCache,
+)
 
 
 class PubSubSubscriptionHandler:
@@ -66,7 +63,7 @@ class PubSubSubscriptionHandler:
         """
         self.close()
 
-    def fetch(self) -> (SpireWaypointsRecord, str):
+    def fetch(self) -> tuple[SpireWaypointsRecord, str]:
         """
         Fetch a message from the subscription queue.
         This method will hang and wait until a message is available.
@@ -133,85 +130,45 @@ class PubSubSubscriptionHandler:
 
 
 class PubSubPublishHandler:
-    def __init__(
-        self,
-        topic_id: str,
-        ordered_queue: bool = False,
-        max_message_backlog: int = 1000,
-        max_mem_backlog_mb: int = 10,
-    ) -> None:
-        """
-        Parameters
-        ----------
-        topic_id
-            fully-qualified uri for the pubsub topic.
-            e.g. `projects/contrails-301217/topics/my-topic-name-dev`
-        ordered_queue
-            type of queue.
-            True if ordered (requires ordering key).
-            False if unordered.
-        max_message_backlog
-            maximum number of messages backlogged for async publish.
-            if number of pending messages exceeds this limit, async publish will block.
-        max_mem_backlog_mb
-            maximum total memory (in mb) of messages backlogged for async publish.
-            if total mem exceeds this limit, async publish will block.
-        """
-
+    def __init__(self, topic_id: str, ordered_queue: bool) -> None:
         self._topic_id = topic_id
-        self._ordered_queue = ordered_queue
-
-        # Uses default retry policy which uses exponential backoff to manage retries.
-        # The backoff is limited to [0.1, 60] seconds and increases by *1.3 on each
-        # publish error. Retries are managed separately for each ordering key.
-        # See: https://cloud.google.com/pubsub/docs/retry-requests
-        flow_control_settings = PublishFlowControl(
-            message_limit=max_message_backlog,
-            byte_limit=max_mem_backlog_mb * 1024 * 1024,
-            limit_exceeded_behavior=LimitExceededBehavior.BLOCK,
-        )
 
         self._publisher = pubsub_v1.PublisherClient(
+            # Batch settings increase payload size to execute fewer, larger requests.
+            # See: https://cloud.google.com/pubsub/docs/batch-messaging
+            batch_settings=pubsub_v1.types.BatchSettings(
+                max_messages=1000,
+                max_bytes=20 * 1000 * 1000,  # 20 MB max server-side request size
+                max_latency=5,  # default: 10 ms
+            ),
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=ordered_queue,
-                flow_control=flow_control_settings,
-            )
+                # Flow control applies rate limits by blocking any time the staged data
+                # exceeds the following settings. Once the records are received by GCP
+                # PubSub, additional publish calls are unblocked.
+                # See: https://cloud.google.com/pubsub/docs/flow-control-messages
+                flow_control=pubsub_v1.types.PublishFlowControl(
+                    message_limit=100 * 1000,
+                    byte_limit=1024 * 1024 * 1024,  # 1 GiB
+                    limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
+                ),
+                retry=retry.Retry(
+                    initial=0.1,  # default: 0.1
+                    maximum=10,  # default: 60
+                    multiplier=1.3,  # default: 1.3
+                ),
+            ),
         )
-        self._publish_futures: list[futures.Future] = []
 
-    @staticmethod
-    def _get_futures_callback(**kwargs) -> Callable[[futures.Future], None]:
-        """
-        returns a function to use as a callback.
-        Constructs a log message annotating with any k-vs passed to this method.
-        """
+        self._publish_futures: list[concurrent.futures.Future] = []
 
-        msg = ""
-        for k, v in kwargs.items():
-            msg += f" {k}={v} "
-
-        def _raise_exception_if_failed(future: futures.Future) -> None:
-            """Re-raise any exceptions raised by the future's execution thread.
-
-            This should be registered as a callback that will only be invoked when the future
-            has already completed using:
-                future.add_done_callback(_raise_exception_if_failed)
-            """
-            try:
-                future.result(timeout=55)
-            except futures.TimeoutError:
-                logger.error(f"timeout. failed to publish blob. {msg}")
-                # TODO: raise this to our main application, and exit
-            except futures.CancelledError:
-                logger.error(f"publish future cancelled. failed to publish blob. {msg}")
-                # TODO: raise ...
-            except Exception:
-                logger.error(f"publish future failed. {msg}")
-                # TODO: ...
-
-        return _raise_exception_if_failed
-
-    def publish_async(self, data: bytes, ordering_key: str = "", **metadata) -> None:
+    def publish_async(
+        self,
+        data: bytes,
+        timeout_seconds: float,
+        ordering_key: str = "",
+        log_context: dict[str, Any] | None = None,
+    ) -> None:
         """Add data to the current publish batch.
 
         Batches are pushed asynchronously to GCP PubSub in a separate thread. To wait
@@ -223,28 +180,87 @@ class PubSubPublishHandler:
         data
             byte encoded string payload
         ordering_key
-            required if handler was instantiated with ordered_queue=True
             payloads sharing the same ordering_key are guaranteed to be delivered to
-            consumers in the order they are published
+            consumers in the order they are published. the publisher client,
+            and the subscription bound to the receiving topic,
+            must be configured to use ordered messages.
+        timeout_seconds
+            timeout applied to each gRPC call to the PubSub API
         metadata
             any additional k-vs that contextualize the publish event.
             these will be added as context to the publisher callback,
             which includes them in any failure logs.
         """
-        future: futures.Future = self._publisher.publish(
+        future: concurrent.futures.Future = self._publisher.publish(
             topic=self._topic_id,
             data=data,
             ordering_key=ordering_key,
+            timeout=timeout_seconds,
         )
-        future.add_done_callback(self._get_futures_callback(**metadata))
+
+        done_callback = self._done_callback_factory(log_context)
+        future.add_done_callback(done_callback)
         self._publish_futures.append(future)
 
-    def wait_for_publish(self) -> None:
+    def wait_for_publish(self, timeout_seconds: float | None = None) -> None:
+        """Block until all current publish batches are received by server.
+
+        Parameters
+        ----------
+        timeout_seconds
+            Duration to wait for all publish jobs to complete. If timeout_seconds is
+            exceeded, the process will be force exited with os._exit(1).
         """
-        Block until all current publish batches are received by server.
-        """
-        futures.wait(self._publish_futures)
+        _, not_done = concurrent.futures.wait(
+            self._publish_futures,
+            timeout=timeout_seconds,
+        )
+
+        # Exit if any publish futures have not completed before configured timeout.
+        #
+        # We cannot raise an exception or invoke sys.exit from the parent while child
+        # threads are still running, because cpython configures a shutdown handler to
+        # wait for spawned threads to complete before exiting:
+        # https://github.com/python/cpython/blob/8f25cc992021d6ffc62bb110545b97a92f7cb295/Lib/concurrent/futures/thread.py#L18-L37
+        #
+        # Errors in child threads trigger a separate exit using a future done_callback.
+        if not_done:
+            logger.error("Futures did not complete before timeout: %s", not_done)
+            os._exit(1)
+
+        # All futures completed without error, reset pending futures state.
         self._publish_futures = []
+
+    @staticmethod
+    def _done_callback_factory(
+        log_context: dict[str, Any] | None,
+    ) -> Callable[[concurrent.futures.Future], None]:
+        """
+        returns a function to use as a callback.
+        Constructs a log message annotating with any k-vs passed to this method.
+        """
+        msg = ""
+        if log_context:
+            for k, v in log_context.items():
+                msg += f" {k}={v} "
+
+        def _exit_on_error(future: concurrent.futures.Future) -> None:
+            """Re-raise any exceptions raised by the future's execution thread.
+
+            This should be registered as a callback that will only be invoked when the future
+            has already completed using:
+                future.add_done_callback(_raise_exception_if_failed)
+            """
+            try:
+                future.result(timeout=0)
+            except Exception:
+                logger.error(
+                    f"Publish future failed: {msg}. Unhandled exception:"
+                    + format_traceback()
+                )
+                os._exit(1)
+
+        return _exit_on_error
 
 
 class CacheHandler:
@@ -410,6 +426,7 @@ class ValidationHandler:
             # case (A)
             return self._cached_records
 
+        # TODO: self.max_cached_ts could be None
         cache_to_records_elapsed_hr = (
             self.min_records_ts - self.max_cached_ts
         ).seconds / 3600
