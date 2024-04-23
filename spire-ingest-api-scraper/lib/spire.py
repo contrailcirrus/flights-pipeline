@@ -131,15 +131,14 @@ class SpireAPIClient:
         ingestion_time = pd.to_datetime(df["ingestion_time"])
         ingest_at_or_after_start = ingestion_time >= pd.to_datetime(start_at)
         ingest_before_end_w_buffer = ingestion_time < pd.to_datetime(end_at_plus_lag)
-        df = df.loc[ingest_at_or_after_start & ingest_before_end_w_buffer, :]
+        in_range_filter = ingest_at_or_after_start & ingest_before_end_w_buffer
+        df = df.loc[in_range_filter, :]
 
-        drop_ingest_outside_window = (~ingest_at_or_after_start).sum() + (
-            ~ingest_before_end_w_buffer
-        ).sum()
+        drop_ingest_outside_window = (~in_range_filter).sum()
         if drop_ingest_outside_window > 0:
             logger.info(
-                f"Records outside query window. "
-                f"Drop {drop_ingest_outside_window} records."
+                f"Records outside window [{start_at}, {end_at_plus_lag}). "
+                f"Dropping {drop_ingest_outside_window} records."
             )
 
         # identify tardy records
