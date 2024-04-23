@@ -155,7 +155,6 @@ def run() -> None:
 
             new_cache = WaypointCache.from_spire_waypoint_positional(
                 key=ordering_key,
-                # TODO: validated_flight_info.flight_id could be None
                 flight_id=validated_flight_info.flight_id,
                 spire_wps=tuple(new_cache_wpts),
             )
@@ -263,7 +262,6 @@ def run() -> None:
             new_cache_records = tuple(resampled_records[-1:])
         new_cache = WaypointCache.from_spire_waypoint_positional(
             key=ordering_key,
-            # TODO: validated_flight_info.flight_id could be None
             flight_id=validated_flight_info.flight_id,
             spire_wps=new_cache_records,
         )
