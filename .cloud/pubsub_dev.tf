@@ -184,7 +184,7 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_chunk_ingress" {
   ack_deadline_seconds         = 600
   enable_message_ordering      = true
   enable_exactly_once_delivery = true
-  message_retention_duration = "302400s"  # 3.5 day
+  message_retention_duration = "86400s"  # 1 day
 
   dead_letter_policy {
     max_delivery_attempts = 5
@@ -206,7 +206,7 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_chunk_ingress" {
   ]
 }
 
-resource "google_pubsub_subscription" "dev_trajectory_chunk_ingress_dead_letter_dev" {
+resource "google_pubsub_subscription" "dev_trajectory_chunk_ingress_dead_letter" {
   name  = "dev-fp-trajectory-chunk-ingress-dead-letter"
   topic = google_pubsub_topic.dev_resample_worker_trajectory_chunk_egress_dead_letter.id
   message_retention_duration = "86400s"  # 1 day
