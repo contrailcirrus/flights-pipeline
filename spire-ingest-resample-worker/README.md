@@ -42,7 +42,6 @@ The following environment variables are expected for production and development 
 | REDIS_HOST                             |                    ipv4 address of the redis instance                    |
 | REDIS_PORT                             |                       port for the redis instance                        |
 | LOG_LEVEL                              |                log level for service in cloud environment                |**
-| SUSPEND_CRONJOB                        | (cloud deploy only) boolean value indicating state of running k8s cron   |
 
 ### Prerequisites
 

@@ -19,6 +19,7 @@ The following environment variables are expected for production and development 
 | SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID |   fully-qualified uri for the pubsub topic receiving tardy spire waypoints   |
 | SPIRE_API_TOKEN                       |          REST API token for the Spire API, injected via k8s secret           |
 | LOG_LEVEL                             |                  log level for service in cloud environment                  |
+| SUSPEND_CRONJOB                        | (cloud deploy only) boolean value indicating state of running k8s cron   |
 
 ## Egress interface
 

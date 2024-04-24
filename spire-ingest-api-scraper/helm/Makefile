@@ -8,7 +8,7 @@ deploy: --check-env
 		--set firestoreStateDocId=$(FIRESTORE_STATE_DOC_ID) \
 		--set spireRawWaypointsBigQueryTopicId=$(SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID) \
 		--set pubSubEgressTopicId=$(PUBSUB_EGRESS_TOPIC_ID) \
-		--set suspendCronjob=$(SUSPEND_CRONJOB)
+		--set-string suspendCronjob=$(SUSPEND_CRONJOB)
 
 .PHONY: --check-env
 --check-env:
