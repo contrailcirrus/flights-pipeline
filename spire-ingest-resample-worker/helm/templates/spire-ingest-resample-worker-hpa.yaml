@@ -1,0 +1,29 @@
+# Depends on Google's Custom Metrics Adapter installed by cluster admin.
+#
+# Docs: https://cloud.google.com/kubernetes-engine/docs/tutorials/autoscaling-metrics#pubsub
+#
+# Configured in contrails-gke-general, see:
+#   https://github.com/contrailcirrus/sre/pull/4
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: spire-ingest-resample-worker-scaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: spire-ingest-resample-worker
+  minReplicas: 1
+  maxReplicas: 75
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: "pubsub.googleapis.com|subscription|num_undelivered_messages"
+          selector:
+            matchLabels:
+              resource.labels.subscription_id: {{ .Values.spireIngestWaypointsSubscriptionId | required ".Values.spireIngestWaypointsSubscriptionId is required" | splitList "/" | last | quote }}
+        target:
+          type: AverageValue
+          averageValue: 100

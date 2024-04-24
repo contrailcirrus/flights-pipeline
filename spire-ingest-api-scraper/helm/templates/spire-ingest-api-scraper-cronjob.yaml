@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: spire-ingest-api-scraper-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  suspend: {{ .Values.suspendCronjob | required ".Values.suspendCronjob is required" }}
+
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 900
+      backoffLimit: 1
+      template:
+        spec:
+          nodeSelector:
+            cloud.google.com/compute-class: "Scale-Out"
+          restartPolicy: Never
+          serviceAccountName: flights-pipeline-default-sa
+          # terminationGracePeriodSeconds should be greater than the time to
+          # perform a single job iteration. When a SIGTERM is received, the job
+          # has this much time to gracefully exit before being killed.
+          terminationGracePeriodSeconds: 180
+          containers:
+            - name: main
+              image: {{ .Values.image | required ".Values.image is required" | quote }}
+              env:
+                - name: FIRESTORE_STATE_DB
+                  value: {{ .Values.firestoreStateDb | required ".Values.firestoreStateDb is required" | quote }}
+                - name: FIRESTORE_STATE_COLLECTION
+                  value: {{ .Values.firestoreStateCollection | required ".Values.firestoreStateCollection is required" | quote }}
+                - name: FIRESTORE_STATE_DOC_ID
+                  value: {{ .Values.firestoreStateDocId | required ".Values.firestoreStateDocId is required" | quote }}
+                - name: PUBSUB_EGRESS_TOPIC_ID
+                  value: {{ .Values.pubSubEgressTopicId | required ".Values.pubSubEgressTopicId is required" | quote }}
+                - name: SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
+                  value: {{ .Values.spireRawWaypointsBigQueryTopicId | required ".Values.spireRawWaypointsBigQueryTopicId is required" | quote }}
+                - name: SPIRE_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: spire-airsafe-api-secret
+                      key: API_TOKEN
+                - name: LOG_LEVEL
+                  value: INFO
+              resources:
+                requests:
+                  cpu: "3"  # 1:4 ratio for Scale-Out enforced
+                  memory: "12Gi"
+                  ephemeral-storage: "1Gi"
+                limits:
+                  cpu: "3"
+                  memory: "12Gi"
+                  ephemeral-storage: "1Gi"

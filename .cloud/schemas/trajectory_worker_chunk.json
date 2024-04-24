@@ -1,0 +1,218 @@
+[
+  {
+    "name": "_chunk_hash",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "unique hash for the trajectory chunk job"
+  },
+  {
+    "name": "seg_cnt",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "total number of segments in the chunk"
+  },
+    {
+    "name": "seg_ef_cnt",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "number of segments with non-zero ef"
+  },
+  {
+    "name": "seg_ef_nan_cnt",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "number of segments with nan ef"
+  },
+  {
+    "name": "chunk_len_km",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total length of the flight chunk"
+  },
+  {
+    "name": "lat_start",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "latitude of first waypoint in chunk"
+  },
+  {
+    "name": "lon_start",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "longitude of first waypoint in chunk"
+  },
+  {
+    "name": "lat_end",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "latitude of last waypoint in chunk"
+  },
+  {
+    "name": "lon_end",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "longitude of last waypoint in chunk"
+  },
+  {
+    "name": "time_start",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "timestamp of first waypoint in chunk"
+  },
+    {
+    "name": "time_end",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "timestamp of last waypoint in chunk"
+  },
+  {
+    "name": "pycontrails_ver",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "version of pycontrails used in model run"
+  },
+  {
+    "name": "perf_model_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "identifier of the perf model"
+  },
+  {
+    "name": "source_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "the source identifier for the trajectory chunk job"
+  },
+  {
+    "name": "git_sha",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "git sha of the trajectory-worker"
+  },
+  {
+    "name": "zarr_uri",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "id of the model_run_at time of the zarr store used in running cocip"
+  },
+  {
+    "name": "sum_ef_mj",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "sum of the calculated ef values, units 10^6*[J]"
+  },
+  {
+    "name": "total_fuel_burn_kg",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "total kg of fuel burn for chunk"
+  },
+  {
+    "name": "total_co2_kg",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "total kg of co2 from fuel combustion for chunk"
+  },
+  {
+    "name": "total_h2o_kg",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "total kg of h2o from fuel combustion ..."
+  },
+  {
+    "name": "total_so2_kg",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total kg of so2 from fuel combustion ..."
+  },
+  {
+    "name": "total_sulphates_kg",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total kg of sulphates from fuel combustion ..."
+  },
+  {
+    "name": "total_oc_kg",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total kg of organic carbon from fuel combustion ..."
+  },
+  {
+    "name": "total_nox_kg",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total kg of nox from fuel combustion ..."
+  },
+  {
+    "name": "total_co_kg",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total kg of co from fuel combustion ..."
+  },
+  {
+    "name": "total_hc_kg",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total kg of hydrocarbons from fuel combustion ..."
+  },
+  {
+    "name": "total_nvpm_kg",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total kg of non-volatile PM from fuel combustion ..."
+  },
+  {
+    "name": "total_nvpm_giga_cnt",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "total cnt (*10^9) of non-volatile PM ..."
+  },
+  {
+    "name": "aircraft_type_icao",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "icao aircraft type identifier used in model"
+  },
+  {
+    "name": "engine_uid",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "engine uid used in model"
+  },
+  {
+    "name": "icao_address",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "icao address of the aircraft"
+  },
+  {
+    "name": "flight_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "ADS-B provider (e.g. Spire) generated UUID of the aircraft"
+  },
+  {
+    "name": "callsign",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "call sign of the aircraft"
+  },
+  {
+    "name": "tail_number",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "tail number of the aircraft"
+  },
+  {
+    "name": "flight_number",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "flight_number of the aircraft"
+  },
+  {
+    "name": "airline_iata",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "airline iata code for the aircraft"
+  }
+]

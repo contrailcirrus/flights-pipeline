@@ -1,0 +1,26 @@
+# terraform build files
+.cloud/.terraform/
+.terraform.lock.hcl
+
+# IDEs
+.DS_Store
+.idea/
+.vscode/
+
+# build
+__pycache__/
+
+# python virtual environments
+**/.venv
+
+# python tool caches
+.mypy_cache
+.pytest_cache
+.ruff_cache
+
+# coverage reports
+.coverage
+
+# local environment
+.env
+.local

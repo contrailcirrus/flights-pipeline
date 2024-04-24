@@ -1,0 +1,116 @@
+[
+  {
+    "name": "_instance_hash",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "unique hash for a discrete instance of flight waypoint"
+  },
+  {
+    "name": "src_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "an identifier for the immediate or transitive source/origin of these records"
+  },
+  {
+    "name": "timestamp",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "event/observation timestamp for the waypoint"
+  },
+  {
+    "name": "latitude",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "WSG84 latitude for the for the waypoint"
+  },
+  {
+    "name": "longitude",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "WSG84 latitude for the for the waypoint"
+  },
+  {
+    "name": "altitude_baro",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "altitude in feet MSL for the waypoint"
+  },
+  {
+    "name": "flight_level",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "flight level in hectofeet for the waypoint, snapped to our standard list of FLs"
+  },
+  {
+    "name": "imputed",
+    "type": "BOOL",
+    "mode": "REQUIRED",
+    "description": "`true` if the waypoint was backward interpolated over a window w/o observations"
+  },
+  {
+    "name": "icao_address",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "icao address of the aircraft associated with the waypoint"
+  },
+  {
+    "name": "flight_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Spire-provided UUID of the aircraft associated with the waypoint"
+  },
+  {
+    "name": "callsign",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "call sign of the aircraft associated with the waypoint"
+  },
+  {
+    "name": "tail_number",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "tail number of the aircraft associated with the waypoint"
+  },
+  {
+    "name": "flight_number",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "flight_number of the aircraft associated with the waypoint"
+  },
+  {
+    "name": "aircraft_type_icao",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "icao code for aircraft type associated with the waypoint"
+  },
+  {
+    "name": "airline_iata",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "airline iata code for the aircraft associated with the waypoint"
+  },
+  {
+    "name": "departure_airport_icao",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "departure icao code for the airport associated with the flight instance"
+  },
+  {
+    "name": "departure_scheduled_time",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "departure (takeoff) scheduled time for the flight instance"
+  },
+  {
+    "name": "arrival_airport_icao",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "arrival icao code for the airport associated with the flight instance"
+  },
+  {
+    "name": "arrival_scheduled_time",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "arrival (landing) scheduled time for the flight instance"
+  }
+]

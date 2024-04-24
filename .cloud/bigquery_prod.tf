@@ -1,0 +1,23 @@
+resource "google_bigquery_dataset" "flights_pipeline_prod" {
+  dataset_id = "flights_pipeline_prod"
+  friendly_name = "[PROD] flights pipeline"
+  description = "data lake for observation flights data & derived data products"
+  location = "US"
+  delete_contents_on_destroy = false
+}
+
+resource "google_bigquery_table" "spire_flights_raw_prod" {
+  dataset_id = google_bigquery_dataset.flights_pipeline_prod.dataset_id
+  table_id   = "spire_flights_raw_prod"
+  friendly_name = "[PROD] spire flights, raw"
+  description = "raw (first and last waypoint in minute window) flight instances from the Spire API"
+  deletion_protection = true
+  time_partitioning {
+    field = "timestamp"
+    type = "DAY"
+  }
+  schema = file("${path.module}/schemas/bq_spire_flights_raw.json")
+  depends_on = [
+    google_bigquery_dataset.flights_pipeline_prod,
+  ]
+}

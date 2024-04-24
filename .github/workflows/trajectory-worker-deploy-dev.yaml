@@ -1,0 +1,65 @@
+name: trajectory-worker-deploy-dev
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - trajectory-worker/**
+      - .github/workflows/trajectory-worker-deploy-dev.yaml
+
+# avoid possible race condition on multiple merges
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up GCP auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up gcloud plugins
+        run: gcloud components install gke-gcloud-auth-plugin
+
+      - name: Authorize kubectl CLI
+        run: gcloud container clusters get-credentials contrails-gke-general --region us-east1
+
+      - name: Authorize docker CLI
+        run: gcloud auth configure-docker us-east1-docker.pkg.dev
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: trajectory-worker/
+          push: true
+          tags: |
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-dev:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-dev:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy helm resources
+        working-directory: trajectory-worker/helm
+        run: make deploy
+        env:
+          NAMESPACE: flights-pipeline-dev
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-dev:${{ github.sha }}
+          TRAJECTORY_CHUNK_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/dev-fp-trajectory-worker-chunk-ingress
+          HRES_SOURCE_PATH: gs://contrails-301217-ecmwf-hres-forecast-v2-short-term
+          GIT_SHA: ${{ github.sha }}
+          TRAJECTORY_COCIP_BQ_TOPIC_ID: projects/contrails-301217/topics/dev-fp-trajectory-worker-cocip-egress-bigquery
