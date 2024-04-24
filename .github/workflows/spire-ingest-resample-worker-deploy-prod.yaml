@@ -57,7 +57,7 @@ jobs:
         working-directory: spire-ingest-resample-worker/helm
         run: make deploy
         env:
-          NAMESPACE: flights-pipeline-dev
+          NAMESPACE: flights-pipeline-prod
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-prod:${{ github.sha }}
           SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/prod-fp-resample-worker-ingress
           SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/prod-fp-spire-ingest-raw-bigquery
