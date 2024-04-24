@@ -6,6 +6,7 @@ spec:
   schedule: "*/5 * * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 300
+  suspend: {{ .Values.suspendCronjob | required ".Values.suspendCronjob is required" | quote }}
 
   jobTemplate:
     spec:
