@@ -13,7 +13,8 @@ deploy: --check-env
 --check-env:
 	@test $${NAMESPACE?environment variable is required}
 	@test $${IMAGE?environment variable is required}
-	@test $${TRAJECTORY_CHUNK_SUBSCRIPTION_ID?environment variable is required}
+	@test $${TRAJECTORY_CHUNK_REALTIME_SUBSCRIPTION_ID?environment variable is required}
+	@test $${TRAJECTORY_CHUNK_BATCH_SUBSCRIPTION_ID?environment variable is required}
 	@test $${HRES_SOURCE_PATH?environment variable is required}
 	@test $${GIT_SHA?environment variable is required}
 	@test $${TRAJECTORY_COCIP_BQ_TOPIC_ID?environment variable is required}
