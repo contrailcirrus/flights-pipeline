@@ -3,7 +3,8 @@ deploy: --check-env
 	helm upgrade --install trajectory-worker-deployment . \
 		--namespace=$(NAMESPACE) \
 		--set image=$(IMAGE) \
-		--set trajectoryChunkSubscriptionId=$(TRAJECTORY_CHUNK_SUBSCRIPTION_ID) \
+		--set trajectoryChunkRealtimeSubscriptionId=$(TRAJECTORY_CHUNK_REALTIME_SUBSCRIPTION_ID) \
+		--set trajectoryChunkBatchSubscriptionId=$(TRAJECTORY_CHUNK_REALTIME_SUBSCRIPTION_ID) \
 		--set hresSourcePath=$(HRES_SOURCE_PATH) \
 		--set gitSha=$(GIT_SHA) \
 		--set trajectoryCocipBqTopicId=$(TRAJECTORY_COCIP_BQ_TOPIC_ID)

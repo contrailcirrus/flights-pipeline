@@ -59,7 +59,8 @@ jobs:
         env:
           NAMESPACE: flights-pipeline-dev
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-dev:${{ github.sha }}
-          TRAJECTORY_CHUNK_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/dev-fp-trajectory-worker-chunk-ingress
+          TRAJECTORY_CHUNK_REALTIME_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/dev-fp-trajectory-worker-realtime-chunk-ingress
+          TRAJECTORY_CHUNK_BATCH_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/dev-fp-trajectory-worker-batch-chunk-ingress
           HRES_SOURCE_PATH: gs://contrails-301217-ecmwf-hres-forecast-v2-short-term
           GIT_SHA: ${{ github.sha }}
           TRAJECTORY_COCIP_BQ_TOPIC_ID: projects/contrails-301217/topics/dev-fp-trajectory-worker-cocip-egress-bigquery
