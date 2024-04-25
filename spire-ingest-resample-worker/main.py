@@ -272,8 +272,6 @@ def run() -> None:
             f"finished processing batch "
             f"for icao_address: {egress_records.flight_info.icao_address}. "
             f"exported {len(egress_records.records)} resampled records to BigQuery"
-            f"spanning {egress_records.records[0].timestamp} "
-            f"to {egress_records.records[-1].timestamp}."
         )
         job_handler.ack()
 

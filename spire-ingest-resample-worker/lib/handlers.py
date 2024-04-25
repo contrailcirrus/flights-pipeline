@@ -430,6 +430,9 @@ class ValidationHandler:
         cache_to_records_elapsed_hr = (
             self.min_records_ts - self.max_cached_ts
         ).seconds / 3600
+        if cache_to_records_elapsed_hr < self.LANDING_TO_TAKEOFF_DELAY_HR:
+            return self._cached_records
+
         cache_to_records_distance_km = 0.001 * math.sqrt(
             (
                 0.3048
@@ -451,10 +454,7 @@ class ValidationHandler:
             cache_to_records_distance_km / cache_to_records_elapsed_hr
         )
         # different flight instance if avg speed too low to be flying between cache and records
-        if (
-            cache_to_records_elapsed_hr >= self.LANDING_TO_TAKEOFF_DELAY_HR
-            and cache_to_records_avg_kph <= self.IN_FLIGHT_SPEED_THRESHOLD_KPH
-        ):
+        if cache_to_records_avg_kph <= self.IN_FLIGHT_SPEED_THRESHOLD_KPH:
             # case (B)
             logger.info(
                 f"new flight instance inferred for icao_address {self._flight_info.icao_address} "
