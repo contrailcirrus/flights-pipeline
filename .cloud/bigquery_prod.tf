@@ -37,3 +37,19 @@ resource "google_bigquery_table" "spire_flights_resampled_prod" {
     google_bigquery_dataset.flights_pipeline_prod,
   ]
 }
+
+resource "google_bigquery_table" "trajectory_cocip_prod" {
+  dataset_id = google_bigquery_dataset.flights_pipeline_prod.dataset_id
+  table_id   = "trajectory_cocip_prod"
+  friendly_name = "[PROD] model outputs for trajectory chunks"
+  description = "model outputs for a trajectory chunk processed by the trajectory worker"
+  deletion_protection = true
+  time_partitioning {
+    field = "time_start"
+    type = "DAY"
+  }
+  schema = file("${path.module}/schemas/trajectory_worker_chunk.json")
+  depends_on = [
+    google_bigquery_dataset.flights_pipeline_prod,
+  ]
+}
