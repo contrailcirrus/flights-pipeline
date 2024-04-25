@@ -26,7 +26,7 @@ spec:
         image: {{ .Values.image | required ".Values.image is required" | quote }}
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
-            value: {{ .Values.trajectoryChunkRealtimeSubscriptionId | required ".Values.trajectoryChunkRealtimeSubscriptionId is required" | quote }}
+            value: {{ .Values.trajectoryChunkBatchSubscriptionId | required ".Values.trajectoryChunkBatchSubscriptionId is required" | quote }}
           - name: HRES_SOURCE_PATH
             value: {{ .Values.hresSourcePath | required ".Values.hresSourcePath is required" | quote }}
           - name: GIT_SHA
@@ -39,8 +39,8 @@ spec:
             value: INFO
         resources:
           limits:
-            cpu: "0.75"
-            memory: "3000Mi"
+            cpu: "1"
+            memory: "4Gi"
           requests:
-            cpu: "0.75"
-            memory: "3000Mi"
+            cpu: "1"
+            memory: "4Gi"

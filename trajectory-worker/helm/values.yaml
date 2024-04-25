@@ -1,7 +1,9 @@
 # image is the docker image uri to be deployed including the image tag
 image:
 
-trajectoryChunkSubscriptionId:
+trajectoryChunkBatchSubscriptionId:
+
+trajectoryChunkRealtimeSubscriptionId:
 
 hresSourcePath:
 
