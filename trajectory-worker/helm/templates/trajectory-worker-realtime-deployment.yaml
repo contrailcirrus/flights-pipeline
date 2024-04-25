@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: trajectory-worker
+  name: trajectory-worker-realtime
   labels:
-    app: trajectory-worker
+    app: trajectory-worker-realtime
 spec:
-  replicas: 5
+  replicas: 1
   selector:
     matchLabels:
-      app: trajectory-worker
+      app: trajectory-worker-realtime
   template:
     metadata:
       labels:
-        app: trajectory-worker
+        app: trajectory-worker-realtime
     spec:
       serviceAccountName: flights-pipeline-default-sa
       # terminationGracePeriodSeconds should be greater than the time to
@@ -22,7 +22,7 @@ spec:
       nodeSelector:
         cloud.google.com/compute-class: "Scale-Out"
       containers:
-      - name: trajectory-worker
+      - name: trajectory-worker-realtime
         image: {{ .Values.image | required ".Values.image is required" | quote }}
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
