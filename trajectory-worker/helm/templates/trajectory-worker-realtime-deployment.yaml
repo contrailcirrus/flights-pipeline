@@ -33,6 +33,8 @@ spec:
             value: {{ .Values.gitSha | required ".Values.gitSha is required" | quote }}
           - name: TRAJECTORY_COCIP_BQ_TOPIC_ID
             value: {{ .Values.trajectoryCocipBqTopicId | required ".Values.trajectoryCocipBqTopicId is required" | quote }}
+          - name: CHUNKS_PER_JOB
+            value: "1"
           - name: LOG_LEVEL
             value: INFO
         resources:
