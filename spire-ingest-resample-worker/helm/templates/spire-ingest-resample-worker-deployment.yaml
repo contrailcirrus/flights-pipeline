@@ -23,6 +23,8 @@ spec:
       - name: spire-ingest-resample-worker
         image: {{ .Values.image | required ".Values.image is required" | quote }}
         env:
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
           - name: SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
             value: {{ .Values.spireIngestWaypointsSubscriptionId | required ".Values.spireIngestWaypointsSubscriptionId is required" | quote }}
           - name: SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID
@@ -35,8 +37,6 @@ spec:
             value: {{ .Values.redisHost | required ".Values.redisHost is required" | quote }}
           - name: REDIS_PORT
             value: {{ .Values.redisPort | required ".Values.redisPort is required" | quote }}
-          - name: LOG_LEVEL
-            value: INFO
         resources:
           limits:
             cpu: "250m"

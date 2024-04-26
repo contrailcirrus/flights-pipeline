@@ -59,6 +59,7 @@ jobs:
         env:
           NAMESPACE: flights-pipeline-dev
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:${{ github.sha }}
+          LOG_LEVEL: INFO
           SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/dev-fp-resample-worker-ingress
           SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/dev-fp-spire-ingest-raw-bigquery
           SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/dev-fp-spire-ingest-resampled-bigquery

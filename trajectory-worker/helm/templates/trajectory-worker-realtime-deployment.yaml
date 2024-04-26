@@ -36,7 +36,7 @@ spec:
           - name: CHUNKS_PER_JOB
             value: "1"
           - name: LOG_LEVEL
-            value: INFO
+            value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
         resources:
           limits:
             cpu: "0.75"
