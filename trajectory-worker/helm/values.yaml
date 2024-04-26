@@ -1,7 +1,12 @@
 # image is the docker image uri to be deployed including the image tag
 image:
 
-trajectoryChunkSubscriptionId:
+# logLevel is the python-named minimum level to emit logs
+logLevel:
+
+trajectoryChunkBatchSubscriptionId:
+
+trajectoryChunkRealtimeSubscriptionId:
 
 hresSourcePath:
 

@@ -34,6 +34,14 @@ resource "google_pubsub_topic" "dev_resample_worker_trajectory_chunk_egress_dead
   name = "dev-fp-resample-worker-trajectory-chunk-egress-dead-letter"
 }
 
+resource "google_pubsub_topic" "dev_batch_trajectory_chunk" {
+  name = "dev-fp-batch-trajectory-chunk"
+}
+
+resource "google_pubsub_topic" "dev_batch_trajectory_chunk_dead_letter" {
+  name = "dev-fp-batch-trajectory-chunk-dead-letter"
+}
+
 resource "google_pubsub_topic" "dev_trajectory_worker_cocip_egress_bigquery" {
   name = "dev-fp-trajectory-worker-cocip-egress-bigquery"
 }
@@ -177,8 +185,8 @@ resource "google_pubsub_subscription" "dev_spire_ingest_resampled_bigquery_dead_
   ]
 }
 
-resource "google_pubsub_subscription" "dev_trajectory_worker_chunk_ingress" {
-  name  = "dev-fp-trajectory-worker-chunk-ingress"
+resource "google_pubsub_subscription" "dev_trajectory_worker_realtime_chunk_ingress" {
+  name  = "dev-fp-trajectory-worker-realtime-chunk-ingress"
   topic = google_pubsub_topic.dev_resample_worker_trajectory_chunk_egress.id
 
   ack_deadline_seconds         = 600
@@ -206,8 +214,8 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_chunk_ingress" {
   ]
 }
 
-resource "google_pubsub_subscription" "dev_trajectory_chunk_ingress_dead_letter" {
-  name  = "dev-fp-trajectory-chunk-ingress-dead-letter"
+resource "google_pubsub_subscription" "dev_trajectory_realtime_chunk_ingress_dead_letter" {
+  name  = "dev-fp-trajectory-realtime-chunk-ingress-dead-letter"
   topic = google_pubsub_topic.dev_resample_worker_trajectory_chunk_egress_dead_letter.id
   message_retention_duration = "86400s"  # 1 day
 
@@ -217,6 +225,49 @@ resource "google_pubsub_subscription" "dev_trajectory_chunk_ingress_dead_letter"
 
   depends_on = [
     google_pubsub_topic.dev_resample_worker_trajectory_chunk_egress_dead_letter,
+  ]
+}
+
+resource "google_pubsub_subscription" "dev_trajectory_worker_batch_chunk_ingress" {
+  name  = "dev-fp-trajectory-worker-batch-chunk-ingress"
+  topic = google_pubsub_topic.dev_batch_trajectory_chunk.id
+
+  ack_deadline_seconds         = 600
+  enable_message_ordering      = true
+  enable_exactly_once_delivery = true
+  message_retention_duration = "86400s"  # 1 day
+
+  dead_letter_policy {
+    max_delivery_attempts = 5
+    dead_letter_topic = google_pubsub_topic.dev_batch_trajectory_chunk_dead_letter.id
+  }
+
+  retry_policy {
+    minimum_backoff = "30s"
+    maximum_backoff = "60s"
+  }
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.dev_batch_trajectory_chunk,
+    google_pubsub_topic.dev_batch_trajectory_chunk_dead_letter,
+  ]
+}
+
+resource "google_pubsub_subscription" "dev_trajectory_batch_chunk_ingress_dead_letter" {
+  name  = "dev-fp-trajectory-batch-chunk-ingress-dead-letter"
+  topic = google_pubsub_topic.dev_batch_trajectory_chunk_dead_letter.id
+  message_retention_duration = "86400s"  # 1 day
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.dev_batch_trajectory_chunk_dead_letter,
   ]
 }
 

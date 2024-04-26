@@ -17,7 +17,6 @@ from lib.handlers import (
 from lib.log import format_traceback, logger
 from lib.schemas import (
     FlightInfoWide,
-    SpireFlightInfo,
     SpireWaypointPositional,
     SpireWaypointsRecord,
     WaypointCache,
@@ -59,8 +58,7 @@ def run() -> None:
         # ===================
         # fetch records
         # ===================
-        job: SpireWaypointsRecord
-        ordering_key: str  # "{source_id}:{icao_address}" e.g. "spire-4B0293"
+        # ordering_key has format "{source_id}:{icao_address}" e.g. "spire-4B0293"
         job, ordering_key = job_handler.fetch()
 
         logger.info(
@@ -82,11 +80,10 @@ def run() -> None:
                     batch_first_ts=job.records[0].timestamp,
                 ),
             )
-        bq_raw_publish_handler.wait_for_publish(timeout_seconds=60)
 
         # fetch cache
         try:
-            cached: list[WaypointCache.Waypoint] = cache_handler.pull(ordering_key)
+            cached = cache_handler.pull(ordering_key)
         except Exception:
             logger.error(
                 f"error fetching record(s) from cache. exiting... "
@@ -110,12 +107,10 @@ def run() -> None:
         # validate records
         # ===================
         validation_handler = ValidationHandler(cached, job)
-        validated_cache: list[
-            SpireWaypointPositional
-        ] = validation_handler.cached_records
-        validated_records: list[SpireWaypointPositional] = validation_handler.records
-        validated_flight_info: SpireFlightInfo | None = validation_handler.flight_info
-        validated_gt_1min_span: bool = validation_handler.verify_gt_1min_span()
+        validated_cache = validation_handler.cached_records
+        validated_records = validation_handler.records
+        validated_flight_info = validation_handler.flight_info
+        validated_gt_1min_span = validation_handler.verify_gt_1min_span()
         if not validation_handler.correct_temporal_order():
             logger.warning(
                 f"possible out-of-order or re-delivery."
@@ -176,9 +171,7 @@ def run() -> None:
                 )
             transform_handler = ResampleHandler(validated_cache, validated_records)
             transform_handler.interpolate()
-            resampled_records: list[
-                SpireWaypointPositional
-            ] = transform_handler.waypoints_resampled
+            resampled_records = transform_handler.waypoints_resampled
         except Exception:
             logger.error(
                 f"failed to interpolate."
@@ -224,7 +217,6 @@ def run() -> None:
                     batch_first_ts=egress_records.records[0].timestamp,
                 ),
             )
-        bq_publish_handler.wait_for_publish()
 
         # ===================
         # trajectory worker: publish resampled records as trajectory chunk to pubsub
@@ -251,7 +243,10 @@ def run() -> None:
                     batch_first_ts=trajectory_chunk.records[0].timestamp,
                 ),
             )
-            trajectory_publish_handler.wait_for_publish()
+
+        bq_raw_publish_handler.wait_for_publish(timeout_seconds=60)
+        bq_publish_handler.wait_for_publish(timeout_seconds=60)
+        trajectory_publish_handler.wait_for_publish(timeout_seconds=60)
 
         # ===================
         # update cache

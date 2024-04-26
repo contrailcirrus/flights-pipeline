@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: trajectory-worker
+  name: trajectory-worker-batch
   labels:
-    app: trajectory-worker
+    app: trajectory-worker-batch
 spec:
-  replicas: 5
+  replicas: 1
   selector:
     matchLabels:
-      app: trajectory-worker
+      app: trajectory-worker-batch
   template:
     metadata:
       labels:
-        app: trajectory-worker
+        app: trajectory-worker-batch
     spec:
       serviceAccountName: flights-pipeline-default-sa
       # terminationGracePeriodSeconds should be greater than the time to
@@ -22,23 +22,25 @@ spec:
       nodeSelector:
         cloud.google.com/compute-class: "Scale-Out"
       containers:
-      - name: trajectory-worker
+      - name: trajectory-worker-batch
         image: {{ .Values.image | required ".Values.image is required" | quote }}
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
-            value: {{ .Values.trajectoryChunkSubscriptionId | required ".Values.trajectoryChunkSubscriptionId is required" | quote }}
+            value: {{ .Values.trajectoryChunkBatchSubscriptionId | required ".Values.trajectoryChunkBatchSubscriptionId is required" | quote }}
           - name: HRES_SOURCE_PATH
             value: {{ .Values.hresSourcePath | required ".Values.hresSourcePath is required" | quote }}
           - name: GIT_SHA
             value: {{ .Values.gitSha | required ".Values.gitSha is required" | quote }}
           - name: TRAJECTORY_COCIP_BQ_TOPIC_ID
             value: {{ .Values.trajectoryCocipBqTopicId | required ".Values.trajectoryCocipBqTopicId is required" | quote }}
+          - name: CHUNKS_PER_JOB
+            value: "1"
           - name: LOG_LEVEL
-            value: INFO
+            value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
         resources:
           limits:
-            cpu: "0.75"
-            memory: "3000Mi"
+            cpu: "1"
+            memory: "4Gi"
           requests:
-            cpu: "0.75"
-            memory: "3000Mi"
+            cpu: "1"
+            memory: "4Gi"
