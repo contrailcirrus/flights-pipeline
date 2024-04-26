@@ -402,6 +402,7 @@ class CocipTrajectoryChunk:
         hash_int = int(hash_trunc, 16)
         blob = {
             "_chunk_hash": hash_int,
+            "_processed_at": iso_to_microseconds(datetime.now(tz=UTC).isoformat()),
             "seg_cnt": self.seg_cnt,
             "seg_ef_cnt": self.seg_ef_cnt,
             "seg_ef_nan_cnt": self.seg_ef_nan_cnt,
