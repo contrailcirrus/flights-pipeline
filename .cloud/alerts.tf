@@ -207,6 +207,7 @@ resource "google_monitoring_alert_policy" "pubsubsubscription_prod_resample_work
         fetch pubsub_subscription
         | metric 'pubsub.googleapis.com/subscription/oldest_unacked_message_age'
         | filter resource.subscription_id == '${google_pubsub_subscription.prod_resample_worker_ingress.name}'
+        | window 10m
         | every 1m
         | condition value.oldest_unacked_message_age > cast_units(3600, "s")
         EOF
@@ -221,7 +222,7 @@ resource "google_monitoring_alert_policy" "pubsubsubscription_prod_resample_work
 }
 
 resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_egress_publish_count" {
-  display_name = "pubsubtopic-${google_pubsub_topic.prod_resample_worker_trajectory_chunk_egress}-publish-count"
+  display_name = "pubsubtopic-${google_pubsub_topic.prod_resample_worker_trajectory_chunk_egress.name}-publish-count"
   combiner     = "OR"
 
   conditions {
@@ -230,7 +231,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_egre
       query    = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_resample_worker_trajectory_chunk_egress}'
+        | filter resource.topic_id == '${google_pubsub_topic.prod_resample_worker_trajectory_chunk_egress.name}'
         | group_by sliding(30m), row_count()
         | every 1m
         | condition val() < 10
@@ -246,7 +247,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_egre
 }
 
 resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_ingress_dead_letter_publish_count" {
-  display_name = "pubsubtopic-${google_pubsub_topic.prod_resample_worker_ingress_dead_letter}-publish-count"
+  display_name = "pubsubtopic-${google_pubsub_topic.prod_resample_worker_ingress_dead_letter.name}-publish-count"
   combiner     = "OR"
 
   conditions {
@@ -255,7 +256,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_ingr
       query    = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_resample_worker_ingress_dead_letter}'
+        | filter resource.topic_id == '${google_pubsub_topic.prod_resample_worker_ingress_dead_letter.name}'
         | group_by sliding(30m), row_count()
         | every 1m
         | condition val() > 0
@@ -271,7 +272,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_ingr
 }
 
 resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_bigquery_egress_dead_letter_publish_count" {
-  display_name = "pubsubtopic-${google_pubsub_topic.prod_spire_ingest_resampled_bigquery_dead_letter}-publish-count"
+  display_name = "pubsubtopic-${google_pubsub_topic.prod_spire_ingest_resampled_bigquery_dead_letter.name}-publish-count"
   combiner     = "OR"
 
   conditions {
@@ -280,7 +281,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_bigq
       query    = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_resampled_bigquery_dead_letter}'
+        | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_resampled_bigquery_dead_letter.name}'
         | group_by sliding(30m), row_count()
         | every 1m
         | condition val() > 0
