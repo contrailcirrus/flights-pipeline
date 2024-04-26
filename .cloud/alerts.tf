@@ -113,7 +113,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
 }
 
 resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery_egress_dead_letter_publish_count" {
-  display_name = "pubsubtopic-${google_pubsub_topic.prod_spire_ingest_raw_bigquery.name}-publish-count"
+  display_name = "pubsubtopic-${google_pubsub_topic.prod_spire_ingest_raw_bigquery_dead_letter.name}-publish-count"
   combiner     = "OR"
 
   conditions {
@@ -122,7 +122,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
       query    = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_raw_bigquery.name}'
+        | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_raw_bigquery_dead_letter.name}'
         | group_by sliding(30m), row_count()
         | every 1m
         | condition val() > 0
