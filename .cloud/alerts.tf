@@ -69,7 +69,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_egress_p
   conditions {
     display_name = "Publish count below threshold"
     condition_monitoring_query_language {
-      query    = <<EOF
+      query = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
         | filter resource.topic_id == '${google_pubsub_topic.prod_api_scraper_egress.name}'
@@ -77,7 +77,9 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_egress_p
         | every 1m
         | condition val() < 10
         EOF
-      duration = "0s"
+
+      duration                = "0s"
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_ACTIVE"
     }
   }
 
@@ -94,7 +96,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
   conditions {
     display_name = "Publish count below threshold"
     condition_monitoring_query_language {
-      query    = <<EOF
+      query = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
         | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_raw_bigquery.name}'
@@ -102,7 +104,9 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
         | every 1m
         | condition val() < 10
         EOF
-      duration = "0s"
+
+      duration                = "0s"
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_ACTIVE"
     }
   }
 
@@ -119,7 +123,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
   conditions {
     display_name = "Publish count above threshold"
     condition_monitoring_query_language {
-      query    = <<EOF
+      query = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
         | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_raw_bigquery_dead_letter.name}'
@@ -127,7 +131,9 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
         | every 1m
         | condition val() > 0
         EOF
-      duration = "0s"
+
+      duration                = "0s"
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_INACTIVE"
     }
   }
 
@@ -178,7 +184,7 @@ resource "google_monitoring_alert_policy" "pubsubsubscription_prod_resample_work
   conditions {
     display_name = "Subscriber ack count below threshold"
     condition_monitoring_query_language {
-      query    = <<EOF
+      query = <<EOF
         fetch pubsub_subscription
         | metric 'pubsub.googleapis.com/subscription/ack_message_count'
         | filter resource.subscription_id == '${google_pubsub_subscription.prod_resample_worker_ingress.name}'
@@ -186,7 +192,9 @@ resource "google_monitoring_alert_policy" "pubsubsubscription_prod_resample_work
         | every 1m
         | condition val() < 10
         EOF
-      duration = "0s"
+
+      duration                = "0s"
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_ACTIVE"
     }
   }
 
@@ -203,7 +211,7 @@ resource "google_monitoring_alert_policy" "pubsubsubscription_prod_resample_work
   conditions {
     display_name = "Oldest unacked message above threshold"
     condition_monitoring_query_language {
-      query    = <<EOF
+      query = <<EOF
         fetch pubsub_subscription
         | metric 'pubsub.googleapis.com/subscription/oldest_unacked_message_age'
         | filter resource.subscription_id == '${google_pubsub_subscription.prod_resample_worker_ingress.name}'
@@ -211,7 +219,9 @@ resource "google_monitoring_alert_policy" "pubsubsubscription_prod_resample_work
         | every 1m
         | condition value.oldest_unacked_message_age > cast_units(3600, "s")
         EOF
-      duration = "0s"
+
+      duration                = "0s"
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_ACTIVE"
     }
   }
 
@@ -228,7 +238,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_egre
   conditions {
     display_name = "Publish count below threshold"
     condition_monitoring_query_language {
-      query    = <<EOF
+      query = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
         | filter resource.topic_id == '${google_pubsub_topic.prod_resample_worker_trajectory_chunk_egress.name}'
@@ -236,7 +246,9 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_egre
         | every 1m
         | condition val() < 10
         EOF
-      duration = "0s"
+
+      duration                = "0s"
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_ACTIVE"
     }
   }
 
@@ -253,7 +265,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_ingr
   conditions {
     display_name = "Publish count above threshold"
     condition_monitoring_query_language {
-      query    = <<EOF
+      query = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
         | filter resource.topic_id == '${google_pubsub_topic.prod_resample_worker_ingress_dead_letter.name}'
@@ -261,7 +273,9 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_ingr
         | every 1m
         | condition val() > 0
         EOF
-      duration = "0s"
+
+      duration                = "0s"
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_INACTIVE"
     }
   }
 
@@ -278,7 +292,7 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_bigq
   conditions {
     display_name = "Publish count above threshold"
     condition_monitoring_query_language {
-      query    = <<EOF
+      query = <<EOF
         fetch pubsub_topic
         | metric 'pubsub.googleapis.com/topic/message_sizes'
         | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_resampled_bigquery_dead_letter.name}'
@@ -286,7 +300,9 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_bigq
         | every 1m
         | condition val() > 0
         EOF
-      duration = "0s"
+
+      duration                = "0s"
+      evaluation_missing_data = "EVALUATION_MISSING_DATA_INACTIVE"
     }
   }
 
