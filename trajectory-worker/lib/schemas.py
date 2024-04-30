@@ -325,7 +325,7 @@ class CocipTrajectoryChunk:
         # because the resample-worker guarantees a leading edge overlap of 1 segment
         # between consecutive jobs
         sl = slice(0, -2)
-        segs_ef_j = result["ef"][sl] / result["segment_length"][sl]
+        segs_ef_j = result["ef"][sl]
 
         return CocipTrajectoryChunk(
             seg_cnt=len(segs_ef_j),
