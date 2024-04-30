@@ -117,9 +117,6 @@ class PubSubSubscriptionHandler:
                 "connection will remain open until close()."
             )
 
-        if self._ack_id is not None:
-            raise RuntimeError("fetch called multiple times without acking message")
-
         while True:
             logger.info(f"fetching message from {self.subscription}")
             resp = self._client.pull(
