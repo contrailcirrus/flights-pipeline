@@ -109,6 +109,9 @@ class PubSubSubscriptionHandler:
         str
             The ordering key for the fetched record.
         """
+        if self._ack_id is not None:
+            raise RuntimeError("fetch called multiple times without acking message")
+
         if not self._client:
             self._client = pubsub_v1.SubscriberClient()
             warnings.warn(
