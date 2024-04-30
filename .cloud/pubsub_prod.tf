@@ -34,12 +34,12 @@ resource "google_pubsub_topic" "prod_resample_worker_trajectory_chunk_egress_dea
   name = "prod-fp-resample-worker-trajectory-chunk-egress-dead-letter"
 }
 
-resource "google_pubsub_topic" "prod_batch_trajectory_chunk" {
-  name = "prod-fp-batch-trajectory-chunk"
+resource "google_pubsub_topic" "prod_gaia_trajectory_chunk" {
+  name = "prod-fp-gaia-trajectory-chunk"
 }
 
-resource "google_pubsub_topic" "prod_batch_trajectory_chunk_dead_letter" {
-  name = "prod-fp-batch-trajectory-chunk-dead-letter"
+resource "google_pubsub_topic" "prod_gaia_trajectory_chunk_dead_letter" {
+  name = "prod-fp-gaia-trajectory-chunk-dead-letter"
 }
 
 resource "google_pubsub_topic" "prod_trajectory_worker_cocip_egress_bigquery" {
@@ -229,9 +229,9 @@ resource "google_pubsub_subscription" "prod_trajectory_realtime_chunk_ingress_de
   ]
 }
 
-resource "google_pubsub_subscription" "prod_trajectory_worker_batch_chunk_ingress" {
-  name  = "prod-fp-trajectory-worker-batch-chunk-ingress"
-  topic = google_pubsub_topic.prod_batch_trajectory_chunk.id
+resource "google_pubsub_subscription" "prod_trajectory_worker_gaia_chunk_ingress" {
+  name  = "prod-fp-trajectory-worker-gaia-chunk-ingress"
+  topic = google_pubsub_topic.prod_gaia_trajectory_chunk.id
 
   ack_deadline_seconds         = 600
   enable_message_ordering      = true
@@ -240,7 +240,7 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_batch_chunk_ingres
 
   dead_letter_policy {
     max_delivery_attempts = 5
-    dead_letter_topic = google_pubsub_topic.prod_batch_trajectory_chunk_dead_letter.id
+    dead_letter_topic = google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.id
   }
 
   retry_policy {
@@ -253,14 +253,14 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_batch_chunk_ingres
   }
 
   depends_on = [
-    google_pubsub_topic.prod_batch_trajectory_chunk,
-    google_pubsub_topic.prod_batch_trajectory_chunk_dead_letter,
+    google_pubsub_topic.prod_gaia_trajectory_chunk,
+    google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter,
   ]
 }
 
-resource "google_pubsub_subscription" "prod_trajectory_batch_chunk_ingress_dead_letter" {
-  name  = "prod-fp-trajectory-batch-chunk-ingress-dead-letter"
-  topic = google_pubsub_topic.prod_batch_trajectory_chunk_dead_letter.id
+resource "google_pubsub_subscription" "prod_trajectory_gaia_chunk_ingress_dead_letter" {
+  name  = "prod-fp-trajectory-gaia-chunk-ingress-dead-letter"
+  topic = google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.id
   message_retention_duration = "302400s"  # 3.5 day
 
   expiration_policy {
@@ -268,7 +268,7 @@ resource "google_pubsub_subscription" "prod_trajectory_batch_chunk_ingress_dead_
   }
 
   depends_on = [
-    google_pubsub_topic.prod_batch_trajectory_chunk_dead_letter,
+    google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter,
   ]
 }
 
