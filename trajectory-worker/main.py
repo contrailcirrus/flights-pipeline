@@ -24,69 +24,70 @@ def run(
     - Run cocip against trajectory
     - Export values (big query, other TBD)
     """
-    # ===================
-    # fetch records
-    # ===================
-    job, ordering_key = job_handler.fetch()
+    with job_handler:
+        # ===================
+        # fetch records
+        # ===================
+        job, ordering_key = job_handler.fetch()
 
-    logger.info(
-        f"got job with {len(job.records)} records. "
-        f"icao_address: {job.flight_info.icao_address}. "
-        f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
-    )
-
-    # ===================
-    # apply CoCip Trajectory model
-    # ===================
-    try:
-        trajectory_cocip_handler = CocipTrajectoryHandler(job, env.HRES_SOURCE_PATH)
-    except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
-        logger.warning(
-            f"skipping trajectory chunk "
-            f"for icao_adddress {job.flight_info.icao_address} "
-            f"with start_time {job.records[0].timestamp}."
-            f"{e}"
+        logger.info(
+            f"got job with {len(job.records)} records. "
+            f"icao_address: {job.flight_info.icao_address}. "
+            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
         )
+
+        # ===================
+        # apply CoCip Trajectory model
+        # ===================
+        try:
+            trajectory_cocip_handler = CocipTrajectoryHandler(job, env.HRES_SOURCE_PATH)
+        except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
+            logger.warning(
+                f"skipping trajectory chunk "
+                f"for icao_adddress {job.flight_info.icao_address} "
+                f"with start_time {job.records[0].timestamp}."
+                f"{e}"
+            )
+            job_handler.ack()
+            return
+
+        try:
+            trajectory_cocip_handler.load()
+            cocip_result = trajectory_cocip_handler.run()
+        except Exception:
+            logger.error(
+                f"failed to run cocip "
+                f"for icao_adddress {job.flight_info.icao_address} "
+                f"with start_time {job.records[0].timestamp}."
+                f"NACK'ing job."
+                f"traceback: {format_traceback()}"
+            )
+            return
+
+        # ===================
+        # publish trajectory chunk model outputs to BQ
+        # ===================
+        output = CocipTrajectoryChunk.from_cocip_result(
+            source_id=ordering_key.split(":")[0],
+            git_sha=env.GIT_SHA,
+            input_chunk=job,
+            zarr_uri=trajectory_cocip_handler.zarr_uri,
+            result=cocip_result,
+        )
+
+        trajectory_cocip_bq_publisher.publish_async(
+            data=output.to_bq_flatmap(),
+            timeout_seconds=45,
+            log_context=dict(
+                client_name="trajectory_cocip_bq_publisher",
+                icao_address=output.icao_address,
+                source_id=output.source_id,
+                time_start=output.time_start,
+            ),
+        )
+        trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=60)
+
         job_handler.ack()
-        return
-
-    try:
-        trajectory_cocip_handler.load()
-        cocip_result = trajectory_cocip_handler.run()
-    except Exception:
-        logger.error(
-            f"failed to run cocip "
-            f"for icao_adddress {job.flight_info.icao_address} "
-            f"with start_time {job.records[0].timestamp}."
-            f"NACK'ing job."
-            f"traceback: {format_traceback()}"
-        )
-        return
-
-    # ===================
-    # publish trajectory chunk model outputs to BQ
-    # ===================
-    output = CocipTrajectoryChunk.from_cocip_result(
-        source_id=ordering_key.split(":")[0],
-        git_sha=env.GIT_SHA,
-        input_chunk=job,
-        zarr_uri=trajectory_cocip_handler.zarr_uri,
-        result=cocip_result,
-    )
-
-    trajectory_cocip_bq_publisher.publish_async(
-        data=output.to_bq_flatmap(),
-        timeout_seconds=45,
-        log_context=dict(
-            client_name="trajectory_cocip_bq_publisher",
-            icao_address=output.icao_address,
-            source_id=output.source_id,
-            time_start=output.time_start,
-        ),
-    )
-    trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=60)
-
-    job_handler.ack()
 
 
 if __name__ == "__main__":
@@ -104,11 +105,10 @@ if __name__ == "__main__":
         if sigterm_handler.should_exit:
             sys.exit(0)
         try:
-            with job_handler:
-                run(
-                    trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
-                    job_handler=job_handler,
-                )
+            run(
+                trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
+                job_handler=job_handler,
+            )
         except Exception:
             logger.error("Unhandled exception:" + format_traceback())
             sys.exit(1)
