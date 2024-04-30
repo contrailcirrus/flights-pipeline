@@ -11,23 +11,23 @@ from lib.handlers import (
     PubSubSubscriptionHandler,
 )
 from lib.log import format_traceback, logger
-from lib.schemas import CocipTrajectoryChunk, WaypointsRecord
+from lib.schemas import CocipTrajectoryChunk
 
 
-def run() -> None:
+def run(
+    trajectory_cocip_bq_publisher: PubSubPublishHandler,
+    job_handler: PubSubSubscriptionHandler,
+) -> None:
     """
     Main entrypoint.
     - Dequeue a set of waypoints (trajectory chunk)
     - Run cocip against trajectory
     - Export values (big query, other TBD)
     """
-
-    with PubSubSubscriptionHandler(env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID) as job_handler:
+    with job_handler:
         # ===================
         # fetch records
         # ===================
-        job: WaypointsRecord
-        ordering_key: str
         job, ordering_key = job_handler.fetch()
 
         logger.info(
@@ -67,7 +67,7 @@ def run() -> None:
         # ===================
         # publish trajectory chunk model outputs to BQ
         # ===================
-        output: CocipTrajectoryChunk = CocipTrajectoryChunk.from_cocip_result(
+        output = CocipTrajectoryChunk.from_cocip_result(
             source_id=ordering_key.split(":")[0],
             git_sha=env.GIT_SHA,
             input_chunk=job,
@@ -75,10 +75,6 @@ def run() -> None:
             result=cocip_result,
         )
 
-        trajectory_cocip_bq_publisher = PubSubPublishHandler(
-            topic_id=env.TRAJECTORY_COCIP_BQ_TOPIC_ID,
-            ordered_queue=False,
-        )
         trajectory_cocip_bq_publisher.publish_async(
             data=output.to_bq_flatmap(),
             timeout_seconds=45,
@@ -96,12 +92,23 @@ def run() -> None:
 
 if __name__ == "__main__":
     logger.info("starting trajectory-worker instance")
+
+    trajectory_cocip_bq_publisher = PubSubPublishHandler(
+        topic_id=env.TRAJECTORY_COCIP_BQ_TOPIC_ID,
+        ordered_queue=False,
+    )
+
+    job_handler = PubSubSubscriptionHandler(env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID)
+
     sigterm_handler = utils.SigtermHandler()
     while True:
         if sigterm_handler.should_exit:
             sys.exit(0)
         try:
-            run()
+            run(
+                trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
+                job_handler=job_handler,
+            )
         except Exception:
             logger.error("Unhandled exception:" + format_traceback())
             sys.exit(1)
