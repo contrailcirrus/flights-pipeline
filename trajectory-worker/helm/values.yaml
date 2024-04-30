@@ -4,7 +4,7 @@ image:
 # logLevel is the python-named minimum level to emit logs
 logLevel:
 
-trajectoryChunkBatchSubscriptionId:
+trajectoryChunkGaiaSubscriptionId:
 
 trajectoryChunkRealtimeSubscriptionId:
 
