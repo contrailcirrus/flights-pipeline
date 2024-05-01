@@ -125,6 +125,10 @@ class PubSubSubscriptionHandler:
         logger.info("successfully ack'ed message.")
         self._ack_id = None
 
+    def nack(self):
+        """Removes cached ack_id but does not nack message server-side."""
+        self._ack_id = None
+
     def close(self):
         """
         Close pubsub client connection.
