@@ -4,8 +4,7 @@ import sys
 from dataclasses import asdict
 from datetime import datetime
 
-import lib.environment as env
-from lib import utils
+from lib import bootstrap, utils
 from lib.handlers import (
     CacheHandler,
     PerfModelLookup,
@@ -264,35 +263,19 @@ def run(
 if __name__ == "__main__":
     logger.info("starting spire-ingest-resample-worker instance")
 
-    cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
-
-    bq_raw_publish_handler = PubSubPublishHandler(
-        topic_id=env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
-        ordered_queue=False,
-    )
-    bq_publish_handler = PubSubPublishHandler(
-        topic_id=env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID,
-        ordered_queue=False,
-    )
-    trajectory_publish_handler = PubSubPublishHandler(
-        topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
-        ordered_queue=True,
-    )
-
-    job_handler = PubSubSubscriptionHandler(env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID)
-
-    sigterm_handler = utils.SigtermHandler()
-    while True:
-        if sigterm_handler.should_exit:
-            sys.exit(0)
-        try:
+    try:
+        handlers = bootstrap.create_handlers_from_env()
+        sigterm_handler = utils.SigtermHandler()
+        while not sigterm_handler.should_exit:
             run(
-                cache_handler=cache_handler,
-                bq_raw_publish_handler=bq_raw_publish_handler,
-                bq_publish_handler=bq_publish_handler,
-                trajectory_publish_handler=trajectory_publish_handler,
-                job_handler=job_handler,
+                cache_handler=handlers.cache_handler,
+                bq_raw_publish_handler=handlers.bq_raw_publish_handler,
+                bq_publish_handler=handlers.bq_publish_handler,
+                trajectory_publish_handler=handlers.trajectory_publish_handler,
+                job_handler=handlers.job_handler,
             )
-        except Exception:
-            logger.error("Unhandled exception:" + format_traceback())
-            sys.exit(1)
+        sys.exit(0)
+
+    except Exception:
+        logger.error("Unhandled exception:" + format_traceback())
+        sys.exit(1)
