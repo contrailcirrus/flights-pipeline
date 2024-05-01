@@ -79,6 +79,7 @@ def run(
                 f"error fetching record(s) from cache. exiting... "
                 f"traceback: {format_traceback()}"
             )
+            job_handler.nack()
             return
 
         if cached:
@@ -170,6 +171,7 @@ def run(
                 f"job: {job}"
                 f"traceback: {format_traceback()}"
             )
+            job_handler.nack()
             return
 
         # hold out cache records, as they would have been published previously
