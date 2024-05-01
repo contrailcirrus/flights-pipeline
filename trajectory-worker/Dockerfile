@@ -14,6 +14,12 @@ COPY Pipfile.lock /usr/src/
 
 WORKDIR /usr/src
 
+# Set up SSH by copying GH Robot user SSH credentials
+RUN mkdir -p -m 600 /root/.ssh && ssh-keyscan github.com >> /root/.ssh/known_hosts
+COPY admin/id_rsa /root/.ssh/id_rsa
+RUN chmod 600 /root/.ssh/id_rsa
+RUN echo "LogLevel ERROR" >> /etc/ssh/ssh_config
+
 # install production dependencies in pipenv-controlled virtual env
 RUN pip install -U pip
 RUN pip install pipenv
@@ -37,6 +43,8 @@ ENV PATH /usr/src/.venv/bin:$PATH
 WORKDIR /
 COPY lib lib
 COPY main.py .
+COPY bada3 bada3
+COPY bada4 bada4
 
 ENV VERSION v0.0.0-dev.0
 
