@@ -44,7 +44,7 @@ jobs:
 
       # necessary to pull private pycontrails-bada and pycontrails-cirium python pkgs
       - name: Download Github Robot User ssh key
-        run: 'echo "$SSH_KEY" > admin/id_rsa'
+        run: 'echo "$SSH_KEY" > trajectory-worker/id_rsa'
         shell: bash
         env:
           SSH_KEY: ${{ secrets.GH_ROBOT_USER_SSH_KEY }}
