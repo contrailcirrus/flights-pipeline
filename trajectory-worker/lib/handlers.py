@@ -10,11 +10,12 @@ import warnings
 from threading import Thread
 from typing import Any, Callable, Union
 
+import google.api_core.exceptions
+import google.api_core.retry
 import numpy as np
 import pandas as pd
 import pycontrails
 import xarray as xr
-from google.api_core import retry
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
 from pycontrails.core.aircraft_performance import AircraftPerformance
@@ -109,6 +110,9 @@ class PubSubSubscriptionHandler:
         str
             The ordering key for the fetched record.
         """
+        if self._ack_id is not None:
+            raise RuntimeError("fetch called multiple times without acking message")
+
         if not self._client:
             self._client = pubsub_v1.SubscriberClient()
             warnings.warn(
@@ -120,7 +124,6 @@ class PubSubSubscriptionHandler:
             logger.info(f"fetching message from {self.subscription}")
             resp = self._client.pull(
                 request={"subscription": self.subscription, "max_messages": 1},
-                retry=retry.Retry(timeout=30.0),
                 timeout=self.MSG_WAIT_TIME_SEC,
             )
 
@@ -150,7 +153,7 @@ class PubSubSubscriptionHandler:
             )
         self._client.acknowledge(
             request={"subscription": self.subscription, "ack_ids": [self._ack_id]},
-            retry=retry.Retry(timeout=30.0),
+            timeout=30,
         )
         logger.info("successfully ack'ed message.")
         self._ack_id = None
@@ -187,10 +190,21 @@ class PubSubPublishHandler:
                     byte_limit=1024 * 1024 * 1024,  # 1 GiB
                     limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
                 ),
-                retry=retry.Retry(
-                    initial=0.1,  # default: 0.1
-                    maximum=10,  # default: 60
-                    multiplier=1.3,  # default: 1.3
+                # Retry defaults depend on gRPC method, see default for publish here:
+                # https://github.com/googleapis/python-pubsub/blob/ff229a5fdd4deaff0ac97c74f313d04b62720ff7/google/pubsub_v1/services/publisher/transports/base.py#L164-L183
+                retry=google.api_core.retry.Retry(
+                    initial=0.1,
+                    maximum=10,
+                    multiplier=2,
+                    predicate=google.api_core.retry.if_exception_type(
+                        google.api_core.exceptions.Aborted,
+                        google.api_core.exceptions.Cancelled,
+                        google.api_core.exceptions.DeadlineExceeded,
+                        google.api_core.exceptions.InternalServerError,
+                        google.api_core.exceptions.ResourceExhausted,
+                        google.api_core.exceptions.ServiceUnavailable,
+                        google.api_core.exceptions.Unknown,
+                    ),
                 ),
             ),
         )
@@ -322,7 +336,7 @@ class CocipTrajectoryHandler:
         ),  # default; potential perf gains fomr reducing
         met_latitude_buffer=(10.0, 10.0),  # default; potential perf gains from reducing
         met_level_buffer=(20, 20),  # reduced to same buffer used in api preprocessor
-        max_age=np.timedelta64(1, "h"),
+        max_age=np.timedelta64(12, "h"),
     )
 
     def __init__(self, job: WaypointsRecord, hres_src: str):

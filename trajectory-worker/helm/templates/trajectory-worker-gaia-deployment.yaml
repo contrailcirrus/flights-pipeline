@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: trajectory-worker-batch
+  name: trajectory-worker-gaia
   labels:
-    app: trajectory-worker-batch
+    app: trajectory-worker-gaia
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: trajectory-worker-batch
+      app: trajectory-worker-gaia
   template:
     metadata:
       labels:
-        app: trajectory-worker-batch
+        app: trajectory-worker-gaia
     spec:
       serviceAccountName: flights-pipeline-default-sa
       # terminationGracePeriodSeconds should be greater than the time to
@@ -22,11 +22,11 @@ spec:
       nodeSelector:
         cloud.google.com/compute-class: "Scale-Out"
       containers:
-      - name: trajectory-worker-batch
+      - name: trajectory-worker-gaia
         image: {{ .Values.image | required ".Values.image is required" | quote }}
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
-            value: {{ .Values.trajectoryChunkBatchSubscriptionId | required ".Values.trajectoryChunkBatchSubscriptionId is required" | quote }}
+            value: {{ .Values.trajectoryChunkGaiaSubscriptionId | required ".Values.trajectoryChunkGaiaSubscriptionId is required" | quote }}
           - name: HRES_SOURCE_PATH
             value: {{ .Values.hresSourcePath | required ".Values.hresSourcePath is required" | quote }}
           - name: GIT_SHA

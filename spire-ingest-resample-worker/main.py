@@ -24,7 +24,13 @@ from lib.schemas import (
 )
 
 
-def run() -> None:
+def run(
+    cache_handler: CacheHandler,
+    bq_raw_publish_handler: PubSubPublishHandler,
+    bq_publish_handler: PubSubPublishHandler,
+    trajectory_publish_handler: PubSubPublishHandler,
+    job_handler: PubSubSubscriptionHandler,
+) -> None:
     """
     Main entrypoint.
 
@@ -37,24 +43,7 @@ def run() -> None:
       and publishes flight segments to pubsub
     - Updates the last known 1-2 waypoint(s) for the flight-instance in remote cache
     """
-    cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
-
-    bq_raw_publish_handler = PubSubPublishHandler(
-        topic_id=env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
-        ordered_queue=False,
-    )
-    bq_publish_handler = PubSubPublishHandler(
-        topic_id=env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID,
-        ordered_queue=False,
-    )
-    trajectory_publish_handler = PubSubPublishHandler(
-        topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
-        ordered_queue=True,
-    )
-
-    with PubSubSubscriptionHandler(
-        env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
-    ) as job_handler:
+    with job_handler:
         # ===================
         # fetch records
         # ===================
@@ -272,12 +261,35 @@ def run() -> None:
 
 if __name__ == "__main__":
     logger.info("starting spire-ingest-resample-worker instance")
+
+    cache_handler = CacheHandler(env.REDIS_HOST, env.REDIS_PORT)
+
+    bq_raw_publish_handler = PubSubPublishHandler(
+        topic_id=env.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
+        ordered_queue=False,
+    )
+    bq_publish_handler = PubSubPublishHandler(
+        topic_id=env.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID,
+        ordered_queue=False,
+    )
+    trajectory_publish_handler = PubSubPublishHandler(
+        topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
+        ordered_queue=True,
+    )
+
+    job_handler = PubSubSubscriptionHandler(env.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID)
+
     sigterm_handler = utils.SigtermHandler()
     while True:
         if sigterm_handler.should_exit:
             sys.exit(0)
         try:
-            run()
+            run(
+                cache_handler=cache_handler,
+                bq_raw_publish_handler=bq_raw_publish_handler,
+                trajectory_publish_handler=trajectory_publish_handler,
+                job_handler=job_handler,
+            )
         except Exception:
             logger.error("Unhandled exception:" + format_traceback())
             sys.exit(1)
