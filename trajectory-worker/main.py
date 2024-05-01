@@ -62,6 +62,7 @@ def run(
                 f"NACK'ing job."
                 f"traceback: {format_traceback()}"
             )
+            job_handler.nack()
             return
 
         # ===================
