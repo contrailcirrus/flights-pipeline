@@ -325,7 +325,7 @@ class CocipTrajectoryHandler:
         ),  # default; potential perf gains fomr reducing
         met_latitude_buffer=(10.0, 10.0),  # default; potential perf gains from reducing
         met_level_buffer=(20, 20),  # reduced to same buffer used in api preprocessor
-        max_age=np.timedelta64(1, "h"),
+        max_age=np.timedelta64(12, "h"),
     )
 
     def __init__(self, job: WaypointsRecord, hres_src: str):
