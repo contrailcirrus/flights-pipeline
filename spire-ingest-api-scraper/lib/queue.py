@@ -50,7 +50,7 @@ class QueueClient:
             batch_settings=pubsub_v1.types.BatchSettings(
                 max_messages=1000,
                 max_bytes=20 * 1000 * 1000,  # 20 MB max server-side request size
-                max_latency=0.1,  # default: 10 ms
+                max_latency=1,  # default: 10 ms = 0.01
             ),
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=ordered_queue,
