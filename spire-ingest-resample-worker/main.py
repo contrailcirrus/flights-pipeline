@@ -287,6 +287,7 @@ if __name__ == "__main__":
             run(
                 cache_handler=cache_handler,
                 bq_raw_publish_handler=bq_raw_publish_handler,
+                bq_publish_handler=bq_publish_handler,
                 trajectory_publish_handler=trajectory_publish_handler,
                 job_handler=job_handler,
             )
