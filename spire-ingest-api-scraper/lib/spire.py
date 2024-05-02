@@ -18,7 +18,7 @@ INGEST_LAG_TIME = timedelta(minutes=2)
 
 # Spire reported that the following icao_address values are not unique to a specific
 # aircraft. We drop related records to avoid downstream inconsistencies.
-IGNORE_ICAO_ADDRESS = {"000000", "00000a"}
+IGNORE_ICAO_ADDRESS = {"000000", "00000a", "0000BA"}
 
 
 class SpireAPIClient:
