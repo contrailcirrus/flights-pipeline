@@ -12,7 +12,7 @@ BADA3_FP = "bada3"
 bada = BADA3(bada_path=BADA3_FP)
 
 if __name__ == "__main__":
-    aircraft_type_icao = "E75L"  # in bada3
+    aircraft_type_icao = "E295"  # in bada3
     # aircraft_type_icao = 'EC20'  # not in bada3
 
 if bada.check_aircraft_type_availability(aircraft_type_icao, raise_error=False):

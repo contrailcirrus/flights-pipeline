@@ -111,6 +111,10 @@
         "perf_model_id": "PS",
         "engine_uid": "01P20CM140"
     },
+    "E75L": {
+        "perf_model_id": "BADA3",
+        "engine_uid": "01P08GE191"
+    },
     "B712": {
         "perf_model_id": "PS",
         "engine_uid": "4BR002"
@@ -230,5 +234,9 @@
     "RJ1H": {
         "perf_model_id": "PS",
         "engine_uid": "1TL004"
+    },
+    "E295": {
+        "perf_model_id": "BADA3",
+        "engine_uid": "01P11CM112"
     }
 }
