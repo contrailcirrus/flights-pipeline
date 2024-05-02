@@ -8,12 +8,12 @@ import os
 import threading
 import warnings
 from threading import Thread
-from typing import Any, Callable, Union
+from typing import Any, Callable
 
-import google.api_core.exceptions
+import google.api_core.exceptions  # type: ignore
 import google.api_core.retry
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import pycontrails
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
@@ -52,41 +52,31 @@ class PubSubSubscriptionHandler:
             e.g. 'projects/contrails-301217/subscriptions/api-preprocessor-sub-dev'
         """
         self.subscription = subscription
-        self._client = None
-        self._ack_id: Union[None, str] = None
-        self._kill_ack_manager = threading.Event()
+        self._client = pubsub_v1.SubscriberClient()
+        self._ack_id: str | None = None
+
         self._ack_manager = Thread(target=self._ack_management_worker, daemon=True)
         self._ack_manager.start()
 
-    def __enter__(self):
-        """
-        Initialize pubsub client to be used across this class instance's lifecycle.
-        """
-        self._client = pubsub_v1.SubscriberClient()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Ensure client connection to pubsub is closed.
-        """
-        self.close()
+        self._cancel_ack_extension = threading.Event()
 
     def _ack_management_worker(self):
-        """
-        Extends the ack deadline for the currently outstanding message.
-        """
+        """Extends the ack deadline for the currently outstanding message."""
         logger.info("starting ack lease management worker...")
-        while not self._kill_ack_manager.is_set():
-            self._kill_ack_manager.wait(self.ACK_EXTENSION_SEC // 2)
-            if self._ack_id:
-                logger.info(
-                    f"extending ack deadline on ack_id: {self._ack_id[0:-150]}..."
-                )
+        while True:
+            should_cancel = self._cancel_ack_extension.wait(self.ACK_EXTENSION_SEC / 2)
+            if should_cancel:
+                self._cancel_ack_extension.clear()
+                continue
+
+            ack_id = self._ack_id
+            if ack_id:
+                logger.info(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
                 try:
                     self._client.modify_ack_deadline(
                         request={
                             "subscription": self.subscription,
-                            "ack_ids": [self._ack_id],
+                            "ack_ids": [ack_id],
                             "ack_deadline_seconds": self.ACK_EXTENSION_SEC,
                         }
                     )
@@ -95,7 +85,6 @@ class PubSubSubscriptionHandler:
                         f"failed to extend ack deadline for message. "
                         f"traceback: {format_traceback()}"
                     )
-        logger.info("terminated ack lease management worker")
 
     def fetch(self) -> tuple[WaypointsRecord, str]:
         """
@@ -105,7 +94,7 @@ class PubSubSubscriptionHandler:
 
         Returns
         -------
-        str
+        WaypointsRecord
             The dequeued message from the pubsub subscription.
         str
             The ordering key for the fetched record.
@@ -156,19 +145,13 @@ class PubSubSubscriptionHandler:
             timeout=30,
         )
         logger.info("successfully ack'ed message.")
+        self._cancel_ack_extension.set()
         self._ack_id = None
 
     def nack(self):
         """Removes cached ack_id but does not nack message server-side."""
+        self._cancel_ack_extension.set()
         self._ack_id = None
-
-    def close(self):
-        """
-        Close pubsub client connection.
-        """
-        self._ack_id = None
-        self._kill_ack_manager.set()
-        self._client.close()
 
 
 class PubSubPublishHandler:

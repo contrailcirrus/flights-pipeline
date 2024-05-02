@@ -7,14 +7,13 @@ import copy
 import json
 import math
 import os
-import warnings
 from datetime import datetime, timedelta
-from typing import Any, Callable, Union
+from typing import Any, Callable
 
-import google.api_core.exceptions
+import google.api_core.exceptions  # type: ignore
 import google.api_core.retry
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import redis
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails.core.flight import Flight
@@ -48,21 +47,8 @@ class PubSubSubscriptionHandler:
             e.g. 'projects/contrails-301217/subscriptions/api-preprocessor-sub-dev'
         """
         self.subscription = subscription
-        self._client = None
-        self._ack_id: Union[None, str] = None
-
-    def __enter__(self):
-        """
-        Initialize pubsub client to be used across this class instance's lifecycle.
-        """
         self._client = pubsub_v1.SubscriberClient()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Ensure client connection to pubsub is closed.
-        """
-        self.close()
+        self._ack_id: str | None = None
 
     def fetch(self) -> tuple[SpireWaypointsRecord, str]:
         """
@@ -72,20 +58,13 @@ class PubSubSubscriptionHandler:
 
         Returns
         -------
-        str
+        SpireWaypointsRecord
             The dequeued message from the pubsub subscription.
         str
             The ordering key for the fetched record.
         """
         if self._ack_id is not None:
             raise RuntimeError("fetch called multiple times without acking message")
-
-        if not self._client:
-            self._client = pubsub_v1.SubscriberClient()
-            warnings.warn(
-                "pubsub subscriber client initialized. "
-                "connection will remain open until close()."
-            )
 
         while True:
             logger.info(f"fetching message from {self.subscription}")
@@ -128,12 +107,6 @@ class PubSubSubscriptionHandler:
     def nack(self):
         """Removes cached ack_id but does not nack message server-side."""
         self._ack_id = None
-
-    def close(self):
-        """
-        Close pubsub client connection.
-        """
-        self._client.close()
 
 
 class PubSubPublishHandler:
