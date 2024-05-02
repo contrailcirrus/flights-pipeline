@@ -79,6 +79,10 @@
         "perf_model_id": "PS",
         "engine_uid": "8RR044"
     },
+    "E190": {
+        "perf_model_id": "PS",
+        "engine_uid": "8GE116"
+    },
     "A346": {
         "perf_model_id": "PS",
         "engine_uid": "6RR041"
