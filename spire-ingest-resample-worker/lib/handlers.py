@@ -681,7 +681,7 @@ class PerfModelLookup:
     2) the engine type to use with that aircraft type.
     """
 
-    PERF_LOOKUP_FP = "lib/perf_model_aircraft_lookup_no_bada_041824.json"
+    PERF_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
 
     lookup: dict[str, dict[str, str]]
     with open(PERF_LOOKUP_FP, "r") as fp:

@@ -322,7 +322,7 @@ class CocipTrajectoryHandler:
     """
 
     MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
-    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_no_bada_041824.json"
+    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
 
     # matched to values used by api-preprocessor
     STATIC_PARAMS = dict(
