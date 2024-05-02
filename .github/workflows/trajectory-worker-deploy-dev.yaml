@@ -53,7 +53,7 @@ jobs:
       - name: Download BADA
         run: |
           gcloud storage cp --quiet --recursive --no-clobber gs://contrails-301217-bada/bada/bada3 trajectory-worker/.
-          gcloud storage cp --quiet --recursive --no-clobber gs://contrails-301217-bada/bada/bada4 trajectory-worker/.
+      #    gcloud storage cp --quiet --recursive --no-clobber gs://contrails-301217-bada/bada/bada4 trajectory-worker/.
 
       - name: Build and push image
         uses: docker/build-push-action@v5
