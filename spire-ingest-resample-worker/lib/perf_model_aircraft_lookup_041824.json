@@ -1,59 +1,23 @@
 {
-    "A148": {
-        "perf_model_id": "BADA",
-        "engine_uid": "13ZM003"
-    },
-    "C650": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AS002"
-    },
-    "A158": {
-        "perf_model_id": "BADA",
-        "engine_uid": "13ZM003"
-    },
-    "C680": {
-        "perf_model_id": "BADA",
-        "engine_uid": "7PW078"
-    },
     "A20N": {
         "perf_model_id": "PS",
         "engine_uid": "01P22PW163"
-    },
-    "C750": {
-        "perf_model_id": "BADA",
-        "engine_uid": "6AL022"
     },
     "A21N": {
         "perf_model_id": "PS",
         "engine_uid": "01P20CM132"
     },
-    "CL30": {
-        "perf_model_id": "BADA",
-        "engine_uid": "11HN003"
-    },
     "A306": {
         "perf_model_id": "PS",
         "engine_uid": "1PW048"
-    },
-    "CL60": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P05GE189"
     },
     "A30B": {
         "perf_model_id": "PS",
         "engine_uid": "3GE074"
     },
-    "CRJ1": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1GE035"
-    },
     "A310": {
         "perf_model_id": "PS",
         "engine_uid": "1GE015"
-    },
-    "CRJ2": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P05GE189"
     },
     "A318": {
         "perf_model_id": "PS",
@@ -67,25 +31,13 @@
         "perf_model_id": "PS",
         "engine_uid": "01P10IA019"
     },
-    "CRJX": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P08GE191"
-    },
     "A320": {
         "perf_model_id": "PS",
         "engine_uid": "01P08CM105"
     },
-    "DC10": {
-        "perf_model_id": "BADA",
-        "engine_uid": "3GE074"
-    },
     "A321": {
         "perf_model_id": "PS",
         "engine_uid": "01P10IA024"
-    },
-    "DC87": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1CM003"
     },
     "A332": {
         "perf_model_id": "PS",
@@ -98,10 +50,6 @@
     "A333": {
         "perf_model_id": "PS",
         "engine_uid": "01P14RR101"
-    },
-    "DC94": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1PW008"
     },
     "A339": {
         "perf_model_id": "PS",
@@ -147,161 +95,65 @@
         "perf_model_id": "PS",
         "engine_uid": "01P18RR124"
     },
-    "E290": {
-        "perf_model_id": "BADA",
-        "engine_uid": "20PW134"
-    },
     "A35K": {
         "perf_model_id": "PS",
         "engine_uid": "01P21RR125"
-    },
-    "E35L": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P06AL032"
     },
     "A388": {
         "perf_model_id": "PS",
         "engine_uid": "01P18RR103"
     },
-    "E45X": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P06AL032"
-    },
-    "A3ST": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1GE021"
-    },
-    "E545": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P14HN014"
-    },
     "B38M": {
         "perf_model_id": "PS",
         "engine_uid": "01P20CM136"
-    },
-    "E550": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P14HN015"
     },
     "B39M": {
         "perf_model_id": "PS",
         "engine_uid": "01P20CM140"
     },
-    "E75L": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P08GE191"
-    },
-    "B462": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1TL003"
-    },
-    "E75S": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P08GE191"
-    },
-    "B463": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1TL003"
-    },
-    "F100": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1RR020"
-    },
-    "B703": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1PW001"
-    },
-    "F28": {
-        "perf_model_id": "BADA",
-        "engine_uid": "4RR035"
-    },
     "B712": {
         "perf_model_id": "PS",
         "engine_uid": "4BR002"
-    },
-    "F2TH": {
-        "perf_model_id": "BADA",
-        "engine_uid": "03P14PW194"
     },
     "B722": {
         "perf_model_id": "PS",
         "engine_uid": "1PW009"
     },
-    "F70": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1RR020"
-    },
     "B732": {
         "perf_model_id": "PS",
         "engine_uid": "1PW009"
-    },
-    "F900": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AS001"
     },
     "B733": {
         "perf_model_id": "PS",
         "engine_uid": "1CM005"
     },
-    "FA10": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AS001"
-    },
     "B734": {
         "perf_model_id": "PS",
         "engine_uid": "1CM008"
-    },
-    "FA50": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AS001"
     },
     "B735": {
         "perf_model_id": "PS",
         "engine_uid": "1CM004"
     },
-    "FA7X": {
-        "perf_model_id": "BADA",
-        "engine_uid": "03P16PW192"
-    },
     "B736": {
         "perf_model_id": "PS",
         "engine_uid": "01P11CM112"
-    },
-    "G150": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AS001"
     },
     "B737": {
         "perf_model_id": "PS",
         "engine_uid": "01P11CM114"
     },
-    "G280": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P11HN012"
-    },
     "B738": {
         "perf_model_id": "PS",
         "engine_uid": "01P11CM116"
-    },
-    "GL5T": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P04BR013"
     },
     "B739": {
         "perf_model_id": "PS",
         "engine_uid": "01P11CM121"
     },
-    "GLEX": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P04BR013"
-    },
     "B742": {
         "perf_model_id": "PS",
         "engine_uid": "1RR008"
-    },
-    "GLF2": {
-        "perf_model_id": "BADA",
-        "engine_uid": "8RR043"
     },
     "B743": {
         "perf_model_id": "PS",
@@ -315,81 +167,41 @@
         "perf_model_id": "PS",
         "engine_uid": "01P02GE186"
     },
-    "H25B": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AS002"
-    },
     "B748": {
         "perf_model_id": "PS",
         "engine_uid": "01P17GE215"
-    },
-    "HA4T": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P07PW145"
     },
     "B752": {
         "perf_model_id": "PS",
         "engine_uid": "1RR013"
     },
-    "IL76": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AA002"
-    },
     "B753": {
         "perf_model_id": "PS",
         "engine_uid": "3RR028"
-    },
-    "IL86": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1KK003"
     },
     "B762": {
         "perf_model_id": "PS",
         "engine_uid": "1GE012"
     },
-    "IL96": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AA005"
-    },
     "B763": {
         "perf_model_id": "PS",
         "engine_uid": "1PW043"
-    },
-    "L101": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1RR002"
     },
     "B764": {
         "perf_model_id": "PS",
         "engine_uid": "01P02GE188"
     },
-    "LJ35": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AS001"
-    },
     "B772": {
         "perf_model_id": "PS",
         "engine_uid": "2RR027"
-    },
-    "LJ45": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AS001"
     },
     "B773": {
         "perf_model_id": "PS",
         "engine_uid": "2RR027"
     },
-    "LJ60": {
-        "perf_model_id": "BADA",
-        "engine_uid": "7PW077"
-    },
     "B77L": {
         "perf_model_id": "PS",
         "engine_uid": "01P21GE216"
-    },
-    "MD11": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1PW052"
     },
     "B77W": {
         "perf_model_id": "PS",
@@ -411,10 +223,6 @@
         "perf_model_id": "PS",
         "engine_uid": "01P17GE212"
     },
-    "Q4": {
-        "perf_model_id": "BADA",
-        "engine_uid": "8AL025"
-    },
     "B78X": {
         "perf_model_id": "PS",
         "engine_uid": "01P17GE213"
@@ -422,53 +230,5 @@
     "RJ1H": {
         "perf_model_id": "PS",
         "engine_uid": "1TL004"
-    },
-    "BA11": {
-        "perf_model_id": "BADA",
-        "engine_uid": "8RR043"
-    },
-    "RJ85": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1TL004"
-    },
-    "BE40": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1PW038"
-    },
-    "SU95": {
-        "perf_model_id": "BADA",
-        "engine_uid": "01P11PJ003"
-    },
-    "BER2": {
-        "perf_model_id": "BADA",
-        "engine_uid": "13ZM004"
-    },
-    "T134": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AA001"
-    },
-    "C550": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1PW036"
-    },
-    "T154": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AA004"
-    },
-    "C551": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1PW036"
-    },
-    "T204": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1AA005"
-    },
-    "C560": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1PW037"
-    },
-    "YK42": {
-        "perf_model_id": "BADA",
-        "engine_uid": "1ZM001"
     }
 }
