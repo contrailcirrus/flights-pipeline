@@ -187,7 +187,7 @@ resource "google_pubsub_subscription" "dev_spire_ingest_resampled_bigquery_dead_
 
 resource "google_pubsub_subscription" "dev_trajectory_worker_realtime_chunk_ingress" {
   name  = "dev-fp-trajectory-worker-realtime-chunk-ingress"
-  topic = google_pubsub_topic.dev_resample_worker_trajectory_chunk_egress.id
+  topic = google_pubsub_topic.prod_resample_worker_trajectory_chunk_egress.id
 
   ack_deadline_seconds         = 600
   enable_message_ordering      = true
