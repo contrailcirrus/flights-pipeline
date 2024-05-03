@@ -45,6 +45,7 @@ def run(
             logger.warning(
                 f"skipping trajectory chunk "
                 f"for icao_adddress {job.flight_info.icao_address} "
+                f"of airline_iata {job.flight_info.airline_iata} "
                 f"with start_time {job.records[0].timestamp}."
                 f"{e}"
             )
