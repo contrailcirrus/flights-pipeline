@@ -163,7 +163,9 @@ class PubSubSubscriptionHandler:
     def nack(self, message: Message):
         """Not-acknowledge the message to stop extending ack deadline.
 
-        Does not nack the message server-side.
+        Does not nack the message server-side, so the message will be retried based on
+        the server-side redelivery configuration rather than immediately redelivered to
+        another worker.
         """
         try:
             self._outstanding_messages.remove(message)
