@@ -44,7 +44,7 @@ WORKDIR /
 COPY lib lib
 COPY main.py .
 COPY bada3 bada3
-COPY bada4 bada4
+# COPY bada4 bada4
 
 ENV VERSION v0.0.0-dev.0
 
