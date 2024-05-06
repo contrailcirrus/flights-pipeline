@@ -4,7 +4,7 @@ import sys
 from dataclasses import asdict
 from datetime import datetime
 
-from lib import bootstrap, utils
+from lib import environment, handlers, schemas, utils
 from lib.handlers import (
     CacheHandler,
     PerfModelLookup,
@@ -29,6 +29,7 @@ def run(
     bq_publish_handler: PubSubPublishHandler,
     trajectory_publish_handler: PubSubPublishHandler,
     job_handler: PubSubSubscriptionHandler,
+    sigterm_handler: utils.SigtermHandler,
 ) -> None:
     """
     Main entrypoint.
@@ -42,12 +43,11 @@ def run(
       and publishes flight segments to pubsub
     - Updates the last known 1-2 waypoint(s) for the flight-instance in remote cache
     """
-    with job_handler:
-        # ===================
-        # fetch records
-        # ===================
-        # ordering_key has format "{source_id}:{icao_address}" e.g. "spire-4B0293"
-        job, ordering_key = job_handler.fetch()
+    for message in job_handler.subscribe():
+        if sigterm_handler.should_exit:
+            sys.exit(0)
+
+        job = schemas.SpireWaypointsRecord.from_utf8_json(message.data)
 
         logger.info(
             f"got job with {len(job.records)} records. "
@@ -58,7 +58,7 @@ def run(
         # ===================
         # publish raw records to BQ
         # ===================
-        for raw_bq_json_ln in job.to_bq_flatmap(ordering_key.split(":")[0]):
+        for raw_bq_json_ln in job.to_bq_flatmap(message.ordering_key.split(":")[0]):
             bq_raw_publish_handler.publish_async(
                 data=raw_bq_json_ln,
                 timeout_seconds=45,
@@ -72,14 +72,14 @@ def run(
 
         # fetch cache
         try:
-            cached = cache_handler.pull(ordering_key)
+            cached = cache_handler.pull(message.ordering_key)
         except Exception:
             logger.error(
                 f"error fetching record(s) from cache. exiting... "
                 f"traceback: {format_traceback()}"
             )
-            job_handler.nack()
-            return
+            job_handler.nack(message)
+            continue
 
         if cached:
             logger.info(
@@ -111,8 +111,8 @@ def run(
                 # TODO: validation_handler.max_cached_ts could be None
                 f"cached timestamp {validation_handler.max_cached_ts.isoformat()}"
             )
-            job_handler.ack()
-            return
+            job_handler.ack(message)
+            continue
         if not validated_flight_info:
             logger.warning(
                 f"no flight_id available in records batch, "
@@ -121,8 +121,8 @@ def run(
                 f"icao_address: {job.flight_info.icao_address} "
                 f"job: {job}"
             )
-            job_handler.ack()
-            return
+            job_handler.ack(message)
+            continue
         if not validated_gt_1min_span:
             logger.info(
                 f"cache & records don't span more than 1 minute. "
@@ -139,13 +139,13 @@ def run(
                 new_cache_wpts.append(validated_records[-1])
 
             new_cache = WaypointCache.from_spire_waypoint_positional(
-                key=ordering_key,
+                key=message.ordering_key,
                 flight_id=validated_flight_info.flight_id,
                 spire_wps=tuple(new_cache_wpts),
             )
             cache_handler.push(new_cache)
-            job_handler.ack()
-            return
+            job_handler.ack(message)
+            continue
 
         # ===================
         # resample records
@@ -170,8 +170,8 @@ def run(
                 f"job: {job}"
                 f"traceback: {format_traceback()}"
             )
-            job_handler.nack()
-            return
+            job_handler.nack(message)
+            continue
 
         # hold out cache records, as they would have been published previously
         cache_ts = [
@@ -198,7 +198,9 @@ def run(
         # ===================
         # publish resampled records to BQ
         # ===================
-        for bq_json_ln in egress_records.to_bq_flatmap(ordering_key.split(":")[0]):
+        for bq_json_ln in egress_records.to_bq_flatmap(
+            message.ordering_key.split(":")[0]
+        ):
             bq_publish_handler.publish_async(
                 data=bq_json_ln,
                 timeout_seconds=45,
@@ -227,7 +229,7 @@ def run(
             )
             trajectory_publish_handler.publish_async(
                 data=trajectory_chunk.as_utf8_json(),
-                ordering_key=ordering_key,
+                ordering_key=message.ordering_key,
                 timeout_seconds=45,
                 log_context=dict(
                     client_name="trajectory_publish_handler",
@@ -245,7 +247,7 @@ def run(
         else:
             new_cache_records = tuple(resampled_records[-1:])
         new_cache = WaypointCache.from_spire_waypoint_positional(
-            key=ordering_key,
+            key=message.ordering_key,
             flight_id=validated_flight_info.flight_id,
             spire_wps=new_cache_records,
         )
@@ -257,24 +259,41 @@ def run(
             f"for icao_address: {egress_records.flight_info.icao_address}. "
             f"exported {len(egress_records.records)} resampled records to BigQuery"
         )
-        job_handler.ack()
+        job_handler.ack(message)
 
 
 if __name__ == "__main__":
     logger.info("starting spire-ingest-resample-worker instance")
 
     try:
-        handlers = bootstrap.create_handlers_from_env()
+        cache_handler = handlers.CacheHandler(
+            host=environment.REDIS_HOST,
+            port=environment.REDIS_PORT,
+        )
+        bq_raw_publish_handler = handlers.PubSubPublishHandler(
+            topic_id=environment.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
+            ordered_queue=False,
+        )
+        bq_publish_handler = handlers.PubSubPublishHandler(
+            topic_id=environment.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID,
+            ordered_queue=False,
+        )
+        trajectory_publish_handler = handlers.PubSubPublishHandler(
+            topic_id=environment.TRAJECTORY_CHUNK_TOPIC_ID,
+            ordered_queue=True,
+        )
+        job_handler = handlers.PubSubSubscriptionHandler(
+            subscription=environment.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
+        )
         sigterm_handler = utils.SigtermHandler()
-        while not sigterm_handler.should_exit:
-            run(
-                cache_handler=handlers.cache_handler,
-                bq_raw_publish_handler=handlers.bq_raw_publish_handler,
-                bq_publish_handler=handlers.bq_publish_handler,
-                trajectory_publish_handler=handlers.trajectory_publish_handler,
-                job_handler=handlers.job_handler,
-            )
-        sys.exit(0)
+        run(
+            cache_handler=cache_handler,
+            bq_raw_publish_handler=bq_raw_publish_handler,
+            bq_publish_handler=bq_publish_handler,
+            trajectory_publish_handler=trajectory_publish_handler,
+            job_handler=job_handler,
+            sigterm_handler=sigterm_handler,
+        )
 
     except Exception:
         logger.error("Unhandled exception:" + format_traceback())

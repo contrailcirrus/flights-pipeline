@@ -7,14 +7,15 @@ import copy
 import json
 import math
 import os
-import warnings
+from collections.abc import Iterator
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Union
+from typing import Any, Callable, Self
 
 import google.api_core.exceptions
 import google.api_core.retry
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import redis
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails.core.flight import Flight
@@ -31,109 +32,101 @@ from lib.schemas import (
 )
 
 
+@dataclass(frozen=True)
+class Message:
+    data: bytes
+    ack_id: str
+    ordering_key: str
+
+
 class PubSubSubscriptionHandler:
     """
     Handler for managing consumption and marshalling of jobs from a pubsub subscription queue.
     """
 
-    # the number of seconds the subscriber client will hang, waiting for available messages
-    MSG_WAIT_TIME_SEC = 60.0
-
-    def __init__(self, subscription: str):
+    def __init__(
+        self,
+        subscription: str,
+        pull_timeout_sec: float = 60.0,
+    ):
         """
         Parameters
         ----------
         subscription
             The fully-qualified URI for the pubsub subscription.
             e.g. 'projects/contrails-301217/subscriptions/api-preprocessor-sub-dev'
+
+        pull_timeout_sec
+            Seconds the subscriber client will block for messages before retrying.
         """
         self.subscription = subscription
-        self._client = None
-        self._ack_id: Union[None, str] = None
+        self.pull_timeout_sec = pull_timeout_sec
 
-    def __enter__(self):
-        """
-        Initialize pubsub client to be used across this class instance's lifecycle.
-        """
         self._client = pubsub_v1.SubscriberClient()
-        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Ensure client connection to pubsub is closed.
-        """
-        self.close()
+    def _fetch(self) -> Message:
+        """Fetch a message from the subscription queue.
 
-    def fetch(self) -> tuple[SpireWaypointsRecord, str]:
-        """
-        Fetch a message from the subscription queue.
-        This method will hang and wait until a message is available.
-        This method, in case of exception, will hang, backoff and retry indefinitely.
+        This method will hang and wait until a message is available. If an exception is
+        raised, it will retry indefinitely.
 
         Returns
         -------
-        str
+        Message
             The dequeued message from the pubsub subscription.
-        str
-            The ordering key for the fetched record.
         """
-        if self._ack_id is not None:
-            raise RuntimeError("fetch called multiple times without acking message")
-
-        if not self._client:
-            self._client = pubsub_v1.SubscriberClient()
-            warnings.warn(
-                "pubsub subscriber client initialized. "
-                "connection will remain open until close()."
-            )
-
         while True:
             logger.info(f"fetching message from {self.subscription}")
             resp = self._client.pull(
                 request={"subscription": self.subscription, "max_messages": 1},
-                timeout=self.MSG_WAIT_TIME_SEC,
+                timeout=self.pull_timeout_sec,
             )
 
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
-                # or, pubsub returned zero when there are in fact some messages to fetch on retry
+                # or, pubsub returned zero when there are in fact some messages
                 logger.info("zero messages received.")
                 continue
-            msg = resp.received_messages[0]
-            self._ack_id = msg.ack_id
-            ordering_key = msg.message.ordering_key
+
+            pubsub_msg = resp.received_messages[0]
             logger.info(
                 f"received 1 message from {self.subscription}. "
-                f"published_time: {msg.message.publish_time}, "
-                f"message_id: {msg.message.message_id}"
+                f"published_time: {pubsub_msg.message.publish_time}, "
+                f"message_id: {pubsub_msg.message.message_id}"
             )
-            return SpireWaypointsRecord.from_utf8_json(msg.message.data), ordering_key
 
-    def ack(self):
-        """
-        Acknowledge the outstanding message presently handled by the instance of this class.
-        """
-        if not self._ack_id:
-            raise ValueError(
-                "ack_id is not set. call fetch(). "
-                "handler instance must be handling an outstanding message."
+            message = Message(
+                data=pubsub_msg.message.data,
+                ack_id=pubsub_msg.ack_id,
+                ordering_key=pubsub_msg.message.ordering_key,
             )
+            return message
+
+    def subscribe(self) -> Iterator[Message]:
+        """Yields messages from the subscription.
+
+        This method returns an iterator to loop over messages in the subscription.
+        """
+        while True:
+            message = self._fetch()
+            yield message
+
+    def ack(self, message: Message):
+        """Acknowledge the message to remove from the queue."""
         self._client.acknowledge(
-            request={"subscription": self.subscription, "ack_ids": [self._ack_id]},
+            request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
             timeout=30,
         )
         logger.info("successfully ack'ed message.")
-        self._ack_id = None
 
-    def nack(self):
-        """Removes cached ack_id but does not nack message server-side."""
-        self._ack_id = None
+    def nack(self, message: Message):
+        """Not-acknowledge the message.
 
-    def close(self):
+        Does not nack the message server-side. In practice, this does nothing for
+        subscription handler implementations which do not implement a sidecar lease
+        management thread to periodically extend outstanding message ack deadlines.
         """
-        Close pubsub client connection.
-        """
-        self._client.close()
+        assert message is not None  # guard against unused argument lint checks
 
 
 class PubSubPublishHandler:
@@ -603,7 +596,7 @@ class ResampleHandler:
 
         self._waypoints_df = pd.concat([df_cached, df_records])
 
-    def interpolate(self):
+    def interpolate(self) -> Self:
         """
         Run minute interpolation within the records time window, and backwards between
         the first index of the records time window and the cached waypoints.
