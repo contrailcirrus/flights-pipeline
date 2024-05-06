@@ -1,11 +1,11 @@
 """ Data Object Models & Schemas"""
 
-from dataclasses import dataclass, asdict
-import json
-from uuid import UUID
-from datetime import datetime, UTC
 import hashlib
+import json
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from typing import TypedDict
+from uuid import UUID
 
 import numpy as np
 import pycontrails.core
@@ -151,7 +151,7 @@ class SpireWaypointsRecord:
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
             if not timestamp:
-                return timestamp
+                return None
             ts: int = int(datetime.fromisoformat(timestamp).timestamp() * 1e6)
             return ts
 
@@ -384,7 +384,7 @@ class CocipTrajectoryChunk:
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
             if not timestamp:
-                return timestamp
+                return None
             ts: int = int(datetime.fromisoformat(timestamp).timestamp() * 1e6)
             return ts
 

@@ -130,7 +130,7 @@ class PubSubSubscriptionHandler:
 
         try:
             while True:
-                message = self._fetch()
+                message = self.fetch()
                 self._outstanding_messages.add(message)
                 yield message
                 # Guard against user failing to call ack() or nack()
