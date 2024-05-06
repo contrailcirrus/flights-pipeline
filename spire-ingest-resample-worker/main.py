@@ -186,7 +186,7 @@ def run(
         logger.info(
             f"icao_address: {job.flight_info.icao_address}. "
             f"prune cache from records: dropped "
-            f"{len(resampled_records)-len(resampled_records_prune)} "
+            f"{len(resampled_records) - len(resampled_records_prune)} "
             f"records from resampled records."
         )
 
@@ -216,7 +216,7 @@ def run(
         if (
             validated_flight_info.aircraft_type_icao
             in PerfModelLookup().aircraft_type_icao
-        ):
+        ) and (len(resampled_records) >= 3):
             validated_flight_info_wide = FlightInfoWide(
                 **asdict(validated_flight_info),
                 engine_uid=None,
