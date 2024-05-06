@@ -72,7 +72,7 @@ class PubSubSubscriptionHandler:
 
         self._outstanding_messages: set[Message] = set()
 
-    def fetch(self) -> Message:
+    def _fetch(self) -> Message:
         """Fetch a message from the subscription queue.
 
         This method will hang and wait until a message is available. If an exception is
@@ -129,7 +129,7 @@ class PubSubSubscriptionHandler:
 
         try:
             while True:
-                message = self.fetch()
+                message = self._fetch()
                 self._outstanding_messages.add(message)
                 yield message
                 # Guard against user failing to call ack() or nack()
