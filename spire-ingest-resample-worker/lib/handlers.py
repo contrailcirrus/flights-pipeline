@@ -7,14 +7,13 @@ import copy
 import json
 import math
 import os
-import warnings
 from datetime import datetime
-from typing import Any, Callable, Union
+from typing import Any, Callable, Self
 
 import google.api_core.exceptions
 import google.api_core.retry
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import redis
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails.core.flight import Flight
@@ -48,8 +47,8 @@ class PubSubSubscriptionHandler:
             e.g. 'projects/contrails-301217/subscriptions/api-preprocessor-sub-dev'
         """
         self.subscription = subscription
-        self._client = None
-        self._ack_id: Union[None, str] = None
+        self._client = pubsub_v1.SubscriberClient()
+        self._ack_id: str | None = None
 
     def __enter__(self):
         """
@@ -72,20 +71,13 @@ class PubSubSubscriptionHandler:
 
         Returns
         -------
-        str
+        SpireWaypointsRecord
             The dequeued message from the pubsub subscription.
         str
             The ordering key for the fetched record.
         """
         if self._ack_id is not None:
             raise RuntimeError("fetch called multiple times without acking message")
-
-        if not self._client:
-            self._client = pubsub_v1.SubscriberClient()
-            warnings.warn(
-                "pubsub subscriber client initialized. "
-                "connection will remain open until close()."
-            )
 
         while True:
             logger.info(f"fetching message from {self.subscription}")
@@ -596,7 +588,7 @@ class ResampleHandler:
 
         self._waypoints_df = pd.concat([df_cached, df_records])
 
-    def interpolate(self):
+    def interpolate(self) -> Self:
         """
         Run minute interpolation within the records time window, and backwards between
         the first index of the records time window and the cached waypoints.
