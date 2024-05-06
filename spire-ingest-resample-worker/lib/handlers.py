@@ -8,7 +8,7 @@ import json
 import math
 import os
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Callable, Union
 
 import google.api_core.exceptions
@@ -388,9 +388,7 @@ class ValidationHandler:
         """
 
         # possible out-of-order delivery
-        if self.max_cached_ts and self.min_records_ts < (
-            self.max_cached_ts + timedelta(seconds=60)
-        ):
+        if self.max_cached_ts and self.min_records_ts < (self.max_cached_ts):
             return False
         else:
             return True
