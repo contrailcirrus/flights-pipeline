@@ -24,6 +24,13 @@ class ResampleHandler:
     """
 
     FLIGHT_LEVELS = [
+        200,
+        210,
+        220,
+        230,
+        240,
+        250,
+        260,
         270,
         280,
         290,
@@ -158,6 +165,8 @@ class ResampleHandler:
         """
         Converts altitude in feet MSL to flight level (100s of ft), snapped to the nearest level.
         """
+        if alt_ft < (cls.FLIGHT_LEVELS[0] * 100) - 500:
+            return -999
         diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
         min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
         return cls.FLIGHT_LEVELS[min_ix]
