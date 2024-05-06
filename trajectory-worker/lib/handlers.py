@@ -133,7 +133,9 @@ class PubSubSubscriptionHandler:
                 self._outstanding_messages.add(message)
                 yield message
                 # Guard against user failing to call ack() or nack()
-                self._outstanding_messages.discard(message)
+                if message in self._outstanding_messages:
+                    logger.warning(f"Message was never ack'ed or nack'ed: {message}")
+                    self._outstanding_messages.discard(message)
         except GeneratorExit:
             pass
 
@@ -147,7 +149,11 @@ class PubSubSubscriptionHandler:
         # Stop extending lease before server-side ack. This avoids cases where the lease
         # management worker fails to extend the ack deadline for an already ack'ed
         # message, at the cost of a small probability of redelivery.
-        self._outstanding_messages.discard(message)
+        try:
+            self._outstanding_messages.remove(message)
+        except KeyError:
+            logger.warning(f"Message ack'ed or nack'ed multiple times: {message}")
+
         self._client.acknowledge(
             request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
             timeout=30,
@@ -159,7 +165,10 @@ class PubSubSubscriptionHandler:
 
         Does not nack the message server-side.
         """
-        self._outstanding_messages.discard(message)
+        try:
+            self._outstanding_messages.remove(message)
+        except KeyError:
+            logger.warning(f"Message ack'ed or nack'ed multiple times: {message}")
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """
