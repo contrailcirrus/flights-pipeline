@@ -88,7 +88,7 @@ class PubSubSubscriptionHandler:
             logger.info(f"fetching message from {self.subscription}")
             resp = self._client.pull(
                 request={"subscription": self.subscription, "max_messages": 1},
-                timeout=self.MSG_WAIT_TIME_SEC,
+                timeout=self.pull_timeout_sec,
             )
 
             if len(resp.received_messages) == 0:
@@ -168,7 +168,7 @@ class PubSubSubscriptionHandler:
         """
         logger.info("starting ack lease management worker...")
         while True:
-            should_exit = exit_when_set.wait(self.ACK_EXTENSION_SEC / 2)
+            should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
                 break
 
@@ -182,7 +182,7 @@ class PubSubSubscriptionHandler:
                         request={
                             "subscription": self.subscription,
                             "ack_ids": [ack_id],
-                            "ack_deadline_seconds": self.ACK_EXTENSION_SEC,
+                            "ack_deadline_seconds": self.ack_extension_sec,
                         }
                     )
                 except Exception:
