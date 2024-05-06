@@ -8,7 +8,6 @@ import os
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
-from threading import Thread
 from typing import Any, Callable
 
 import google.api_core.exceptions
@@ -121,7 +120,7 @@ class PubSubSubscriptionHandler:
         """
         # Start lease manager thread to periodically extend ack deadline.
         exit_when_set = threading.Event()
-        lease_manager = Thread(
+        lease_manager = threading.Thread(
             target=self._ack_management_worker,
             kwargs=dict(exit_when_set=exit_when_set),
             daemon=True,
