@@ -64,7 +64,7 @@ class PubSubSubscriptionHandler:
 
         self._client = pubsub_v1.SubscriberClient()
 
-    def fetch(self) -> Message:
+    def _fetch(self) -> Message:
         """Fetch a message from the subscription queue.
 
         This method will hang and wait until a message is available. If an exception is
@@ -108,7 +108,7 @@ class PubSubSubscriptionHandler:
         This method returns an iterator to loop over messages in the subscription.
         """
         while True:
-            message = self.fetch()
+            message = self._fetch()
             yield message
 
     def ack(self, message: Message):
