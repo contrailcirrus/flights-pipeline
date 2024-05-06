@@ -329,7 +329,7 @@ class CocipTrajectoryChunk:
 
         return CocipTrajectoryChunk(
             seg_cnt=len(segs_ef_j),
-            seg_ef_cnt=int(sum(segs_ef_j > 0)),
+            seg_ef_cnt=int(sum(np.abs(segs_ef_j) > 0)),
             seg_ef_nan_cnt=int(np.isnan(segs_ef_j).sum()),
             chunk_len_km=float(np.nansum(result["segment_length"][sl]) / 1000.0),
             lat_start=input_chunk.records[0].latitude,
