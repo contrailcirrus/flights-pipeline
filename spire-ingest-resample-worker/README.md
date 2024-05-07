@@ -6,9 +6,13 @@ and performs inward interpolation and backwards interpolation for missing waypoi
 on a per flight-instance basis.
 
 This service generates and writes to pubsub:
-1) the 1Min resampled waypoints (to be injected into BigQuery) 
-2) flight segments (a tuple with three temporally contiguous 1Min sampled waypoints) 
-   to be consumed by a Cocip worker
+1) `SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID`: the 1Min resampled waypoints (to be injected into the BigQuery resampled Spire table) 
+2) `TRAJECTORY_CHUNK_TOPIC_ID`: flight segments for the flight instance, to be consumed by the realtime trajectory-worker
+
+
+Additionally, this service will echo the raw Spire data received from the `api-scraper`
+to the `SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID` topic, which flow to the BigQuery table
+for raw Spire data.
 
 # Behavior
 This service consumes a waypoints record from pubsub.
@@ -25,7 +29,7 @@ THis service then does backward interpolation (inter-record interpolation),
 interpolates to the minute backward to the last known waypoint for the flight instance.
 
 In order to perform the backward interpolation, 
-this service checks a remote datastore for the last known waypoint for the flight instance.
+this service checks a remote datastore (Redis) for the last known waypoint for the flight instance.
 
 Lastly, the Resample Worker will generate flight segment tuples 
 from the contiguous 1Min waypoints.
@@ -41,7 +45,7 @@ The following environment variables are expected for production and development 
 | TRAJECTORY_CHUNK_TOPIC_ID              |    fully-qualified uri for the flights trajectory chunk pubsub topic     |
 | REDIS_HOST                             |                    ipv4 address of the redis instance                    |
 | REDIS_PORT                             |                       port for the redis instance                        |
-| LOG_LEVEL                              |                log level for service in cloud environment                |**
+| LOG_LEVEL                              |                log level for service in cloud environment                |
 
 ### Prerequisites
 

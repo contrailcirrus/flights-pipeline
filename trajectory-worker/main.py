@@ -49,7 +49,7 @@ def run(
                 f"with start_time {job.records[0].timestamp}."
                 f"{e}"
             )
-            job_handler.ack()
+            job_handler.ack(message)
             continue
 
         try:
@@ -63,7 +63,7 @@ def run(
                 f"NACK'ing job."
                 f"traceback: {format_traceback()}"
             )
-            job_handler.nack()
+            job_handler.nack(message)
             continue
 
         # ===================
@@ -89,7 +89,7 @@ def run(
         )
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=60)
 
-        job_handler.ack()
+        job_handler.ack(message)
 
 
 if __name__ == "__main__":
