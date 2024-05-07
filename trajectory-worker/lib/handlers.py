@@ -6,14 +6,14 @@ import concurrent.futures
 import json
 import os
 import threading
-import warnings
-from threading import Thread
-from typing import Any, Callable, Union
+from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Any, Callable
 
 import google.api_core.exceptions
 import google.api_core.retry
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import pycontrails
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
@@ -34,141 +34,174 @@ from lib.log import format_traceback, logger
 from lib.schemas import WaypointsRecord
 
 
+@dataclass(frozen=True)
+class Message:
+    data: bytes
+    ack_id: str
+    ordering_key: str
+
+
 class PubSubSubscriptionHandler:
     """
     Handler for managing consumption and marshalling of jobs from a pubsub subscription queue.
     """
 
-    # the number of seconds the subscriber client will hang, waiting for available messages
-    MSG_WAIT_TIME_SEC = 60.0
-    ACK_EXTENSION_SEC: int = 300
-
-    def __init__(self, subscription: str):
+    def __init__(
+        self,
+        subscription: str,
+        ack_extension_sec: float = 300,
+        pull_timeout_sec: float = 60.0,
+    ):
         """
         Parameters
         ----------
         subscription
             The fully-qualified URI for the pubsub subscription.
             e.g. 'projects/contrails-301217/subscriptions/api-preprocessor-sub-dev'
+        ack_extension_sec
+            Seconds the lease management thread will periodically extend the ack
+            deadline for outstanding messages.
+        pull_timeout_sec
+            Seconds the subscriber client will block for messages before retrying.
         """
         self.subscription = subscription
-        self._client = None
-        self._ack_id: Union[None, str] = None
-        self._kill_ack_manager = threading.Event()
-        self._ack_manager = Thread(target=self._ack_management_worker, daemon=True)
-        self._ack_manager.start()
+        self.pull_timeout_sec = pull_timeout_sec
+        self.ack_extension_sec = ack_extension_sec
 
-    def __enter__(self):
-        """
-        Initialize pubsub client to be used across this class instance's lifecycle.
-        """
         self._client = pubsub_v1.SubscriberClient()
-        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Ensure client connection to pubsub is closed.
-        """
-        self.close()
+        self._outstanding_messages: set[Message] = set()
 
-    def _ack_management_worker(self):
-        """
-        Extends the ack deadline for the currently outstanding message.
-        """
-        logger.info("starting ack lease management worker...")
-        while not self._kill_ack_manager.is_set():
-            self._kill_ack_manager.wait(self.ACK_EXTENSION_SEC // 2)
-            if self._ack_id:
-                logger.info(
-                    f"extending ack deadline on ack_id: {self._ack_id[0:-150]}..."
-                )
-                try:
-                    self._client.modify_ack_deadline(
-                        request={
-                            "subscription": self.subscription,
-                            "ack_ids": [self._ack_id],
-                            "ack_deadline_seconds": self.ACK_EXTENSION_SEC,
-                        }
-                    )
-                except Exception:
-                    logger.error(
-                        f"failed to extend ack deadline for message. "
-                        f"traceback: {format_traceback()}"
-                    )
-        logger.info("terminated ack lease management worker")
+    def _fetch(self) -> Message:
+        """Fetch a message from the subscription queue.
 
-    def fetch(self) -> tuple[WaypointsRecord, str]:
-        """
-        Fetch a message from the subscription queue.
-        This method will hang and wait until a message is available.
-        This method, in case of exception, will hang, backoff and retry indefinitely.
+        This method will hang and wait until a message is available. If an exception is
+        raised, it will retry indefinitely.
 
         Returns
         -------
-        str
+        Message
             The dequeued message from the pubsub subscription.
-        str
-            The ordering key for the fetched record.
         """
-        if self._ack_id is not None:
-            raise RuntimeError("fetch called multiple times without acking message")
-
-        if not self._client:
-            self._client = pubsub_v1.SubscriberClient()
-            warnings.warn(
-                "pubsub subscriber client initialized. "
-                "connection will remain open until close()."
-            )
-
         while True:
             logger.info(f"fetching message from {self.subscription}")
             resp = self._client.pull(
                 request={"subscription": self.subscription, "max_messages": 1},
-                timeout=self.MSG_WAIT_TIME_SEC,
+                timeout=self.pull_timeout_sec,
             )
 
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
-                # or, pubsub returned zero when there are in fact some messages to fetch on retry
+                # or, pubsub returned zero when there are in fact some messages
                 logger.info("zero messages received.")
                 continue
-            msg = resp.received_messages[0]
-            self._ack_id = msg.ack_id
-            ordering_key = msg.message.ordering_key
+
+            pubsub_msg = resp.received_messages[0]
             logger.info(
                 f"received 1 message from {self.subscription}. "
-                f"published_time: {msg.message.publish_time}, "
-                f"message_id: {msg.message.message_id}"
+                f"published_time: {pubsub_msg.message.publish_time}, "
+                f"message_id: {pubsub_msg.message.message_id}"
             )
-            return WaypointsRecord.from_utf8_json(msg.message.data), ordering_key
 
-    def ack(self):
-        """
-        Acknowledge the outstanding message presently handled by the instance of this class.
-        """
-        if not self._ack_id:
-            raise ValueError(
-                "ack_id is not set. call fetch(). "
-                "handler instance must be handling an outstanding message."
+            message = Message(
+                data=pubsub_msg.message.data,
+                ack_id=pubsub_msg.ack_id,
+                ordering_key=pubsub_msg.message.ordering_key,
             )
+            return message
+
+    def subscribe(self) -> Iterator[Message]:
+        """Yields messages from the subscription.
+
+        This method returns an iterator to loop over messages in the subscription. While
+        iterating over the result, a sidecar thread will periodically extend the ack
+        deadlines associated with outstanding messages to avoid redelivery while work
+        is in progress.
+        """
+        # Start lease manager thread to periodically extend ack deadline.
+        exit_when_set = threading.Event()
+        lease_manager = threading.Thread(
+            target=self._ack_management_worker,
+            kwargs=dict(exit_when_set=exit_when_set),
+            daemon=True,
+        )
+        lease_manager.start()
+
+        try:
+            while True:
+                message = self._fetch()
+                self._outstanding_messages.add(message)
+                yield message
+                # Guard against user failing to call ack() or nack()
+                if message in self._outstanding_messages:
+                    logger.warning(f"Message was never ack'ed or nack'ed: {message}")
+                    self._outstanding_messages.discard(message)
+        except GeneratorExit:
+            pass
+
+        # Signal lease manager thread exit
+        exit_when_set.set()
+        # Block until lease manager thread exits
+        lease_manager.join()
+
+    def ack(self, message: Message):
+        """Acknowledge the message to remove from the queue."""
+        # Stop extending lease before server-side ack. This avoids cases where the lease
+        # management worker fails to extend the ack deadline for an already ack'ed
+        # message, at the cost of a small probability of redelivery.
+        try:
+            self._outstanding_messages.remove(message)
+        except KeyError:
+            logger.warning(f"Message ack'ed or nack'ed multiple times: {message}")
+
         self._client.acknowledge(
-            request={"subscription": self.subscription, "ack_ids": [self._ack_id]},
+            request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
             timeout=30,
         )
         logger.info("successfully ack'ed message.")
-        self._ack_id = None
 
-    def nack(self):
-        """Removes cached ack_id but does not nack message server-side."""
-        self._ack_id = None
+    def nack(self, message: Message):
+        """Not-acknowledge the message to stop extending ack deadline.
 
-    def close(self):
+        Does not nack the message server-side, so the message will be retried based on
+        the server-side redelivery configuration rather than immediately redelivered to
+        another worker.
         """
-        Close pubsub client connection.
+        try:
+            self._outstanding_messages.remove(message)
+        except KeyError:
+            logger.warning(f"Message ack'ed or nack'ed multiple times: {message}")
+
+    def _ack_management_worker(self, exit_when_set: threading.Event):
         """
-        self._ack_id = None
-        self._kill_ack_manager.set()
-        self._client.close()
+        Extends the ack deadline for the currently outstanding message.
+        """
+        logger.info("starting ack lease management worker...")
+        while True:
+            should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
+            if should_exit:
+                break
+
+            # Avoid iterating over a mutable set.
+            messages = self._outstanding_messages.copy()
+            for message in messages:
+                ack_id = message.ack_id
+                logger.info(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
+                try:
+                    self._client.modify_ack_deadline(
+                        request={
+                            "subscription": self.subscription,
+                            "ack_ids": [ack_id],
+                            "ack_deadline_seconds": self.ack_extension_sec,
+                        }
+                    )
+                except Exception:
+                    logger.error(
+                        "failed to extend ack deadline for message. "
+                        f"traceback: {format_traceback()}"
+                    )
+
+        logger.info("terminated ack lease management worker")
 
 
 class PubSubPublishHandler:

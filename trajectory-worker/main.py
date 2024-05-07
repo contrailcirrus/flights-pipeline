@@ -3,7 +3,7 @@
 import sys
 
 import lib.environment as env
-from lib import utils
+from lib import schemas, utils
 from lib.exceptions import AircraftTypeUnrecognizedError, FlightTooLowError
 from lib.handlers import (
     CocipTrajectoryHandler,
@@ -11,12 +11,12 @@ from lib.handlers import (
     PubSubSubscriptionHandler,
 )
 from lib.log import format_traceback, logger
-from lib.schemas import CocipTrajectoryChunk
 
 
 def run(
     trajectory_cocip_bq_publisher: PubSubPublishHandler,
     job_handler: PubSubSubscriptionHandler,
+    sigterm_handler: utils.SigtermHandler,
 ) -> None:
     """
     Main entrypoint.
@@ -24,11 +24,11 @@ def run(
     - Run cocip against trajectory
     - Export values (big query, other TBD)
     """
-    with job_handler:
-        # ===================
-        # fetch records
-        # ===================
-        job, ordering_key = job_handler.fetch()
+    for message in job_handler.subscribe():
+        if sigterm_handler.should_exit:
+            sys.exit(0)
+
+        job = schemas.WaypointsRecord.from_utf8_json(message.data)
 
         logger.info(
             f"got job with {len(job.records)} records. "
@@ -50,7 +50,7 @@ def run(
                 f"{e}"
             )
             job_handler.ack()
-            return
+            continue
 
         try:
             trajectory_cocip_handler.load()
@@ -64,13 +64,13 @@ def run(
                 f"traceback: {format_traceback()}"
             )
             job_handler.nack()
-            return
+            continue
 
         # ===================
         # publish trajectory chunk model outputs to BQ
         # ===================
-        output = CocipTrajectoryChunk.from_cocip_result(
-            source_id=ordering_key.split(":")[0],
+        output = schemas.CocipTrajectoryChunk.from_cocip_result(
+            source_id=message.ordering_key.split(":")[0],
             git_sha=env.GIT_SHA,
             input_chunk=job,
             zarr_uri=trajectory_cocip_handler.zarr_uri,
@@ -95,22 +95,19 @@ def run(
 if __name__ == "__main__":
     logger.info("starting trajectory-worker instance")
 
-    trajectory_cocip_bq_publisher = PubSubPublishHandler(
-        topic_id=env.TRAJECTORY_COCIP_BQ_TOPIC_ID,
-        ordered_queue=False,
-    )
+    try:
+        trajectory_cocip_bq_publisher = PubSubPublishHandler(
+            topic_id=env.TRAJECTORY_COCIP_BQ_TOPIC_ID,
+            ordered_queue=False,
+        )
+        job_handler = PubSubSubscriptionHandler(env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID)
+        sigterm_handler = utils.SigtermHandler()
+        run(
+            trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
+            job_handler=job_handler,
+            sigterm_handler=sigterm_handler,
+        )
 
-    job_handler = PubSubSubscriptionHandler(env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID)
-
-    sigterm_handler = utils.SigtermHandler()
-    while True:
-        if sigterm_handler.should_exit:
-            sys.exit(0)
-        try:
-            run(
-                trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
-                job_handler=job_handler,
-            )
-        except Exception:
-            logger.error("Unhandled exception:" + format_traceback())
-            sys.exit(1)
+    except Exception:
+        logger.error("Unhandled exception:" + format_traceback())
+        sys.exit(1)
