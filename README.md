@@ -21,6 +21,10 @@ graph
         spire_ingest_resample_worker(dep: spire-ingest-resample-worker)
     end
     style k8s_2 fill:#C88908
+    subgraph redis1[Redis]
+        resample_worker_cache(resample-worker-cache)
+    end
+    style redis1 fill:#03ab52
     subgraph pub_sub1[PubSub]
         spire_ingest_api_topic(spire-ingest-api-topic)
         spire_ingest_api_sub(spire-ingest-api-sub)
@@ -66,6 +70,7 @@ graph
     spire_ingest_api_scraper --> spire_ingest_api_topic
     spire_ingest_api_scraper --> spire_ingest_raw_bq_topic
     spire_ingest_api_topic --> spire_ingest_api_sub
+    
     spire_ingest_api_sub --> spire_ingest_resample_worker
     spire_ingest_resample_worker --> spire_ingest_raw_bq_topic
     spire_ingest_resample_worker --> spire_ingest_resample_bq_topic
@@ -73,6 +78,8 @@ graph
     spire_ingest_raw_bq_topic --> spire_ingest_raw_bq_sub
     spire_ingest_resample_bq_topic --> spire_ingest_resample_bq_sub
     flight_trajectory_rt_topic --> flight_trajectory_rt_sub
+    
+    spire_ingest_resample_worker <--> resample_worker_cache
     
     spire_ingest_raw_bq_sub --> spire_flights_raw_tb
     spire_ingest_resample_bq_sub --> spire_flights_resampled_tb
