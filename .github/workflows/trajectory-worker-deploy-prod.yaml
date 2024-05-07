@@ -3,7 +3,7 @@ name: trajectory-worker-deploy-prod
 on:
   push:
     branches:
-      - prod
+      - main
     paths:
       - trajectory-worker/**
       - .github/workflows/trajectory-worker-deploy-prod.yaml
