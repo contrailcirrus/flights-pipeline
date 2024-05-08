@@ -297,65 +297,59 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_resample_worker_bigq
 }
 
 # 
-# trajectory-worker
+# trajectory-worker-gaia
 # 
-# TODO: enable trajectory-worker alerts after prod deployment
-# resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_realtime_prod_error_in_logs" {
-#   display_name = "k8sdeployment-trajectory-worker-realtime-prod-error-in-logs"
-#   combiner     = "OR"
+resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_gaia_prod_error_in_logs" {
+  display_name = "k8sdeployment-trajectory-worker-gaia-prod-error-in-logs"
+  combiner     = "OR"
 
-#   conditions {
-#     display_name = "Error in logs"
-#     condition_matched_log {
-#       filter = <<EOF
-#         resource.type="k8s_container"
-#         resource.labels.cluster_name="contrails-gke-general"
-#         resource.labels.namespace_name="flights-pipeline-prod"
-#         labels.k8s-pod/app="trajectory-worker-realtime"
-#         severity>=ERROR
-#         EOF
-#     }
-#   }
+  conditions {
+    display_name = "Error in logs"
+    condition_matched_log {
+      filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-prod"
+        labels.k8s-pod/app="trajectory-worker-gaia"
+        severity>=ERROR
+        EOF
+    }
+  }
 
-#   notification_channels = [
-#     # Nick Masson: SMS
-#     "projects/contrails-301217/notificationChannels/5296843968149494052",
-#   ]
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
 
-#   alert_strategy {
-#     notification_rate_limit {
-#       period = "3600s"
-#     }
-#     auto_close = "86400s"
-#   }
-# }
+  alert_strategy {
+    notification_rate_limit {
+      period = "3600s"
+    }
+    auto_close = "86400s"
+  }
+}
 
-# resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_batch_prod_error_in_logs" {
-#   display_name = "k8sdeployment-trajectory-worker-batch-prod-error-in-logs"
-#   combiner     = "OR"
+resource "google_monitoring_alert_policy" "pubsubtopic_prod_trajectory_worker_cocip_egress_bigquery_dead_letter_publish_count" {
+  display_name = "pubsubtopic-${google_pubsub_topic.prod_trajectory_worker_cocip_egress_bigquery_dead_letter.name}-publish-count"
+  combiner     = "OR"
 
-#   conditions {
-#     display_name = "Error in logs"
-#     condition_matched_log {
-#       filter = <<EOF
-#         resource.type="k8s_container"
-#         resource.labels.cluster_name="contrails-gke-general"
-#         resource.labels.namespace_name="flights-pipeline-prod"
-#         labels.k8s-pod/app="trajectory-worker-batch"
-#         severity>=ERROR
-#         EOF
-#     }
-#   }
+  conditions {
+    display_name = "Publish count above threshold"
+    condition_monitoring_query_language {
+      query    = <<EOF
+        fetch pubsub_topic
+        | metric 'pubsub.googleapis.com/topic/message_sizes'
+        | filter resource.topic_id == '${google_pubsub_topic.prod_trajectory_worker_cocip_egress_bigquery_dead_letter.name}'
+        | group_by sliding(30m), row_count()
+        | every 1m
+        | condition val() > 0
+        EOF
+      duration = "0s"
+    }
+  }
 
-#   notification_channels = [
-#     # Nick Masson: SMS
-#     "projects/contrails-301217/notificationChannels/5296843968149494052",
-#   ]
-
-#   alert_strategy {
-#     notification_rate_limit {
-#       period = "3600s"
-#     }
-#     auto_close = "86400s"
-#   }
-# }
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
+}

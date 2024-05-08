@@ -20,6 +20,7 @@ from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
 from pycontrails.core.aircraft_performance import AircraftPerformance
 from pycontrails.models.cocip import Cocip
+from pycontrails_bada.bada3 import BADA3
 from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
 )
@@ -355,7 +356,8 @@ class CocipTrajectoryHandler:
     """
 
     MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
-    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_no_bada_041824.json"
+    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
+    BADA3_DATASET_FP = "bada3"
 
     # matched to values used by api-preprocessor
     STATIC_PARAMS = dict(
@@ -423,7 +425,7 @@ class CocipTrajectoryHandler:
         The BADA model may or may not be supported in the future.
 
         Futhermore, please note that the engine_uid is not used in running the PS perf model
-        (it is for BADA). However, we still return a single, default engine_uid for aircrafts
+        (it is for BADA). However, we still return a single, default engine_uid for aircraft
         associated with the PS model, since the engine_uid is used in setting emission indexes
         for emissions calculations (emission calculations being separate from the perf model output)
         """
@@ -445,6 +447,8 @@ class CocipTrajectoryHandler:
         match target["perf_model_id"]:
             case "PS":
                 perf_model = PSFlight()
+            case "BADA3":
+                perf_model = BADA3(cls.BADA3_DATASET_FP)
             case _:
                 raise PerfModelUnsupportedError(
                     f"perf model lookup returned an unsupported "
