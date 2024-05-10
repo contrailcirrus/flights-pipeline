@@ -66,7 +66,7 @@ class QueueClient:
                 # Retry defaults depend on gRPC method, see default for publish here:
                 # https://github.com/googleapis/python-pubsub/blob/ff229a5fdd4deaff0ac97c74f313d04b62720ff7/google/pubsub_v1/services/publisher/transports/base.py#L164-L183
                 retry=google.api_core.retry.Retry(
-                    initial=0.1,
+                    initial=1,
                     maximum=10,
                     multiplier=2,
                     predicate=google.api_core.retry.if_exception_type(
