@@ -50,7 +50,7 @@ class QueueClient:
             batch_settings=pubsub_v1.types.BatchSettings(
                 max_messages=1000,
                 max_bytes=20 * 1000 * 1000,  # 20 MB max server-side request size
-                max_latency=1,  # default: 10 ms = 0.01
+                max_latency=0.1,  # default: 10 ms = 0.01
             ),
             publisher_options=pubsub_v1.types.PublisherOptions(
                 enable_message_ordering=ordered_queue,
@@ -59,7 +59,7 @@ class QueueClient:
                 # PubSub, additional publish calls are unblocked.
                 # See: https://cloud.google.com/pubsub/docs/flow-control-messages
                 flow_control=pubsub_v1.types.PublishFlowControl(
-                    message_limit=100 * 1000,
+                    message_limit=1000,
                     byte_limit=1024 * 1024 * 1024,  # 1 GiB
                     limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
                 ),
