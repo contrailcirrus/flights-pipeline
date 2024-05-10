@@ -227,8 +227,8 @@ async def main(
                 ),
             )
 
-        bq_queue_client.wait_for_publish(timeout_seconds=80)
-        egress_queue_client.wait_for_publish(timeout_seconds=80)
+        bq_queue_client.wait_for_publish(timeout_seconds=100)
+        egress_queue_client.wait_for_publish(timeout_seconds=100)
         logger.info(f"Published records successfully: {len(spire_df)}")
 
         state_client.set_last_sync_end_at(batch_end_at)
