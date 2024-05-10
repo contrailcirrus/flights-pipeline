@@ -1,6 +1,3 @@
-DOCKER_COMMAND = docker
-IMAGE_NAME = spire-ingest-api-scraper
-
 # -------
 # Develop
 # -------
@@ -40,15 +37,3 @@ test: dependency-check lint type-check pytest
 # Don't capture stdout: pytest will capture logs
 test-with-logs:
 	pipenv run pytest --log-cli-level=DEBUG --show-capture=no
-
-# ---------------
-# Docker / podman
-# ---------------
-
-docker-build:
-	-$(DOCKER_COMMAND) build --tag $(IMAGE_NAME) .
-	$(DOCKER_COMMAND) image prune -f
-
-docker-build-fresh:
-	$(DOCKER_COMMAND) build --no-cache --tag $(IMAGE_NAME) .
-	$(DOCKER_COMMAND) image prune -f
