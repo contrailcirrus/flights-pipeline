@@ -158,7 +158,7 @@ async def main(
             ):
                 bq_queue_client.publish_async(
                     data=raw_bq_json_ln,
-                    timeout_seconds=45,
+                    timeout_seconds=90,
                     log_context=dict(
                         client_name="bq_queue_client",
                         icao_address=icao_address,
@@ -219,7 +219,7 @@ async def main(
             egress_queue_client.publish_async(
                 data=data,
                 ordering_key=ordering_key,
-                timeout_seconds=45,
+                timeout_seconds=90,
                 log_context=dict(
                     client_name="egress_queue_client",
                     icao_address=icao_address,
