@@ -28,6 +28,11 @@ jobs:
       - name: Install pipenv
         run: pip install pipenv
 
+      - name: Auth ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.GH_ROBOT_USER_SSH_KEY }}
+
       - name: Install Python dependencies
         run: pipenv install --dev --deploy
 
