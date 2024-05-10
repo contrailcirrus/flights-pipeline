@@ -36,7 +36,7 @@ jobs:
       - name: Install Python dependencies
         run: pipenv install --dev --deploy
 
-      - name: Check formatting
+      - name: Check dependencies
         run: make dependency-check
 
       - name: Lint
