@@ -68,7 +68,7 @@ def run(
                     batch_first_ts=job.records[0].timestamp,
                 ),
             )
-        bq_raw_publish_handler.wait_for_publish(timeout_seconds=60)
+        bq_raw_publish_handler.wait_for_publish(timeout_seconds=75)
 
         # fetch cache
         try:
@@ -210,7 +210,7 @@ def run(
                     batch_first_ts=egress_records.records[0].timestamp,
                 ),
             )
-        bq_publish_handler.wait_for_publish(timeout_seconds=60)
+        bq_publish_handler.wait_for_publish(timeout_seconds=75)
 
         # ===================
         # trajectory worker: publish resampled records as trajectory chunk to pubsub
@@ -237,7 +237,7 @@ def run(
                     batch_first_ts=trajectory_chunk.records[0].timestamp,
                 ),
             )
-            trajectory_publish_handler.wait_for_publish(timeout_seconds=60)
+            trajectory_publish_handler.wait_for_publish(timeout_seconds=75)
 
         # ===================
         # update cache
