@@ -158,7 +158,7 @@ async def main(
             ):
                 bq_queue_client.publish_async(
                     data=raw_bq_json_ln,
-                    timeout_seconds=45,
+                    timeout_seconds=110,
                     log_context=dict(
                         client_name="bq_queue_client",
                         icao_address=icao_address,
@@ -219,7 +219,7 @@ async def main(
             egress_queue_client.publish_async(
                 data=data,
                 ordering_key=ordering_key,
-                timeout_seconds=45,
+                timeout_seconds=110,
                 log_context=dict(
                     client_name="egress_queue_client",
                     icao_address=icao_address,
@@ -227,8 +227,8 @@ async def main(
                 ),
             )
 
-        bq_queue_client.wait_for_publish(timeout_seconds=100)
-        egress_queue_client.wait_for_publish(timeout_seconds=100)
+        bq_queue_client.wait_for_publish(timeout_seconds=120)
+        egress_queue_client.wait_for_publish(timeout_seconds=120)
         logger.info(f"Published records successfully: {len(spire_df)}")
 
         state_client.set_last_sync_end_at(batch_end_at)
