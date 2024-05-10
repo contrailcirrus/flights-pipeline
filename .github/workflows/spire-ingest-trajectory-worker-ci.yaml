@@ -1,0 +1,44 @@
+name: spire-ingest-trajectory-worker-ci
+
+on:
+  pull_request:
+    paths:
+      - "spire-ingest-trajectory-worker/**"
+      - ".github/workflows/spire-ingest-trajectory-worker-ci.yaml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: ./spire-ingest-trajectory-worker
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pipenv"
+
+      - name: Install pipenv
+        run: pip install pipenv
+
+      - name: Install Python dependencies
+        run: pipenv install --dev --deploy
+
+      - name: Check formatting
+        run: make dependency-check
+
+      - name: Lint
+        run: make lint
+
+      - name: Check types
+        run: make type-check
+
+      - name: Test
+        run: make pytest
