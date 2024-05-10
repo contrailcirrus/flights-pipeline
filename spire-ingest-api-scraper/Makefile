@@ -27,7 +27,7 @@ lint:
 	pipenv run ruff check .
 
 type-check:
-	pipenv run mypy --non-interactive .
+	pipenv run mypy .
 
 pytest:
 	pipenv run pytest --cov . --cov-report term-missing
