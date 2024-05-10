@@ -1,10 +1,10 @@
-name: spire-ingest-trajectory-worker-ci
+name: trajectory-worker-ci
 
 on:
   pull_request:
     paths:
-      - "spire-ingest-trajectory-worker/**"
-      - ".github/workflows/spire-ingest-trajectory-worker-ci.yaml"
+      - "trajectory-worker/**"
+      - ".github/workflows/trajectory-worker-ci.yaml"
 
 jobs:
   test:
@@ -13,7 +13,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./spire-ingest-trajectory-worker
+        working-directory: ./trajectory-worker
 
     steps:
       - name: Checkout repository
