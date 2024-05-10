@@ -20,11 +20,11 @@ from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
 from pycontrails.core.aircraft_performance import AircraftPerformance
 from pycontrails.models.cocip import Cocip
-from pycontrails_bada.bada3 import BADA3
 from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
 )
 from pycontrails.models.ps_model import PSFlight
+from pycontrails_bada.bada3 import BADA3
 
 from lib.exceptions import (
     AircraftTypeUnrecognizedError,
@@ -224,7 +224,7 @@ class PubSubPublishHandler:
                 # PubSub, additional publish calls are unblocked.
                 # See: https://cloud.google.com/pubsub/docs/flow-control-messages
                 flow_control=pubsub_v1.types.PublishFlowControl(
-                    message_limit=100 * 1000,
+                    message_limit=1000,
                     byte_limit=1024 * 1024 * 1024,  # 1 GiB
                     limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
                 ),

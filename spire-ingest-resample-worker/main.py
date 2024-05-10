@@ -61,14 +61,14 @@ def run(
         for raw_bq_json_ln in job.to_bq_flatmap(message.ordering_key.split(":")[0]):
             bq_raw_publish_handler.publish_async(
                 data=raw_bq_json_ln,
-                timeout_seconds=45,
+                timeout_seconds=110,
                 log_context=dict(
                     client_name="bq_raw_publish_handler",
                     icao_address=job.flight_info.icao_address,
                     batch_first_ts=job.records[0].timestamp,
                 ),
             )
-        bq_raw_publish_handler.wait_for_publish(timeout_seconds=75)
+        bq_raw_publish_handler.wait_for_publish(timeout_seconds=120)
 
         # fetch cache
         try:
@@ -203,14 +203,14 @@ def run(
         ):
             bq_publish_handler.publish_async(
                 data=bq_json_ln,
-                timeout_seconds=45,
+                timeout_seconds=110,
                 log_context=dict(
                     client_name="bq_publish_handler",
                     icao_address=egress_records.flight_info.icao_address,
                     batch_first_ts=egress_records.records[0].timestamp,
                 ),
             )
-        bq_publish_handler.wait_for_publish(timeout_seconds=75)
+        bq_publish_handler.wait_for_publish(timeout_seconds=120)
 
         # ===================
         # trajectory worker: publish resampled records as trajectory chunk to pubsub
@@ -230,14 +230,14 @@ def run(
             trajectory_publish_handler.publish_async(
                 data=trajectory_chunk.as_utf8_json(),
                 ordering_key=message.ordering_key,
-                timeout_seconds=45,
+                timeout_seconds=110,
                 log_context=dict(
                     client_name="trajectory_publish_handler",
                     icao_address=trajectory_chunk.flight_info.icao_address,
                     batch_first_ts=trajectory_chunk.records[0].timestamp,
                 ),
             )
-            trajectory_publish_handler.wait_for_publish(timeout_seconds=75)
+            trajectory_publish_handler.wait_for_publish(timeout_seconds=120)
 
         # ===================
         # update cache
