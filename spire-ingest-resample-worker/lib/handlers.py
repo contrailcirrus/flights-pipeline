@@ -77,9 +77,25 @@ class PubSubSubscriptionHandler:
         """
         while True:
             logger.info(f"fetching message from {self.subscription}")
+
             resp = self._client.pull(
                 request={"subscription": self.subscription, "max_messages": 1},
-                timeout=self.pull_timeout_sec,
+                timeout=self.pull_timeout_sec,  # default: 60
+                retry=google.api_core.retry.Retry(
+                    initial=0.1,  # default: 0.1
+                    maximum=60.0,  # default: 60
+                    multiplier=1.3,  # default: 1.3
+                    predicate=google.api_core.retry.if_exception_type(
+                        # Non-default exceptions:
+                        google.api_core.exceptions.DeadlineExceeded,
+                        # Default exceptions:
+                        google.api_core.exceptions.Aborted,
+                        google.api_core.exceptions.InternalServerError,
+                        google.api_core.exceptions.ServiceUnavailable,
+                        google.api_core.exceptions.Unknown,
+                    ),
+                    deadline=60.0,  # default: 60
+                ),
             )
 
             if len(resp.received_messages) == 0:
@@ -148,7 +164,7 @@ class PubSubPublishHandler:
                 # PubSub, additional publish calls are unblocked.
                 # See: https://cloud.google.com/pubsub/docs/flow-control-messages
                 flow_control=pubsub_v1.types.PublishFlowControl(
-                    message_limit=100 * 1000,
+                    message_limit=1000,
                     byte_limit=1024 * 1024 * 1024,  # 1 GiB
                     limit_exceeded_behavior=pubsub_v1.types.LimitExceededBehavior.BLOCK,
                 ),
