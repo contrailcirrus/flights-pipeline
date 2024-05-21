@@ -79,7 +79,7 @@ def run(
 
         trajectory_cocip_bq_publisher.publish_async(
             data=output.to_bq_flatmap(),
-            timeout_seconds=45,
+            timeout_seconds=110,
             log_context=dict(
                 client_name="trajectory_cocip_bq_publisher",
                 icao_address=output.icao_address,
@@ -87,7 +87,7 @@ def run(
                 time_start=output.time_start,
             ),
         )
-        trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=60)
+        trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
 
         job_handler.ack(message)
 
