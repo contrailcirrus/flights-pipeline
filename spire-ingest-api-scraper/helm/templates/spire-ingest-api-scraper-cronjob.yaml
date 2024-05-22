@@ -46,9 +46,9 @@ spec:
               resources:
                 requests:
                   cpu: "3"  # 1:4 ratio for Scale-Out enforced
-                  memory: "9Gi"
+                  memory: "12Gi"
                   ephemeral-storage: "1Gi"
                 limits:
                   cpu: "3"
-                  memory: "9Gi"
+                  memory: "12Gi"
                   ephemeral-storage: "1Gi"
