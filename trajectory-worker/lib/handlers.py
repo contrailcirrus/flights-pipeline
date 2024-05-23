@@ -185,7 +185,6 @@ class PubSubSubscriptionHandler:
                     google.api_core.exceptions.ServiceUnavailable,
                 ),
             ),
-            deadline=60.0,  # default: 60
         )
         logger.info("successfully ack'ed message.")
 
