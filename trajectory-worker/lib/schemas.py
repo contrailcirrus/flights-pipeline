@@ -320,6 +320,23 @@ class CocipTrajectoryChunk:
             pycontrails_version: str
 
         attrs: CocipFlightAttributes = dict(result.attrs)
+        if not attrs.get("aircraft_performance_model"):
+            # fix for cocip result when using bada
+            attrs["aircraft_performance_model"] = attrs["bada_model"]
+
+        # FIX
+        # ------
+        # the `result` object when running CoCip trajectory with BADA does not include
+        # the `aircraft_performance_model` attribute
+        # as such, if that attribute is missing, we fetch the `bada_model` attribute instead
+        # and assign it to `aircraft_performance_model`
+        # Reference
+        # ---------
+        # cocip result attributes | BADA
+        # dict_keys(['flight_id', 'aircraft_type', 'engine_uid', 'crs', 'bada_model', 'aircraft_type_bada', 'engine_type_bada', 'engine_type_edb', 'wingspan', 'max_mach', 'max_altitude', 'n_engine', 'total_fuel_burn', 'gaseous_data_source', 'nvpm_data_source', 'total_co2', 'total_h2o', 'total_so2', 'total_sulphates', 'total_oc', 'total_nox', 'total_co', 'total_hc', 'total_nvpm_mass', 'total_nvpm_number', 'humidity_scaling_name', 'humidity_scaling_formula', 'pycontrails_version'])
+        #
+        # cocip result attributes | PSFlight
+        # dict_keys(['flight_id', 'aircraft_type', 'engine_uid', 'crs', 'aircraft_performance_model', 'n_engine', 'wingspan', 'max_mach', 'max_altitude', 'total_fuel_burn', 'gaseous_data_source', 'nvpm_data_source', 'total_co2', 'total_h2o', 'total_so2', 'total_sulphates', 'total_oc', 'total_nox', 'total_co', 'total_hc', 'total_nvpm_mass', 'total_nvpm_number', 'humidity_scaling_name', 'humidity_scaling_formula', 'pycontrails_version'])
 
         # we drop the last segment in the cocip outputs
         # because the resample-worker guarantees a leading edge overlap of 1 segment
