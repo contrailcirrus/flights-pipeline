@@ -24,7 +24,7 @@ from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
 )
 from pycontrails.models.ps_model import PSFlight
-from pycontrails_bada.bada3 import BADA3
+from pycontrails_bada.bada_model import BADAFlight
 
 from lib.exceptions import (
     AircraftTypeUnrecognizedError,
@@ -185,7 +185,6 @@ class PubSubSubscriptionHandler:
                     google.api_core.exceptions.ServiceUnavailable,
                 ),
             ),
-            deadline=60.0,  # default: 60
         )
         logger.info("successfully ack'ed message.")
 
@@ -476,7 +475,7 @@ class CocipTrajectoryHandler:
             case "PS":
                 perf_model = PSFlight()
             case "BADA3":
-                perf_model = BADA3(cls.BADA3_DATASET_FP)
+                perf_model = BADAFlight(bada3_path=cls.BADA3_DATASET_FP)
             case _:
                 raise PerfModelUnsupportedError(
                     f"perf model lookup returned an unsupported "
