@@ -72,7 +72,7 @@ async def main(
 
     last_sync_end_at = state_client.get_last_sync_end_at()
     time_since_last_sync_at = triggered_at - last_sync_end_at
-    if time_since_last_sync_at > timedelta(hours=1):
+    if time_since_last_sync_at > timedelta(hours=2):
         logger.warning(f"Spire checkpoint behind by: {time_since_last_sync_at}")
 
     start_at = _floor_1min(last_sync_end_at)
