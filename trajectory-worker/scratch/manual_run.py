@@ -2,14 +2,15 @@ import pandas as pd
 from dataclasses import asdict
 
 from lib.schemas import (
-    SpireFlightInfo,
-    SpireWaypointsRecord,
+    FlightInfoWide,
+    WaypointsRecord,
     SpireWaypointPositional,
     CocipTrajectoryChunk,
 )
 from scratch.handlers import ResampleHandler
-from main import _open_met_rad, _create_flight, _create_cocip_model, _perf_lookup
+from lib.handlers import CocipTrajectoryHandler
 
+from pycontrails_bada.bada_model import BADAFlight
 
 EXPORT_WINDOW_START_TIME = pd.to_datetime("2024-04-15T22:00:00Z")
 INSTANCE_ORIGIN_OFFSET = pd.to_timedelta(6, "hours")
@@ -49,12 +50,12 @@ for flight_id, waypoints in flight_instances:
 # for tg_ix, target in enumerate(flights_list):
 target = flights_list[6]
 
-flight_info: SpireFlightInfo
+flight_info: FlightInfoWide
 records: list[SpireWaypointPositional]
-job: SpireWaypointsRecord
+job: WaypointsRecord
 
 target.reset_index(inplace=True)
-flight_info = SpireFlightInfo(  # todo: invariance handling
+flight_info = FlightInfoWide(  # todo: invariance handling
     icao_address=target["icao_address"][0],
     flight_id=target["flight_id"][0],
     callsign=target["callsign"][0],
@@ -66,6 +67,7 @@ flight_info = SpireFlightInfo(  # todo: invariance handling
     departure_scheduled_time=target["departure_scheduled_time"][0],  # todo: fmt
     arrival_airport_icao=target["arrival_airport_icao"][0],
     arrival_scheduled_time=["arrival_scheduled_time"][0],  # todo: fmt
+    engine_uid=None,
 )
 
 records = []
@@ -86,29 +88,24 @@ resample_handler.interpolate()
 
 target_resampled = resample_handler.waypoints_resampled
 target_resampled_df = pd.DataFrame([asdict(ln) for ln in target_resampled])
-job = SpireWaypointsRecord(flight_info=flight_info, records=target_resampled)
+job = WaypointsRecord(flight_info=flight_info, records=target_resampled)
 
 # ---------------
 # run model on trajectory
 
 try:
-    performance_model, engine_uid = _perf_lookup(job)
-    met, rad = _open_met_rad(
+    cocip_handler = CocipTrajectoryHandler(
         job, "gs://contrails-301217-ecmwf-hres-forecast-v2-short-term"
     )
-    flight = _create_flight(job, engine_uid)
-    model = _create_cocip_model(met, rad, performance_model)
-    result = model.eval(flight)
+    # manual override of bada3 model
+    perf_model = BADAFlight(
+        bada3_path="/Users/nickmasson/dev/flights-pipeline/trajectory-worker/bada3"
+    )
+    cocip_handler._perf_model = perf_model
+    cocip_handler.load()
+    result = cocip_handler.run()
 except Exception as e:
     print(f"failed to run model. {e}")
-# result_ef = result["ef"]
-# result_seg_lens = result["segment_length"]
-
-# if (result_ef > 0).sum():
-#    print(f"found non-zero cocip values for flight_id: {job.flight_info.flight_id}")
-# sl = slice(1, -1)  # assuming we want to drop the first segment?
-# cocip_output = result["ef"][sl] / result["segment_length"][sl]
-# sum_ef = sum(cocip_output)
 
 egress_dto = CocipTrajectoryChunk.from_cocip_result("", "", job, result)
 bq_blob = egress_dto.to_bq_flatmap()
