@@ -283,9 +283,11 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_cocip_bigquery_del
   }
 
   dead_letter_policy {
-    max_delivery_attempts = 10
+    max_delivery_attempts = 15
     dead_letter_topic = google_pubsub_topic.prod_trajectory_worker_cocip_egress_bigquery_dead_letter.id
   }
+
+  ack_deadline_seconds = 30
 
     retry_policy {
     minimum_backoff = "1s"
@@ -302,8 +304,8 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_cocip_bigquery_del
   ]
 }
 
-resource "google_pubsub_subscription" "prod_trajectory_worker_cocip_bigquery_dead_letter_dev" {
-  name  = "prod-fp-trajectory-worker-cocip-bigquery-dead-letter-dev"
+resource "google_pubsub_subscription" "prod_trajectory_worker_cocip_bigquery_dead_letter" {
+  name  = "prod-fp-trajectory-worker-cocip-bigquery-dead-letter"
   topic = google_pubsub_topic.prod_trajectory_worker_cocip_egress_bigquery_dead_letter.id
   message_retention_duration = "302400s"  # 3.5 day
 

@@ -301,8 +301,8 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_cocip_bigquery_deli
   ]
 }
 
-resource "google_pubsub_subscription" "dev_trajectory_worker_cocip_bigquery_dead_letter_dev" {
-  name  = "dev-fp-trajectory-worker-cocip-bigquery-dead-letter-dev"
+resource "google_pubsub_subscription" "dev_trajectory_worker_cocip_bigquery_dead_letter" {
+  name  = "dev-fp-trajectory-worker-cocip-bigquery-dead-letter"
   topic = google_pubsub_topic.dev_trajectory_worker_cocip_egress_bigquery_dead_letter.id
   message_retention_duration = "86400s"  # 1 day
 
