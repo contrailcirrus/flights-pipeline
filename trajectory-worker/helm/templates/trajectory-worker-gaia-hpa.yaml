@@ -25,5 +25,5 @@ spec:
             matchLabels:
               resource.labels.subscription_id: {{ .Values.trajectoryChunkGaiaSubscriptionId | required ".Values.trajectoryChunkGaiaSubscriptionId is required" | splitList "/" | last | quote }}
         target:
-          type: AverageValue
+          type: TotalValue
           averageValue: 100
