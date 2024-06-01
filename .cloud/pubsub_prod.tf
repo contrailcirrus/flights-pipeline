@@ -266,6 +266,7 @@ resource "google_pubsub_subscription" "prod_trajectory_gaia_chunk_ingress_dead_l
   expiration_policy {
     ttl = ""
   }
+  ack_deadline_seconds = 60
 
   depends_on = [
     google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter,
