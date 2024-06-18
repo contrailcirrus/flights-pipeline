@@ -211,6 +211,7 @@ class WaypointsRecord:
 
     flight_info: FlightInfoWide
     records: list[SpireWaypointPositional]
+    export_cocip_trajectory: bool = False
 
     def as_utf8_json(self) -> bytes:
         """
@@ -224,7 +225,8 @@ class WaypointsRecord:
         """
         Takes a utf8 json blob and marshals to an instance of this class.
         """
-        return SpireWaypointsRecord(
+        return WaypointsRecord(
+            export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
             flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
         )
