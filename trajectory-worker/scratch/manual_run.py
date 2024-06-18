@@ -12,9 +12,6 @@ from lib.handlers import CocipTrajectoryHandler
 
 from pycontrails_bada.bada_model import BADAFlight
 
-EXPORT_WINDOW_START_TIME = pd.to_datetime("2024-04-15T22:00:00Z")
-INSTANCE_ORIGIN_OFFSET = pd.to_timedelta(6, "hours")
-
 # static export from spire_flights_raw_dev
 df_raw = pd.read_csv("scratch/BA_spire_raw_sample.csv")
 df_raw["ingestion_time"] = pd.to_datetime(df_raw["ingestion_time"])
@@ -44,11 +41,12 @@ for flight_id, waypoints in flight_instances:
     #          f"occurred too early to consider as the flight origin.")
     #    continue
     flights_list.append(waypoints)
+    print(f"got flight {flight_id} with {len(waypoints)} waypoints.")
 
 # -------------------
 # resample and run
 # for tg_ix, target in enumerate(flights_list):
-target = flights_list[6]
+target = flights_list[0]
 
 flight_info: FlightInfoWide
 records: list[SpireWaypointPositional]
@@ -107,5 +105,5 @@ try:
 except Exception as e:
     print(f"failed to run model. {e}")
 
-egress_dto = CocipTrajectoryChunk.from_cocip_result("", "", job, result)
+egress_dto = CocipTrajectoryChunk.from_cocip_result("", "", job, "foo", result)
 bq_blob = egress_dto.to_bq_flatmap()
