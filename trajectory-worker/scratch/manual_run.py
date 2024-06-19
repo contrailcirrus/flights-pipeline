@@ -46,7 +46,7 @@ for flight_id, waypoints in flight_instances:
 # -------------------
 # resample and run
 # for tg_ix, target in enumerate(flights_list):
-target = flights_list[0]
+target = flights_list[1]
 
 flight_info: FlightInfoWide
 records: list[SpireWaypointPositional]

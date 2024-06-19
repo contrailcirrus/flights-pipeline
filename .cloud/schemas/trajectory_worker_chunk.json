@@ -84,6 +84,12 @@
     "description": "identifier of the perf model"
   },
   {
+    "name": "nvpm_data_source",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "identifier of the nvPM data source"
+  },
+  {
     "name": "source_id",
     "type": "STRING",
     "mode": "REQUIRED",

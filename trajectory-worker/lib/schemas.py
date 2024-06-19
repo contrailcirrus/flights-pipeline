@@ -251,6 +251,7 @@ class CocipTrajectoryChunk:
 
     pycontrails_ver: str  # version of pycontrails used in model run
     perf_model_id: str  # identifier of the perf model
+    nvpm_data_source: str
     source_id: str  # the source identifier for the trajectory chunk job
     git_sha: str  # git sha of the trajectory-worker
     zarr_uri: str  # zarr store model_run_at identifier; e.g. '2024041506'
@@ -312,6 +313,7 @@ class CocipTrajectoryChunk:
             aircraft_type: str  # B788 (icao aircraft type)
             engine_uid: str  # 01P17GE210 (icao engine id)
             aircraft_performance_model: str  # PSFlight
+            nvpm_data_source: str  # "ICAO EDB"
             total_fuel_burn: float
             total_co2: float
             total_h2o: float
@@ -363,6 +365,7 @@ class CocipTrajectoryChunk:
             time_end=input_chunk.records[-1].timestamp,
             pycontrails_ver=attrs["pycontrails_version"],
             perf_model_id=attrs["aircraft_performance_model"],
+            nvpm_data_source=attrs["nvpm_data_source"],
             source_id=source_id,
             git_sha=git_sha,
             zarr_uri=zarr_uri,
@@ -442,6 +445,7 @@ class CocipTrajectoryChunk:
             "time_end": time_end_us,
             "pycontrails_ver": self.pycontrails_ver,
             "perf_model_id": self.perf_model_id,
+            "nvpm_data_source": self.nvpm_data_source,
             "source_id": self.source_id,
             "git_sha": self.git_sha,
             "zarr_uri": self.zarr_uri,
