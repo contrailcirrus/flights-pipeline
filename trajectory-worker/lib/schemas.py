@@ -277,6 +277,10 @@ class CocipTrajectoryChunk:
     tail_number: str | None  # e.g. HB-AZJ
     flight_number: str | None  # e.g. LX644
     airline_iata: str | None  # e.g. LX
+    departure_airport_icao: str | None  # e.g. LSZH
+    departure_scheduled_time: str | None  # e.g. 2024-03-01T16:25:00Z
+    arrival_airport_icao: str | None  # e.g. LFPG
+    arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
 
     @staticmethod
     def from_cocip_result(
@@ -382,6 +386,10 @@ class CocipTrajectoryChunk:
             tail_number=input_chunk.flight_info.tail_number,
             flight_number=input_chunk.flight_info.flight_number,
             airline_iata=input_chunk.flight_info.airline_iata,
+            departure_airport_icao=input_chunk.flight_info.departure_airport_icao,
+            departure_scheduled_time=input_chunk.flight_info.departure_scheduled_time,
+            arrival_airport_icao=input_chunk.flight_info.departure_airport_icao,
+            arrival_scheduled_time=input_chunk.flight_info.arrival_scheduled_time,
         )
 
     def to_bq_flatmap(self) -> bytes:
@@ -457,5 +465,11 @@ class CocipTrajectoryChunk:
             "tail_number": self.tail_number,
             "flight_number": self.flight_number,
             "airline_iata": self.airline_iata,
+            "departure_airport_icao": self.departure_airport_icao,
+            "departure_scheduled_time": iso_to_microseconds(
+                self.departure_scheduled_time
+            ),
+            "arrival_airport_icao": self.departure_airport_icao,
+            "arrival_scheduled_time": iso_to_microseconds(self.arrival_scheduled_time),
         }
         return json.dumps(blob).encode("utf-8")

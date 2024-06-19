@@ -220,5 +220,29 @@
     "type": "STRING",
     "mode": "NULLABLE",
     "description": "airline iata code for the aircraft"
+  },
+    {
+    "name": "departure_airport_icao",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "airport icao for departure (origin) location"
+  },
+    {
+    "name": "departure_scheduled_time",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "scheduled time for departure from origin"
+  },
+    {
+    "name": "arrival_airport_icao",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "airport icao for arrival (destination) location"
+  },
+    {
+    "name": "arrival_scheduled_time",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "scheduled time for arrival to destination"
   }
 ]
