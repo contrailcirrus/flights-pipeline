@@ -72,6 +72,18 @@
     "description": "timestamp of last waypoint in chunk"
   },
   {
+    "name": "total_persistent_contrail_length_km",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total contrail length (at initialization) for persistent contrails (non-zero cocip value)"
+  },
+  {
+    "name": "total_contrail_length_sac_km",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "total contrail length (at initialization) for contrails that meet the SAC"
+  },
+  {
     "name": "pycontrails_ver",
     "type": "STRING",
     "mode": "REQUIRED",

@@ -248,6 +248,10 @@ class CocipTrajectoryChunk:
     lon_end: float  # lon of " " "
     time_start: str  # timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    total_persistent_contrail_length_km: float
+    total_contrail_length_sac_km: float
+    max_contrail_lifetime_h: float
+    median_contrail_lifetime_h: float
 
     pycontrails_ver: str  # version of pycontrails used in model run
     perf_model_id: str  # identifier of the perf model
@@ -351,6 +355,24 @@ class CocipTrajectoryChunk:
         # between consecutive jobs
         sl = slice(0, -2)
         segs_ef_j = result["ef"][sl]
+        df_sl = result.dataframe[sl]
+
+        tot_contrail_len = float(
+            np.nansum(df_sl[df_sl["cocip"] != 0]["segment_length"]) / 1000.0
+        )
+        tot_sac_len = float(
+            np.nansum(df_sl[df_sl["sac"] == 1]["segment_length"]) / 1000.0
+        )
+
+        max_contrail_age_hr = float(
+            np.nanmax(df_sl["contrail_age"]).astype(int) / (10**9 * 60 * 60)
+        )
+        median_contrail_age_hr = float(
+            np.nanmedian(
+                df_sl[df_sl["contrail_age"] > np.timedelta64(0)]["contrail_age"]
+            ).astype(int)
+            / (10**9 * 60 * 60)
+        )
 
         return CocipTrajectoryChunk(
             seg_cnt=len(segs_ef_j),
@@ -363,6 +385,10 @@ class CocipTrajectoryChunk:
             lon_end=input_chunk.records[-1].longitude,
             time_start=input_chunk.records[0].timestamp,
             time_end=input_chunk.records[-1].timestamp,
+            total_persistent_contrail_length_km=tot_contrail_len,
+            total_contrail_length_sac_km=tot_sac_len,
+            max_contrail_lifetime_h=max_contrail_age_hr,
+            median_contrail_lifetime_h=median_contrail_age_hr,
             pycontrails_ver=attrs["pycontrails_version"],
             perf_model_id=attrs["aircraft_performance_model"],
             nvpm_data_source=attrs["nvpm_data_source"],
@@ -443,6 +469,10 @@ class CocipTrajectoryChunk:
             "lon_end": self.lon_end,
             "time_start": time_start_us,
             "time_end": time_end_us,
+            "total_persistent_contrail_length_km": self.total_persistent_contrail_length_km,
+            "total_contrail_length_sac_km": self.total_contrail_length_sac_km,
+            "max_contrail_lifetime_h": self.max_contrail_lifetime_h,
+            "median_contrail_lifetime_h": self.median_contrail_lifetime_h,
             "pycontrails_ver": self.pycontrails_ver,
             "perf_model_id": self.perf_model_id,
             "nvpm_data_source": self.nvpm_data_source,
