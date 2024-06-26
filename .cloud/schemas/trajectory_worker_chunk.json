@@ -216,6 +216,18 @@
     "description": "engine uid used in model"
   },
   {
+    "name": "mean_aircraft_mass_kg",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "mean (time averaged) aircraft mass in [kg]"
+  },
+  {
+    "name": "mean_overall_efficiency",
+    "type": "FLOAT64",
+    "mode": "REQUIRED",
+    "description": "mean (time averaged) engine efficiency"
+  },
+  {
     "name": "icao_address",
     "type": "STRING",
     "mode": "REQUIRED",

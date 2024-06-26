@@ -275,6 +275,8 @@ class CocipTrajectoryChunk:
 
     aircraft_type_icao: str  # icao aircraft type identifier used in model e.g. B788
     engine_uid: str  # engine uid used in model
+    mean_aircraft_mass_kg: float
+    mean_engine_efficiency: float
 
     icao_address: str  # e.g. 4B0293
     flight_id: str  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
@@ -374,6 +376,9 @@ class CocipTrajectoryChunk:
             / (10**9 * 60 * 60)
         )
 
+        mean_aircraft_mass_kg = float(np.nanmean(df_sl["aircraft_mass"]))
+        mean_engine_efficiency = float(np.nanmean(df_sl["engine_efficiency"]))
+
         return CocipTrajectoryChunk(
             seg_cnt=len(segs_ef_j),
             seg_ef_cnt=int(sum(np.abs(segs_ef_j) > 0)),
@@ -409,6 +414,8 @@ class CocipTrajectoryChunk:
             total_nvpm_giga_cnt=int(attrs["total_nvpm_number"] // 10**9),
             aircraft_type_icao=attrs["aircraft_type"],
             engine_uid=attrs["engine_uid"],
+            mean_aircraft_mass_kg=mean_aircraft_mass_kg,
+            mean_engine_efficiency=mean_engine_efficiency,
             icao_address=input_chunk.flight_info.icao_address,
             flight_id=input_chunk.flight_info.flight_id,
             callsign=input_chunk.flight_info.callsign,
@@ -493,6 +500,8 @@ class CocipTrajectoryChunk:
             "total_nvpm_giga_cnt": self.total_nvpm_giga_cnt,
             "aircraft_type_icao": self.aircraft_type_icao,
             "engine_uid": self.engine_uid,
+            "mean_aircraft_mass_kg": self.mean_aircraft_mass_kg,
+            "mean_overall_efficiency": self.mean_overall_efficiency,
             "icao_address": self.icao_address,
             "flight_id": self.flight_id,
             "callsign": self.callsign,
