@@ -87,13 +87,13 @@
     "name": "max_contrail_lifetime_h",
     "type": "FLOAT64",
     "mode": "REQUIRED",
-    "description": "maximum contrail segment lifetime among all segments."
+    "description": "maximum contrail segment lifetime among contrail forming flight segments."
   },
   {
     "name": "median_contrail_lifetime_h",
     "type": "FLOAT64",
     "mode": "REQUIRED",
-    "description": "median contrail segment lifetime among all segments."
+    "description": "median contrail segment lifetime among contrail forming flight segments."
   },
   {
     "name": "pycontrails_ver",
