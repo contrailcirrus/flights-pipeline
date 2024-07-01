@@ -367,13 +367,13 @@ class CocipTrajectoryChunk:
         )
 
         max_contrail_age_hr = float(
-            np.nanmax(df_sl["contrail_age"]).astype(int) / (10**9 * 60 * 60)
+            np.nanmax(df_sl["contrail_age"]) / np.timedelta64(1, "h")
         )
         median_contrail_age_hr = float(
             np.nanmedian(
                 df_sl[df_sl["contrail_age"] > np.timedelta64(0)]["contrail_age"]
-            ).astype(int)
-            / (10**9 * 60 * 60)
+            )
+            / np.timedelta64(1, "h")
         )
 
         mean_aircraft_mass_kg = float(np.nanmean(df_sl["aircraft_mass"]))
