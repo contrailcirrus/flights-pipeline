@@ -75,13 +75,13 @@
     "name": "total_persistent_contrail_length_km",
     "type": "FLOAT64",
     "mode": "REQUIRED",
-    "description": "total contrail length (at initialization) for persistent contrails (non-zero cocip value)"
+    "description": "total length of flight segments that produce persistent contrails (non-zero EF)"
   },
   {
     "name": "total_contrail_length_sac_km",
     "type": "FLOAT64",
     "mode": "REQUIRED",
-    "description": "total contrail length (at initialization) for contrails that meet the SAC"
+    "description": "total length of flight segments that meet the SAC"
   },
   {
     "name": "max_contrail_lifetime_h",
