@@ -501,7 +501,7 @@ class CocipTrajectoryChunk:
             "aircraft_type_icao": self.aircraft_type_icao,
             "engine_uid": self.engine_uid,
             "mean_aircraft_mass_kg": self.mean_aircraft_mass_kg,
-            "mean_overall_efficiency": self.mean_overall_efficiency,
+            "mean_overall_efficiency": self.mean_engine_efficiency,
             "icao_address": self.icao_address,
             "flight_id": self.flight_id,
             "callsign": self.callsign,
