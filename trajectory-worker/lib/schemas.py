@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import TypedDict
@@ -379,6 +380,12 @@ class CocipTrajectoryChunk:
         mean_aircraft_mass_kg = float(np.nanmean(df_sl["aircraft_mass"]))
         mean_engine_efficiency = float(np.nanmean(df_sl["engine_efficiency"]))
 
+        def nan_to_null(x):
+            if math.isnan(x):
+                return None
+            else:
+                return x
+
         return CocipTrajectoryChunk(
             seg_cnt=len(segs_ef_j),
             seg_ef_cnt=int(sum(np.abs(segs_ef_j) > 0)),
@@ -390,10 +397,10 @@ class CocipTrajectoryChunk:
             lon_end=input_chunk.records[-1].longitude,
             time_start=input_chunk.records[0].timestamp,
             time_end=input_chunk.records[-1].timestamp,
-            total_persistent_contrail_length_km=tot_contrail_len,
-            total_contrail_length_sac_km=tot_sac_len,
-            max_contrail_lifetime_h=max_contrail_age_hr,
-            median_contrail_lifetime_h=median_contrail_age_hr,
+            total_persistent_contrail_length_km=nan_to_null(tot_contrail_len),
+            total_contrail_length_sac_km=nan_to_null(tot_sac_len),
+            max_contrail_lifetime_h=nan_to_null(max_contrail_age_hr),
+            median_contrail_lifetime_h=nan_to_null(median_contrail_age_hr),
             pycontrails_ver=attrs["pycontrails_version"],
             perf_model_id=attrs["aircraft_performance_model"],
             nvpm_data_source=attrs["nvpm_data_source"],
@@ -414,8 +421,8 @@ class CocipTrajectoryChunk:
             total_nvpm_giga_cnt=int(attrs["total_nvpm_number"] // 10**9),
             aircraft_type_icao=attrs["aircraft_type"],
             engine_uid=attrs["engine_uid"],
-            mean_aircraft_mass_kg=mean_aircraft_mass_kg,
-            mean_engine_efficiency=mean_engine_efficiency,
+            mean_aircraft_mass_kg=nan_to_null(mean_aircraft_mass_kg),
+            mean_engine_efficiency=nan_to_null(mean_engine_efficiency),
             icao_address=input_chunk.flight_info.icao_address,
             flight_id=input_chunk.flight_info.flight_id,
             callsign=input_chunk.flight_info.callsign,
