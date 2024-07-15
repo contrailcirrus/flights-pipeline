@@ -74,25 +74,25 @@
   {
     "name": "total_persistent_contrail_length_km",
     "type": "FLOAT64",
-    "mode": "REQUIRED",
+    "mode": "NULLABLE",
     "description": "total length of flight segments that produce persistent contrails (non-zero EF)"
   },
   {
     "name": "total_contrail_length_sac_km",
     "type": "FLOAT64",
-    "mode": "REQUIRED",
+    "mode": "NULLABLE",
     "description": "total length of flight segments that meet the SAC"
   },
   {
     "name": "max_contrail_lifetime_h",
     "type": "FLOAT64",
-    "mode": "REQUIRED",
+    "mode": "NULLABLE",
     "description": "maximum contrail segment lifetime among contrail forming flight segments."
   },
   {
     "name": "median_contrail_lifetime_h",
     "type": "FLOAT64",
-    "mode": "REQUIRED",
+    "mode": "NULLABLE",
     "description": "median contrail segment lifetime among contrail forming flight segments."
   },
   {
@@ -218,13 +218,13 @@
   {
     "name": "mean_aircraft_mass_kg",
     "type": "FLOAT64",
-    "mode": "REQUIRED",
+    "mode": "NULLABLE",
     "description": "mean (time averaged) aircraft mass in [kg]"
   },
   {
     "name": "mean_overall_efficiency",
     "type": "FLOAT64",
-    "mode": "REQUIRED",
+    "mode": "NULLABLE",
     "description": "mean (time averaged) engine efficiency"
   },
   {
