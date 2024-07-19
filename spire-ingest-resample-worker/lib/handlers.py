@@ -459,8 +459,11 @@ class ValidationHandler:
             self._flight_info.flight_id
             and self._flight_info.flight_id == self._cached_flight_ids[-1]
         ):
-            # case (A)
+            # nominal case
             return self._cached_records
+        elif self._flight_info.flight_id:
+            # case (A)
+            return []
 
         # TODO: self.max_cached_ts could be None
         cache_to_records_elapsed_hr = (
@@ -481,8 +484,8 @@ class ValidationHandler:
             + geo.haversine(
                 lons1=np.array(self._records[0].longitude),
                 lats1=np.array(self._records[0].latitude),
-                lons0=np.array(self._records[0].longitude),
-                lats0=np.array(self._records[0].latitude),
+                lons0=np.array(self._cached_records[-1].longitude),
+                lats0=np.array(self._cached_records[-1].latitude),
             )
             ** 2
         )
