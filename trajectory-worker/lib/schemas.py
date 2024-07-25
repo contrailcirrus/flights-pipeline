@@ -431,7 +431,7 @@ class CocipTrajectoryChunk:
             airline_iata=input_chunk.flight_info.airline_iata,
             departure_airport_icao=input_chunk.flight_info.departure_airport_icao,
             departure_scheduled_time=input_chunk.flight_info.departure_scheduled_time,
-            arrival_airport_icao=input_chunk.flight_info.departure_airport_icao,
+            arrival_airport_icao=input_chunk.flight_info.arrival_airport_icao,
             arrival_scheduled_time=input_chunk.flight_info.arrival_scheduled_time,
         )
 
