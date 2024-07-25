@@ -261,7 +261,7 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_gaia_chunk_ingress
 resource "google_pubsub_subscription" "prod_trajectory_gaia_chunk_ingress_dead_letter" {
   name  = "prod-fp-trajectory-gaia-chunk-ingress-dead-letter"
   topic = google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.id
-  message_retention_duration = "302400s"  # 3.5 day
+  message_retention_duration = "604800s"  # 7 day
 
   expiration_policy {
     ttl = ""
