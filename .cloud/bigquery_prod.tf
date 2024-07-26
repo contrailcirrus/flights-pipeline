@@ -16,6 +16,7 @@ resource "google_bigquery_table" "spire_flights_raw_prod" {
     field = "timestamp"
     type = "DAY"
   }
+  require_partition_filter = true
   schema = file("${path.module}/schemas/bq_spire_flights_raw.json")
   depends_on = [
     google_bigquery_dataset.flights_pipeline_prod,
@@ -32,6 +33,7 @@ resource "google_bigquery_table" "spire_flights_resampled_prod" {
     field = "timestamp"
     type = "DAY"
   }
+  require_partition_filter = true
   schema = file("${path.module}/schemas/bq_spire_flights_resampled.json")
   depends_on = [
     google_bigquery_dataset.flights_pipeline_prod,
