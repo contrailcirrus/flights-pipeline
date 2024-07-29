@@ -1,0 +1,18 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+db-dtypes = "==1.2.0"
+google-cloud-bigquery = "==3.21.0"
+google-cloud-pubsub = "==2.19.7"
+pandas = "==2.2.2"
+pycontrails = "==0.50.1"
+pyproj = "==3.6.1"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.0"
