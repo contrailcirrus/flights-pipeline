@@ -54,7 +54,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Deploy helm resources
-        working-directory: spire-ingest-api-scraper/helm
+        working-directory: flight-emissions-report/helm
         run: make deploy
         env:
           NAMESPACE: flights-pipeline-dev
