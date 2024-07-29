@@ -9,12 +9,6 @@ and aggregating the resulting values into a report.
 import argparse
 from services import FlightsSubmitSvc, FlightsReportFetchSvc, FlightsReinjectSvc
 
-SUPPORTED_AIRLINE_IATA = [
-    "KL",  # klm
-    "BY",  # tui
-    "HV",  # tansavia CV
-]
-
 
 parser = argparse.ArgumentParser(prog="gaia")
 subparser = parser.add_subparsers()
@@ -31,7 +25,6 @@ flights_submit_parser = flights_subparser.add_parser("submit")
 flights_submit_parser.add_argument(
     "-a",
     "--airline",
-    choices=SUPPORTED_AIRLINE_IATA,
     required=False,
     help="airline IATA code",
     dest="airline",
@@ -114,7 +107,6 @@ flights_submit_parser = flights_subparser.add_parser("fetch")
 flights_submit_parser.add_argument(
     "-a",
     "--airline",
-    choices=SUPPORTED_AIRLINE_IATA,
     required=True,
     help="airline IATA code",
     dest="airline",
