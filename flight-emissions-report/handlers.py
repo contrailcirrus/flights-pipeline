@@ -379,7 +379,7 @@ class ResampleHandler:
         )
 
         if df_records["time"].duplicated().sum():
-            logger.warning("duplicated waypoints found in cache+records.")
+            #  logger.warning("duplicated waypoints found in cache+records.")
             df_records.drop_duplicates(["time"], inplace=True)
 
         self._min_records_ts = df_records["time"].min()

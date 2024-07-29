@@ -111,7 +111,7 @@ class FlightsSubmitSvc(BaseSvc):
         # segregate sat data (i.e. terr_waypoints with missing flight_id
         df_satellite = df[df["flight_id"].isnull()]
         df = df[~df["flight_id"].isnull()]
-        print(
+        logger.info(
             f"📜 received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
             f"Flight count: {len(df['flight_id'].unique())}"
         )
@@ -140,7 +140,7 @@ class FlightsSubmitSvc(BaseSvc):
         # segregate sat data (i.e. terr_waypoints with missing flight_id)
         df_satellite = df[df["flight_id"].isnull()]
         df = df[~df["flight_id"].isnull()]
-        print(
+        logger.info(
             f"📜 received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
             f"Flight count: {len(df['flight_id'].unique())}"
         )
@@ -179,7 +179,7 @@ class FlightsSubmitSvc(BaseSvc):
         # segregate sat data (i.e. terr_waypoints with missing flight_id
         df_satellite = df[df["flight_id"].isnull()]
         df = df[~df["flight_id"].isnull()]
-        print(
+        logger.info(
             f"📜 received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
             f"Flight count: {len(df['flight_id'].unique())}"
         )
@@ -187,15 +187,15 @@ class FlightsSubmitSvc(BaseSvc):
 
     def run(self):
         if self._day and self._airline:
-            print(f"🛠️submitting flights for ✈️ {self._airline} on 🗓️{self._day}")
+            logger.info(f"🛠️submitting flights for ✈️ {self._airline} on 🗓️{self._day}")
             df, df_satellite = self._fetch_airline_day()
         elif self._day and self._flight_id:
-            print(
+            logger.info(
                 f"🛠️submitting flight with 🛂 flight_id: {self._flight_id} on 🗓️{self._day}"
             )
             df, df_satellite = self._fetch_flight_id_day()
         elif self._day and self._icao_address:
-            print(
+            logger.info(
                 f"🛠️submitting flight with 🏤 icao_address: {self._icao_address} on 🗓️{self._day}"
             )
             df, df_satellite = self._fetch_icao_address_day()
@@ -350,7 +350,7 @@ class FlightsSubmitSvc(BaseSvc):
             # --------------
             should_skip = len(waypoints_resampled) < 3
             if self._verbose:
-                print(
+                logger.info(
                     f" {'EMPTY! SKIPPING...' if should_skip else ''} "
                     f"⇢ publishing trajectory for flight_id: {job.flight_info.flight_id} with "
                     f"{len(waypoints_resampled)} records."
@@ -369,11 +369,11 @@ class FlightsSubmitSvc(BaseSvc):
                 )
 
         if self._dryrun:
-            print("🌵dry run... exiting before submission")
+            logger.info("🌵dry run... exiting before submission")
             return
-        print("⏲️ waiting for publish to finish...")
+        logger.info("⏲️ waiting for publish to finish...")
         self._publish_handler.wait_for_publish(timeout_seconds=300)
-        print("🙌 DONE!")
+        logger.info("🙌 DONE!")
 
 
 class FlightsReinjectSvc(BaseSvc):
@@ -420,11 +420,11 @@ class FlightsReinjectSvc(BaseSvc):
         """
         messages = self._subscriber_handler.fetch(int(self._count))
         start_time = datetime.now()
-        print(f"📜 fetched {len(messages)} messages from dead-letter queue.")
+        logger.info(f"📜 fetched {len(messages)} messages from dead-letter queue.")
         msg: PubSubSubscriptionHandler.Message
         for msg in messages:
             record = WaypointsRecord.from_utf8_json(msg.data)
-            print(
+            logger.info(
                 f"💦 re-injecting job for flight_id: {record.flight_info.flight_id}"
                 f" with {len(record.records)} "
                 f"waypoints from {record.flight_info.airline_iata} "
@@ -439,10 +439,10 @@ class FlightsReinjectSvc(BaseSvc):
                     ),
                 )
         if self._dryrun:
-            print("🌵dry run... exiting before submission")
+            logger.info("🌵dry run... exiting before submission")
             return
 
-        print("⏲️ waiting for publish to finish...")
+        logger.info("⏲️ waiting for publish to finish...")
         self._publish_handler.wait_for_publish(timeout_seconds=300)
         for msg in messages:
             self._subscriber_handler.ack(msg)
@@ -452,7 +452,7 @@ class FlightsReinjectSvc(BaseSvc):
             logger.warning(
                 f"pull to ack period exceeded {self.DEAD_LETTER_ACK_DEADLINE_SEC} seconds."
             )
-        print("🙌 DONE!")
+        logger.info("🙌 DONE!")
 
 
 class FlightsReportFetchSvc(BaseSvc):
@@ -588,7 +588,7 @@ class FlightsReportFetchSvc(BaseSvc):
         return df
 
     def run(self):
-        print(
+        logger.info(
             f"🐶 fetching report for airline {self._airline} on day/day-range {self._day_str}..."
         )
         query = self._bq_handler.import_query(self.REPORT_QUERY_FILENAME)
@@ -682,8 +682,8 @@ class FlightsReportFetchSvc(BaseSvc):
         )
         with open(export_summary_fn, "w") as fp:
             json.dump(summary, fp, indent=4)
-        print(
+        logger.info(
             f"📜 got {count_flights} flights. "
             f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
         )
-        print("🙌 DONE!")
+        logger.info("🙌 DONE!")
