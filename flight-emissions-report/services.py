@@ -32,9 +32,9 @@ class FlightsSubmitSvc(BaseSvc):
     Service backing calls to the flights submit parser.
     """
 
-    DAILY_FLIGHTS_QUERY_FILENAME = "bq_waypoints_flights_daily_by_airline.sql"
-    FLIGHT_ID_QUERY_FILENAME = "bq_waypoints_flights_daily_by_flight_id.sql"
-    ICAO_ADDRESS_QUERY_FILENAME = "bq_waypoints_flights_daily_by_icao_address.sql"
+    DAILY_FLIGHTS_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_airline.sql"
+    FLIGHT_ID_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_flight_id.sql"
+    ICAO_ADDRESS_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_icao_address.sql"
     TRAJECTORY_WORKER_TOPIC = (
         "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
     )
@@ -383,7 +383,7 @@ class FlightsReinjectSvc(BaseSvc):
 
     WORKER_JOB_DEAD_LETTER_SUBSCRIPTION = "projects/contrails-301217/subscriptions/prod-fp-trajectory-gaia-chunk-ingress-dead-letter"
     DEAD_LETTER_ACK_DEADLINE_SEC = 60  # reference subscriber settings
-    FLIGHT_ID_QUERY_FILENAME = "bq_waypoints_flights_daily_by_flight_id.sql"
+    FLIGHT_ID_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_flight_id.sql"
     TRAJECTORY_WORKER_TOPIC = (
         "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
     )
@@ -460,7 +460,7 @@ class FlightsReportFetchSvc(BaseSvc):
     Service backing calls to the flights report fetch parser.
     """
 
-    REPORT_QUERY_FILENAME = "bq_flights_report_daily.sql"
+    REPORT_QUERY_FILENAME = "sql/bq_flights_report_daily.sql"
     EXPORT_RAW_FILENAME_TEMPLATE = (
         "flights_report_raw_{audience}_{airline}_{day}_{unixtime}.csv"
     )
