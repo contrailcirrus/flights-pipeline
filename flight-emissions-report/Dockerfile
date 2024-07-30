@@ -35,6 +35,7 @@ ENV PATH /usr/src/.venv/bin:$PATH
 
 # Copy the application code
 WORKDIR /
-COPY sql environment.py log.py schemas.py handlers.py services.py main_cron.py ./
+COPY sql ./sql
+COPY environment.py log.py schemas.py handlers.py services.py main_cron.py ./
 
 CMD ["python3", "main_cron.py"]
