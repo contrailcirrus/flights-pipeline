@@ -29,7 +29,7 @@ spec:
                 - name: LOG_LEVEL
                   value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
                 - name: TRAJECTORY_WORKER_TOPIC
-                  alue: {{ .Values.trajectoryWorkerTopic | required ".Values.TrajectoryWorkerTopic is required" | quote }}
+                  value: {{ .Values.trajectoryWorkerTopic | required ".Values.TrajectoryWorkerTopic is required" | quote }}
               resources:
                 requests:
                   cpu: "2"  # 1:4 ratio for Scale-Out enforced
