@@ -36,7 +36,31 @@ class Input:
     export_waypoints: bool = False
 
 
-AIRLINE_IATAS = ["KL", "BY", "HV", "AA"]
+DAILY_TARGETS = [
+    {"airline": "KL"},
+    {"airline": "BY"},
+    {"airline": "HV"},
+    {"airline": "AA"},
+    {"airline": "UA"},
+    {"airline": "DL"},
+    {"airline": "VS"},
+    {"airline": "WN"},
+    {"airline": "AS"},
+    {"airline": "LX"},
+    {"airline": "BA"},
+    {"airline": "AF"},
+    {"icao_address": "3C6565"},  # iagos tail_number: "D-AIKE"
+    {"icao_address": "780192"},  # iagos tail_number: "B-HLR"
+    {"icao_address": "8991BD"},  # iagos tail_number: "B-18316"
+    {"icao_address": "8991BE"},  # iagos tail_number: "B-18317"
+    {"icao_address": "A46AD6"},  # iagos tail_number: "N384HA"
+    {"icao_address": "39644E"},  # iagos tail_number: "F-GZCO"
+    {"icao_address": "3C64F4"},  # iagos tail_number: "D-AIGT"
+    {"icao_address": "3455C1"},  # iagos tail_number: "EC-MSY"
+    {"icao_address": "C04FBB"},  # iagos tail_number: "C-GEFA"
+    {"icao_address": "3C656F"},  # iagos tail_number: "D-AIKO"
+]
+
 
 if __name__ == "__main__":
     try:
@@ -44,12 +68,9 @@ if __name__ == "__main__":
         now_less_two_days = now - timedelta(days=2)
         target_dtstr = now_less_two_days.strftime("%Y-%m-%d")
 
-        for airline_iata in AIRLINE_IATAS:
-            logger.info(f"submitting flights for {airline_iata} on {target_dtstr}")
-            args = Input(
-                day=target_dtstr,
-                airline=airline_iata,
-            )
+        for target_kwarg in DAILY_TARGETS:
+            logger.info(f"submitting flights for {target_kwarg} on {target_dtstr}")
+            args = Input(day=target_dtstr, **target_kwarg)
             svc = FlightsSubmitSvc(Namespace(**asdict(args)))
             svc.run()
     except Exception:
