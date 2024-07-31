@@ -25,6 +25,7 @@ resource "google_project_iam_custom_role" "flights_pipeline_role" {
     "pubsub.topics.publish",
     "storage.objects.list",
     "storage.objects.get",
+    "bigquery.jobs.create",
   ]
   project = "contrails-301217"
   role_id = "flights_pipeline"
@@ -42,6 +43,14 @@ resource "google_project_iam_member" "flights_pipeline_sa_binding" {
   ]
 }
 
+resource "google_project_iam_member" "flights_pipeline_sa_bq_role_binding" {
+  member  = "serviceAccount:${google_service_account.flights_pipeline_sa.email}"
+  project = "contrails-301217"
+  role    = "roles/bigquery.dataViewer"
+  depends_on = [
+    google_project_iam_custom_role.flights_pipeline_role,
+  ]
+}
 
 resource "google_service_account_iam_binding" "k8s_sa_to_flights_pipeline_sa_binding" {
   service_account_id = google_service_account.flights_pipeline_sa.id
