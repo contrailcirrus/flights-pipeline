@@ -8,8 +8,9 @@ for a list of target airlines: `A`, for two days prior from now: `d`.
 """
 from dataclasses import dataclass, asdict
 from datetime import datetime, UTC, timedelta
+import sys
 
-from log import logger
+from log import logger, format_traceback
 from services import FlightsSubmitSvc
 from argparse import Namespace
 import environment as env
@@ -38,15 +39,19 @@ class Input:
 AIRLINE_IATAS = ["KL", "BY", "HV", "AA"]
 
 if __name__ == "__main__":
-    now = datetime.now(tz=UTC)
-    now_less_two_days = now - timedelta(days=2)
-    target_dtstr = now_less_two_days.strftime("%Y-%m-%d")
+    try:
+        now = datetime.now(tz=UTC)
+        now_less_two_days = now - timedelta(days=2)
+        target_dtstr = now_less_two_days.strftime("%Y-%m-%d")
 
-    for airline_iata in AIRLINE_IATAS:
-        logger.info(f"submitting flights for {airline_iata} on {target_dtstr}")
-        args = Input(
-            day=target_dtstr,
-            airline=airline_iata,
-        )
-        svc = FlightsSubmitSvc(Namespace(**asdict(args)))
-        svc.run()
+        for airline_iata in AIRLINE_IATAS:
+            logger.info(f"submitting flights for {airline_iata} on {target_dtstr}")
+            args = Input(
+                day=target_dtstr,
+                airline=airline_iata,
+            )
+            svc = FlightsSubmitSvc(Namespace(**asdict(args)))
+            svc.run()
+    except Exception:
+        logger.error("Unhandled exception:" + format_traceback())
+        sys.exit(1)
