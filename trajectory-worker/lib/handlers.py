@@ -224,7 +224,7 @@ class PubSubSubscriptionHandler:
                         }
                     )
                 except Exception:
-                    logger.error(
+                    logger.warning(
                         "failed to extend ack deadline for message. "
                         f"traceback: {format_traceback()}"
                     )
