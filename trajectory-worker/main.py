@@ -32,7 +32,7 @@ def run(
 
         logger.info(
             f"got job with {len(job.records)} records. "
-            f"icao_address: {job.flight_info.icao_address}. "
+            f"flight_id: {job.flight_info.flight_id}. "
             f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
         )
 
