@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "2c238068d34240000499ebcb2df924cd284f559383cf5cfadd07f8d67ccfa40a"
+            "sha256": "640f80326893e6967beee65793bf239a3c316cce6d23cb8338e16561023a6c34"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -1247,7 +1247,7 @@
         },
         "pycontrails-bada": {
             "git": "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git",
-            "ref": "6ec4c5bb92fee6ba9d16d6e38f8da3acbe24526b"
+            "ref": "d4f1a7b72325bacfa6d009bff16bd77729f19067"
         },
         "pyparsing": {
             "hashes": [
