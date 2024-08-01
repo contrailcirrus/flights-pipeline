@@ -50,7 +50,7 @@ class PubSubSubscriptionHandler:
     def __init__(
         self,
         subscription: str,
-        ack_extension_sec: float = 300,
+        ack_extension_sec: float = 30,
         pull_timeout_sec: float = 60.0,
     ):
         """
@@ -475,13 +475,13 @@ class CocipTrajectoryHandler:
             case "PS":
                 perf_model = PSFlight(
                     fill_low_altitude_with_isa_temperature=True,
-                    fill_low_altitude_with_zero_wind=True
+                    fill_low_altitude_with_zero_wind=True,
                 )
             case "BADA3":
                 perf_model = BADAFlight(
                     bada3_path=cls.BADA3_DATASET_FP,
                     fill_low_altitude_with_isa_temperature=True,
-                    fill_low_altitude_with_zero_wind=True
+                    fill_low_altitude_with_zero_wind=True,
                 )
             case _:
                 raise PerfModelUnsupportedError(

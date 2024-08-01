@@ -233,7 +233,7 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_gaia_chunk_ingress
   name  = "prod-fp-trajectory-worker-gaia-chunk-ingress"
   topic = google_pubsub_topic.prod_gaia_trajectory_chunk.id
 
-  ack_deadline_seconds         = 600
+  ack_deadline_seconds         = 60
   enable_message_ordering      = true
   enable_exactly_once_delivery = true
   message_retention_duration = "302400s"  # 3.5 day
@@ -244,8 +244,8 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_gaia_chunk_ingress
   }
 
   retry_policy {
-    minimum_backoff = "30s"
-    maximum_backoff = "60s"
+    minimum_backoff = "1s"
+    maximum_backoff = "2s"
   }
 
   expiration_policy {
