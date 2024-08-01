@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 gcsfs = "==2024.3.1"
 google-cloud-pubsub = "==2.19.7"
-pycontrails = "==0.50.2"
+pycontrails = "==0.52.2"
 pycontrails-bada = {ref = "v0.5.2", git = "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git"}
 zarr = "==2.17.2"
 
