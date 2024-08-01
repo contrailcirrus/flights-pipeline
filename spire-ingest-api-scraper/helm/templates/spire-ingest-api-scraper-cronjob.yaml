@@ -45,10 +45,10 @@ spec:
                       key: API_TOKEN
               resources:
                 requests:
-                  cpu: "3"  # 1:4 ratio for Scale-Out enforced
-                  memory: "12Gi"
+                  cpu: "4"  # 1:4 ratio for Scale-Out enforced
+                  memory: "16Gi"
                   ephemeral-storage: "1Gi"
                 limits:
-                  cpu: "3"
-                  memory: "12Gi"
+                  cpu: "4"
+                  memory: "16Gi"
                   ephemeral-storage: "1Gi"
