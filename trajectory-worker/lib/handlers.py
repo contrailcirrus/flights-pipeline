@@ -473,9 +473,16 @@ class CocipTrajectoryHandler:
         perf_model: AircraftPerformance
         match target["perf_model_id"]:
             case "PS":
-                perf_model = PSFlight()
+                perf_model = PSFlight(
+                    fill_low_altitude_with_isa_temperature=True,
+                    fill_low_altitude_with_zero_wind=True
+                )
             case "BADA3":
-                perf_model = BADAFlight(bada3_path=cls.BADA3_DATASET_FP)
+                perf_model = BADAFlight(
+                    bada3_path=cls.BADA3_DATASET_FP,
+                    fill_low_altitude_with_isa_temperature=True,
+                    fill_low_altitude_with_zero_wind=True
+                )
             case _:
                 raise PerfModelUnsupportedError(
                     f"perf model lookup returned an unsupported "
