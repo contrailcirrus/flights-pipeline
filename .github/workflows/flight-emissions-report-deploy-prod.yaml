@@ -1,12 +1,12 @@
-name: flight-emissions-report-deploy-dev
+name: flight-emissions-report-deploy-prod
 
 on:
   push:
     branches:
-      - develop
+      - main
     paths:
       - flight-emissions-report/**
-      - .github/workflows/flight-emissions-report-deploy-dev.yaml
+      - .github/workflows/flight-emissions-report-deploy-prod.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -48,8 +48,8 @@ jobs:
           context: flight-emissions-report/
           push: true
           tags: |
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-dev:${{ github.sha }}
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-dev:latest
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-prod:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-prod:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -57,8 +57,8 @@ jobs:
         working-directory: flight-emissions-report/helm
         run: make deploy
         env:
-          NAMESPACE: flights-pipeline-dev
-          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-dev:${{ github.sha }}
+          NAMESPACE: flights-pipeline-prod
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-prod:${{ github.sha }}
           LOG_LEVEL: INFO
-          TRAJECTORY_WORKER_TOPIC: projects/contrails-301217/topics/dev-fp-gaia-trajectory-chunk
-          SUSPEND_CRONJOB: true
+          TRAJECTORY_WORKER_TOPIC: projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk
+          SUSPEND_CRONJOB: false
