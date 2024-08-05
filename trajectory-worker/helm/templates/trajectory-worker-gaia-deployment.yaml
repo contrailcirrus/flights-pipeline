@@ -39,8 +39,8 @@ spec:
             value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
         resources:
           limits:
-            cpu: "0.8"
-            memory: "3.2Gi"
+            cpu: "0.75"
+            memory: "768Mi"
           requests:
-            cpu: "0.8"
-            memory: "3.2Gi"
+            cpu: "0.75"
+            memory: "768Mi"
