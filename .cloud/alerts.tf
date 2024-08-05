@@ -329,6 +329,31 @@ resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_gaia_
   }
 }
 
+resource "google_monitoring_alert_policy" "pubsubtopic_prod_gaia_trajectory_chunk_dead_letter_publish_count" {
+  display_name = "pubsubtopic-${google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.name}-publish-count"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Publish count above threshold"
+    condition_monitoring_query_language {
+      query    = <<EOF
+        fetch pubsub_topic
+        | metric 'pubsub.googleapis.com/topic/message_sizes'
+        | filter resource.topic_id == '${google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.name}'
+        | group_by sliding(30m), row_count()
+        | every 1m
+        | condition val() > 0
+        EOF
+      duration = "0s"
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
+}
+
 resource "google_monitoring_alert_policy" "pubsubtopic_prod_trajectory_worker_cocip_egress_bigquery_dead_letter_publish_count" {
   display_name = "pubsubtopic-${google_pubsub_topic.prod_trajectory_worker_cocip_egress_bigquery_dead_letter.name}-publish-count"
   combiner     = "OR"

@@ -49,6 +49,7 @@ DAILY_TARGETS = [
     {"airline": "LX"},
     {"airline": "BA"},
     {"airline": "AF"},
+    {"airline": "D0"},
     {"icao_address": "3C6565"},  # iagos tail_number: "D-AIKE"
     {"icao_address": "780192"},  # iagos tail_number: "B-HLR"
     {"icao_address": "8991BD"},  # iagos tail_number: "B-18316"
