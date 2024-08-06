@@ -313,10 +313,12 @@ class HealTrajectoryHandler:
             Each trajectory is identified by its flight_id.
             Dataset must include columns matching those in the BQ table `spire_flights_raw_prod`
         """
+        if len(trajectories) == 0:
+            raise Exception("flight trajectory is empty.")
         if len(trajectories["flight_id"].unique()) > 1:
             raise Exception(
                 "dataset passed to handler must be for a single flight instance ("
-                "flight_id)"
+                "flight_id)."
             )
         self._df = trajectories.copy(deep=True)
 
@@ -367,14 +369,19 @@ class HealTrajectoryHandler:
         ]
 
         priority_values = self._get_priority_map(self._df, target_cols)
-
+        print(
+            f"flight_id: {self._df.flight_id.iloc[0]}, priority_values: {priority_values}"
+        )
         # fill any null values with our priority values
-        self._df.fillna(value=priority_values, inplace=True)
+        for col, val in priority_values.items():
+            if val:
+                self._df[col] = self._df[col].fillna(val)
 
         # drop any rows where our column values don't match the priority value
-        for col, prio_val in priority_values.items():
-            keep_filter = self._df[col] == prio_val
-            self._df = self._df[keep_filter]
+        for col, val in priority_values.items():
+            if val:
+                keep_filter = self._df[col] == val
+                self._df = self._df[keep_filter]
 
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
         self._df.reset_index(drop=True, inplace=True)
@@ -460,10 +467,8 @@ class ResampleHandler:
         flight_resampled: pd.DataFrame = pyc_flight.resample_and_fill().dataframe
 
         # add imputation flags
-        flight_resampled["imputed"] = True
-        is_cached = flight_resampled["time"] <= self._max_cache_ts
-        is_records_window = flight_resampled["time"] >= self._min_records_ts
-        flight_resampled.loc[(is_cached | is_records_window), "imputed"] = False
+        # TODO add heuristics to appropriately apply imputation flag for full-trajectory resampling
+        flight_resampled["imputed"] = False
 
         # compute the altitude_ft from altitude (note: pycontrails Flight operates on altitude [m])
         flight_resampled.loc[:, "altitude_ft"] = (

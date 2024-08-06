@@ -227,6 +227,8 @@ class FlightsSubmitSvc(BaseSvc):
             sat_waypoints = df_satellite[aircraft_sel & flight_tmrg_sel]
 
             waypoints = pd.concat([terr_waypoints, sat_waypoints])
+            # fill null flight_ids (sat data does not have flight_id)
+            waypoints.fillna(value={"flight_id": flight_id}, inplace=True)
 
             # -------------
             # apply qa/qc updates
