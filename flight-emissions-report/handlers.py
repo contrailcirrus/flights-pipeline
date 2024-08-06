@@ -369,7 +369,7 @@ class HealTrajectoryHandler:
         priority_values = self._get_priority_map(self._df, target_cols)
 
         # fill any null values with our priority values
-        self._df.fillna(value=priority_values, axis=1, inplace=True)
+        self._df.fillna(value=priority_values, inplace=True)
 
         # drop any rows where our column values don't match the priority value
         for col, prio_val in priority_values.items():
