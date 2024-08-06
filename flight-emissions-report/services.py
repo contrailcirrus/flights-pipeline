@@ -8,10 +8,12 @@ from typing import Union, Tuple
 import pandas as pd
 from google.cloud import bigquery
 
+from helpers import key_max_value_count
 from handlers import (
     PubSubSubscriptionHandler,
     PubSubPublishHandler,
     BigQueryHandler,
+    HealTrajectoryHandler,
     ResampleHandler,
 )
 from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord
@@ -199,90 +201,39 @@ class FlightsSubmitSvc(BaseSvc):
                 f"🛠️submitting flight with 🏤 icao_address: {self._icao_address} on 🗓️{self._day}"
             )
             df, df_satellite = self._fetch_icao_address_day()
+        else:
+            raise NotImplementedError("unhandled runtime case.")
 
         # -----------
         # resample trajectories,
         # compose trajectory-worker jobs, on each flight instance,
         # and submit jobs to worker queue
         # -----------
-        def _key_max_value_count(dfx, column_name):
-            """
-            If multiple unique values exist in a column, return the value with the highest count.
-            Note that null values are not considered in the stack rank.
-            """
-            keys = list(
-                dfx[column_name].value_counts().sort_values(ascending=False).keys()
-            )
-            # flight_id = dfx["flight_id"].iloc[0]
-            # if len(keys) > 1:
-            #     logger.warning(f"found multiple attributes "
-            #                    f"for {column_name} of flight_id {flight_id} : {list(keys)}")
-            # if not keys:
-            #     logger.warning(f"only null values for {column_name} of flight_id {flight_id}")
-            val = keys[0] if keys else None
-            return val
-
         flight_instances = df.groupby("flight_id")
         for flight_id, terr_waypoints in flight_instances:
             # --------------
-            # data monger
+            # merge sat data into terrestrial data
             # --------------
-            first_ts = min(terr_waypoints["timestamp"])
-            last_ts = max(terr_waypoints["timestamp"])
+            first_terr_ts = min(terr_waypoints["timestamp"])
+            last_terr_ts = max(terr_waypoints["timestamp"])
 
             aircraft_sel = df_satellite["icao_address"] == (
-                _key_max_value_count(terr_waypoints, "icao_address")
+                key_max_value_count(terr_waypoints, "icao_address")
             )
-            flight_tmrg_sel = (df_satellite["timestamp"] > first_ts) & (
-                df_satellite["timestamp"] < last_ts
+            flight_tmrg_sel = (df_satellite["timestamp"] > first_terr_ts) & (
+                df_satellite["timestamp"] < last_terr_ts
             )
 
             sat_waypoints = df_satellite[aircraft_sel & flight_tmrg_sel]
 
             waypoints = pd.concat([terr_waypoints, sat_waypoints])
 
-            # drop rows with inferior count on invariant attributes
-            pre_invariant_prune_len = len(waypoints)
-            priority_callsign = _key_max_value_count(waypoints, "callsign")
-            priority_flight_number = _key_max_value_count(waypoints, "flight_number")
-            priority_arrival_airport_icao = _key_max_value_count(
-                waypoints, "arrival_airport_icao"
-            )
-            priority_departure_airport_icao = _key_max_value_count(
-                waypoints, "departure_airport_icao"
-            )
-            priority_airline_iata = _key_max_value_count(waypoints, "airline_iata")
-            if priority_callsign:
-                waypoints["callsign"] = waypoints["callsign"].fillna(priority_callsign)
-                waypoints = waypoints[waypoints["callsign"] == priority_callsign]
-            if priority_flight_number:
-                waypoints["flight_number"] = waypoints["flight_number"].fillna(
-                    priority_flight_number
-                )
-                waypoints = waypoints[
-                    waypoints["flight_number"] == priority_flight_number
-                ]
-            if priority_arrival_airport_icao:
-                waypoints["arrival_airport_icao"] = waypoints[
-                    "arrival_airport_icao"
-                ].fillna(priority_arrival_airport_icao)
-                waypoints = waypoints[
-                    waypoints["arrival_airport_icao"] == priority_arrival_airport_icao
-                ]
-            if priority_departure_airport_icao:
-                waypoints["departure_airport_icao"] = waypoints[
-                    "departure_airport_icao"
-                ].fillna(priority_departure_airport_icao)
-                waypoints = waypoints[
-                    waypoints["departure_airport_icao"]
-                    == priority_departure_airport_icao
-                ]
-            waypoints["airline_iata"] = waypoints["airline_iata"].fillna(
-                priority_airline_iata
-            )
-
-            waypoints.sort_values(by="timestamp", ascending=True, inplace=True)
-            waypoints.reset_index(drop=True, inplace=True)
+            # -------------
+            # apply qa/qc updates
+            # -------------
+            pre_qaqc_len = len(waypoints)
+            qaqc_handler = HealTrajectoryHandler(waypoints)
+            waypoints = qaqc_handler.heal()
 
             # --------------
             # build jobs
@@ -356,7 +307,7 @@ class FlightsSubmitSvc(BaseSvc):
                     f"{len(waypoints_resampled)} records."
                     f"(raw input: {len(terr_waypoints)} terrestrial, "
                     f"{len(sat_waypoints)} satellite. "
-                    f"dropped {pre_invariant_prune_len - len(waypoints)} "
+                    f"dropped {pre_qaqc_len - len(waypoints)} "
                     f"due to invariant violations.)"
                 )
             if not self._dryrun and not should_skip:

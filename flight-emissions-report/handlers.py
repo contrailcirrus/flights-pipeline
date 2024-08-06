@@ -11,6 +11,7 @@ from typing import Any, Callable, List
 
 from pycontrails import Flight
 
+from helpers import key_max_value_count
 from schemas import SpireWaypointPositional
 from log import logger, format_traceback
 
@@ -295,6 +296,89 @@ class BigQueryHandler:
         """
         with open(filename, "r") as fp:
             return fp.read()
+
+
+class HealTrajectoryHandler:
+    """
+    Takes a dataset with a single flight trajectory (single flight_id)
+    and applies a ruleset to heal quality issues with trajectories.
+    """
+
+    def __init__(self, trajectories: pd.DataFrame):
+        """
+        Parameters
+        ----------
+        trajectories
+            A dataset with one or more flight trajectories.
+            Each trajectory is identified by its flight_id.
+            Dataset must include columns matching those in the BQ table `spire_flights_raw_prod`
+        """
+        if len(trajectories["flight_id"].unique()) > 1:
+            raise Exception(
+                "dataset passed to handler must be for a single flight instance ("
+                "flight_id)"
+            )
+        self._df = trajectories.copy(deep=True)
+
+    @staticmethod
+    def _get_priority_map(df: pd.DataFrame, cols: list) -> dict:
+        """
+        Given a dataframe and list of columns,
+        return a mapping of the column name to the value of highest count in the column.
+
+        Parameters
+        ----------
+        df
+            A pandas dataframe
+        cols
+            Names of columns for evaluation. e.g. col=["callsign", "airline_iata"]
+
+        Returns
+        ----------
+        A dict with mapping of cols to value of highest count
+        e.g.
+        {"callsign": None, "airline_iata": AA}
+        """
+
+        resp = {}
+        for col in cols:
+            prio_val = key_max_value_count(df, col)
+            resp.update({col: prio_val})
+        return resp
+
+    def heal(self) -> pd.DataFrame:
+        """
+        Manipulate trajectories with qaqc heuristics.
+
+        Returns
+        -------
+        Dataset mirroring initiated dataset, with manipulations applied.
+        """
+
+        # --------------
+        # update dataset so the following target keys are uniform/distinct for a given flight
+        # --------------
+        target_cols = [
+            "callsign",
+            "flight_number",
+            "arrival_airport_icao",
+            "departure_airport_icao",
+            "airline_iata",
+        ]
+
+        priority_values = self._get_priority_map(self._df, target_cols)
+
+        # fill any null values with our priority values
+        self._df.fillna(value=priority_values, axis=1, inplace=True)
+
+        # drop any rows where our column values don't match the priority value
+        for col, prio_val in priority_values.items():
+            keep_filter = self._df[col] == prio_val
+            self._df = self._df[keep_filter]
+
+        self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+        self._df.reset_index(drop=True, inplace=True)
+        return self._df
 
 
 class ResampleHandler:
