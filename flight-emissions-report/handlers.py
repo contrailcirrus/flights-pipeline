@@ -342,33 +342,16 @@ class ResampleHandler:
 
     def __init__(
         self,
-        cache: list[SpireWaypointPositional],
         records_window: list[SpireWaypointPositional],
     ):
         """
         Parameters
         ----------
-        cache
-            one or two waypoints that are retrieved from cache -- historical records
         records_window
             a series of waypoints, belonging to a time window,
             delivered from a windowed batch stream (temporally contiguous) -- present records
         """
         self._waypoints_df_resampled: pd.DataFrame | None = None
-
-        # column names as expected by Flight (pycontrails.core.flight)
-        pycontrails_name_map = {"altitude_baro": "altitude_ft", "timestamp": "time"}
-
-        df_cached = pd.DataFrame(cache)
-        if not df_cached.empty:
-            df_cached.rename(columns=pycontrails_name_map, inplace=True)
-            # note: pycontrails resample_and_fill returns df w/ naive timestamps, hence:
-            df_cached["time"] = pd.to_datetime(df_cached["time"]).apply(
-                lambda r: r.tz_localize(None)
-            )
-            self._max_cache_ts = df_cached["time"].max()
-        else:
-            self._max_cache_ts = pd.to_datetime("1970")
 
         df_records = pd.DataFrame(records_window)
         df_records.rename(
@@ -379,12 +362,10 @@ class ResampleHandler:
         )
 
         if df_records["time"].duplicated().sum():
-            #  logger.warning("duplicated waypoints found in cache+records.")
             df_records.drop_duplicates(["time"], inplace=True)
 
         self._min_records_ts = df_records["time"].min()
-
-        self._waypoints_df = pd.concat([df_cached, df_records])
+        self._waypoints_df = df_records
 
     def interpolate(self):
         """
