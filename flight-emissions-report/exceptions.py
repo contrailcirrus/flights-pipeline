@@ -31,3 +31,15 @@ class FlightTooFastError(Exception):
     """
     Trajectory has period(s) of unrealistically high speed.
     """
+
+
+class FlightAltitudeProfileError(Exception):
+    """
+    Trajectory has an unrealistic altitude profile.
+    """
+
+
+class FlightDuplicateTimestamps(Exception):
+    """
+    Trajectory contains waypoints with the same timestamp.
+    """

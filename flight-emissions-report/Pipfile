@@ -8,10 +8,19 @@ db-dtypes = "==1.2.0"
 google-cloud-bigquery = "==3.21.0"
 google-cloud-pubsub = "==2.19.7"
 pandas = "==2.2.2"
-pycontrails = "==0.50.1"
+platformdirs = "==4.2.2"
+pycontrails = "==0.52.2"
 pyproj = "==3.6.1"
 
 [dev-packages]
+black = "*"
+mypy = "*"
+pandas-stubs = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+ruff = "<=0.4.10"
 
 [requires]
 python_version = "3.12"

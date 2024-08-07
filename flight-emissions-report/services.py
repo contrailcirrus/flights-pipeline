@@ -279,11 +279,16 @@ class FlightsSubmitSvc(BaseSvc):
                     altitude_baro=int(ln["altitude_baro"]),
                 )
                 records.append(record)
+
+            # -------------
+            # resample records
+            # -------------
             resample_handler = ResampleHandler(records_window=records)
             resample_handler.interpolate()
-            waypoints_resampled: list[
-                SpireWaypointPositional
-            ] = resample_handler.waypoints_resampled
+
+            waypoints_resampled: list[SpireWaypointPositional] = (
+                resample_handler.waypoints_resampled
+            )
             job = WaypointsRecord(flight_info=flight_info, records=waypoints_resampled)
 
             if self._export_waypoints:
