@@ -197,7 +197,7 @@ resource "google_monitoring_alert_policy" "k8sdeployment_spire_ingest_resample_w
     display_name = "grpc 504 error in logs; above threshold"
     condition_monitoring_query_language {
       query    = <<EOF
-        fetch pubsub_subscription
+        fetch k8s_container
         | metric 'logging.googleapis.com/user/${google_logging_metric.resample_worker_prod_grpc_504_counter.name}'
         | group_by sliding(10m), aggregate(value.counter)
         | every 1m
@@ -387,6 +387,31 @@ resource "google_logging_metric" "trajectory_worker_gaia_prod_ack_id_failure_cou
     value_type  = "INT64"
   }
 }
+
+resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_gaia_prod_ack_id_failure_above_threshold" {
+  display_name = "k8sdeployment-trajectory-worker-gaia-prod-ack-id-failure-above-threshold"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "ack id failure in logs; above threshold"
+    condition_monitoring_query_language {
+      query    = <<EOF
+        fetch k8s_container
+        | metric 'logging.googleapis.com/user/${google_logging_metric.trajectory_worker_gaia_prod_ack_id_failure_counter.name}'
+        | group_by sliding(10m), aggregate(value.counter)
+        | every 1m
+        | condition val() > 5
+        EOF
+      duration = "0s"
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
+}
+
 
 resource "google_monitoring_alert_policy" "pubsubtopic_prod_gaia_trajectory_chunk_dead_letter_publish_count" {
   display_name = "pubsubtopic-${google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.name}-publish-count"
