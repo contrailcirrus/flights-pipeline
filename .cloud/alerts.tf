@@ -371,6 +371,23 @@ resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_gaia_
   }
 }
 
+resource "google_logging_metric" "trajectory_worker_gaia_prod_ack_id_failure_counter" {
+  name = "trajectory-worker-gaia-prod-ack-id-failure-counter"
+  filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-prod"
+        labels.k8s-pod/app="trajectory-worker-gaia"
+        severity>=ERROR
+        jsonPayload.textPayload =~ "PERMANENT_FAILURE_INVALID_ACK_ID"
+        EOF
+
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+  }
+}
+
 resource "google_monitoring_alert_policy" "pubsubtopic_prod_gaia_trajectory_chunk_dead_letter_publish_count" {
   display_name = "pubsubtopic-${google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.name}-publish-count"
   combiner     = "OR"
