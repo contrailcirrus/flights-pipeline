@@ -354,6 +354,7 @@ resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_gaia_
         resource.labels.namespace_name="flights-pipeline-prod"
         labels.k8s-pod/app="trajectory-worker-gaia"
         severity>=ERROR
+        jsonPayload.textPayload !~ "PERMANENT_FAILURE_INVALID_ACK_ID"
         EOF
     }
   }
