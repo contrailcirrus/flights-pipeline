@@ -153,6 +153,7 @@ resource "google_monitoring_alert_policy" "k8sdeployment_spire_ingest_resample_w
         resource.labels.cluster_name="contrails-gke-general"
         resource.labels.namespace_name="flights-pipeline-prod"
         labels.k8s-pod/app="spire-ingest-resample-worker"
+        jsonPayload.textPayload !~ "grpc._channel._InactiveRpcError"
         severity>=ERROR
         EOF
     }
@@ -169,6 +170,47 @@ resource "google_monitoring_alert_policy" "k8sdeployment_spire_ingest_resample_w
     }
     auto_close = "86400s"
   }
+}
+
+resource "google_logging_metric" "resample_worker_prod_grpc_504_counter" {
+  name = "resample-worker-prod-grpc-504-counter"
+  filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-prod"
+        labels.k8s-pod/app="spire-ingest-resample-worker"
+        jsonPayload.textPayload =~ "grpc._channel._InactiveRpcError"
+        severity>=ERROR
+        EOF
+
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+  }
+}
+
+resource "google_monitoring_alert_policy" "k8sdeployment_spire_ingest_resample_worker_prod_grpc_504_above_threshold" {
+  display_name = "k8sdeployment-spire-ingest-resample-worker-prod-grpc-504-above-threshold"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "grpc 504 error in logs; above threshold"
+    condition_monitoring_query_language {
+      query    = <<EOF
+        fetch pubsub_subscription
+        | metric 'logging.googleapis.com/user/${google_logging_metric.resample_worker_prod_grpc_504_counter.name}'
+        | group_by sliding(10m), aggregate(value.counter)
+        | every 1m
+        | condition val() > 60
+        EOF
+      duration = "0s"
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
 }
 
 resource "google_monitoring_alert_policy" "pubsubsubscription_prod_resample_worker_ingress_ack_count" {
