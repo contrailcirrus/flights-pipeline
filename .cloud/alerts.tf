@@ -153,6 +153,7 @@ resource "google_monitoring_alert_policy" "k8sdeployment_spire_ingest_resample_w
         resource.labels.cluster_name="contrails-gke-general"
         resource.labels.namespace_name="flights-pipeline-prod"
         labels.k8s-pod/app="spire-ingest-resample-worker"
+        jsonPayload.textPayload !~ "grpc._channel._InactiveRpcError"
         severity>=ERROR
         EOF
     }
@@ -168,6 +169,23 @@ resource "google_monitoring_alert_policy" "k8sdeployment_spire_ingest_resample_w
       period = "3600s"
     }
     auto_close = "86400s"
+  }
+}
+
+resource "google_logging_metric" "resample_worker_prod_grpc_504_counter" {
+  name = "resample-worker-prod-grpc-504-counter"
+  filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-prod"
+        labels.k8s-pod/app="spire-ingest-resample-worker"
+        jsonPayload.textPayload =~ "grpc._channel._InactiveRpcError"
+        severity>=ERROR
+        EOF
+
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
   }
 }
 
