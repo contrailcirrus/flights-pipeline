@@ -496,3 +496,33 @@ resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_pr
     auto_close = "86400s"
   }
 }
+
+resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_non_zero_exit" {
+  display_name = "k8scronjob-flight-emissions-report-non-zero-exit"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "failure; non-zero exit"
+    condition_matched_log {
+      filter = <<EOF
+        log_id(cloudaudit.googleapis.com%2Factivity) resource.type=k8s_cluster
+        resource.type=k8s_cluster protoPayload.resourceName=~"core/v1/namespaces/flights-pipeline-prod/pods/flight-emissions-"
+        (protoPayload.response.status.containerStatuses.state.terminated.exitCode:*
+          -protoPayload.response.status.containerStatuses.state.terminated.exitCode=0
+        )
+        EOF
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
+
+  alert_strategy {
+    notification_rate_limit {
+      period = "3600s"
+    }
+    auto_close = "86400s"
+  }
+}
