@@ -369,9 +369,7 @@ class HealTrajectoryHandler:
         ]
 
         priority_values = self._get_priority_map(self._df, target_cols)
-        print(
-            f"flight_id: {self._df.flight_id.iloc[0]}, priority_values: {priority_values}"
-        )
+
         # fill any null values with our priority values
         for col, val in priority_values.items():
             if val:
