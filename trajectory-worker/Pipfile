@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+dask = "==2024.7.1"
 gcsfs = "==2024.3.1"
 google-cloud-pubsub = "==2.19.7"
 matplotlib = "==3.9.1"
