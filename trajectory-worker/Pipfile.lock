@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "db2c98b898a15baf9fcbc0eaa7c8351587b600b36133d7b544112b418388d092"
+            "sha256": "15e1730dc5635d27e1dfc6cc6ae3259a63bfc26c2a5b8d6b921ebbec51110d49"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -18,11 +18,11 @@
     "default": {
         "aiohappyeyeballs": {
             "hashes": [
-                "sha256:337ce4dc0e99eb697c3c5a77d6cb3c52925824d9a67ac0dea7c55b8a2d60b222",
-                "sha256:e794cd29ba6a14078092984e43688212a19081de3a73b6796c2fdeb3706dd6ce"
+                "sha256:55a1714f084e63d49639800f95716da97a1f173d46a16dfcfda0016abb93b6b2",
+                "sha256:7ce92076e249169a13c2f49320d1967425eaf1f407522d707d59cac7628d62bd"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==2.3.7"
+            "version": "==2.4.0"
         },
         "aiohttp": {
             "hashes": [
@@ -1226,27 +1226,27 @@
         },
         "pycontrails": {
             "hashes": [
-                "sha256:07220a15381999b38c9a241c8acbf4cac1142a71d4658b5d48c9a49f53da85fa",
-                "sha256:08a23aa8fda071e09305705aff4e176fc3ea69600b826f6bfef65051c2fae22f",
-                "sha256:1e8d8b0ba9082998168df6b67d8007a81591360e1ee53caf16faac06debe09b0",
-                "sha256:23e7a7c3b88528fe3e0d83dd4873bb475410b9d0abf8d8af4730d42fb4209a42",
-                "sha256:28f29f72e4d0c89dd2387e5ac07b89558c497735cf023ee471043267f92866d5",
-                "sha256:395fb5371bd892339816da49b2b73e5a54f8bcd079af0359d642827f0ca3a637",
-                "sha256:5e6dc6d8e75f0343e2064054792b1a4289f68aec527c84bf06b385933689457d",
-                "sha256:64f5204d521f2b2b1c0d34b5ca1259d447b1e0a1e345e6b62bb85ea044111a2e",
-                "sha256:7311563faaba33140ff99de3fded21879e0ea20c843711d16f4ab63888682e2a",
-                "sha256:83daf81c16f5af3b5e8303ebfa8d771a0bd6ba11f192e14cb8a9fb917e7a3ef3",
-                "sha256:870037d12199efb42fc9f40f6be443e2b7d4d40049c807c28012f0cd92335e57",
-                "sha256:a3b9ea1d32d4ac8c8567fd207bdb1bb97c5d5c13f114fc2382e301df4dcbbc2f",
-                "sha256:ca6814b1fd1c5940a2f6fe8b8e2c178bef9c3e4340b5ee81e54a784cd5c14704",
-                "sha256:cfd0d458b322f1c3ff727e4b08be99ea4237633b09399e06ccf7ef19668fe613",
-                "sha256:de8d1b9d1fb86a0130c011848a597387e84d0c01761ce415a9a8b301b28e261b",
-                "sha256:e62e3a2c52e45ce7571585b27a2a07c582fb58b32c6a983916079f3d35f650b9",
-                "sha256:f28d72d532731f78c89848b8937449f3297927269890535b697fc0d25239116f"
+                "sha256:00a3b4b7955ed27eccd2a7e1c5257bcca88adf11d1462602c172a2da45231dd6",
+                "sha256:04757d9f40115583c822702d682d13c66119ef5d2d57a7ce4671a7b25eb62a6e",
+                "sha256:24cb587c40cf223b324cbe0710fa3e9314688d8c019cf4e6b4ba8b78ccd3ee10",
+                "sha256:3d0d17bda9a086aed743483bffda7f5441c1ef7d0943e6b6dff1bc7fc1909a89",
+                "sha256:3e5dd8eea7706a667f9ebe591223fd48e37b4666b517b0cfb96011020888f1a0",
+                "sha256:5d399ecb6fa584d8d9490bbd16d75e35c6a75229b025d1239d798c45a22cb1e9",
+                "sha256:608de04c6e188570f0d6e66d8a58bf44d60f9f9dc3846b51acd6846f8412ca5d",
+                "sha256:79390b040c7cf3a13f4a53641d234a643ee1a7c26834c95b419ccaf9e8178c07",
+                "sha256:9c979e543081d38f052456f330a4cdc0f50d61a68fa0cf6d7fc8cadbe0f0495e",
+                "sha256:a2b9336680a252552a172c09451428974b850188e0fa3f0ec9d9c78d45bb25ec",
+                "sha256:aad37a8bd61640f820d48a4a8f1da1b86f2ca969af6ca44d8b2cafe9e0776a10",
+                "sha256:ba8925198d9c83847baa79171d0e8e26bba86cbdaa08e829e60deace90f354dd",
+                "sha256:cf89d97a1db79be9f0203d756b581dd2e9f6bf2ae97ff495b92278a183ee30a6",
+                "sha256:d20e4c0cac9f2e9364bc25243ac34f79ec1cc05265a9313f1c13a1f759622eb7",
+                "sha256:e2494f245b810e33aced4cb63a0ea7a96115f86071e2810e73764fc4eb1d1206",
+                "sha256:f4af1b586a5e89f41c3dde45c0b58c894ad1f2232e3e78425ebb8c405711a59f",
+                "sha256:f4d1204ef6eaca1685a938fc1882e86f951154b7550a46ace961693b470f50c0"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.9'",
-            "version": "==0.52.2"
+            "markers": "python_version >= '3.10'",
+            "version": "==0.53.0"
         },
         "pycontrails-bada": {
             "git": "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git",
