@@ -385,6 +385,9 @@ class CocipTrajectoryHandler:
     MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
     PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
     BADA3_DATASET_FP = "bada3"
+    LOW_MEM_WAYPOINT_COUNT = (
+        400  # use low-mem cocip trajectory if traj length is above this val
+    )
 
     # matched to values used by api-preprocessor
     STATIC_PARAMS = dict(
@@ -610,12 +613,25 @@ class CocipTrajectoryHandler:
                 "met dataset or rad dataset have not been loaded. Run load()."
             )
 
-        model = Cocip(
-            met=self._met_dataset,
-            rad=self._rad_dataset,
-            aircraft_performance=self._perf_model,
-            **self.STATIC_PARAMS,
-        )
+        if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
+            model = Cocip(
+                met=self._met_dataset,
+                rad=self._rad_dataset,
+                aircraft_performance=self._perf_model,
+                **self.STATIC_PARAMS,
+            )
+        else:
+            logger.info(
+                f"using low-mem cocip implementation for flight "
+                f"w/ {len(self._job.records)} waypoints"
+            )
+            model = Cocip(
+                met=self._met_dataset,
+                rad=self._rad_dataset,
+                aircraft_performance=self._perf_model,
+                **self.STATIC_PARAMS,
+                preprocess_lowmem=True,
+            )
 
         result: Flight = model.eval(self._flight)
         return result
