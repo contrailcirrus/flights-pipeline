@@ -43,3 +43,9 @@ class FlightDuplicateTimestamps(Exception):
     """
     Trajectory contains waypoints with the same timestamp.
     """
+
+
+class FlightInvariantFieldViolation(Exception):
+    """
+    Trajectory has multiple values for field(s) that should be invariant.
+    """

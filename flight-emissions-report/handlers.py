@@ -15,6 +15,12 @@ from pycontrails import Flight
 from pycontrails.physics import geo
 from pycontrails.core import airports
 
+from exceptions import (
+    FlightInvariantFieldViolation,
+    FlightDuplicateTimestamps,
+    FlightTooLongError,
+    FlightTooShortError,
+)
 from helpers import key_max_value_count
 from schemas import SpireWaypointPositional
 from log import logger, format_traceback
@@ -576,11 +582,11 @@ class TrajectoryValidationHandler:
         """
         # safeguard to ensure this call follows the addition of the columns
         # assumes calculate_additional_fields is idempotent
-        self.calculate_additional_fields()
+        self._calculate_additional_fields()
         return self._df
 
     @classmethod
-    def find_airport_coords(
+    def _find_airport_coords(
         cls, airport_icao: str | None
     ) -> tuple[np.floating, np.floating, np.floating]:
         """
@@ -641,7 +647,7 @@ class TrajectoryValidationHandler:
         return dist_m
 
     @staticmethod
-    def rolling_time_delta_seconds(roll_window: pd.DataFrame):
+    def _rolling_time_delta_seconds(roll_window: pd.DataFrame):
         """
         Given two consecutive rows (ordered by ascending timestamp),
         calculate the elapsed time in seconds between the two rows
@@ -669,7 +675,7 @@ class TrajectoryValidationHandler:
         return int(dt_sec)
 
     @classmethod
-    def rolling_distance_meters(cls, roll_window: pd.DataFrame):
+    def _rolling_distance_meters(cls, roll_window: pd.DataFrame):
         """
         Given two consecutive rows,
         impute the distance travelled.
@@ -699,7 +705,7 @@ class TrajectoryValidationHandler:
         return dist_m
 
     @classmethod
-    def rolling_rocd_fps(cls, roll_window: pd.DataFrame) -> float:
+    def _rolling_rocd_fps(cls, roll_window: pd.DataFrame) -> float:
         """
         Given two consecutive rows,
         impute the rate of climb/descent.
@@ -728,7 +734,7 @@ class TrajectoryValidationHandler:
         return rocd
 
     @classmethod
-    def calc_dist_to_departure_airport(cls, row: pd.Series) -> float:
+    def _calc_dist_to_departure_airport(cls, row: pd.Series) -> float:
         """
         Calculate the distance from a given waypoint to the departure airport.
 
@@ -766,7 +772,7 @@ class TrajectoryValidationHandler:
         )
 
     @classmethod
-    def calc_dist_to_arrival_airport(cls, row: pd.Series) -> float:
+    def _calc_dist_to_arrival_airport(cls, row: pd.Series) -> float:
         """
         Calculate the distance from a given waypoint to the arrival airport.
 
@@ -800,7 +806,7 @@ class TrajectoryValidationHandler:
             alt_ft_f=arrival_alt_ft,
         )
 
-    def calculate_additional_fields(self):
+    def _calculate_additional_fields(self):
         """
         Adds additional columns to the provided dataframe.
         These additional fields are needed to apply the validation ruleset.
@@ -813,7 +819,7 @@ class TrajectoryValidationHandler:
         )
         self._df = self._df.assign(
             elapsed_distance_m=[
-                self.rolling_distance_meters(window)
+                self._rolling_distance_meters(window)
                 for window in self._df.rolling(window=2)
             ],
         )
@@ -824,7 +830,7 @@ class TrajectoryValidationHandler:
         )
         self._df = self._df.assign(
             rocd_fps=[
-                self.rolling_rocd_fps(window) for window in self._df.rolling(window=2)
+                self._rolling_rocd_fps(window) for window in self._df.rolling(window=2)
             ]
         )
 
@@ -839,10 +845,10 @@ class TrajectoryValidationHandler:
             )
 
         departure_airport_lat_lon_alt = self._df["departure_airport_icao"].apply(
-            self.find_airport_coords
+            self._find_airport_coords
         )
         arrival_airport_lat_lon_alt = self._df["arrival_airport_icao"].apply(
-            self.find_airport_coords
+            self._find_airport_coords
         )
         self._df = self._df.assign(
             departure_airport_lat=[coord[0] for coord in departure_airport_lat_lon_alt],
@@ -857,12 +863,33 @@ class TrajectoryValidationHandler:
 
         self._df = self._df.assign(
             departure_airport_dist_m=self._df.apply(
-                self.calc_dist_to_departure_airport, axis=1
+                self._calc_dist_to_departure_airport, axis=1
             ),
             arrival_airport_dist_m=self._df.apply(
-                self.calc_dist_to_arrival_airport, axis=1
+                self._calc_dist_to_arrival_airport, axis=1
             ),
         )
+
+    def _is_valid_invariant_fields(self) -> None | FlightInvariantFieldViolation:
+        """
+        Verify that fields expected to be invariant are indeed invariant.
+        """
+
+    def _is_valid_duplicate_timestamps(self) -> None | FlightDuplicateTimestamps:
+        """
+        Verifies that we do not have duplicate timestamps in the trajectory.
+        """
+        return
+
+    def _is_valid_flight_length(
+        self,
+    ) -> None | FlightTooShortError | FlightTooLongError:
+        """
+        Verifies that the flight is of a reasonable length.
+        """
+        # min_length_hours = 0.4
+        # max_length_hours = 19
+        return
 
     def evaluate(self):
         """
