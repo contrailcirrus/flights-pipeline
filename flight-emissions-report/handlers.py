@@ -567,6 +567,8 @@ class TrajectoryValidationHandler:
                 "flight_id)."
             )
 
+        # TODO: add validation step to check names/types of pd.Dataframe cols
+
         self._df = trajectory.copy(deep=True)
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
         self._df.reset_index(drop=True, inplace=True)
@@ -813,7 +815,7 @@ class TrajectoryValidationHandler:
         """
         self._df = self._df.assign(
             elapsed_seconds=[
-                self.rolling_time_delta_seconds(window)
+                self._rolling_time_delta_seconds(window)
                 for window in self._df.rolling(window=2)
             ],
         )
@@ -873,13 +875,44 @@ class TrajectoryValidationHandler:
     def _is_valid_invariant_fields(self) -> None | FlightInvariantFieldViolation:
         """
         Verify that fields expected to be invariant are indeed invariant.
+        Presence of null values does not constitute an invariance violation.
         """
+        invariant_fields = [
+            "icao_address",
+            "flight_id",
+            "callsign",
+            "tail_number",
+            "aircraft_type_icao",
+            "airline_iata",
+            "departure_airport_icao",
+            "departure_scheduled_time",
+            "arrival_airport_icao",
+            "arrival_scheduled_time",
+        ]
+
+        violations = []
+        for k in invariant_fields:
+            unique_vals = list(self._df["arrival_airport_icao"].value_counts().index)
+            if len(unique_vals) > 1:
+                violations.append(k)
+
+        if len(violations) > 0:
+            return FlightInvariantFieldViolation(
+                f"the following fields have multiple values for this trajectory."
+                f"{violations}"
+            )
 
     def _is_valid_duplicate_timestamps(self) -> None | FlightDuplicateTimestamps:
         """
         Verifies that we do not have duplicate timestamps in the trajectory.
         """
-        return
+        timestamp_dupe_cnt = self._df["timestamp"].duplicated().sum()
+        if timestamp_dupe_cnt > 0:
+            return FlightDuplicateTimestamps(
+                f"duplicate waypoint timestamps found in "
+                f"this trajectory. "
+                f"found {timestamp_dupe_cnt} duplicates."
+            )
 
     def _is_valid_flight_length(
         self,
@@ -887,9 +920,24 @@ class TrajectoryValidationHandler:
         """
         Verifies that the flight is of a reasonable length.
         """
-        # min_length_hours = 0.4
-        # max_length_hours = 19
-        return
+        min_length_hours = 0.4
+        max_length_hours = 19
+        flight_duration_sec = (
+            self._df["timestamp"].max() - self._df["timestamp"].min()
+        ).seconds
+        flight_duration_hours = flight_duration_sec / 60.0 / 60.0
+
+        if flight_duration_hours > max_length_hours:
+            return FlightTooLongError(
+                f"flight exceeds max duration of {max_length_hours} hours."
+                f"this trajectory spans {flight_duration_hours:.2f} hours."
+            )
+
+        if flight_duration_hours < min_length_hours:
+            return FlightTooShortError(
+                f"flight less than min duration of {min_length_hours} hours. "
+                f"this trajectory spans {flight_duration_hours:.2f} hours."
+            )
 
     def evaluate(self):
         """
