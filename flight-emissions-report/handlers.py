@@ -981,7 +981,7 @@ class TrajectoryValidationHandler:
         """
         distance_threshold_km = 200
         first_waypoint = self._df.iloc[0]
-        first_waypoint_dist_km = first_waypoint["departure_airport_distance_m"] / 1000.0
+        first_waypoint_dist_km = first_waypoint["departure_airport_dist_m"] / 1000.0
         if first_waypoint_dist_km > distance_threshold_km:
             return OriginAirportError(
                 f"first waypoint in trajectory too far from departure airport icao: "
@@ -1000,7 +1000,7 @@ class TrajectoryValidationHandler:
         """
         distance_threshold_km = 200
         last_waypoint = self._df.iloc[-1]
-        last_waypoint_dist_km = last_waypoint["departure_airport_distance_m"] / 1000.0
+        last_waypoint_dist_km = last_waypoint["departure_airport_dist_m"] / 1000.0
         if last_waypoint_dist_km > distance_threshold_km:
             return DestinationAirportError(
                 f"last waypoint in trajectory too far from arrival airport icao: "
@@ -1102,7 +1102,7 @@ class TrajectoryValidationHandler:
                 FlightAltitudeProfileError(
                     f"flight trajectory has rate of climb/descent values"
                     "between consecutive waypoints that exceed threshold"
-                    f"of {rocd_above_thres} ft/sec"
+                    f"of {rocd_threshold_fps} ft/sec"
                 )
             )
 
@@ -1124,7 +1124,6 @@ class TrajectoryValidationHandler:
         """
         Evaluate the flight trajectory for one or more violations.
         """
-        self._calculate_additional_fields()
 
         all_violations: list[Exception] = []
 
@@ -1143,6 +1142,13 @@ class TrajectoryValidationHandler:
             if duplicate_timestamps_check
             else None
         )
+        # we escape here if there are violations for the above checks.
+        # we do this because some of the following checks assume no invariant field violations,
+        #   or timestamp dupes
+        if len(all_violations) > 0:
+            return all_violations
+
+        self._calculate_additional_fields()
 
         flight_length_check: None | FlightTooShortError | FlightTooLongError
         flight_length_check = self._is_valid_flight_length()

@@ -15,6 +15,7 @@ from handlers import (
     BigQueryHandler,
     HealTrajectoryHandler,
     ResampleHandler,
+    TrajectoryValidationHandler,
 )
 from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord
 from log import logger
@@ -230,6 +231,15 @@ class FlightsSubmitSvc(BaseSvc):
             # fill null flight_ids (sat data does not have flight_id)
             waypoints.fillna(value={"flight_id": flight_id}, inplace=True)
 
+            validation_handler = TrajectoryValidationHandler(waypoints)
+            validation_violations = validation_handler.evaluate()
+            if len(validation_violations) > 0:
+                logger.warning(
+                    f"found trajectory violations for flight_id: "
+                    f"{waypoints.iloc[0]['flight_id']}."
+                    f"waypoint cnt: {len(waypoints)}. "
+                    f"violations: {validation_violations}"
+                )
             # -------------
             # apply qa/qc updates
             # -------------
