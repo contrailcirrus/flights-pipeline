@@ -22,6 +22,8 @@ from exceptions import (
     FlightTooShortError,
     OriginError,
     DestinationError,
+    FlightTooSlowError,
+    FlightTooFastError,
 )
 from helpers import key_max_value_count
 from schemas import SpireWaypointPositional
@@ -1041,6 +1043,77 @@ class TrajectoryValidationHandler:
                     )
             if len(violations) > 0:
                 return violations
+
+    def _is_too_slow(self) -> None | list[FlightTooSlowError]:
+        """
+        Evaluates the flight trajectory and identifies any period(s) where the aircraft is moving
+        below a reasonable speed.
+
+        This is evaluated both for instantaneous discrete steps in the trajectory
+        (between consecutive waypoints),
+        and,
+        on a rolling average basis.
+        """
+        instantaneous_low_speed_threshold_mps = 45  # 45m/sec ~= 100mph ~= 160kph
+        avg_low_speed_threshold_mps = 120  # 120m/sec ~= 270mph ~= 430kph
+        rolling_avg_period_min = 30  # rolling period for avg speed comparison
+
+        violations: list[FlightTooSlowError] = []
+
+        below_inst_thresh = self._df[
+            self._df["speed_m_s"] <= instantaneous_low_speed_threshold_mps
+        ]
+        if len(below_inst_thresh) > 0:
+            violations.append(
+                FlightTooSlowError(
+                    f"found instances where speed between waypoints is "
+                    f"below threshold of {instantaneous_low_speed_threshold_mps} m/s"
+                )
+            )
+
+        roll_speed = self._df[["timestamp", "speed_m_s"]]
+        roll_speed.set_index("timestamp", inplace=True)
+        roll_speed = roll_speed.rolling(
+            pd.Timedelta(minutes=rolling_avg_period_min)
+        ).mean()
+        # only consider averages occurring at least rolling_avg_period_min minutes
+        # after the flight origination (rolling window if backward looking)
+        roll_speed = roll_speed[
+            roll_speed.index
+            > roll_speed.index[0] + pd.Timedelta(minutes=rolling_avg_period_min)
+        ]
+
+        below_avg_thresh = roll_speed[
+            roll_speed["speed_m_s"] <= avg_low_speed_threshold_mps
+        ]
+        if len(below_avg_thresh) > 0:
+            violations.append(
+                FlightTooSlowError(
+                    f"found instances where rolling average speed is "
+                    f"below threshold of {avg_low_speed_threshold_mps} m/s "
+                    f"(rolling window of {rolling_avg_period_min} minutes)"
+                )
+            )
+
+        if len(violations) > 0:
+            return violations
+
+    def _is_too_fast(self):
+        """
+        Evaluates the flight trajectory and identifies any period(s) where the aircraft is moving
+        above a reasonable speed.
+
+        This is evaluated on instantaneous discrete steps between consecutive waypoints.
+        """
+        instantaneous_high_speed_threshold_mps = 350  # 350m/sec ~= 780mph ~= 1260kph
+        above_inst_thresh = self._df[
+            self._df["speed_m_s"] >= instantaneous_high_speed_threshold_mps
+        ]
+        if len(above_inst_thresh) > 0:
+            return FlightTooFastError(
+                f"found instances where speed between waypoints is "
+                f"above threshold of {instantaneous_high_speed_threshold_mps} m/s"
+            )
 
     def evaluate(self):
         """
