@@ -3,7 +3,7 @@ Custom exceptions.
 """
 
 
-class OriginError(Exception):
+class OriginAirportError(Exception):
     """
     Trajectory is not originating at expected location.
 
@@ -12,7 +12,7 @@ class OriginError(Exception):
     """
 
 
-class DestinationError(Exception):
+class DestinationAirportError(Exception):
     """
     Trajectory is not terminating at expected location.
     """

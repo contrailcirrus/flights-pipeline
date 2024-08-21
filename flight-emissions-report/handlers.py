@@ -20,8 +20,8 @@ from exceptions import (
     FlightDuplicateTimestamps,
     FlightTooLongError,
     FlightTooShortError,
-    OriginError,
-    DestinationError,
+    OriginAirportError,
+    DestinationAirportError,
     FlightTooSlowError,
     FlightTooFastError,
     FlightAltitudeProfileError,
@@ -975,75 +975,39 @@ class TrajectoryValidationHandler:
                 f"this trajectory spans {flight_duration_hours:.2f} hours."
             )
 
-    def _is_from_origin_airport(self) -> None | list[OriginError]:
+    def _is_from_origin_airport(self) -> None | OriginAirportError:
         """
         Verify that the trajectory originates within a reasonable distance from the origin airport.
+        """
+        distance_threshold_km = 200
+        first_waypoint = self._df.iloc[0]
+        first_waypoint_dist_km = first_waypoint["departure_airport_distance_m"] / 1000.0
+        if first_waypoint_dist_km > distance_threshold_km:
+            return OriginAirportError(
+                f"first waypoint in trajectory too far from departure airport icao: "
+                f"{first_waypoint['departure_airport_icao']}."
+                f"distance {first_waypoint_dist_km}km is greater than "
+                f"threshold of {distance_threshold_km}km."
+            )
 
-         We do not assume that the departure airports are invariant in the dataframe,
+    def _is_to_destination_airport(self) -> None | DestinationAirportError:
+        """
+        Verify that the trajectory terminates within a reasonable distance
+        from the destination airport.
+
+        We do not assume that the destination airports are invariant in the dataframe,
         thus we handle the case of multiple airports listed.
         """
         distance_threshold_km = 200
-        origin_airport_loc = self._df[
-            ["departure_airport_lat", "departure_airport_lon", "departure_airport_icao"]
-        ].drop_duplicates()
-        first_waypoint_loc = self._df.iloc[0]["latitude", "longitude"]
-        violations: list[OriginError] = []
-        for _, row in origin_airport_loc.iterrows():
-            dist_km = (
-                self._calc_distance_m(
-                    lat_0=first_waypoint_loc["latitude"],
-                    lon_0=first_waypoint_loc["longitude"],
-                    lat_f=row["departure_airport_lat"],
-                    lon_f=row["departure_airport_lon"],
-                )
-                / 1000.0
+        last_waypoint = self._df.iloc[-1]
+        last_waypoint_dist_km = last_waypoint["departure_airport_distance_m"] / 1000.0
+        if last_waypoint_dist_km > distance_threshold_km:
+            return DestinationAirportError(
+                f"last waypoint in trajectory too far from arrival airport icao: "
+                f"{last_waypoint['arrival_airport_icao']}."
+                f"distance {last_waypoint_dist_km}km is greater than "
+                f"threshold of {distance_threshold_km}km."
             )
-            if dist_km > distance_threshold_km:
-                violations.append(
-                    OriginError(
-                        f"first waypoint in trajectory too far from departure airport icao: "
-                        f"{row['departure_airport_icao']}."
-                        f"distance {dist_km}km is greater than threshold of {distance_threshold_km}km."
-                    )
-                )
-        if len(violations) > 0:
-            return violations
-
-        def _is_to_destination_airport(self) -> None | list[DestinationError]:
-            """
-            Verify that the trajectory terminates within a reasonable distance
-            from the destination airport.
-
-            We do not assume that the destination airports are invariant in the dataframe,
-            thus we handle the case of multiple airports listed.
-            """
-            distance_threshold_km = 200
-            destination_airport_loc = self._df[
-                ["arrival_airport_lat", "arrival_airport_lon", "arrival_airport_icao"]
-            ].drop_duplicates()
-            last_waypoint_loc = self._df.iloc[-1]["latitude", "longitude"]
-            violations: list[DestinationError] = []
-            for _, row in destination_airport_loc.iterrows():
-                dist_km = (
-                    self._calc_distance_m(
-                        lat_0=last_waypoint_loc["latitude"],
-                        lon_0=last_waypoint_loc["longitude"],
-                        lat_f=row["departure_airport_lat"],
-                        lon_f=row["departure_airport_lon"],
-                    )
-                    / 1000.0
-                )
-                if dist_km > distance_threshold_km:
-                    violations.append(
-                        DestinationError(
-                            f"last waypoint in trajectory too far from arrival airport icao: "
-                            f"{row['arrival_airport_icao']}."
-                            f"distance {dist_km}km is greater than threshold "
-                            f"of {distance_threshold_km}km."
-                        )
-                    )
-            if len(violations) > 0:
-                return violations
 
     def _is_too_slow(self) -> None | list[FlightTooSlowError]:
         """
@@ -1156,7 +1120,61 @@ class TrajectoryValidationHandler:
         if len(violations) > 0:
             return violations
 
-    def evaluate(self):
+    def evaluate(self) -> None | list[Exception]:
         """
         Evaluate the flight trajectory for one or more violations.
         """
+        self._calculate_additional_fields()
+
+        all_violations: list[Exception] = []
+
+        invariant_fields_check: None | FlightInvariantFieldViolation
+        invariant_fields_check = self._is_valid_invariant_fields()
+        (
+            all_violations.append(invariant_fields_check)
+            if invariant_fields_check
+            else None
+        )
+
+        duplicate_timestamps_check: None | FlightDuplicateTimestamps
+        duplicate_timestamps_check = self._is_valid_duplicate_timestamps()
+        (
+            all_violations.append(duplicate_timestamps_check)
+            if duplicate_timestamps_check
+            else None
+        )
+
+        flight_length_check: None | FlightTooShortError | FlightTooLongError
+        flight_length_check = self._is_valid_flight_length()
+        all_violations.append(flight_length_check) if flight_length_check else None
+
+        origin_airport_check: None | OriginAirportError
+        origin_airport_check = self._is_from_origin_airport()
+        all_violations.append(origin_airport_check) if origin_airport_check else None
+
+        destination_airport_check: None | DestinationAirportError
+        destination_airport_check = self._is_to_destination_airport()
+        (
+            all_violations.append(destination_airport_check)
+            if destination_airport_check
+            else None
+        )
+
+        slow_speed_check: None | list[FlightTooSlowError]
+        slow_speed_check = self._is_too_slow()
+        all_violations.extend(slow_speed_check) if slow_speed_check else None
+
+        fast_speed_check: None | FlightTooFastError
+        fast_speed_check = self._is_too_fast()
+        all_violations.append(fast_speed_check) if fast_speed_check else None
+
+        altitude_profile_check: None | list[FlightAltitudeProfileError]
+        altitude_profile_check = self._is_expected_altitude_profile()
+        (
+            all_violations.extend(altitude_profile_check)
+            if altitude_profile_check
+            else None
+        )
+
+        if len(all_violations) > 0:
+            return all_violations
