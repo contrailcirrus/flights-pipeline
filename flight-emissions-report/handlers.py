@@ -20,6 +20,8 @@ from exceptions import (
     FlightDuplicateTimestamps,
     FlightTooLongError,
     FlightTooShortError,
+    OriginError,
+    DestinationError,
 )
 from helpers import key_max_value_count
 from schemas import SpireWaypointPositional
@@ -663,7 +665,7 @@ class TrajectoryValidationHandler:
         return lat, lon, alt_ft
 
     @staticmethod
-    def _calc_distance(lat_0, lon_0, alt_ft_0, lat_f, lon_f, alt_ft_f) -> float:
+    def _calc_distance_m(lat_0, lon_0, alt_ft_0, lat_f, lon_f, alt_ft_f) -> float:
         """
         calculate great circle distance between two lat/lon/alt coordinates.
         """
@@ -734,7 +736,7 @@ class TrajectoryValidationHandler:
         alt_0 = roll_window.iloc[0]["altitude_baro"]
         alt_f = roll_window.iloc[1]["altitude_baro"]
 
-        dist_m = cls._calc_distance(lat_0, lon_0, alt_0, lat_f, lon_f, alt_f)
+        dist_m = cls._calc_distance_m(lat_0, lon_0, alt_0, lat_f, lon_f, alt_f)
         return dist_m
 
     @classmethod
@@ -795,7 +797,7 @@ class TrajectoryValidationHandler:
         ):
             return np.nan
 
-        return cls._calc_distance(
+        return cls._calc_distance_m(
             lon_0=row["longitude"],
             lat_0=row["latitude"],
             alt_ft_0=row["altitude_baro"],
@@ -830,7 +832,7 @@ class TrajectoryValidationHandler:
         ):
             return np.nan
 
-        return cls._calc_distance(
+        return cls._calc_distance_m(
             lon_0=row["longitude"],
             lat_0=row["latitude"],
             alt_ft_0=row["altitude_baro"],
@@ -969,6 +971,76 @@ class TrajectoryValidationHandler:
                 f"flight less than min duration of {min_length_hours} hours. "
                 f"this trajectory spans {flight_duration_hours:.2f} hours."
             )
+
+    def _is_from_origin_airport(self) -> None | list[OriginError]:
+        """
+        Verify that the trajectory originates within a reasonable distance from the origin airport.
+
+         We do not assume that the departure airports are invariant in the dataframe,
+        thus we handle the case of multiple airports listed.
+        """
+        distance_threshold_km = 200
+        origin_airport_loc = self._df[
+            ["departure_airport_lat", "departure_airport_lon", "departure_airport_icao"]
+        ].drop_duplicates()
+        first_waypoint_loc = self._df.iloc[0]["latitude", "longitude"]
+        violations: list[OriginError] = []
+        for _, row in origin_airport_loc.iterrows():
+            dist_km = (
+                self._calc_distance_m(
+                    lat_0=first_waypoint_loc["latitude"],
+                    lon_0=first_waypoint_loc["longitude"],
+                    lat_f=row["departure_airport_lat"],
+                    lon_f=row["departure_airport_lon"],
+                )
+                / 1000.0
+            )
+            if dist_km > distance_threshold_km:
+                violations.append(
+                    OriginError(
+                        f"first waypoint in trajectory too far from departure airport icao: "
+                        f"{row['departure_airport_icao']}."
+                        f"distance {dist_km}km is greater than threshold of {distance_threshold_km}km."
+                    )
+                )
+        if len(violations) > 0:
+            return violations
+
+        def _is_to_destination_airport(self) -> None | list[DestinationError]:
+            """
+            Verify that the trajectory terminates within a reasonable distance
+            from the destination airport.
+
+            We do not assume that the destination airports are invariant in the dataframe,
+            thus we handle the case of multiple airports listed.
+            """
+            distance_threshold_km = 200
+            destination_airport_loc = self._df[
+                ["arrival_airport_lat", "arrival_airport_lon", "arrival_airport_icao"]
+            ].drop_duplicates()
+            last_waypoint_loc = self._df.iloc[-1]["latitude", "longitude"]
+            violations: list[DestinationError] = []
+            for _, row in destination_airport_loc.iterrows():
+                dist_km = (
+                    self._calc_distance_m(
+                        lat_0=last_waypoint_loc["latitude"],
+                        lon_0=last_waypoint_loc["longitude"],
+                        lat_f=row["departure_airport_lat"],
+                        lon_f=row["departure_airport_lon"],
+                    )
+                    / 1000.0
+                )
+                if dist_km > distance_threshold_km:
+                    violations.append(
+                        DestinationError(
+                            f"last waypoint in trajectory too far from arrival airport icao: "
+                            f"{row['arrival_airport_icao']}."
+                            f"distance {dist_km}km is greater than threshold "
+                            f"of {distance_threshold_km}km."
+                        )
+                    )
+            if len(violations) > 0:
+                return violations
 
     def evaluate(self):
         """

@@ -3,9 +3,18 @@ Custom exceptions.
 """
 
 
-class OriginDestinationError(Exception):
+class OriginError(Exception):
     """
-    Trajectory is not originating or terminating at expected location.
+    Trajectory is not originating at expected location.
+
+    We do not assume that the departure airports are invariant in the dataframe,
+    thus we handle the case of multiple airports listed.
+    """
+
+
+class DestinationError(Exception):
+    """
+    Trajectory is not terminating at expected location.
     """
 
 

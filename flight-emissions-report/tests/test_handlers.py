@@ -17,7 +17,7 @@ def test_calc_distance():
     # lat, lon, altitude_ft
     denver_airport = (39.856799, -104.684585, 5_500)
     somewhere_over_kansas = (39.109061, -101.792234, 5_500)
-    dist_m = TrajectoryValidationHandler._calc_distance(
+    dist_m = TrajectoryValidationHandler._calc_distance_m(
         lat_0=denver_airport[0],
         lon_0=denver_airport[1],
         alt_ft_0=denver_airport[2],
