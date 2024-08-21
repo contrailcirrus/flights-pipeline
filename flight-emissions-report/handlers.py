@@ -567,11 +567,42 @@ class TrajectoryValidationHandler:
                 "flight_id)."
             )
 
-        # TODO: add validation step to check names/types of pd.Dataframe cols
-
         self._df = trajectory.copy(deep=True)
+        try:
+            self._df = self._dataframe_convert_types(self._df)
+        except KeyError as e:
+            raise KeyError(
+                "flight trajectory dataframe is missing an expected column."
+            ) from e
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
         self._df.reset_index(drop=True, inplace=True)
+
+    @staticmethod
+    def _dataframe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Attempt to convert types for each dataframe column to expected type.
+        Implicitly also checks for existence of expected columns.
+        """
+        cols = {
+            "icao_address": "str",
+            "flight_id": "str",
+            "callsign": "str",
+            "tail_number": "str",
+            "flight_number": "str",
+            "aircraft_type_icao": "str",
+            "airline_iata": "str",
+            "departure_airport_icao": "str",
+            "departure_scheduled_time": "datetime64[ns, UTC]",
+            "arrival_airport_icao": "str",
+            "arrival_scheduled_time": "datetime64[ns, UTC]",
+            "ingestion_time": "datetime64[ns, UTC]",
+            "timestamp": "datetime64[ns, UTC]",
+            "latitude": "float64",
+            "longitude": "float64",
+            "collection_type": "str",
+            "altitude_baro": "int64",
+        }
+        return df.astype(cols)
 
     @property
     def validation_df(self) -> pd.DataFrame:
