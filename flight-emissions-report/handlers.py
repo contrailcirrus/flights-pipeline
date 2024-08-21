@@ -24,6 +24,7 @@ from exceptions import (
     DestinationError,
     FlightTooSlowError,
     FlightTooFastError,
+    FlightAltitudeProfileError,
 )
 from helpers import key_max_value_count
 from schemas import SpireWaypointPositional
@@ -1098,7 +1099,7 @@ class TrajectoryValidationHandler:
         if len(violations) > 0:
             return violations
 
-    def _is_too_fast(self):
+    def _is_too_fast(self) -> None | FlightTooFastError:
         """
         Evaluates the flight trajectory and identifies any period(s) where the aircraft is moving
         above a reasonable speed.
@@ -1114,6 +1115,46 @@ class TrajectoryValidationHandler:
                 f"found instances where speed between waypoints is "
                 f"above threshold of {instantaneous_high_speed_threshold_mps} m/s"
             )
+
+    def _is_expected_altitude_profile(self) -> None | list[FlightAltitudeProfileError]:
+        """
+        Evaluates flight altitude profile.
+
+        Failure modes include:
+        1) flight climbs above alt threshold,
+            then descends below that threshold one or more times,
+            before making final descent to land.
+
+        2) rate of instantaneous (between consecutive waypoint) climb or descent is above threshold.
+        """
+
+        rocd_threshold_fps = 4.2  # 4.2 ft/sec ~= 250 ft/min
+        alt_threshold_ft = 15000
+        violations: list[FlightAltitudeProfileError] = []
+
+        rocd_above_thres = self._df[self._df["rocd_fps"].abs() >= rocd_threshold_fps]
+        if len(rocd_above_thres) > 0:
+            violations.append(
+                FlightAltitudeProfileError(
+                    f"flight trajectory has rate of climb/descent values"
+                    "between consecutive waypoints that exceed threshold"
+                    f"of {rocd_above_thres} ft/sec"
+                )
+            )
+
+        alt_below_thresh = self._df["altitude_baro"] <= alt_threshold_ft
+        alt_thresh_transitions = alt_below_thresh.rolling(window=2).sum()
+        transition_pts = alt_thresh_transitions[alt_thresh_transitions == 1]
+        if len(transition_pts) > 2:
+            violations.append(
+                FlightAltitudeProfileError(
+                    f"flight trajectory dropped below altitude threshold"
+                    f"of {alt_threshold_ft}ft while in-flight."
+                )
+            )
+
+        if len(violations) > 0:
+            return violations
 
     def evaluate(self):
         """
