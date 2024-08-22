@@ -932,7 +932,7 @@ class TrajectoryValidationHandler:
 
         if len(violations) > 0:
             return FlightInvariantFieldViolation(
-                f"the following fields have multiple values for this trajectory."
+                f"the following fields have multiple values for this trajectory. "
                 f"{violations}"
             )
 
@@ -1098,8 +1098,8 @@ class TrajectoryValidationHandler:
         if len(rocd_above_thres) > 0:
             violations.append(
                 FlightAltitudeProfileError(
-                    f"flight trajectory has rate of climb/descent values"
-                    "between consecutive waypoints that exceed threshold"
+                    f"flight trajectory has rate of climb/descent values "
+                    "between consecutive waypoints that exceed threshold "
                     f"of {rocd_threshold_fps} ft/sec"
                 )
             )

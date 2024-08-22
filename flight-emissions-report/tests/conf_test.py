@@ -32,3 +32,33 @@ def flight_instance_1() -> pd.DataFrame:
 def flight_instance_2() -> pd.DataFrame:
     fn = "8f4d0cd7-e823-47ef-86e3-3d37d1ac2ff2.csv"
     return _import_flight_instance(fn)
+
+
+@pytest.fixture(scope="session")
+def flight_instance_3() -> pd.DataFrame:
+    fn = "b87beae5-a60f-47a1-b685-229bb851b93b.csv"
+    """
+    Flight trajectory violations.
+    FlightInvariantFieldViolation
+    """
+    return _import_flight_instance(fn)
+
+
+@pytest.fixture(scope="session")
+def flight_instance_4() -> pd.DataFrame:
+    fn = "bfdd803d-40c6-4eac-bf37-fe142e96f83a.csv"
+    """
+    Flight trajectory violations.
+    DestinationAirportError, FlightAltitudeProfileError
+    """
+    return _import_flight_instance(fn)
+
+
+@pytest.fixture(scope="session")
+def flight_instance_5() -> pd.DataFrame:
+    """
+    Flight trajectory violations.
+    DestinationAirportError, FlightTooFastError, FlightAltitudeProfileError
+    """
+    fn = "a292a96d-e06a-494d-8592-18112a2c2465.csv"
+    return _import_flight_instance(fn)

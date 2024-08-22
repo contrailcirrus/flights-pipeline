@@ -26,3 +26,9 @@ def test_calc_distance():
         alt_ft_f=somewhere_over_kansas[2],
     )
     assert 261_750 == pytest.approx(dist_m, rel=0.01)
+
+
+def test_trajectory_validation_handler_1(flight_instance_3):
+    """
+    Test for FlightInvariantFieldViolation in flight trajectory.
+    """

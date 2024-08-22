@@ -236,7 +236,7 @@ class FlightsSubmitSvc(BaseSvc):
             if len(validation_violations) > 0:
                 logger.warning(
                     f"found trajectory violations for flight_id: "
-                    f"{waypoints.iloc[0]['flight_id']}."
+                    f"{waypoints.iloc[0]['flight_id']}. "
                     f"waypoint cnt: {len(waypoints)}. "
                     f"violations: {validation_violations}"
                 )
