@@ -549,8 +549,6 @@ class TrajectoryValidationHandler:
     Evaluates trajectory and identifies if it violates any verification rules.
     """
 
-    MIN_WAYPOINTS_PER_FLIGHT = 30
-    MIN_ELAPSED_SEC_PER_FLIGHT = 60 * 20
     ROCD_THRESHOLD_FPS = 4.2  # 4.2 ft/sec ~= 250 ft/min
     INFLIGHT_ALTITUDE_THRESHOLD_FT = 15000
     INSTANTANEOUS_HIGH_SPEED_THRESHOLD_MPS = 350  # 350m/sec ~= 780mph ~= 1260kph
