@@ -10,7 +10,7 @@ def _import_flight_instance(fn: str) -> pd.DataFrame:
     """
     Helper to import a target flight instance file.
     """
-    df = pd.read_csv(f"tests/datasets/flight_instances/{fn}")
+    df = pd.read_csv(f"datasets/flight_instances/{fn}")
     df.loc[:, "timestamp"] = pd.to_datetime(df["timestamp"])
     df.loc[:, "ingestion_time"] = pd.to_datetime(df["ingestion_time"])
     df.loc[:, "departure_scheduled_time"] = pd.to_datetime(
@@ -39,7 +39,7 @@ def flight_instance_3() -> pd.DataFrame:
     fn = "b87beae5-a60f-47a1-b685-229bb851b93b.csv"
     """
     Flight trajectory violations.
-    FlightInvariantFieldViolation
+    FlightDuplicateTimestamps
     """
     return _import_flight_instance(fn)
 
