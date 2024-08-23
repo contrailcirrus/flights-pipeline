@@ -281,9 +281,9 @@ class FlightsSubmitSvc(BaseSvc):
                 records.append(record)
             resample_handler = ResampleHandler(records_window=records)
             resample_handler.interpolate()
-            waypoints_resampled: list[
-                SpireWaypointPositional
-            ] = resample_handler.waypoints_resampled
+            waypoints_resampled: list[SpireWaypointPositional] = (
+                resample_handler.waypoints_resampled
+            )
             job = WaypointsRecord(flight_info=flight_info, records=waypoints_resampled)
 
             if self._export_waypoints:
@@ -596,7 +596,14 @@ class FlightsReportFetchSvc(BaseSvc):
         count_flights = df.flight_id.nunique()
         count_flights_positive_ef = len(df[df.sum_ef_mj > 0])
         total_flight_hours = df.seg_cnt.sum() // 60
-        total_warming_contrails_flight_hours = df.seg_ef_cnt.sum() // 60
+        total_contrails_flight_hours = df.seg_ef_cnt.sum() // 60
+
+        total_flight_distance_km = int(df.chunk_len_km.sum())
+        total_contrails_distance_km = int(df.total_persistent_contrail_length_km.sum())
+        percentage_flight_dist_w_contrails = round(
+            total_contrails_distance_km / total_flight_distance_km * 100.0, 1
+        )
+
         total_fuel_burn_metric_tons = round(df.total_fuel_burn_kg.sum() / 1000.0, 2)
         total_co2_metric_tons = round(df.total_co2_kg.sum() / 1000.0, 2)
         total_nox_metric_tons = round(df.total_nox_kg.sum() / 1000.0, 3)
@@ -614,9 +621,10 @@ class FlightsReportFetchSvc(BaseSvc):
             "count_flights": int(count_flights),
             "count_flights_positive_ef": int(count_flights_positive_ef),
             "total_flight_hours": int(total_flight_hours),
-            "total_warming_contrails_flight_hours": int(
-                total_warming_contrails_flight_hours
-            ),
+            "total_contrails_flight_hours": int(total_contrails_flight_hours),
+            "total_flight_distance_km": total_flight_distance_km,
+            "percentage_flight_distance_w_contrails": percentage_flight_dist_w_contrails,
+            "total_contrails_flight_distance_km": total_contrails_distance_km,
             "total_fuel_burn_metric_tons": float(total_fuel_burn_metric_tons),
             "total_co2_metric_tons": float(total_co2_metric_tons),
             "total_contrails_co2e20_metric_tons": float(
