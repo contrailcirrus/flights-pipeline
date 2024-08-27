@@ -582,6 +582,9 @@ class TrajectoryValidationHandler:
         self._df = trajectory.copy(deep=True)
         try:
             self._df = self._dataframe_convert_types(self._df)
+            self._df.replace(
+                np.nan, None, inplace=True
+            )  # None are ignored in value_counts()
         except KeyError as e:
             raise KeyError(
                 "flight trajectory dataframe is missing an expected column."
@@ -935,7 +938,7 @@ class TrajectoryValidationHandler:
 
         violations = []
         for k in invariant_fields:
-            unique_vals = list(self._df["arrival_airport_icao"].value_counts().index)
+            unique_vals = list(self._df[k].value_counts().index)
             if len(unique_vals) > 1:
                 violations.append(k)
 
