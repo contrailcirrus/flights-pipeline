@@ -992,7 +992,7 @@ class TrajectoryValidationHandler:
         if first_waypoint_dist_km > self.AIRPORT_DISTANCE_THRESHOLD_KM:
             return OriginAirportError(
                 f"first waypoint in trajectory too far from departure airport icao: "
-                f"{first_waypoint['departure_airport_icao']}."
+                f"{first_waypoint['departure_airport_icao']}. "
                 f"distance {first_waypoint_dist_km}km is greater than "
                 f"threshold of {self.AIRPORT_DISTANCE_THRESHOLD_KM}km."
             )
