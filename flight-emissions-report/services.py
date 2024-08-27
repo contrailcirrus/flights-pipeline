@@ -15,6 +15,7 @@ from handlers import (
     BigQueryHandler,
     HealTrajectoryHandler,
     ResampleHandler,
+    GoogDatasetHandler,
 )
 from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord
 from log import logger
@@ -463,7 +464,13 @@ class FlightsReportFetchSvc(BaseSvc):
         self._airline = input.airline
         self._day_str = input.day
         self._verbose = input.verbose
+        self._goog_fp = input.goog_fp
+
         self._bq_handler = BigQueryHandler()
+        if self._goog_fp:
+            self._goog_handler = GoogDatasetHandler(self._goog_fp)
+        else:
+            self._goog_handler = None
 
     @staticmethod
     def _validate_day_str(daystr: str) -> str:
@@ -544,6 +551,7 @@ class FlightsReportFetchSvc(BaseSvc):
         logger.info(
             f"🐶 fetching report for airline {self._airline} on day/day-range {self._day_str}..."
         )
+
         query = self._bq_handler.import_query(self.REPORT_QUERY_FILENAME)
         cfg = bigquery.QueryJobConfig(
             query_parameters=[
@@ -604,6 +612,13 @@ class FlightsReportFetchSvc(BaseSvc):
             total_contrails_distance_km / total_flight_distance_km * 100.0, 1
         )
 
+        if self._goog_handler:
+            total_goog_contrails_verified_distance_km = int(
+                self._goog_handler.df.attributed_contrail_length_km.sum()
+            )
+        else:
+            total_goog_contrails_verified_distance_km = None
+
         total_fuel_burn_metric_tons = round(df.total_fuel_burn_kg.sum() / 1000.0, 2)
         total_co2_metric_tons = round(df.total_co2_kg.sum() / 1000.0, 2)
         total_nox_metric_tons = round(df.total_nox_kg.sum() / 1000.0, 3)
@@ -625,6 +640,7 @@ class FlightsReportFetchSvc(BaseSvc):
             "total_flight_distance_km": total_flight_distance_km,
             "percentage_flight_distance_w_contrails": percentage_flight_dist_w_contrails,
             "total_contrails_flight_distance_km": total_contrails_distance_km,
+            "total_contrails_goog_sat_verified_distance_km": total_goog_contrails_verified_distance_km,
             "total_fuel_burn_metric_tons": float(total_fuel_burn_metric_tons),
             "total_co2_metric_tons": float(total_co2_metric_tons),
             "total_contrails_co2e20_metric_tons": float(

@@ -126,6 +126,12 @@ flights_submit_parser.add_argument(
     help="verbose printout",
     dest="verbose",
 )
+flights_submit_parser.add_argument(
+    "-g",
+    "--goog_fp",
+    help="file path to google dataset",
+    dest="goog_fp",
+)
 flights_submit_parser.set_defaults(func=FlightsReportFetchSvc)
 
 
