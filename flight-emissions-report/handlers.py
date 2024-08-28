@@ -1006,7 +1006,7 @@ class TrajectoryValidationHandler:
         thus we handle the case of multiple airports listed.
         """
         last_waypoint = self._df.iloc[-1]
-        last_waypoint_dist_km = last_waypoint["departure_airport_dist_m"] / 1000.0
+        last_waypoint_dist_km = last_waypoint["arrival_airport_dist_m"] / 1000.0
         if last_waypoint_dist_km > self.AIRPORT_DISTANCE_THRESHOLD_KM:
             return DestinationAirportError(
                 f"last waypoint in trajectory too far from arrival airport icao: "
