@@ -583,7 +583,7 @@ class TrajectoryValidationHandler:
         try:
             self._df = self._dataframe_convert_types(self._df)
             self._df.replace(
-                np.nan, None, inplace=True
+                [np.nan, float("nan"), "nan"], None, inplace=True
             )  # None are ignored in value_counts()
         except KeyError as e:
             raise KeyError(
@@ -599,23 +599,23 @@ class TrajectoryValidationHandler:
         Implicitly also checks for existence of expected columns.
         """
         cols = {
-            "icao_address": "str",
-            "flight_id": "str",
-            "callsign": "str",
-            "tail_number": "str",
-            "flight_number": "str",
-            "aircraft_type_icao": "str",
-            "airline_iata": "str",
-            "departure_airport_icao": "str",
+            "icao_address": str,
+            "flight_id": str,
+            "callsign": str,
+            "tail_number": str,
+            "flight_number": str,
+            "aircraft_type_icao": str,
+            "airline_iata": str,
+            "departure_airport_icao": str,
             "departure_scheduled_time": "datetime64[ns, UTC]",
-            "arrival_airport_icao": "str",
+            "arrival_airport_icao": str,
             "arrival_scheduled_time": "datetime64[ns, UTC]",
             "ingestion_time": "datetime64[ns, UTC]",
             "timestamp": "datetime64[ns, UTC]",
-            "latitude": "float64",
-            "longitude": "float64",
-            "collection_type": "str",
-            "altitude_baro": "int64",
+            "latitude": float,
+            "longitude": float,
+            "collection_type": str,
+            "altitude_baro": int,
         }
         return df.astype(cols)
 
