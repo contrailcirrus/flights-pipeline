@@ -324,7 +324,7 @@ class HealTrajectoryHandler:
         Parameters
         ----------
         trajectory
-            A dataset with one flight trajectories.
+            A dataset with one flight trajectory.
             Each trajectory is identified by its flight_id.
             Dataset must include columns matching those in the BQ table `spire_flights_raw_prod`
         """
