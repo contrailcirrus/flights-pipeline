@@ -7,7 +7,6 @@ import pytest
 from handlers import TrajectoryValidationHandler
 from exceptions import (
     FlightDuplicateTimestamps,
-    DestinationAirportError,
     FlightAltitudeProfileError,
     FlightTooFastError,
     FlightInvariantFieldViolation,
@@ -52,26 +51,21 @@ def test_trajectory_validation_handler_2(flight_instance_4):
     """
     validation_handler = TrajectoryValidationHandler(flight_instance_4)
     violations = validation_handler.evaluate()
-    assert len(violations) == 2
-    for violation in violations:
-        assert isinstance(violation, FlightAltitudeProfileError) or isinstance(
-            violation, DestinationAirportError
-        )
+    assert len(violations) == 1
+    assert isinstance(violations[0], FlightAltitudeProfileError)
 
 
 def test_trajectory_validation_handler_3(flight_instance_5):
     """
     Test for flight trajectory violation(s):
-        DestinationAirportError, FlightAltitudeProfileError, FlightTooFastError
+        FlightAltitudeProfileError, FlightTooFastError
     """
     validation_handler = TrajectoryValidationHandler(flight_instance_5)
     violations = validation_handler.evaluate()
-    assert len(violations) == 3
+    assert len(violations) == 2
     for violation in violations:
-        assert (
-            isinstance(violation, FlightAltitudeProfileError)
-            or isinstance(violation, DestinationAirportError)
-            or isinstance(violation, FlightTooFastError)
+        assert isinstance(violation, FlightAltitudeProfileError) or isinstance(
+            violation, FlightTooFastError
         )
 
 

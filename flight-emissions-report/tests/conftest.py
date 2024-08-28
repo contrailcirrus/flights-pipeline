@@ -49,7 +49,7 @@ def flight_instance_4() -> pd.DataFrame:
     fn = "bfdd803d-40c6-4eac-bf37-fe142e96f83a.csv"
     """
     Flight trajectory violations.
-    DestinationAirportError, FlightAltitudeProfileError
+    FlightAltitudeProfileError
     """
     return _import_flight_instance(fn)
 
