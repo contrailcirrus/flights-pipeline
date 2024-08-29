@@ -3,6 +3,12 @@ Custom exceptions.
 """
 
 
+class SchemaError(Exception):
+    """
+    Data object is inconsistent with required schema.
+    """
+
+
 class OriginAirportError(Exception):
     """
     Trajectory is not originating at expected location.

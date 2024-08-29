@@ -7,6 +7,7 @@ from google.cloud import bigquery, pubsub_v1
 import google.auth
 import google.api_core.exceptions
 import pandas as pd
+import pandas.api.types as pdtypes
 import warnings
 from typing import Any, Callable, List
 import numpy as np
@@ -16,6 +17,7 @@ from pycontrails.physics import geo
 from pycontrails.core import airports
 
 from exceptions import (
+    SchemaError,
     FlightInvariantFieldViolation,
     FlightDuplicateTimestamps,
     FlightTooLongError,
@@ -561,6 +563,27 @@ class TrajectoryValidationHandler:
     MIN_FLIGHT_LENGTH_HR = 0.4
     MAX_FLIGHT_LENGTH_HR = 19
 
+    # expected schema of pandas dataframe passed on initialization
+    SCHEMA = {
+        "icao_address": pdtypes.is_string_dtype,
+        "flight_id": pdtypes.is_string_dtype,
+        "callsign": pdtypes.is_string_dtype,
+        "tail_number": pdtypes.is_string_dtype,
+        "flight_number": pdtypes.is_string_dtype,
+        "aircraft_type_icao": pdtypes.is_string_dtype,
+        "airline_iata": pdtypes.is_string_dtype,
+        "departure_airport_icao": pdtypes.is_string_dtype,
+        "departure_scheduled_time": pdtypes.is_datetime64_any_dtype,
+        "arrival_airport_icao": pdtypes.is_string_dtype,
+        "arrival_scheduled_time": pdtypes.is_datetime64_any_dtype,
+        "ingestion_time": pdtypes.is_datetime64_any_dtype,
+        "timestamp": pdtypes.is_datetime64_any_dtype,
+        "latitude": pdtypes.is_numeric_dtype,
+        "longitude": pdtypes.is_numeric_dtype,
+        "collection_type": pdtypes.is_string_dtype,
+        "altitude_baro": pdtypes.is_numeric_dtype,
+    }
+
     airports_db = airports.global_airport_database()
 
     def __init__(self, trajectory: pd.DataFrame):
@@ -580,11 +603,10 @@ class TrajectoryValidationHandler:
             )
 
         self._df = trajectory.copy(deep=True)
+        # TODO: remove below data manipulations; refactor to data verifications
         try:
             self._df = self._dataframe_convert_types(self._df)
-            self._df.replace(
-                [np.nan, float("nan"), "nan"], None, inplace=True
-            )  # None are ignored in value_counts()
+            self._df.replace("nan", None, inplace=True)
         except KeyError as e:
             raise KeyError(
                 "flight trajectory dataframe is missing an expected column."
@@ -628,6 +650,12 @@ class TrajectoryValidationHandler:
         but including the additional computed columns that are used in verification.
         e.g. elapsed_sec, speed_m_s, etc.
         """
+        violations = self.evaluate()
+        if len(violations) > 0:
+            raise Exception(
+                f"validation dataframe cannot be returned "
+                f"if flight has one or more violations. {violations}"
+            )
         # safeguard to ensure this call follows the addition of the columns
         # assumes calculate_additional_fields is idempotent
         self._calculate_additional_fields()
@@ -918,6 +946,32 @@ class TrajectoryValidationHandler:
             ),
         )
 
+    @classmethod
+    def _is_valid_schema(cls, df: pd.DataFrame) -> None | SchemaError:
+        """
+        Verify that a pandas dataframe has required cols, and that they are of required type.
+        """
+        col_types = df.dtypes
+        cols = list(col_types.index)
+
+        missing_cols = [i for i in cls.SCHEMA.keys() if i not in cols]
+        if len(missing_cols) > 0:
+            return SchemaError(
+                f"trajectory dataframe is missing expected fields: {missing_cols}"
+            )
+
+        col_w_bad_dtypes = []
+        for col, check_fn in cls.SCHEMA.items():
+            is_valid = check_fn(col_types[col])
+            if not is_valid:
+                col_w_bad_dtypes.append(f"{col} failed check {check_fn.__name__}")
+
+        if len(col_w_bad_dtypes) > 0:
+            return SchemaError(
+                f"trajectory dataframe has columns with invalid data types. "
+                f"\n {col_w_bad_dtypes}"
+            )
+
     def _is_valid_invariant_fields(self) -> None | FlightInvariantFieldViolation:
         """
         Verify that fields expected to be invariant are indeed invariant.
@@ -1132,6 +1186,14 @@ class TrajectoryValidationHandler:
 
         all_violations: list[Exception] = []
 
+        # Checks; Round 1
+        schema_check: None | SchemaError
+        schema_check = self._is_valid_schema(self._df)
+        all_violations.append(schema_check) if schema_check else None
+        if len(all_violations) > 0:
+            return all_violations
+
+        # Checks; Round 2
         invariant_fields_check: None | FlightInvariantFieldViolation
         invariant_fields_check = self._is_valid_invariant_fields()
         (
@@ -1153,6 +1215,7 @@ class TrajectoryValidationHandler:
         if len(all_violations) > 0:
             return all_violations
 
+        # Checks; Round 3
         self._calculate_additional_fields()
 
         flight_length_check: None | FlightTooShortError | FlightTooLongError
