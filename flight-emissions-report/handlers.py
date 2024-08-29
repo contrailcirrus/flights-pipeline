@@ -1162,13 +1162,15 @@ class ValidateTrajectoryHandler:
             then descends below that threshold one or more times,
             before making final descent to land.
 
-        2) rate of instantaneous (between consecutive waypoint) climb or descent is above threshold.
+        2) rate of instantaneous (between consecutive waypoint) climb or descent is above threshold,
+           while aircraft is above the cruise altitude.
         """
 
         violations: list[FlightAltitudeProfileError] = []
 
         rocd_above_thres = self._df[
-            self._df["rocd_fps"].abs() >= self.CRUISE_ROCD_THRESHOLD_FPS
+            (self._df["rocd_fps"].abs() >= self.CRUISE_ROCD_THRESHOLD_FPS)
+            & (self._df["altitude_baro"] > self.CRUISE_LOW_ALTITUDE_THRESHOLD_FT)
         ]
         if len(rocd_above_thres) > 0:
             violations.append(
