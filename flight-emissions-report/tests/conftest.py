@@ -11,12 +11,10 @@ def _import_flight_instance(fn: str) -> pd.DataFrame:
     Helper to import a target flight instance file.
     """
     df = pd.read_csv(f"datasets/flight_instances/{fn}")
-    df.loc[:, "timestamp"] = pd.to_datetime(df["timestamp"])
-    df.loc[:, "ingestion_time"] = pd.to_datetime(df["ingestion_time"])
-    df.loc[:, "departure_scheduled_time"] = pd.to_datetime(
-        df["departure_scheduled_time"]
-    )
-    df.loc[:, "arrival_scheduled_time"] = pd.to_datetime(df["arrival_scheduled_time"])
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df["ingestion_time"] = pd.to_datetime(df["ingestion_time"])
+    df["departure_scheduled_time"] = pd.to_datetime(df["departure_scheduled_time"])
+    df["arrival_scheduled_time"] = pd.to_datetime(df["arrival_scheduled_time"])
     df.sort_values("timestamp", ascending=True, inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
