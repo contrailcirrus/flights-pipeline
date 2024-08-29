@@ -9,6 +9,12 @@ class SchemaError(Exception):
     """
 
 
+class OrderingError(Exception):
+    """
+    Data object has incorrect ordering.
+    """
+
+
 class OriginAirportError(Exception):
     """
     Trajectory is not originating at expected location.

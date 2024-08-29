@@ -18,6 +18,7 @@ from pycontrails.core import airports
 
 from exceptions import (
     SchemaError,
+    OrderingError,
     FlightInvariantFieldViolation,
     FlightDuplicateTimestamps,
     FlightTooLongError,
@@ -365,6 +366,33 @@ class HealTrajectoryHandler:
             resp.update({col: prio_val})
         return resp
 
+    @staticmethod
+    def _dataframe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Attempt to convert types for each dataframe column to expected type.
+        Implicitly also checks for existence of expected columns.
+        """
+        cols = {
+            "icao_address": str,
+            "flight_id": str,
+            "callsign": str,
+            "tail_number": str,
+            "flight_number": str,
+            "aircraft_type_icao": str,
+            "airline_iata": str,
+            "departure_airport_icao": str,
+            "departure_scheduled_time": "datetime64[ns, UTC]",
+            "arrival_airport_icao": str,
+            "arrival_scheduled_time": "datetime64[ns, UTC]",
+            "ingestion_time": "datetime64[ns, UTC]",
+            "timestamp": "datetime64[ns, UTC]",
+            "latitude": float,
+            "longitude": float,
+            "collection_type": str,
+            "altitude_baro": int,
+        }
+        return df.astype(cols)
+
     def heal(self) -> pd.DataFrame:
         """
         Manipulate trajectories with qaqc heuristics.
@@ -373,6 +401,14 @@ class HealTrajectoryHandler:
         -------
         Dataset mirroring initiated dataset, with manipulations applied.
         """
+
+        try:
+            self._df = self._dataframe_convert_types(self._df)
+            self._df.replace("nan", None, inplace=True)
+        except KeyError as e:
+            raise KeyError(
+                "flight trajectory dataframe is missing an expected column."
+            ) from e
 
         # --------------
         # update dataset so the following target keys are uniform/distinct for a given flight
@@ -603,43 +639,6 @@ class ValidateTrajectoryHandler:
             )
 
         self._df = trajectory.copy(deep=True)
-        # TODO: remove below data manipulations; refactor to data verifications
-        try:
-            self._df = self._dataframe_convert_types(self._df)
-            self._df.replace("nan", None, inplace=True)
-        except KeyError as e:
-            raise KeyError(
-                "flight trajectory dataframe is missing an expected column."
-            ) from e
-        self._df.sort_values(by="timestamp", ascending=True, inplace=True)
-        self._df.reset_index(drop=True, inplace=True)
-
-    @staticmethod
-    def _dataframe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Attempt to convert types for each dataframe column to expected type.
-        Implicitly also checks for existence of expected columns.
-        """
-        cols = {
-            "icao_address": str,
-            "flight_id": str,
-            "callsign": str,
-            "tail_number": str,
-            "flight_number": str,
-            "aircraft_type_icao": str,
-            "airline_iata": str,
-            "departure_airport_icao": str,
-            "departure_scheduled_time": "datetime64[ns, UTC]",
-            "arrival_airport_icao": str,
-            "arrival_scheduled_time": "datetime64[ns, UTC]",
-            "ingestion_time": "datetime64[ns, UTC]",
-            "timestamp": "datetime64[ns, UTC]",
-            "latitude": float,
-            "longitude": float,
-            "collection_type": str,
-            "altitude_baro": int,
-        }
-        return df.astype(cols)
 
     @property
     def validation_df(self) -> pd.DataFrame:
@@ -977,6 +976,16 @@ class ValidateTrajectoryHandler:
                 f"\n {col_w_bad_dtypes}"
             )
 
+    def _is_timestamp_sorted(self) -> None | OrderingError:
+        """
+        Verify that the data is sorted by waypoint timestamp in ascending order.
+        """
+        ts_index = pd.Index(self._df["timestamp"])
+        if not ts_index.is_monotonic_increasing:
+            return OrderingError(
+                "trajectory dataframe must be sorted by timestamp in ascending order."
+            )
+
     def _is_valid_invariant_fields(self) -> None | FlightInvariantFieldViolation:
         """
         Verify that fields expected to be invariant are indeed invariant.
@@ -1201,6 +1210,14 @@ class ValidateTrajectoryHandler:
             return all_violations
 
         # Checks; Round 2
+        timestamp_ordering_check: None | OrderingError
+        timestamp_ordering_check = self._is_timestamp_sorted()
+        (
+            all_violations.append(timestamp_ordering_check)
+            if timestamp_ordering_check
+            else None
+        )
+
         invariant_fields_check: None | FlightInvariantFieldViolation
         invariant_fields_check = self._is_valid_invariant_fields()
         (
