@@ -546,17 +546,17 @@ class ResampleHandler:
         return cls.FLIGHT_LEVELS[min_ix]
 
 
-class TrajectoryValidationHandler:
+class ValidateTrajectoryHandler:
     """
     Evaluates trajectory and identifies if it violates any verification rules.
     """
 
-    ROCD_THRESHOLD_FPS = 4.2  # 4.2 ft/sec ~= 250 ft/min
-    INFLIGHT_ALTITUDE_THRESHOLD_FT = 15000
-    INSTANTANEOUS_HIGH_SPEED_THRESHOLD_MPS = 350  # 350m/sec ~= 780mph ~= 1260kph
-    INSTANTANEOUS_LOW_SPEED_THRESHOLD_MPS = 45  # 45m/sec ~= 100mph ~= 160kph
-    AVG_LOW_SPEED_THRESHOLD_MPS = 120  # 120m/sec ~= 270mph ~= 430kph
-    AVG_LOW_SPEED_ROLLING_WINDOW_PERIOD_MIN = (
+    CRUISE_ROCD_THRESHOLD_FPS = 4.2  # 4.2 ft/sec ~= 250 ft/min
+    CRUISE_LOW_ALTITUDE_THRESHOLD_FT = 15000  # lowest expected cruise altitude
+    INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS = 350  # 350m/sec ~= 780mph ~= 1260kph
+    INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS = 45  # 45m/sec ~= 100mph ~= 160kph
+    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 120  # 120m/sec ~= 270mph ~= 430kph
+    AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN = (
         30  # rolling period for avg speed comparison
     )
     AIRPORT_DISTANCE_THRESHOLD_KM = 200
@@ -648,13 +648,18 @@ class TrajectoryValidationHandler:
         ---------
         dataframe mirroring that provided to the handler,
         but including the additional computed columns that are used in verification.
-        e.g. elapsed_sec, speed_m_s, etc.
+        e.g. elapsed_sec, ground_speed_m_s, etc.
         """
         violations = self.evaluate()
-        if len(violations) > 0:
+        fatal_violations = [
+            SchemaError,
+            FlightDuplicateTimestamps,
+            FlightInvariantFieldViolation,
+        ]
+        if any([v in violations for v in fatal_violations]):
             raise Exception(
                 f"validation dataframe cannot be returned "
-                f"if flight has one or more violations. {violations}"
+                f"if flight has violations(s): {violations}"
             )
         # safeguard to ensure this call follows the addition of the columns
         # assumes calculate_additional_fields is idempotent
@@ -900,7 +905,7 @@ class TrajectoryValidationHandler:
             ],
         )
         self._df = self._df.assign(
-            speed_m_s=self._df["elapsed_distance_m"]
+            ground_speed_m_s=self._df["elapsed_distance_m"]
             .divide(self._df["elapsed_seconds"])
             .replace(np.inf, np.nan)
         )
@@ -1083,38 +1088,39 @@ class TrajectoryValidationHandler:
         violations: list[FlightTooSlowError] = []
 
         below_inst_thresh = self._df[
-            self._df["speed_m_s"] <= self.INSTANTANEOUS_LOW_SPEED_THRESHOLD_MPS
+            self._df["ground_speed_m_s"]
+            <= self.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS
         ]
         if len(below_inst_thresh) > 0:
             violations.append(
                 FlightTooSlowError(
                     f"found instances where speed between waypoints is "
-                    f"below threshold of {self.INSTANTANEOUS_LOW_SPEED_THRESHOLD_MPS} m/s"
+                    f"below threshold of {self.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS} m/s"
                 )
             )
 
-        roll_speed = self._df[["timestamp", "speed_m_s"]]
+        roll_speed = self._df[["timestamp", "ground_speed_m_s"]]
         roll_speed.set_index("timestamp", inplace=True)
         roll_speed = roll_speed.rolling(
-            pd.Timedelta(minutes=self.AVG_LOW_SPEED_ROLLING_WINDOW_PERIOD_MIN)
+            pd.Timedelta(minutes=self.AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN)
         ).mean()
         # only consider averages occurring at least rolling_avg_period_min minutes
         # after the flight origination (rolling window if backward looking)
         roll_speed = roll_speed[
             roll_speed.index
             > roll_speed.index[0]
-            + pd.Timedelta(minutes=self.AVG_LOW_SPEED_ROLLING_WINDOW_PERIOD_MIN)
+            + pd.Timedelta(minutes=self.AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN)
         ]
 
         below_avg_thresh = roll_speed[
-            roll_speed["speed_m_s"] <= self.AVG_LOW_SPEED_THRESHOLD_MPS
+            roll_speed["ground_speed_m_s"] <= self.AVG_LOW_GROUND_SPEED_THRESHOLD_MPS
         ]
         if len(below_avg_thresh) > 0:
             violations.append(
                 FlightTooSlowError(
                     f"found instances where rolling average speed is "
-                    f"below threshold of {self.AVG_LOW_SPEED_THRESHOLD_MPS} m/s "
-                    f"(rolling window of {self.AVG_LOW_SPEED_ROLLING_WINDOW_PERIOD_MIN} minutes)"
+                    f"below threshold of {self.AVG_LOW_GROUND_SPEED_THRESHOLD_MPS} m/s "
+                    f"(rolling window of {self.AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN} minutes)"
                 )
             )
 
@@ -1129,12 +1135,13 @@ class TrajectoryValidationHandler:
         This is evaluated on instantaneous discrete steps between consecutive waypoints.
         """
         above_inst_thresh = self._df[
-            self._df["speed_m_s"] >= self.INSTANTANEOUS_HIGH_SPEED_THRESHOLD_MPS
+            self._df["ground_speed_m_s"]
+            >= self.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS
         ]
         if len(above_inst_thresh) > 0:
             return FlightTooFastError(
                 f"found instances where speed between waypoints is "
-                f"above threshold of {self.INSTANTANEOUS_HIGH_SPEED_THRESHOLD_MPS} m/s"
+                f"above threshold of {self.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS} m/s"
             )
 
     def _is_expected_altitude_profile(self) -> None | list[FlightAltitudeProfileError]:
@@ -1152,19 +1159,19 @@ class TrajectoryValidationHandler:
         violations: list[FlightAltitudeProfileError] = []
 
         rocd_above_thres = self._df[
-            self._df["rocd_fps"].abs() >= self.ROCD_THRESHOLD_FPS
+            self._df["rocd_fps"].abs() >= self.CRUISE_ROCD_THRESHOLD_FPS
         ]
         if len(rocd_above_thres) > 0:
             violations.append(
                 FlightAltitudeProfileError(
                     f"flight trajectory has rate of climb/descent values "
                     "between consecutive waypoints that exceed threshold "
-                    f"of {self.ROCD_THRESHOLD_FPS} ft/sec"
+                    f"of {self.CRUISE_ROCD_THRESHOLD_FPS} ft/sec"
                 )
             )
 
         alt_below_thresh = (
-            self._df["altitude_baro"] <= self.INFLIGHT_ALTITUDE_THRESHOLD_FT
+            self._df["altitude_baro"] <= self.CRUISE_LOW_ALTITUDE_THRESHOLD_FT
         )
         alt_thresh_transitions = alt_below_thresh.rolling(window=2).sum()
         transition_pts = alt_thresh_transitions[alt_thresh_transitions == 1]
@@ -1172,7 +1179,7 @@ class TrajectoryValidationHandler:
             violations.append(
                 FlightAltitudeProfileError(
                     f"flight trajectory dropped below altitude threshold"
-                    f"of {self.INFLIGHT_ALTITUDE_THRESHOLD_FT}ft while in-flight."
+                    f"of {self.CRUISE_LOW_ALTITUDE_THRESHOLD_FT}ft while in-flight."
                 )
             )
 
