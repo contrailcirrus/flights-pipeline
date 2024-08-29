@@ -62,3 +62,14 @@ def flight_instance_5() -> pd.DataFrame:
     """
     fn = "395d6bad-b161-4615-afa4-862c7b4aeb62.csv"
     return _import_flight_instance(fn)
+
+
+@pytest.fixture(scope="session")
+def flight_instance_6() -> pd.DataFrame:
+    """
+    Flight trajectory violations.
+        DestinationAirportError, FlightTooSlowError, FlightAltitudeProfileError
+
+    """
+    fn = "f78dd809-b0aa-4808-a334-ec29d5ce949b.csv"
+    return _import_flight_instance(fn)

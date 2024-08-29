@@ -10,6 +10,8 @@ from exceptions import (
     FlightAltitudeProfileError,
     FlightTooFastError,
     FlightInvariantFieldViolation,
+    FlightTooSlowError,
+    DestinationAirportError,
 )
 
 # -------------
@@ -59,7 +61,7 @@ def test_trajectory_validation_handler_3(flight_instance_4):
         )
 
 
-def test_trajectory_validation_handler_5(flight_instance_5):
+def test_trajectory_validation_handler_4(flight_instance_5):
     """
     Test for flight trajectory violation(s):
         FlightInvariantFieldViolation
@@ -68,3 +70,20 @@ def test_trajectory_validation_handler_5(flight_instance_5):
     violations = validation_handler.evaluate()
     assert len(violations) == 1
     assert isinstance(violations[0], FlightInvariantFieldViolation)
+
+
+def test_trajectory_validation_handler_5(flight_instance_6):
+    """
+    Test for flight trajectory violation(s):
+        DestinationAirportError, FlightTooSlowError, FlightAltitudeProfileError
+    """
+    validation_handler = TrajectoryValidationHandler(flight_instance_6)
+    violations = validation_handler.evaluate()
+    print(violations)
+    assert len(violations) == 4
+    for violation in violations:
+        assert (
+            isinstance(violation, FlightAltitudeProfileError)
+            or isinstance(violation, FlightTooSlowError)
+            or isinstance(violation, DestinationAirportError)
+        )
