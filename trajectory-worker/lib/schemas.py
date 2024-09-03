@@ -637,6 +637,7 @@ class CocipTrajectoryChunk:
             "lon_end": self.lon_end,
             "time_start": time_start_us,
             "time_end": time_end_us,
+            "median_altitude_ft": self.median_altitude_ft,
             "total_persistent_contrail_length_km": self.total_persistent_contrail_length_km,
             "total_contrail_length_sac_km": self.total_contrail_length_sac_km,
             "max_contrail_lifetime_h": self.max_contrail_lifetime_h,
