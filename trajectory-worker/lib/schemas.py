@@ -435,6 +435,144 @@ class CocipTrajectoryChunk:
             arrival_scheduled_time=input_chunk.flight_info.arrival_scheduled_time,
         )
 
+    @staticmethod
+    def from_cocip_result_all_segs(
+        source_id: str,
+        git_sha: str,
+        input_chunk: WaypointsRecord,
+        zarr_uri: str,
+        result: pycontrails.core.Flight,
+    ):
+        """
+        Generate a list of CocipTrajectoryChunk objs from
+        the output/result of a cocip trajectory model run.
+        This builds one CoipTrajectoryChunk per flight segment in the result.
+
+        Parameters
+        ----------
+        source_id
+            the source identifier for the job injected into the trajectory worker
+        git_sha
+            the git_sha for the trajectory worker
+        input_chunk
+            the job (list of waypoints) passed to the trajectory worker, w/ flightinfo metadata
+        zarr_uri
+            the identifier specifying the model run at time of the zarr store used in running cocip
+            e.g. `2024041506`
+        result
+            the model result from running the cocip trajectory model
+        """
+
+        class CocipFlightAttributes(TypedDict):
+            aircraft_type: str  # B788 (icao aircraft type)
+            engine_uid: str  # 01P17GE210 (icao engine id)
+            aircraft_performance_model: str  # PSFlight
+            nvpm_data_source: str  # "ICAO EDB"
+            total_fuel_burn: float
+            total_co2: float
+            total_h2o: float
+            total_so2: float
+            total_sulphates: float
+            total_oc: float
+            total_nox: float
+            total_co: float
+            total_hc: float
+            total_nvpm_mass: float
+            total_nvpm_number: float
+            pycontrails_version: str
+
+        attrs: CocipFlightAttributes = dict(result.attrs)
+        if not attrs.get("aircraft_performance_model"):
+            # fix for cocip result when using bada
+            attrs["aircraft_performance_model"] = attrs["bada_model"]
+
+        df = result.dataframe
+
+        def nan_to_null(x):
+            if math.isnan(x):
+                return None
+            else:
+                return x
+
+        outputs: list[CocipTrajectoryChunk] = []
+        for seg_ix in range(0, len(df) - 1):
+            # segments are forward looking in the dataframe
+            # the table has N_waypoints
+            # thus N_segs = N_waypoints - 1 and the last seg spans [-2:]
+            ds = df.iloc[seg_ix, :]
+            ds_next = df.iloc[seg_ix + 1, :]
+
+            tot_contrail_len = float(
+                (ds["segment_length"] if ds["cocip"] != 0 else 0) / 1000.0
+            )
+            tot_sac_len = float(
+                (ds["segment_length"] if ds["cocip"] == 1 else 0) / 1000.0
+            )
+            max_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
+            median_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
+
+            seg = CocipTrajectoryChunk(
+                seg_cnt=1,
+                seg_ef_cnt=1 if np.abs(ds["ef"]) > 0 else 0,
+                seg_ef_nan_cnt=1 if np.isnan(ds["ef"]) else 0,
+                chunk_len_km=float(ds["segment_length"] / 1000.0),
+                lat_start=float(ds["latitude"]),
+                lon_start=float(ds["longitude"]),
+                lat_end=float(ds_next["latitude"]),
+                lon_end=float(ds_next["longitude"]),
+                time_start=ds["time"].isoformat() + "Z",
+                time_end=ds_next["time"].isoformat() + "Z",
+                total_persistent_contrail_length_km=nan_to_null(tot_contrail_len),
+                total_contrail_length_sac_km=nan_to_null(tot_sac_len),
+                max_contrail_lifetime_h=nan_to_null(max_contrail_age_hr),
+                median_contrail_lifetime_h=nan_to_null(median_contrail_age_hr),
+                pycontrails_ver=attrs["pycontrails_version"],
+                perf_model_id=attrs["aircraft_performance_model"],
+                nvpm_data_source=attrs["nvpm_data_source"],
+                source_id=source_id,
+                git_sha=git_sha,
+                zarr_uri=zarr_uri,
+                sum_ef_mj=int(ds["ef"] // 10**6) if not np.isnan(ds["ef"]) else 0,
+                total_fuel_burn_kg=(
+                    int(ds["fuel_burn"]) if not np.isnan(ds["fuel_burn"]) else 0
+                ),
+                total_co2_kg=int(ds["co2"]) if not np.isnan(ds["co2"]) else 0,
+                total_h2o_kg=int(ds["h2o"]) if not np.isnan(ds["h2o"]) else 0,
+                total_so2_kg=float(ds["so2"]) if not np.isnan(ds["so2"]) else 0,
+                total_sulphates_kg=(
+                    float(ds["sulphates"]) if not np.isnan(ds["sulphates"]) else 0
+                ),
+                total_oc_kg=float(ds["oc"]) if not np.isnan(ds["oc"]) else 0,
+                total_nox_kg=float(ds["nox"]) if not np.isnan(ds["nox"]) else 0,
+                total_co_kg=float(ds["co"]) if not np.isnan(ds["co"]) else 0,
+                total_hc_kg=float(ds["hc"]) if not np.isnan(ds["hc"]) else 0,
+                total_nvpm_kg=(
+                    float(ds["nvpm_mass"]) if not np.isnan(ds["nvpm_mass"]) else 0
+                ),
+                total_nvpm_giga_cnt=(
+                    int(ds["nvpm_number"] // 10**9)
+                    if not np.isnan(ds["nvpm_number"])
+                    else 0
+                ),
+                aircraft_type_icao=attrs["aircraft_type"],
+                engine_uid=attrs["engine_uid"],
+                mean_aircraft_mass_kg=nan_to_null(ds["aircraft_mass"]),
+                mean_engine_efficiency=nan_to_null(ds["engine_efficiency"]),
+                icao_address=input_chunk.flight_info.icao_address,
+                flight_id=input_chunk.flight_info.flight_id,
+                callsign=input_chunk.flight_info.callsign,
+                tail_number=input_chunk.flight_info.tail_number,
+                flight_number=input_chunk.flight_info.flight_number,
+                airline_iata=input_chunk.flight_info.airline_iata,
+                departure_airport_icao=input_chunk.flight_info.departure_airport_icao,
+                departure_scheduled_time=input_chunk.flight_info.departure_scheduled_time,
+                arrival_airport_icao=input_chunk.flight_info.arrival_airport_icao,
+                arrival_scheduled_time=input_chunk.flight_info.arrival_scheduled_time,
+            )
+            outputs.append(seg)
+
+        return outputs
+
     def to_bq_flatmap(self) -> bytes:
         """
         Flattens records into a single utf-8 encoded json string literals,
