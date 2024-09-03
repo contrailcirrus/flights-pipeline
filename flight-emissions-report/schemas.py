@@ -1,5 +1,6 @@
 """ Data Object Models & Schemas"""
 
+import math
 from dataclasses import dataclass, asdict
 import json
 from uuid import UUID
@@ -248,9 +249,15 @@ class CocipTrajectoryChunk:
     lon_end: float  # lon of " " "
     time_start: str  # timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    median_altitude_ft: int  # median altitude across all waypoints in trajectory chunk
+    total_persistent_contrail_length_km: float
+    total_contrail_length_sac_km: float
+    max_contrail_lifetime_h: float
+    median_contrail_lifetime_h: float
 
     pycontrails_ver: str  # version of pycontrails used in model run
     perf_model_id: str  # identifier of the perf model
+    nvpm_data_source: str
     source_id: str  # the source identifier for the trajectory chunk job
     git_sha: str  # git sha of the trajectory-worker
     zarr_uri: str  # zarr store model_run_at identifier; e.g. '2024041506'
@@ -270,6 +277,8 @@ class CocipTrajectoryChunk:
 
     aircraft_type_icao: str  # icao aircraft type identifier used in model e.g. B788
     engine_uid: str  # engine uid used in model
+    mean_aircraft_mass_kg: float
+    mean_engine_efficiency: float
 
     icao_address: str  # e.g. 4B0293
     flight_id: str  # e.g. ef9fb457-0f70-4780-9154-6a5362e39862
@@ -277,6 +286,10 @@ class CocipTrajectoryChunk:
     tail_number: str | None  # e.g. HB-AZJ
     flight_number: str | None  # e.g. LX644
     airline_iata: str | None  # e.g. LX
+    departure_airport_icao: str | None  # e.g. LSZH
+    departure_scheduled_time: str | None  # e.g. 2024-03-01T16:25:00Z
+    arrival_airport_icao: str | None  # e.g. LFPG
+    arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
 
     @staticmethod
     def from_cocip_result(
@@ -308,6 +321,7 @@ class CocipTrajectoryChunk:
             aircraft_type: str  # B788 (icao aircraft type)
             engine_uid: str  # 01P17GE210 (icao engine id)
             aircraft_performance_model: str  # PSFlight
+            nvpm_data_source: str  # "ICAO EDB"
             total_fuel_burn: float
             total_co2: float
             total_h2o: float
@@ -322,12 +336,58 @@ class CocipTrajectoryChunk:
             pycontrails_version: str
 
         attrs: CocipFlightAttributes = dict(result.attrs)
+        if not attrs.get("aircraft_performance_model"):
+            # fix for cocip result when using bada
+            attrs["aircraft_performance_model"] = attrs["bada_model"]
+
+        # FIX
+        # ------
+        # the `result` object when running CoCip trajectory with BADA does not include
+        # the `aircraft_performance_model` attribute
+        # as such, if that attribute is missing, we fetch the `bada_model` attribute instead
+        # and assign it to `aircraft_performance_model`
+        # Reference
+        # ---------
+        # cocip result attributes | BADA
+        # dict_keys(['flight_id', 'aircraft_type', 'engine_uid', 'crs', 'bada_model', 'aircraft_type_bada', 'engine_type_bada', 'engine_type_edb', 'wingspan', 'max_mach', 'max_altitude', 'n_engine', 'total_fuel_burn', 'gaseous_data_source', 'nvpm_data_source', 'total_co2', 'total_h2o', 'total_so2', 'total_sulphates', 'total_oc', 'total_nox', 'total_co', 'total_hc', 'total_nvpm_mass', 'total_nvpm_number', 'humidity_scaling_name', 'humidity_scaling_formula', 'pycontrails_version'])
+        #
+        # cocip result attributes | PSFlight
+        # dict_keys(['flight_id', 'aircraft_type', 'engine_uid', 'crs', 'aircraft_performance_model', 'n_engine', 'wingspan', 'max_mach', 'max_altitude', 'total_fuel_burn', 'gaseous_data_source', 'nvpm_data_source', 'total_co2', 'total_h2o', 'total_so2', 'total_sulphates', 'total_oc', 'total_nox', 'total_co', 'total_hc', 'total_nvpm_mass', 'total_nvpm_number', 'humidity_scaling_name', 'humidity_scaling_formula', 'pycontrails_version'])
 
         # we drop the last segment in the cocip outputs
         # because the resample-worker guarantees a leading edge overlap of 1 segment
         # between consecutive jobs
         sl = slice(0, -2)
         segs_ef_j = result["ef"][sl]
+        df_sl = result.dataframe[sl]
+
+        tot_contrail_len = float(
+            np.nansum(df_sl[df_sl["cocip"] != 0]["segment_length"]) / 1000.0
+        )
+        tot_sac_len = float(
+            np.nansum(df_sl[df_sl["sac"] == 1]["segment_length"]) / 1000.0
+        )
+
+        max_contrail_age_hr = float(
+            np.nanmax(df_sl["contrail_age"]) / np.timedelta64(1, "h")
+        )
+        median_contrail_age_hr = float(
+            np.nanmedian(
+                df_sl[df_sl["contrail_age"] > np.timedelta64(0)]["contrail_age"]
+            )
+            / np.timedelta64(1, "h")
+        )
+
+        mean_aircraft_mass_kg = float(np.nanmean(df_sl["aircraft_mass"]))
+        mean_engine_efficiency = float(np.nanmean(df_sl["engine_efficiency"]))
+
+        median_altitude_ft = int(np.nanmedian(df_sl["altitude_ft"]))
+
+        def nan_to_null(x):
+            if math.isnan(x):
+                return None
+            else:
+                return x
 
         return CocipTrajectoryChunk(
             seg_cnt=len(segs_ef_j),
@@ -340,8 +400,14 @@ class CocipTrajectoryChunk:
             lon_end=input_chunk.records[-1].longitude,
             time_start=input_chunk.records[0].timestamp,
             time_end=input_chunk.records[-1].timestamp,
+            median_altitude_ft=median_altitude_ft,
+            total_persistent_contrail_length_km=nan_to_null(tot_contrail_len),
+            total_contrail_length_sac_km=nan_to_null(tot_sac_len),
+            max_contrail_lifetime_h=nan_to_null(max_contrail_age_hr),
+            median_contrail_lifetime_h=nan_to_null(median_contrail_age_hr),
             pycontrails_ver=attrs["pycontrails_version"],
             perf_model_id=attrs["aircraft_performance_model"],
+            nvpm_data_source=attrs["nvpm_data_source"],
             source_id=source_id,
             git_sha=git_sha,
             zarr_uri=zarr_uri,
@@ -359,13 +425,169 @@ class CocipTrajectoryChunk:
             total_nvpm_giga_cnt=int(attrs["total_nvpm_number"] // 10**9),
             aircraft_type_icao=attrs["aircraft_type"],
             engine_uid=attrs["engine_uid"],
+            mean_aircraft_mass_kg=nan_to_null(mean_aircraft_mass_kg),
+            mean_engine_efficiency=nan_to_null(mean_engine_efficiency),
             icao_address=input_chunk.flight_info.icao_address,
             flight_id=input_chunk.flight_info.flight_id,
             callsign=input_chunk.flight_info.callsign,
             tail_number=input_chunk.flight_info.tail_number,
             flight_number=input_chunk.flight_info.flight_number,
             airline_iata=input_chunk.flight_info.airline_iata,
+            departure_airport_icao=input_chunk.flight_info.departure_airport_icao,
+            departure_scheduled_time=input_chunk.flight_info.departure_scheduled_time,
+            arrival_airport_icao=input_chunk.flight_info.arrival_airport_icao,
+            arrival_scheduled_time=input_chunk.flight_info.arrival_scheduled_time,
         )
+
+    @staticmethod
+    def from_cocip_result_all_segs(
+        source_id: str,
+        git_sha: str,
+        input_chunk: WaypointsRecord,
+        zarr_uri: str,
+        result: pycontrails.core.Flight,
+    ):
+        """
+        Generate a list of CocipTrajectoryChunk objs from
+        the output/result of a cocip trajectory model run.
+        This builds one CoipTrajectoryChunk per flight segment in the result.
+
+        Parameters
+        ----------
+        source_id
+            the source identifier for the job injected into the trajectory worker
+        git_sha
+            the git_sha for the trajectory worker
+        input_chunk
+            the job (list of waypoints) passed to the trajectory worker, w/ flightinfo metadata
+        zarr_uri
+            the identifier specifying the model run at time of the zarr store used in running cocip
+            e.g. `2024041506`
+        result
+            the model result from running the cocip trajectory model
+        """
+
+        class CocipFlightAttributes(TypedDict):
+            aircraft_type: str  # B788 (icao aircraft type)
+            engine_uid: str  # 01P17GE210 (icao engine id)
+            aircraft_performance_model: str  # PSFlight
+            nvpm_data_source: str  # "ICAO EDB"
+            total_fuel_burn: float
+            total_co2: float
+            total_h2o: float
+            total_so2: float
+            total_sulphates: float
+            total_oc: float
+            total_nox: float
+            total_co: float
+            total_hc: float
+            total_nvpm_mass: float
+            total_nvpm_number: float
+            pycontrails_version: str
+
+        attrs: CocipFlightAttributes = dict(result.attrs)
+        if not attrs.get("aircraft_performance_model"):
+            # fix for cocip result when using bada
+            attrs["aircraft_performance_model"] = attrs["bada_model"]
+
+        df = result.dataframe
+
+        def nan_to_null(x):
+            if math.isnan(x):
+                return None
+            else:
+                return x
+
+        outputs: list[CocipTrajectoryChunk] = []
+        for seg_ix in range(0, len(df) - 1):
+            # segments are forward looking in the dataframe
+            # the table has N_waypoints
+            # thus N_segs = N_waypoints - 1 and the last seg spans [-2:]
+            ds = df.iloc[seg_ix, :]
+            ds_next = df.iloc[seg_ix + 1, :]
+
+            tot_contrail_len = float(
+                (ds["segment_length"] if ds["cocip"] != 0 else 0) / 1000.0
+            )
+            tot_sac_len = float(
+                (ds["segment_length"] if ds["cocip"] == 1 else 0) / 1000.0
+            )
+            max_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
+            median_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
+
+            mean_aircraft_mass = np.nanmean(
+                [ds["aircraft_mass"], ds_next["aircraft_mass"]]
+            )
+            mean_engine_efficiency = np.nanmean(
+                [ds["engine_efficiency"], ds_next["engine_efficiency"]]
+            )
+
+            median_altitude_ft = int(
+                np.nanmedian([ds["altitude_ft"], ds_next["altitude_ft"]])
+            )
+
+            seg = CocipTrajectoryChunk(
+                seg_cnt=1,
+                seg_ef_cnt=1 if np.abs(ds["ef"]) > 0 else 0,
+                seg_ef_nan_cnt=1 if np.isnan(ds["ef"]) else 0,
+                chunk_len_km=float(ds["segment_length"] / 1000.0),
+                lat_start=float(ds["latitude"]),
+                lon_start=float(ds["longitude"]),
+                lat_end=float(ds_next["latitude"]),
+                lon_end=float(ds_next["longitude"]),
+                time_start=ds["time"].isoformat() + "Z",
+                time_end=ds_next["time"].isoformat() + "Z",
+                median_altitude_ft=median_altitude_ft,
+                total_persistent_contrail_length_km=nan_to_null(tot_contrail_len),
+                total_contrail_length_sac_km=nan_to_null(tot_sac_len),
+                max_contrail_lifetime_h=nan_to_null(max_contrail_age_hr),
+                median_contrail_lifetime_h=nan_to_null(median_contrail_age_hr),
+                pycontrails_ver=attrs["pycontrails_version"],
+                perf_model_id=attrs["aircraft_performance_model"],
+                nvpm_data_source=attrs["nvpm_data_source"],
+                source_id=source_id,
+                git_sha=git_sha,
+                zarr_uri=zarr_uri,
+                sum_ef_mj=int(ds["ef"] // 10**6) if not np.isnan(ds["ef"]) else 0,
+                total_fuel_burn_kg=(
+                    int(ds["fuel_burn"]) if not np.isnan(ds["fuel_burn"]) else 0
+                ),
+                total_co2_kg=int(ds["co2"]) if not np.isnan(ds["co2"]) else 0,
+                total_h2o_kg=int(ds["h2o"]) if not np.isnan(ds["h2o"]) else 0,
+                total_so2_kg=float(ds["so2"]) if not np.isnan(ds["so2"]) else 0,
+                total_sulphates_kg=(
+                    float(ds["sulphates"]) if not np.isnan(ds["sulphates"]) else 0
+                ),
+                total_oc_kg=float(ds["oc"]) if not np.isnan(ds["oc"]) else 0,
+                total_nox_kg=float(ds["nox"]) if not np.isnan(ds["nox"]) else 0,
+                total_co_kg=float(ds["co"]) if not np.isnan(ds["co"]) else 0,
+                total_hc_kg=float(ds["hc"]) if not np.isnan(ds["hc"]) else 0,
+                total_nvpm_kg=(
+                    float(ds["nvpm_mass"]) if not np.isnan(ds["nvpm_mass"]) else 0
+                ),
+                total_nvpm_giga_cnt=(
+                    int(ds["nvpm_number"] // 10**9)
+                    if not np.isnan(ds["nvpm_number"])
+                    else 0
+                ),
+                aircraft_type_icao=attrs["aircraft_type"],
+                engine_uid=attrs["engine_uid"],
+                mean_aircraft_mass_kg=nan_to_null(mean_aircraft_mass),
+                mean_engine_efficiency=nan_to_null(mean_engine_efficiency),
+                icao_address=input_chunk.flight_info.icao_address,
+                flight_id=input_chunk.flight_info.flight_id,
+                callsign=input_chunk.flight_info.callsign,
+                tail_number=input_chunk.flight_info.tail_number,
+                flight_number=input_chunk.flight_info.flight_number,
+                airline_iata=input_chunk.flight_info.airline_iata,
+                departure_airport_icao=input_chunk.flight_info.departure_airport_icao,
+                departure_scheduled_time=input_chunk.flight_info.departure_scheduled_time,
+                arrival_airport_icao=input_chunk.flight_info.arrival_airport_icao,
+                arrival_scheduled_time=input_chunk.flight_info.arrival_scheduled_time,
+            )
+            outputs.append(seg)
+
+        return outputs
 
     def to_bq_flatmap(self) -> bytes:
         """
@@ -386,7 +608,7 @@ class CocipTrajectoryChunk:
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
             if not timestamp:
-                return timestamp
+                return None
             ts: int = int(datetime.fromisoformat(timestamp).timestamp() * 1e6)
             return ts
 
@@ -404,6 +626,7 @@ class CocipTrajectoryChunk:
         hash_int = int(hash_trunc, 16)
         blob = {
             "_chunk_hash": hash_int,
+            "_processed_at": iso_to_microseconds(datetime.now(tz=UTC).isoformat()),
             "seg_cnt": self.seg_cnt,
             "seg_ef_cnt": self.seg_ef_cnt,
             "seg_ef_nan_cnt": self.seg_ef_nan_cnt,
@@ -414,8 +637,14 @@ class CocipTrajectoryChunk:
             "lon_end": self.lon_end,
             "time_start": time_start_us,
             "time_end": time_end_us,
+            "median_altitude_ft": self.median_altitude_ft,
+            "total_persistent_contrail_length_km": self.total_persistent_contrail_length_km,
+            "total_contrail_length_sac_km": self.total_contrail_length_sac_km,
+            "max_contrail_lifetime_h": self.max_contrail_lifetime_h,
+            "median_contrail_lifetime_h": self.median_contrail_lifetime_h,
             "pycontrails_ver": self.pycontrails_ver,
             "perf_model_id": self.perf_model_id,
+            "nvpm_data_source": self.nvpm_data_source,
             "source_id": self.source_id,
             "git_sha": self.git_sha,
             "zarr_uri": self.zarr_uri,
@@ -433,11 +662,19 @@ class CocipTrajectoryChunk:
             "total_nvpm_giga_cnt": self.total_nvpm_giga_cnt,
             "aircraft_type_icao": self.aircraft_type_icao,
             "engine_uid": self.engine_uid,
+            "mean_aircraft_mass_kg": self.mean_aircraft_mass_kg,
+            "mean_overall_efficiency": self.mean_engine_efficiency,
             "icao_address": self.icao_address,
             "flight_id": self.flight_id,
             "callsign": self.callsign,
             "tail_number": self.tail_number,
             "flight_number": self.flight_number,
             "airline_iata": self.airline_iata,
+            "departure_airport_icao": self.departure_airport_icao,
+            "departure_scheduled_time": iso_to_microseconds(
+                self.departure_scheduled_time
+            ),
+            "arrival_airport_icao": self.departure_airport_icao,
+            "arrival_scheduled_time": iso_to_microseconds(self.arrival_scheduled_time),
         }
         return json.dumps(blob).encode("utf-8")
