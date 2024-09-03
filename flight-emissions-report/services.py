@@ -6,7 +6,9 @@ from datetime import datetime, UTC, timedelta
 from typing import Union, Tuple
 
 import pandas as pd
+import pytz
 from google.cloud import bigquery
+from timezonefinder import TimezoneFinder
 
 from helpers import key_max_value_count
 from handlers import (
@@ -439,6 +441,7 @@ class FlightsReportFetchSvc(BaseSvc):
             - day
             - dryrun
             - verbose
+            - goog_fp
 
         `day` accepts supported forms:
         `%Y-%m-%d` for a singular day, or `%Y-%m-%d_%Y-%m-%d` for a range, inclusive.
@@ -464,6 +467,7 @@ class FlightsReportFetchSvc(BaseSvc):
         self._airline = input.airline
         self._day_str = input.day
         self._verbose = input.verbose
+        self._dryrun = input.dryrun
         self._goog_fp = input.goog_fp
 
         self._bq_handler = BigQueryHandler()
@@ -489,16 +493,18 @@ class FlightsReportFetchSvc(BaseSvc):
         and reformats to a table including just those columns, and column names,
         that are fit for distribution to external customers/stakeholders.
         """
-        df = df_in.__deepcopy__()
+        df = df_in.copy(deep=True)
         # rename columns
         df = df.rename(
             columns={
                 "lat_start": "origin_latitude",
                 "lon_start": "origin_longitude",
                 "time_start": "first_waypoint_time",
+                "time_start_local": "first_waypoint_local_time",
                 "lat_end": "destination_latitude",
                 "lon_end": "destination_longitude",
                 "time_end": "last_waypoint_time",
+                "time_end_local": "last_waypoint_local_time",
                 "pycontrails_ver": "pycontrails_version",
                 "perf_model_id": "aircraft_performance_model",
                 "git_sha": "flights_pipeline_sha",
@@ -520,9 +526,11 @@ class FlightsReportFetchSvc(BaseSvc):
                 "origin_latitude",
                 "origin_longitude",
                 "first_waypoint_time",
+                "first_waypoint_local_time",
                 "destination_latitude",
                 "destination_longitude",
                 "last_waypoint_time",
+                "last_waypoint_local_time",
                 "aircraft_performance_model",
                 "flight_duration_h",
                 "total_flight_distance_km",
@@ -578,28 +586,27 @@ class FlightsReportFetchSvc(BaseSvc):
             df["total_nvpm_giga_cnt"] / df["total_fuel_burn_kg"], 2
         )
 
+        # add local tz timestamp
+        tf = TimezoneFinder()
+
+        def utc_to_local(suffix: str, row: pd.Series):
+            ts_utc: pd.Timestamp = row["time_" + suffix]
+            tz_str = tf.timezone_at(
+                lng=row["lon_" + suffix],
+                lat=row["lat_" + suffix],
+            )
+            return ts_utc.astimezone(pytz.timezone(tz_str))
+
+        df.loc[:, "time_start_local"] = df.apply(
+            lambda row: utc_to_local("start", row), axis=1
+        )
+        df.loc[:, "time_end_local"] = df.apply(
+            lambda row: utc_to_local("end", row), axis=1
+        )
+
         now_unix = int(datetime.now(tz=UTC).timestamp())
 
-        # export raw data, values by flight_id
-        export_raw_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
-            audience="internal",
-            airline=self._airline,
-            day=self._day_str,
-            unixtime=now_unix,
-        )
-        df.to_csv(export_raw_fn, index=False)
-
-        # export sanitized data, values by flight_id
-        df_customer = self._format_customer_df(df)
-        export_customer_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
-            audience="external",
-            airline=self._airline,
-            day=self._day_str,
-            unixtime=now_unix,
-        )
-        df_customer.to_csv(export_customer_fn, index=False)
-
-        # export summary stats
+        # build summary stats
         count_aircrafts = df.icao_address.nunique()
         count_flights = df.flight_id.nunique()
         count_flights_positive_ef = len(df[df.sum_ef_mj > 0])
@@ -652,15 +659,37 @@ class FlightsReportFetchSvc(BaseSvc):
             "total_nox_metric_tons": float(total_nox_metric_tons),
             "total_so2_metric_tons": float(total_so2_metric_tons),
         }
-        export_summary_fn = self.EXPORT_SUMMARY_FILENAME_TEMPLATE.format(
-            airline=self._airline,
-            day=self._day_str,
-            unixtime=now_unix,
-        )
-        with open(export_summary_fn, "w") as fp:
-            json.dump(summary, fp, indent=4)
-        logger.info(
-            f"📜 got {count_flights} flights. "
-            f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
-        )
+
+        if not self._dryrun:
+            # export raw data, values by flight_id
+            export_raw_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
+                audience="internal",
+                airline=self._airline,
+                day=self._day_str,
+                unixtime=now_unix,
+            )
+            df.to_csv(export_raw_fn, index=False)
+
+            # export sanitized data, values by flight_id
+            df_customer = self._format_customer_df(df)
+            export_customer_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
+                audience="external",
+                airline=self._airline,
+                day=self._day_str,
+                unixtime=now_unix,
+            )
+            df_customer.to_csv(export_customer_fn, index=False)
+
+            # export summary json
+            export_summary_fn = self.EXPORT_SUMMARY_FILENAME_TEMPLATE.format(
+                airline=self._airline,
+                day=self._day_str,
+                unixtime=now_unix,
+            )
+            with open(export_summary_fn, "w") as fp:
+                json.dump(summary, fp, indent=4)
+            logger.info(
+                f"📜 got {count_flights} flights. "
+                f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
+            )
         logger.info("🙌 DONE!")

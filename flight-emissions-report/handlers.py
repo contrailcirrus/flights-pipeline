@@ -548,7 +548,7 @@ class GoogDatasetHandler:
     """
 
     COL_MAP = {
-        "Departure Date": "date_start",
+        "DATE_UTC": "date_start",
         "Origin Airport": "origin_airport_iata",
         "Destination Airport": "destination_airport_iata",
         "Carrier": "airline_iata",
