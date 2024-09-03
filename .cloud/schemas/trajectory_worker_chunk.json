@@ -72,6 +72,12 @@
     "description": "timestamp of last waypoint in chunk"
   },
   {
+    "name": "median_altitude_ft",
+    "type": "INT64",
+    "mode": "NULLABLE",
+    "description": "median altitude across flight segments, in feet"
+  },
+  {
     "name": "total_persistent_contrail_length_km",
     "type": "FLOAT64",
     "mode": "NULLABLE",
