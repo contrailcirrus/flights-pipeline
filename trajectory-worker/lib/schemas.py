@@ -510,7 +510,7 @@ class CocipTrajectoryChunk:
                 (ds["segment_length"] if ds["cocip"] != 0 else 0) / 1000.0
             )
             tot_sac_len = float(
-                (ds["segment_length"] if ds["cocip"] == 1 else 0) / 1000.0
+                (ds["segment_length"] if ds["sac"] == 1 else 0) / 1000.0
             )
             max_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
             median_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
