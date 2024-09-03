@@ -1,6 +1,5 @@
 """ Data Object Models & Schemas"""
 
-import math
 from dataclasses import dataclass, asdict
 import json
 from uuid import UUID
@@ -361,21 +360,32 @@ class CocipTrajectoryChunk:
         segs_ef_j = result["ef"][sl]
         df_sl = result.dataframe[sl]
 
-        tot_contrail_len = float(
-            np.nansum(df_sl[df_sl["cocip"] != 0]["segment_length"]) / 1000.0
+        tot_contrail_len = np.nansum(
+            df_sl[df_sl["cocip"] != 0]["segment_length"], initial=np.nan
         )
-        tot_sac_len = float(
-            np.nansum(df_sl[df_sl["sac"] == 1]["segment_length"]) / 1000.0
+        tot_contrail_len = (
+            None if np.isnan(tot_contrail_len) else float(tot_contrail_len / 1000.0)
+        )
+
+        tot_sac_len = np.nansum(
+            df_sl[df_sl["sac"] == 1]["segment_length"], initial=np.nan
+        )
+        tot_sac_len = (
+            None if np.isnan(tot_contrail_len) else float(tot_sac_len / 1000.0)
         )
 
         max_contrail_age_hr = float(
             np.nanmax(df_sl["contrail_age"]) / np.timedelta64(1, "h")
         )
-        median_contrail_age_hr = float(
-            np.nanmedian(
-                df_sl[df_sl["contrail_age"] > np.timedelta64(0)]["contrail_age"]
-            )
-            / np.timedelta64(1, "h")
+        max_contrail_age_hr = None if max_contrail_age_hr == 0 else max_contrail_age_hr
+
+        median_contrail_age_hr = np.nanmedian(
+            df_sl[df_sl["contrail_age"] > np.timedelta64(0)]["contrail_age"]
+        )
+        median_contrail_age_hr = (
+            None
+            if np.isnan(median_contrail_age_hr)
+            else float(median_contrail_age_hr / np.timedelta64(1, "h"))
         )
 
         mean_aircraft_mass_kg = float(np.nanmean(df_sl["aircraft_mass"]))
@@ -384,7 +394,7 @@ class CocipTrajectoryChunk:
         median_altitude_ft = int(np.nanmedian(df_sl["altitude_ft"]))
 
         def nan_to_null(x):
-            if math.isnan(x):
+            if np.isnan(x):
                 return None
             else:
                 return x
@@ -401,10 +411,10 @@ class CocipTrajectoryChunk:
             time_start=input_chunk.records[0].timestamp,
             time_end=input_chunk.records[-1].timestamp,
             median_altitude_ft=median_altitude_ft,
-            total_persistent_contrail_length_km=nan_to_null(tot_contrail_len),
-            total_contrail_length_sac_km=nan_to_null(tot_sac_len),
-            max_contrail_lifetime_h=nan_to_null(max_contrail_age_hr),
-            median_contrail_lifetime_h=nan_to_null(median_contrail_age_hr),
+            total_persistent_contrail_length_km=tot_contrail_len,
+            total_contrail_length_sac_km=tot_sac_len,
+            max_contrail_lifetime_h=max_contrail_age_hr,
+            median_contrail_lifetime_h=median_contrail_age_hr,
             pycontrails_ver=attrs["pycontrails_version"],
             perf_model_id=attrs["aircraft_performance_model"],
             nvpm_data_source=attrs["nvpm_data_source"],
@@ -493,7 +503,7 @@ class CocipTrajectoryChunk:
         df = result.dataframe
 
         def nan_to_null(x):
-            if math.isnan(x):
+            if np.isnan(x):
                 return None
             else:
                 return x
@@ -506,20 +516,23 @@ class CocipTrajectoryChunk:
             ds = df.iloc[seg_ix, :]
             ds_next = df.iloc[seg_ix + 1, :]
 
-            tot_contrail_len = float(
-                (ds["segment_length"] if ds["cocip"] != 0 else 0) / 1000.0
+            tot_contrail_len = (
+                float(ds["segment_length"] / 1000.0) if ds["cocip"] != 0 else None
             )
-            tot_sac_len = float(
-                (ds["segment_length"] if ds["sac"] == 1 else 0) / 1000.0
-            )
+
+            tot_sac_len = float(ds["segment_length"]) / 1000.0 if ds["sac"] == 1 else 0
             max_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
+            max_contrail_age_hr = (
+                None if max_contrail_age_hr == 0 else max_contrail_age_hr
+            )
+
             median_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
+            median_contrail_age_hr = (
+                None if median_contrail_age_hr == 0 else median_contrail_age_hr
+            )
 
             mean_aircraft_mass = np.nanmean(
                 [ds["aircraft_mass"], ds_next["aircraft_mass"]]
-            )
-            mean_engine_efficiency = np.nanmean(
-                [ds["engine_efficiency"], ds_next["engine_efficiency"]]
             )
 
             median_altitude_ft = int(
@@ -538,17 +551,17 @@ class CocipTrajectoryChunk:
                 time_start=ds["time"].isoformat() + "Z",
                 time_end=ds_next["time"].isoformat() + "Z",
                 median_altitude_ft=median_altitude_ft,
-                total_persistent_contrail_length_km=nan_to_null(tot_contrail_len),
-                total_contrail_length_sac_km=nan_to_null(tot_sac_len),
-                max_contrail_lifetime_h=nan_to_null(max_contrail_age_hr),
-                median_contrail_lifetime_h=nan_to_null(median_contrail_age_hr),
+                total_persistent_contrail_length_km=tot_contrail_len,
+                total_contrail_length_sac_km=tot_sac_len,
+                max_contrail_lifetime_h=max_contrail_age_hr,
+                median_contrail_lifetime_h=median_contrail_age_hr,
                 pycontrails_ver=attrs["pycontrails_version"],
                 perf_model_id=attrs["aircraft_performance_model"],
                 nvpm_data_source=attrs["nvpm_data_source"],
                 source_id=source_id,
                 git_sha=git_sha,
                 zarr_uri=zarr_uri,
-                sum_ef_mj=int(ds["ef"] // 10**6) if not np.isnan(ds["ef"]) else 0,
+                sum_ef_mj=int(ds["ef"] // 10**6),
                 total_fuel_burn_kg=(
                     int(ds["fuel_burn"]) if not np.isnan(ds["fuel_burn"]) else 0
                 ),
@@ -573,7 +586,11 @@ class CocipTrajectoryChunk:
                 aircraft_type_icao=attrs["aircraft_type"],
                 engine_uid=attrs["engine_uid"],
                 mean_aircraft_mass_kg=nan_to_null(mean_aircraft_mass),
-                mean_engine_efficiency=nan_to_null(mean_engine_efficiency),
+                mean_engine_efficiency=(
+                    float(ds["engine_efficiency"])
+                    if not np.isnan(ds["engine_efficiency"])
+                    else None
+                ),
                 icao_address=input_chunk.flight_info.icao_address,
                 flight_id=input_chunk.flight_info.flight_id,
                 callsign=input_chunk.flight_info.callsign,
