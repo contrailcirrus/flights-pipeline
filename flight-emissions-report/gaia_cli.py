@@ -126,6 +126,19 @@ flights_submit_parser.add_argument(
     help="verbose printout",
     dest="verbose",
 )
+flights_submit_parser.add_argument(
+    "-r",
+    "--dry-run",
+    action="store_true",
+    help="fetches records and applies data manipulations. does not write content to file.",
+    dest="dryrun",
+)
+flights_submit_parser.add_argument(
+    "-g",
+    "--goog_fp",
+    help="file path to google dataset",
+    dest="goog_fp",
+)
 flights_submit_parser.set_defaults(func=FlightsReportFetchSvc)
 
 

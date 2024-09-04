@@ -81,13 +81,37 @@ def run(
             data=output.to_bq_flatmap(),
             timeout_seconds=110,
             log_context=dict(
-                client_name="trajectory_cocip_bq_publisher",
+                client_name="trajectory_cocip_bq_publisher_traj_summary",
                 icao_address=output.icao_address,
                 source_id=output.source_id,
                 time_start=output.time_start,
             ),
         )
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
+
+        # ===================
+        # if enabled, publish all trajectory segments to BQ
+        # ===================
+        if job.export_cocip_trajectory:
+            seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
+                source_id=message.ordering_key.split(":")[0],
+                git_sha=env.GIT_SHA,
+                input_chunk=job,
+                zarr_uri=trajectory_cocip_handler.zarr_uri,
+                result=cocip_result,
+            )
+            for seg in seg_outputs:
+                trajectory_cocip_bq_publisher.publish_async(
+                    data=seg.to_bq_flatmap(),
+                    timeout_seconds=110,
+                    log_context=dict(
+                        client_name="trajectory_cocip_bq_publisher_traj_per_seg",
+                        icao_address=output.icao_address,
+                        source_id=output.source_id,
+                        time_start=output.time_start,
+                    ),
+                )
+            trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
 
         job_handler.ack(message)
 
