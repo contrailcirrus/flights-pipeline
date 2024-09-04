@@ -638,6 +638,21 @@ class FlightsReportFetchSvc(BaseSvc):
         total_contrails_co2e100 = df.co2e100_kg.sum()
         total_contrails_co2e100_metric_tons = round(total_contrails_co2e100 / 1000.0, 3)
 
+        # CO2GWP20 by local takeoff hour-of-day
+        df.loc[:, "start_time_hour_local"] = df.time_start.apply(lambda ts: ts.hour)
+        warm_group = (
+            df[df.co2e100_kg > 0].groupby("start_time_hour_local").co2e100_kg.sum()
+        )
+        co2e_warming_by_takeoff_hr = warm_group.to_dict()
+        cool_group = (
+            df[df.co2e100_kg < 0].groupby("start_time_hour_local").co2e100_kg.sum()
+        )
+        co2e_cooling_by_takeoff_hr = cool_group.to_dict()
+        net_group = df.groupby("start_time_hour_local").co2e100_kg.sum()
+        co2e_by_takeoff_hr = net_group.to_dict()
+
+        df.drop(columns="start_time_hour_local", axis=1, inplace=True)
+
         summary = {
             "count_aircrafts": int(count_aircrafts),
             "count_flights": int(count_flights),
@@ -658,6 +673,9 @@ class FlightsReportFetchSvc(BaseSvc):
             ),
             "total_nox_metric_tons": float(total_nox_metric_tons),
             "total_so2_metric_tons": float(total_so2_metric_tons),
+            "takeoff_time_local_co2e100_warming": co2e_warming_by_takeoff_hr,
+            "takeoff_time_local_co2e100_cooling": co2e_cooling_by_takeoff_hr,
+            "takeoff_time_local_co2e100_net": co2e_by_takeoff_hr,
         }
 
         if not self._dryrun:
