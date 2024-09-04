@@ -11,6 +11,7 @@ from google.cloud import bigquery
 from timezonefinder import TimezoneFinder
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import cartopy.feature as cfeature  # noqa: F401
 
 from helpers import key_max_value_count
 from handlers import (
@@ -717,14 +718,34 @@ class FlightsReportFetchSvc(BaseSvc):
             )
 
             # export flights plot
-            ax = plt.axes(projection=ccrs.Robinson())
+            min_lat = min(  # noqa: F841
+                [
+                    df.lat_start.min(),
+                    df.lat_end.min(),
+                ]
+            )
+            max_lat = max(  # noqa: F841
+                [
+                    df.lat_start.max(),
+                    df.lat_end.max(),
+                ]
+            )
+            projection = ccrs.PlateCarree(central_longitude=-105, globe=None)
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1, projection=projection)
             ax.set_global()
-            ax.coastlines()
-            for row in df.iterrows():
+            # ax.set_extent([-180, 180, min_lat-2, max_lat+2], crs=projection)
+            ax.stock_img()
+            # ax.add_feature(cfeature.LAND)
+            # ax.add_feature(cfeature.OCEAN)
+            # ax.add_feature(cfeature.COASTLINE)
+            for ix, row in df.iterrows():
                 plt.plot(
-                    [row.lat_start, row.lon_start],
-                    [row.lat_end, row.lon_end],
+                    [row.lon_start, row.lon_end],
+                    [row.lat_start, row.lat_end],
                     color="black",
+                    alpha=0.3,
+                    linewidth=0.3,
                     transform=ccrs.Geodetic(),
                 )
             plt.savefig(
