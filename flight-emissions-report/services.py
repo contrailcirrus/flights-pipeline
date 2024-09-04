@@ -679,9 +679,11 @@ class FlightsReportFetchSvc(BaseSvc):
             ),
             "total_nox_metric_tons": float(total_nox_metric_tons),
             "total_so2_metric_tons": float(total_so2_metric_tons),
-            "takeoff_time_local_co2e100_warming": co2e_warming_by_takeoff_hr,
-            "takeoff_time_local_co2e100_cooling": co2e_cooling_by_takeoff_hr,
-            "takeoff_time_local_co2e100_net": co2e_by_takeoff_hr,
+            "takeoff_time_local_co2e100_metric_tons_warming": co2e_warming_by_takeoff_hr
+            / 1000.0,
+            "takeoff_time_local_co2e100_metric_tons_cooling": co2e_cooling_by_takeoff_hr
+            / 1000.0,
+            "takeoff_time_local_co2e100_metric_tons_net": co2e_by_takeoff_hr / 1000.0,
         }
 
         if not self._dryrun:
