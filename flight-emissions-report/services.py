@@ -6,7 +6,12 @@ from datetime import datetime, UTC, timedelta
 from typing import Union, Tuple
 
 import pandas as pd
+import pytz
 from google.cloud import bigquery
+from timezonefinder import TimezoneFinder
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature  # noqa: F401
 
 from helpers import key_max_value_count
 from handlers import (
@@ -15,6 +20,7 @@ from handlers import (
     BigQueryHandler,
     HealTrajectoryHandler,
     ResampleHandler,
+    GoogDatasetHandler,
 )
 from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord
 from log import logger
@@ -420,6 +426,9 @@ class FlightsReportFetchSvc(BaseSvc):
     EXPORT_SUMMARY_FILENAME_TEMPLATE = (
         "flights_report_summary_{airline}_{day}_{unixtime}.json"
     )
+    EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE = (
+        "flights_report_trajectories_{airline}_{day}_{unixtime}.png"
+    )
 
     AREA_EARTH = 5.101e14  # m^2, surface of the earth
     SECONDS_PER_YEAR = 60 * 60 * 24 * 365  # s
@@ -438,6 +447,7 @@ class FlightsReportFetchSvc(BaseSvc):
             - day
             - dryrun
             - verbose
+            - goog_fp
 
         `day` accepts supported forms:
         `%Y-%m-%d` for a singular day, or `%Y-%m-%d_%Y-%m-%d` for a range, inclusive.
@@ -463,7 +473,14 @@ class FlightsReportFetchSvc(BaseSvc):
         self._airline = input.airline
         self._day_str = input.day
         self._verbose = input.verbose
+        self._dryrun = input.dryrun
+        self._goog_fp = input.goog_fp
+
         self._bq_handler = BigQueryHandler()
+        if self._goog_fp:
+            self._goog_handler = GoogDatasetHandler(self._goog_fp)
+        else:
+            self._goog_handler = None
 
     @staticmethod
     def _validate_day_str(daystr: str) -> str:
@@ -482,16 +499,18 @@ class FlightsReportFetchSvc(BaseSvc):
         and reformats to a table including just those columns, and column names,
         that are fit for distribution to external customers/stakeholders.
         """
-        df = df_in.__deepcopy__()
+        df = df_in.copy(deep=True)
         # rename columns
         df = df.rename(
             columns={
                 "lat_start": "origin_latitude",
                 "lon_start": "origin_longitude",
                 "time_start": "first_waypoint_time",
+                "time_start_local": "first_waypoint_local_time",
                 "lat_end": "destination_latitude",
                 "lon_end": "destination_longitude",
                 "time_end": "last_waypoint_time",
+                "time_end_local": "last_waypoint_local_time",
                 "pycontrails_ver": "pycontrails_version",
                 "perf_model_id": "aircraft_performance_model",
                 "git_sha": "flights_pipeline_sha",
@@ -513,9 +532,11 @@ class FlightsReportFetchSvc(BaseSvc):
                 "origin_latitude",
                 "origin_longitude",
                 "first_waypoint_time",
+                "first_waypoint_local_time",
                 "destination_latitude",
                 "destination_longitude",
                 "last_waypoint_time",
+                "last_waypoint_local_time",
                 "aircraft_performance_model",
                 "flight_duration_h",
                 "total_flight_distance_km",
@@ -544,6 +565,7 @@ class FlightsReportFetchSvc(BaseSvc):
         logger.info(
             f"🐶 fetching report for airline {self._airline} on day/day-range {self._day_str}..."
         )
+
         query = self._bq_handler.import_query(self.REPORT_QUERY_FILENAME)
         cfg = bigquery.QueryJobConfig(
             query_parameters=[
@@ -570,28 +592,27 @@ class FlightsReportFetchSvc(BaseSvc):
             df["total_nvpm_giga_cnt"] / df["total_fuel_burn_kg"], 2
         )
 
+        # add local tz timestamp
+        tf = TimezoneFinder()
+
+        def utc_to_local(suffix: str, row: pd.Series):
+            ts_utc: pd.Timestamp = row["time_" + suffix]
+            tz_str = tf.timezone_at(
+                lng=row["lon_" + suffix],
+                lat=row["lat_" + suffix],
+            )
+            return ts_utc.astimezone(pytz.timezone(tz_str))
+
+        df.loc[:, "time_start_local"] = df.apply(
+            lambda row: utc_to_local("start", row), axis=1
+        )
+        df.loc[:, "time_end_local"] = df.apply(
+            lambda row: utc_to_local("end", row), axis=1
+        )
+
         now_unix = int(datetime.now(tz=UTC).timestamp())
 
-        # export raw data, values by flight_id
-        export_raw_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
-            audience="internal",
-            airline=self._airline,
-            day=self._day_str,
-            unixtime=now_unix,
-        )
-        df.to_csv(export_raw_fn, index=False)
-
-        # export sanitized data, values by flight_id
-        df_customer = self._format_customer_df(df)
-        export_customer_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
-            audience="external",
-            airline=self._airline,
-            day=self._day_str,
-            unixtime=now_unix,
-        )
-        df_customer.to_csv(export_customer_fn, index=False)
-
-        # export summary stats
+        # build summary stats
         count_aircrafts = df.icao_address.nunique()
         count_flights = df.flight_id.nunique()
         count_flights_positive_ef = len(df[df.sum_ef_mj > 0])
@@ -603,6 +624,13 @@ class FlightsReportFetchSvc(BaseSvc):
         percentage_flight_dist_w_contrails = round(
             total_contrails_distance_km / total_flight_distance_km * 100.0, 1
         )
+
+        if self._goog_handler:
+            total_goog_contrails_verified_distance_km = int(
+                self._goog_handler.df.attributed_contrail_length_km.sum()
+            )
+        else:
+            total_goog_contrails_verified_distance_km = None
 
         total_fuel_burn_metric_tons = round(df.total_fuel_burn_kg.sum() / 1000.0, 2)
         total_co2_metric_tons = round(df.total_co2_kg.sum() / 1000.0, 2)
@@ -616,6 +644,21 @@ class FlightsReportFetchSvc(BaseSvc):
         total_contrails_co2e100 = df.co2e100_kg.sum()
         total_contrails_co2e100_metric_tons = round(total_contrails_co2e100 / 1000.0, 3)
 
+        # CO2GWP20 by local takeoff hour-of-day
+        df.loc[:, "start_time_hour_local"] = df.time_start.apply(lambda ts: ts.hour)
+        warm_group = (
+            df[df.co2e100_kg > 0].groupby("start_time_hour_local").co2e100_kg.sum()
+        )
+        co2e_warming_by_takeoff_hr = warm_group.to_dict()
+        cool_group = (
+            df[df.co2e100_kg < 0].groupby("start_time_hour_local").co2e100_kg.sum()
+        )
+        co2e_cooling_by_takeoff_hr = cool_group.to_dict()
+        net_group = df.groupby("start_time_hour_local").co2e100_kg.sum()
+        co2e_by_takeoff_hr = net_group.to_dict()
+
+        df.drop(columns="start_time_hour_local", axis=1, inplace=True)
+
         summary = {
             "count_aircrafts": int(count_aircrafts),
             "count_flights": int(count_flights),
@@ -625,6 +668,7 @@ class FlightsReportFetchSvc(BaseSvc):
             "total_flight_distance_km": total_flight_distance_km,
             "percentage_flight_distance_w_contrails": percentage_flight_dist_w_contrails,
             "total_contrails_flight_distance_km": total_contrails_distance_km,
+            "total_contrails_goog_sat_verified_distance_km": total_goog_contrails_verified_distance_km,
             "total_fuel_burn_metric_tons": float(total_fuel_burn_metric_tons),
             "total_co2_metric_tons": float(total_co2_metric_tons),
             "total_contrails_co2e20_metric_tons": float(
@@ -635,16 +679,81 @@ class FlightsReportFetchSvc(BaseSvc):
             ),
             "total_nox_metric_tons": float(total_nox_metric_tons),
             "total_so2_metric_tons": float(total_so2_metric_tons),
+            "takeoff_time_local_co2e100_warming": co2e_warming_by_takeoff_hr,
+            "takeoff_time_local_co2e100_cooling": co2e_cooling_by_takeoff_hr,
+            "takeoff_time_local_co2e100_net": co2e_by_takeoff_hr,
         }
-        export_summary_fn = self.EXPORT_SUMMARY_FILENAME_TEMPLATE.format(
-            airline=self._airline,
-            day=self._day_str,
-            unixtime=now_unix,
-        )
-        with open(export_summary_fn, "w") as fp:
-            json.dump(summary, fp, indent=4)
-        logger.info(
-            f"📜 got {count_flights} flights. "
-            f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
-        )
+
+        if not self._dryrun:
+            # export raw data, values by flight_id
+            export_raw_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
+                audience="internal",
+                airline=self._airline,
+                day=self._day_str,
+                unixtime=now_unix,
+            )
+            df.to_csv(export_raw_fn, index=False)
+
+            # export sanitized data, values by flight_id
+            df_customer = self._format_customer_df(df)
+            export_customer_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
+                audience="external",
+                airline=self._airline,
+                day=self._day_str,
+                unixtime=now_unix,
+            )
+            df_customer.to_csv(export_customer_fn, index=False)
+
+            # export summary json
+            export_summary_fn = self.EXPORT_SUMMARY_FILENAME_TEMPLATE.format(
+                airline=self._airline,
+                day=self._day_str,
+                unixtime=now_unix,
+            )
+            with open(export_summary_fn, "w") as fp:
+                json.dump(summary, fp, indent=4)
+            logger.info(
+                f"📜 got {count_flights} flights. "
+                f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
+            )
+
+            # export flights plot
+            min_lat = min(  # noqa: F841
+                [
+                    df.lat_start.min(),
+                    df.lat_end.min(),
+                ]
+            )
+            max_lat = max(  # noqa: F841
+                [
+                    df.lat_start.max(),
+                    df.lat_end.max(),
+                ]
+            )
+            projection = ccrs.PlateCarree(central_longitude=-105, globe=None)
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1, projection=projection)
+            ax.set_global()
+            # ax.set_extent([-180, 180, min_lat-2, max_lat+2], crs=projection)
+            ax.stock_img()
+            # ax.add_feature(cfeature.LAND)
+            # ax.add_feature(cfeature.OCEAN)
+            # ax.add_feature(cfeature.COASTLINE)
+            for ix, row in df.iterrows():
+                plt.plot(
+                    [row.lon_start, row.lon_end],
+                    [row.lat_start, row.lat_end],
+                    color="black",
+                    alpha=0.3,
+                    linewidth=0.3,
+                    transform=ccrs.Geodetic(),
+                )
+            plt.savefig(
+                self.EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE.format(
+                    airline=self._airline,
+                    day=self._day_str,
+                    unixtime=now_unix,
+                )
+            )
+
         logger.info("🙌 DONE!")

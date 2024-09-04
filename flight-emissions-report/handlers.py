@@ -10,6 +10,7 @@ import warnings
 from typing import Any, Callable, List
 
 from pycontrails import Flight
+from pycontrails.core import airports
 
 from helpers import key_max_value_count
 from schemas import SpireWaypointPositional
@@ -527,3 +528,89 @@ class ResampleHandler:
         diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
         min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
         return cls.FLIGHT_LEVELS[min_ix]
+
+
+class GoogDatasetHandler:
+    """
+    Handler to manage ETL and data synthesis with Google's dataset.
+    The Google dataset contains the per-flight-instance summary of Google computed quantities.
+
+    Specifically, we expect the dataset to contain fields:
+        - DATE_UTC
+        - Origin Airport
+        - Destination Airport
+        - Carrier
+        - Flight Number
+        - Analyzed Flight Length Km
+        - Attributed Contrail Km
+        - Contrail Coverage
+        - EEF Climatology Terajoules
+    """
+
+    COL_MAP = {
+        "DATE_UTC": "date_start",
+        "origin_airport": "origin_airport_iata",
+        "destination_airport": "destination_airport_iata",
+        "carrier": "airline_iata",
+        "flight_number": "flight_number",
+        "Analyzed Flight Length Km": "analyzed_length_km",
+        "attributed_contrail_km": "attributed_contrail_length_km",
+        "Contrail Coverage": "contrail_coverage_perc",
+        "eef_climatology_terajoules": "eef_tj",
+    }
+
+    def __init__(self, csv_fp: str):
+        """
+        Parameters
+        ----------
+        csv_fp
+            The filepath for a csv containing the Google dataset.
+        """
+        self._goog_df = pd.read_csv(csv_fp)
+        self._goog_df.rename(columns=self.COL_MAP, inplace=True)
+        self._goog_df.loc[:, "date_start"] = pd.to_datetime(
+            self._goog_df["date_start"], utc=True
+        )
+        self._goog_df = self.add_airport_icao(self._goog_df)
+
+    @staticmethod
+    def add_airport_icao(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Given a pandas dataframe with columns:
+         - origin_airport_iata
+         - destination_airport_iata
+
+         Return a dataframe, matching the input dataframe, but with additional columns:
+         - origin_airport_icao
+         - destination_airport_icao
+        """
+        airport_df = airports.global_airport_database()
+
+        def lookup_iata_to_icao(icao: str) -> str | None:
+            match = airport_df[airport_df["iata_code"] == icao]
+            if len(match) == 0:
+                return
+            if len(match) > 1:
+                raise ValueError(
+                    f"found multiple airport matches for iata code: {icao}"
+                )
+
+            iata = match.iloc[0]["icao_code"]
+            if pd.isnull(iata):
+                return
+            return iata
+
+        df_cp = df.copy(deep=True)
+        df_cp.loc[:, "origin_airport_icao"] = df_cp.apply(
+            lambda row: lookup_iata_to_icao(row["origin_airport_iata"]),
+            axis=1,
+        )
+        df_cp.loc[:, "destination_airport_icao"] = df_cp.apply(
+            lambda row: lookup_iata_to_icao(row["destination_airport_iata"]),
+            axis=1,
+        )
+        return df_cp
+
+    @property
+    def df(self):
+        return self._goog_df
