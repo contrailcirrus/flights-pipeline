@@ -536,7 +536,7 @@ class GoogDatasetHandler:
     The Google dataset contains the per-flight-instance summary of Google computed quantities.
 
     Specifically, we expect the dataset to contain fields:
-        - Departure Date
+        - DATE_UTC
         - Origin Airport
         - Destination Airport
         - Carrier
@@ -549,14 +549,14 @@ class GoogDatasetHandler:
 
     COL_MAP = {
         "DATE_UTC": "date_start",
-        "Origin Airport": "origin_airport_iata",
-        "Destination Airport": "destination_airport_iata",
-        "Carrier": "airline_iata",
-        "Flight Number": "flight_number",
+        "origin_airport": "origin_airport_iata",
+        "destination_airport": "destination_airport_iata",
+        "carrier": "airline_iata",
+        "flight_number": "flight_number",
         "Analyzed Flight Length Km": "analyzed_length_km",
-        "Attributed Contrail Km": "attributed_contrail_length_km",
+        "attributed_contrail_km": "attributed_contrail_length_km",
         "Contrail Coverage": "contrail_coverage_perc",
-        "EEF Climatology Terajoules": "eef_tj",
+        "eef_climatology_terajoules": "eef_tj",
     }
 
     def __init__(self, csv_fp: str):
