@@ -9,6 +9,8 @@ import pandas as pd
 import pytz
 from google.cloud import bigquery
 from timezonefinder import TimezoneFinder
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
 
 from helpers import key_max_value_count
 from handlers import (
@@ -423,6 +425,9 @@ class FlightsReportFetchSvc(BaseSvc):
     EXPORT_SUMMARY_FILENAME_TEMPLATE = (
         "flights_report_summary_{airline}_{day}_{unixtime}.json"
     )
+    EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE = (
+        "flights_report_trajectories_{airline}_{day}_{unixtime}.png"
+    )
 
     AREA_EARTH = 5.101e14  # m^2, surface of the earth
     SECONDS_PER_YEAR = 60 * 60 * 24 * 365  # s
@@ -710,4 +715,24 @@ class FlightsReportFetchSvc(BaseSvc):
                 f"📜 got {count_flights} flights. "
                 f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
             )
+
+            # export flights plot
+            ax = plt.axes(projection=ccrs.Robinson())
+            ax.set_global()
+            ax.coastlines()
+            for row in df.iterrows():
+                plt.plot(
+                    [row.lat_start, row.lon_start],
+                    [row.lat_end, row.lon_end],
+                    color="black",
+                    transform=ccrs.Geodetic(),
+                )
+            plt.savefig(
+                self.EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE.format(
+                    airline=self._airline,
+                    day=self._day_str,
+                    unixtime=now_unix,
+                )
+            )
+
         logger.info("🙌 DONE!")
