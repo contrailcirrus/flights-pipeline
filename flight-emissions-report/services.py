@@ -46,7 +46,12 @@ class FlightsSubmitSvc(BaseSvc):
     TRAJECTORY_WORKER_TOPIC = (
         "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
     )
+    # ordering key for traj worker jobs that only export per-flight summary
+    # (i.e. self._full_traj = False)
     ORDERING_KEY_TEMPLATE = "flightsreport:{}"
+    # ordering key for traj worker jobs that only export per-flight summary
+    # (i.e. self._full_traj = False)
+    ORDERING_KEY_FULL_TRAJ_TEMPLATE = "flightsreport_full:{}"
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -67,6 +72,7 @@ class FlightsSubmitSvc(BaseSvc):
         self._dryrun = input.dryrun
         self._verbose = input.verbose
         self._export_waypoints = input.export_waypoints
+        self._full_traj = input.full_traj
         self._publish_handler = PubSubPublishHandler(
             self.TRAJECTORY_WORKER_TOPIC,
             ordered_queue=True,
@@ -295,7 +301,12 @@ class FlightsSubmitSvc(BaseSvc):
             waypoints_resampled: list[SpireWaypointPositional] = (
                 resample_handler.waypoints_resampled
             )
-            job = WaypointsRecord(flight_info=flight_info, records=waypoints_resampled)
+
+            job = WaypointsRecord(
+                flight_info=flight_info,
+                records=waypoints_resampled,
+                export_cocip_trajectory=self._full_traj,
+            )
 
             if self._export_waypoints:
                 resampled_df = pd.DataFrame(
@@ -324,12 +335,19 @@ class FlightsSubmitSvc(BaseSvc):
                     f"due to invariant violations.)"
                 )
             if not self._dryrun and not should_skip:
+                if self._full_traj:
+                    ordering_key = self.ORDERING_KEY_FULL_TRAJ_TEMPLATE.format(
+                        job.flight_info.flight_id
+                    )
+                else:
+                    ordering_key = self.ORDERING_KEY_TEMPLATE.format(
+                        job.flight_info.flight_id
+                    )
+
                 self._publish_handler.publish_async(
                     job.as_utf8_json(),
                     timeout_seconds=45,
-                    ordering_key=self.ORDERING_KEY_TEMPLATE.format(
-                        job.flight_info.flight_id
-                    ),
+                    ordering_key=ordering_key,
                 )
 
         if self._dryrun:
