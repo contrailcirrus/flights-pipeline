@@ -134,11 +134,13 @@ flights_submit_parser.add_argument(
     dest="dryrun",
 )
 flights_submit_parser.add_argument(
-    "-g",
-    "--goog_fp",
-    help="file path to google dataset",
-    dest="goog_fp",
+    "-t",
+    "--full_traj",
+    action="store_false",
+    help="write the per-segment values to BQ",
+    dest="full_traj",
 )
+
 flights_submit_parser.set_defaults(func=FlightsReportFetchSvc)
 
 
