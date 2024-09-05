@@ -9,11 +9,20 @@ db-dtypes = "==1.2.0"
 google-cloud-bigquery = "==3.21.0"
 google-cloud-pubsub = "==2.19.7"
 pandas = "==2.2.2"
+platformdirs = "==4.2.2"
 pycontrails = "==0.53.1"
 pyproj = "==3.6.1"
 timezonefinder = "==6.5.2"
 
 [dev-packages]
+black = "*"
+mypy = "*"
+pandas-stubs = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+ruff = "<=0.4.10"
 
 [requires]
 python_version = "3.12"
