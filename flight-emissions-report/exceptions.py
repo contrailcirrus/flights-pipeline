@@ -54,9 +54,15 @@ class FlightTooFastError(Exception):
     """
 
 
+class RocdError(Exception):
+    """
+    Trajectory has an unrealistic rate of climb or descent.
+    """
+
+
 class FlightAltitudeProfileError(Exception):
     """
-    Trajectory has an unrealistic altitude profile.
+    Trajectory has an unrealistic rate of climb or descent.
     """
 
 

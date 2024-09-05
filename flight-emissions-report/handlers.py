@@ -27,6 +27,7 @@ from exceptions import (
     DestinationAirportError,
     FlightTooSlowError,
     FlightTooFastError,
+    RocdError,
     FlightAltitudeProfileError,
 )
 from helpers import key_max_value_count
@@ -640,31 +641,6 @@ class ValidateTrajectoryHandler:
 
         self._df = trajectory.copy(deep=True)
 
-    @property
-    def validation_df(self) -> pd.DataFrame:
-        """
-        Returns
-        ---------
-        dataframe mirroring that provided to the handler,
-        but including the additional computed columns that are used in verification.
-        e.g. elapsed_sec, ground_speed_m_s, etc.
-        """
-        violations = self.evaluate()
-        fatal_violations = [
-            SchemaError,
-            FlightDuplicateTimestamps,
-            FlightInvariantFieldViolation,
-        ]
-        if any([v in violations for v in fatal_violations]):
-            raise Exception(
-                f"validation dataframe cannot be returned "
-                f"if flight has violations(s): {violations}"
-            )
-        # safeguard to ensure this call follows the addition of the columns
-        # assumes calculate_additional_fields is idempotent
-        self._calculate_additional_fields()
-        return self._df
-
     @classmethod
     def _find_airport_coords(
         cls, airport_icao: str | None
@@ -1153,28 +1129,33 @@ class ValidateTrajectoryHandler:
                 f"above threshold of {self.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS} m/s"
             )
 
-    def _is_expected_altitude_profile(self) -> None | list[FlightAltitudeProfileError]:
+    def _is_expected_altitude_profile(
+        self,
+    ) -> None | list[FlightAltitudeProfileError | RocdError]:
         """
         Evaluates flight altitude profile.
 
         Failure modes include:
+        RocdError
         1) flight climbs above alt threshold,
             then descends below that threshold one or more times,
             before making final descent to land.
 
+        FlightAltitudeProfileError
         2) rate of instantaneous (between consecutive waypoint) climb or descent is above threshold,
            while aircraft is above the cruise altitude.
         """
 
-        violations: list[FlightAltitudeProfileError] = []
+        violations: list[FlightAltitudeProfileError | RocdError] = []
 
+        # only evaluate rocd errors when at cruising altitude
         rocd_above_thres = self._df[
             (self._df["rocd_fps"].abs() >= self.CRUISE_ROCD_THRESHOLD_FPS)
             & (self._df["altitude_baro"] > self.CRUISE_LOW_ALTITUDE_THRESHOLD_FT)
         ]
         if len(rocd_above_thres) > 0:
             violations.append(
-                FlightAltitudeProfileError(
+                RocdError(
                     f"flight trajectory has rate of climb/descent values "
                     "between consecutive waypoints that exceed threshold "
                     f"of {self.CRUISE_ROCD_THRESHOLD_FPS} ft/sec"
@@ -1196,6 +1177,31 @@ class ValidateTrajectoryHandler:
 
         if len(violations) > 0:
             return violations
+
+    @property
+    def validation_df(self) -> pd.DataFrame:
+        """
+        Returns
+        ---------
+        dataframe mirroring that provided to the handler,
+        but including the additional computed columns that are used in verification.
+        e.g. elapsed_sec, ground_speed_m_s, etc.
+        """
+        violations = self.evaluate()
+        fatal_violations = [
+            SchemaError,
+            FlightDuplicateTimestamps,
+            FlightInvariantFieldViolation,
+        ]
+        if any([v in violations for v in fatal_violations]):
+            raise Exception(
+                f"validation dataframe cannot be returned "
+                f"if flight has violations(s): {violations}"
+            )
+        # safeguard to ensure this call follows the addition of the columns
+        # assumes calculate_additional_fields is idempotent
+        self._calculate_additional_fields()
+        return self._df
 
     def evaluate(self) -> None | list[Exception]:
         """
@@ -1268,7 +1274,7 @@ class ValidateTrajectoryHandler:
         fast_speed_check = self._is_too_fast()
         all_violations.append(fast_speed_check) if fast_speed_check else None
 
-        altitude_profile_check: None | list[FlightAltitudeProfileError]
+        altitude_profile_check: None | list[FlightAltitudeProfileError | RocdError]
         altitude_profile_check = self._is_expected_altitude_profile()
         (
             all_violations.extend(altitude_profile_check)
