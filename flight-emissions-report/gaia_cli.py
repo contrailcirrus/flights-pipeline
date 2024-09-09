@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(prog="gaia")
 subparser = parser.add_subparsers()
 
 # --------------
-# FLIGHTS parser
+# FLIGHTS SUBMIT parser
 # --------------
 flights_parser = subparser.add_parser("flights")
 flights_subparser = flights_parser.add_subparsers()
@@ -58,6 +58,13 @@ flights_submit_parser.add_argument(
     dest="export_waypoints",
 )
 flights_submit_parser.add_argument(
+    "-t",
+    "--full_traj",
+    action="store_false",
+    help="write the per-segment values to BQ",
+    dest="full_traj",
+)
+flights_submit_parser.add_argument(
     "-r",
     "--dry-run",
     action="store_true",
@@ -72,6 +79,10 @@ flights_submit_parser.add_argument(
     dest="verbose",
 )
 flights_submit_parser.set_defaults(func=FlightsSubmitSvc)
+
+# --------------
+# FLIGHTS REINJECT parser
+# --------------
 
 flights_reinject_parser = flights_subparser.add_parser("reinject")
 flights_reinject_parser.add_argument(
@@ -98,20 +109,19 @@ flights_reinject_parser.add_argument(
 flights_reinject_parser.set_defaults(func=FlightsReinjectSvc)
 
 # --------------
-# REPORT parser
+# REPORT FETCH parser
 # --------------
-flights_parser = subparser.add_parser("report")
-flights_subparser = flights_parser.add_subparsers()
-
-flights_submit_parser = flights_subparser.add_parser("fetch")
-flights_submit_parser.add_argument(
+report_parser = subparser.add_parser("report")
+report_subparser = report_parser.add_subparsers()
+report_fetch_parser = report_subparser.add_parser("fetch")
+report_fetch_parser.add_argument(
     "-a",
     "--airline",
     required=True,
     help="airline IATA code",
     dest="airline",
 )
-flights_submit_parser.add_argument(
+report_fetch_parser.add_argument(
     "-d",
     "--day",
     required=True,
@@ -119,29 +129,28 @@ flights_submit_parser.add_argument(
     "e.g. `2024-01-01` or `2024-01-01_2024-01-10`",
     dest="day",
 )
-flights_submit_parser.add_argument(
+report_fetch_parser.add_argument(
     "-v",
     "--verbose",
     action="store_true",
     help="verbose printout",
     dest="verbose",
 )
-flights_submit_parser.add_argument(
+report_fetch_parser.add_argument(
     "-r",
     "--dry-run",
     action="store_true",
     help="fetches records and applies data manipulations. does not write content to file.",
     dest="dryrun",
 )
-flights_submit_parser.add_argument(
-    "-t",
-    "--full_traj",
-    action="store_false",
-    help="write the per-segment values to BQ",
-    dest="full_traj",
+report_fetch_parser.add_argument(
+    "-g",
+    "--goog_fp",
+    help="file path to google dataset",
+    dest="goog_fp",
 )
 
-flights_submit_parser.set_defaults(func=FlightsReportFetchSvc)
+report_fetch_parser.set_defaults(func=FlightsReportFetchSvc)
 
 
 if __name__ == "__main__":
