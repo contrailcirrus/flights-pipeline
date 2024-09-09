@@ -249,6 +249,9 @@ class FlightsSubmitSvc(BaseSvc):
             qaqc_handler = HealTrajectoryHandler(waypoints)
             waypoints = qaqc_handler.heal()
 
+            if len(waypoints) == 0:
+                continue
+
             # --------------
             # build jobs
             # --------------
