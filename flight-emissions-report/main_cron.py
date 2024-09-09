@@ -6,6 +6,7 @@ Application entrypoint for cronjob automation of flight submission.
 Invocation of this entrypoint effectively calls `gaia_cli.py flights submit -a <A> -d <D>
 for a list of target airlines: `A`, for two days prior from now: `d`.
 """
+
 from dataclasses import dataclass, asdict
 from datetime import datetime, UTC, timedelta
 import sys
@@ -34,6 +35,7 @@ class Input:
     dryrun: bool = False
     verbose: bool = False
     export_waypoints: bool = False
+    full_traj: bool = False
 
 
 DAILY_TARGETS = [
@@ -68,7 +70,6 @@ if __name__ == "__main__":
         now = datetime.now(tz=UTC)
         now_less_two_days = now - timedelta(days=2)
         target_dtstr = now_less_two_days.strftime("%Y-%m-%d")
-
         for target_kwarg in DAILY_TARGETS:
             logger.info(f"submitting flights for {target_kwarg} on {target_dtstr}")
             args = Input(day=target_dtstr, **target_kwarg)

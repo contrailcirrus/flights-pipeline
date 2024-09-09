@@ -60,7 +60,7 @@ flights_submit_parser.add_argument(
 flights_submit_parser.add_argument(
     "-t",
     "--full_traj",
-    action="store_false",
+    action="store_true",
     help="write the per-segment values to BQ",
     dest="full_traj",
 )

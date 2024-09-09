@@ -332,7 +332,8 @@ class FlightsSubmitSvc(BaseSvc):
                     f"(raw input: {len(terr_waypoints)} terrestrial, "
                     f"{len(sat_waypoints)} satellite. "
                     f"dropped {pre_qaqc_len - len(waypoints)} "
-                    f"due to invariant violations.)"
+                    f"due to invariant violations. "
+                    f"Job with export full trajectory? : {job.export_cocip_trajectory})"
                 )
             if not self._dryrun and not should_skip:
                 if self._full_traj:
