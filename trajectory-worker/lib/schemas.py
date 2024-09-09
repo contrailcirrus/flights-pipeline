@@ -360,16 +360,12 @@ class CocipTrajectoryChunk:
         segs_ef_j = result["ef"][sl]
         df_sl = result.dataframe[sl]
 
-        tot_contrail_len = np.nansum(
-            df_sl[df_sl["cocip"] != 0]["segment_length"], initial=np.nan
-        )
+        tot_contrail_len = np.nansum(df_sl[df_sl["cocip"] != 0]["segment_length"])
         tot_contrail_len = (
             None if np.isnan(tot_contrail_len) else float(tot_contrail_len / 1000.0)
         )
 
-        tot_sac_len = np.nansum(
-            df_sl[df_sl["sac"] == 1]["segment_length"], initial=np.nan
-        )
+        tot_sac_len = np.nansum(df_sl[df_sl["sac"] == 1]["segment_length"])
         tot_sac_len = None if np.isnan(tot_sac_len) else float(tot_sac_len / 1000.0)
 
         max_contrail_age_hr = float(
