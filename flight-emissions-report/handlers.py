@@ -1311,7 +1311,6 @@ class GoogDatasetHandler:
         "flight_number": "flight_number",
         "Analyzed Flight Length Km": "analyzed_length_km",
         "attributed_contrail_km": "attributed_contrail_length_km",
-        "Contrail Coverage": "contrail_coverage_perc",
         "eef_climatology_terajoules": "eef_tj",
     }
 
