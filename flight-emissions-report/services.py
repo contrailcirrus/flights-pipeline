@@ -12,7 +12,7 @@ from timezonefinder import TimezoneFinder
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature  # noqa: F401
-
+import matplotlib.patches as mpatches
 from helpers import key_max_value_count
 from handlers import (
     PubSubSubscriptionHandler,
@@ -677,12 +677,23 @@ class FlightsReportFetchSvc(BaseSvc):
             df[df.co2e100_kg > 0].groupby("start_time_hour_local").co2e100_kg.sum()
         )
         co2e_warming_by_takeoff_hr = warm_group.to_dict()
+        # report as metric tons
+        for k, v in co2e_warming_by_takeoff_hr.items():
+            co2e_warming_by_takeoff_hr[k] = v / 1000
+
         cool_group = (
             df[df.co2e100_kg < 0].groupby("start_time_hour_local").co2e100_kg.sum()
         )
         co2e_cooling_by_takeoff_hr = cool_group.to_dict()
+        # report as metric tons
+        for k, v in co2e_cooling_by_takeoff_hr.items():
+            co2e_cooling_by_takeoff_hr[k] = v / 1000
+
         net_group = df.groupby("start_time_hour_local").co2e100_kg.sum()
         co2e_by_takeoff_hr = net_group.to_dict()
+        # report as metric tons
+        for k, v in co2e_by_takeoff_hr.items():
+            co2e_by_takeoff_hr[k] = v / 1000
 
         df.drop(columns="start_time_hour_local", axis=1, inplace=True)
 
@@ -706,11 +717,9 @@ class FlightsReportFetchSvc(BaseSvc):
             ),
             "total_nox_metric_tons": float(total_nox_metric_tons),
             "total_so2_metric_tons": float(total_so2_metric_tons),
-            "takeoff_time_local_co2e100_metric_tons_warming": co2e_warming_by_takeoff_hr
-            / 1000.0,
-            "takeoff_time_local_co2e100_metric_tons_cooling": co2e_cooling_by_takeoff_hr
-            / 1000.0,
-            "takeoff_time_local_co2e100_metric_tons_net": co2e_by_takeoff_hr / 1000.0,
+            "takeoff_time_local_co2e100_metric_tons_warming": co2e_warming_by_takeoff_hr,
+            "takeoff_time_local_co2e100_metric_tons_cooling": co2e_cooling_by_takeoff_hr,
+            "takeoff_time_local_co2e100_metric_tons_net": co2e_by_takeoff_hr,
         }
 
         if not self._dryrun:
@@ -746,28 +755,26 @@ class FlightsReportFetchSvc(BaseSvc):
                 f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
             )
 
-            # export flights plot
-            min_lat = min(  # noqa: F841
-                [
-                    df.lat_start.min(),
-                    df.lat_end.min(),
-                ]
+            projection = ccrs.Mercator(
+                central_longitude=12, min_latitude=-56.9, max_latitude=84.0
             )
-            max_lat = max(  # noqa: F841
-                [
-                    df.lat_start.max(),
-                    df.lat_end.max(),
-                ]
-            )
-            projection = ccrs.PlateCarree(central_longitude=-105, globe=None)
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1, projection=projection)
             ax.set_global()
-            # ax.set_extent([-180, 180, min_lat-2, max_lat+2], crs=projection)
-            ax.stock_img()
-            # ax.add_feature(cfeature.LAND)
-            # ax.add_feature(cfeature.OCEAN)
-            # ax.add_feature(cfeature.COASTLINE)
+            ax.add_feature(cfeature.LAND, color="#C4C7C5")
+            ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.5, alpha=0.5)
+            ax.add_patch(
+                mpatches.Rectangle(
+                    xy=[-140.0, 6.0],
+                    width=95,
+                    height=50,
+                    facecolor="#F7CA45",
+                    edgecolor="#F7CA45",
+                    linewidth=1.0,
+                    alpha=0.5,
+                    transform=ccrs.Geodetic(),
+                )
+            )
             for ix, row in df.iterrows():
                 plt.plot(
                     [row.lon_start, row.lon_end],
