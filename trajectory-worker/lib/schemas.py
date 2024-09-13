@@ -371,7 +371,11 @@ class CocipTrajectoryChunk:
         max_contrail_age_hr = float(
             np.nanmax(df_sl["contrail_age"]) / np.timedelta64(1, "h")
         )
-        max_contrail_age_hr = None if max_contrail_age_hr == 0 else max_contrail_age_hr
+        max_contrail_age_hr = (
+            None
+            if (max_contrail_age_hr == 0 or np.isnan(max_contrail_age_hr))
+            else max_contrail_age_hr
+        )
 
         median_contrail_age_hr = np.nanmedian(
             df_sl[df_sl["contrail_age"] > np.timedelta64(0)]["contrail_age"]
