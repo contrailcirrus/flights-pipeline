@@ -21,6 +21,15 @@ graph
         spire_ingest_resample_worker(dep: spire-ingest-resample-worker)
     end
     style k8s_2 fill:#C88908
+    subgraph k8s_3[Kubernetes]
+        trajectory_worker_rt(dep: trajectory-worker-realtime)
+        trajectory_worker_gaia(dep: trajectory-worker-gaia, aka. FER)
+    end
+    style k8s_3 fill:#C88908
+    subgraph k8s_4[Kubernetes]
+        fer_cron(cron: flight emissions report)
+    end
+    style k8s_4 fill:#C88908
     subgraph redis1[Redis]
         resample_worker_cache(resample-worker-cache)
     end
@@ -46,17 +55,27 @@ graph
         spire_ingest_resample_bq_sub_deadletter(bq-resample-deadletter)
     end
     style pub_sub3 fill:#0864C8
-    subgraph pub_sub4[PubSub]
-        spire_ingest_resample_bq_topic(spire-ingest-resample-bq-topic)
-        spire_ingest_resample_bq_sub(spire-ingest-resample-bq-sub)
-        bq_resample_10xop[10x]:::operationStyle
-        spire_ingest_resample_bq_sub_deadletter(bq-resample-deadletter)
-        flight_trajectory_rt_topic(flight-trajectory-realtime-topic)
-        flight_trajectory_rt_sub(flight-trajectory-realtime-sub)
-        flight_trajectory_rt_2xop[2x]:::operationStyle
-        flight_trajectory_rt_sub_deadletter(flight-trajectory-realtime-deadletter)
+    subgraph pub_sub5[PubSub]
+        traj_worker_rt_chunk_topic(traj-worker-rt-chunk-topic)
+        traj_worker_rt_chunk_sub(traj-worker-rt-chunk-sub)
+        traj_worker_rt_chunk_5xop[5x]:::operationStyle
+        traj_worker_rt_chunk_deadletter(traj-worker-rt-chunk-deadletter)
     end
-    style pub_sub4 fill:#0864C8
+    style pub_sub5 fill:#0864C8
+    subgraph pub_sub6[PubSub]
+        traj_worker_gaia_chunk_topic(traj-worker-rt-gaia-topic)
+        traj_worker_gaia_chunk_sub(traj-worker-gaia-chunk-sub)
+        traj_worker_gaia_chunk_5xop[5x]:::operationStyle
+        traj_worker_gaia_chunk_deadletter(traj-worker-gaia-chunk-deadletter)
+    end
+    style pub_sub6 fill:#0864C8
+    subgraph pub_sub7[PubSub]
+        traj_worker_cocip_bq_topic(traj-worker-cocip-bq-topic)
+        traj_worker_cocip_bq_sub(traj-worker-cocip-bq-sub)
+        traj_worker_cocip_bq_15xop[15x]:::operationStyle
+        traj_worker_cocip_bq_deadletter(traj-worker-cocip-bq-deadletter)
+    end
+    style pub_sub7 fill:#0864C8
     subgraph bigquery1[BigQuery]
         spire_flights_raw_tb(table: spire-flights-raw)
     end
@@ -65,6 +84,10 @@ graph
         spire_flights_resampled_tb(table: spire-flights-resampled)
     end
     style bigquery2 fill:#f030d9
+    subgraph bigquery3[BigQuery]
+        trajectory_cocip_tb(table: trajectory-cocip)
+    end
+    style bigquery3 fill:#f030d9
     %% flow/associations
     spire_api --> spire_ingest_api_scraper
     spire_ingest_api_scraper --> spire_ingest_api_topic
@@ -74,10 +97,9 @@ graph
     spire_ingest_api_sub --> spire_ingest_resample_worker
     spire_ingest_resample_worker --> spire_ingest_raw_bq_topic
     spire_ingest_resample_worker --> spire_ingest_resample_bq_topic
-    spire_ingest_resample_worker --> flight_trajectory_rt_topic
+    spire_ingest_resample_worker --> traj_worker_rt_chunk_topic
     spire_ingest_raw_bq_topic --> spire_ingest_raw_bq_sub
     spire_ingest_resample_bq_topic --> spire_ingest_resample_bq_sub
-    flight_trajectory_rt_topic --> flight_trajectory_rt_sub
     
     spire_ingest_resample_worker <--> resample_worker_cache
     
@@ -94,6 +116,26 @@ graph
     spire_ingest_resample_bq_sub -.- bq_resample_10xop
     bq_resample_10xop -.-> spire_ingest_resample_bq_sub_deadletter
     
-    flight_trajectory_rt_sub -.- flight_trajectory_rt_2xop
-    flight_trajectory_rt_2xop -.- flight_trajectory_rt_sub_deadletter
+    traj_worker_rt_chunk_topic --> traj_worker_rt_chunk_sub
+    traj_worker_rt_chunk_sub -.- traj_worker_rt_chunk_5xop
+    traj_worker_rt_chunk_5xop -.- traj_worker_rt_chunk_deadletter
+    
+    traj_worker_rt_chunk_sub --> trajectory_worker_rt
+    
+    traj_worker_gaia_chunk_topic --> traj_worker_gaia_chunk_sub
+    traj_worker_gaia_chunk_sub -.- traj_worker_gaia_chunk_5xop
+    traj_worker_gaia_chunk_5xop -.- traj_worker_gaia_chunk_deadletter
+    
+    fer_cron --> traj_worker_gaia_chunk_topic
+    
+    traj_worker_gaia_chunk_sub --> trajectory_worker_gaia
+    
+    trajectory_worker_gaia --> traj_worker_cocip_bq_topic
+    trajectory_worker_rt --> traj_worker_cocip_bq_topic
+    
+    traj_worker_cocip_bq_topic --> traj_worker_cocip_bq_sub
+    traj_worker_cocip_bq_sub -.- traj_worker_cocip_bq_15xop
+    traj_worker_cocip_bq_15xop -.- traj_worker_cocip_bq_deadletter
+    
+    traj_worker_cocip_bq_sub --> trajectory_cocip_tb
 ```
