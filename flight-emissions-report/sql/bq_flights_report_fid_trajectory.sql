@@ -5,7 +5,7 @@ WITH
 candidate_flights_tb AS
   (SELECT * FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
   WHERE source_id="flightsreport_full"
-  AND flight_id=@flight_id
+  AND flight_id IN (@flight_id)
   AND timestamp_trunc(time_start, DAY) >= @day_start
   AND timestamp_trunc(time_start, DAY) <= @day_end
   ),
