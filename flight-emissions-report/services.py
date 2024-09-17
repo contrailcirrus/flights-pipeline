@@ -666,21 +666,51 @@ class FlightsReportFetchSvc(BaseSvc):
                 bigquery.ScalarQueryParameter("day_end", "STRING", self._day_range[1]),
             ]
         )
-        df: pd.DataFrame = self._bq_handler.query(summary_query, cfg)
+        summary_df: pd.DataFrame = self._bq_handler.query(summary_query, cfg)
+        summary_df = self.augment_summary_df(summary_df)
 
-        df = self.augment_summary_df(df)
-
-        now_unix = int(datetime.now(tz=UTC).timestamp())
+        # fetch per-segment data for case study flight ids
+        case_study_dfs: list[pd.DataFrame] = []  # noqa: F841
+        if self._case_study_fids:
+            case_studies_query = self._bq_handler.import_query(
+                self.CASE_STUDY_QUERY_FILENAME
+            )
+            cfg = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter(
+                        "flight_ids",
+                        "STRING",
+                        self._case_study_fids,
+                    ),
+                    bigquery.ScalarQueryParameter(
+                        "day_start",
+                        "STRING",
+                        self._day_range[0],
+                    ),
+                    bigquery.ScalarQueryParameter(
+                        "day_end",
+                        "STRING",
+                        self._day_range[1],
+                    ),
+                ]
+            )
+            case_studies_df: pd.DataFrame = self._bq_handler.query(  # noqa: F841
+                case_studies_query, cfg
+            )
+            # TODO: grp by fid, pop grps to case_study_dfs
+            # TODO: export to file
 
         # build summary stats
-        count_aircrafts = df.icao_address.nunique()
-        count_flights = df.flight_id.nunique()
-        count_flights_positive_ef = len(df[df.sum_ef_mj > 0])
-        total_flight_hours = df.seg_cnt.sum() // 60
-        total_contrails_flight_hours = df.seg_ef_cnt.sum() // 60
+        count_aircrafts = summary_df.icao_address.nunique()
+        count_flights = summary_df.flight_id.nunique()
+        count_flights_positive_ef = len(summary_df[summary_df.sum_ef_mj > 0])
+        total_flight_hours = summary_df.seg_cnt.sum() // 60
+        total_contrails_flight_hours = summary_df.seg_ef_cnt.sum() // 60
 
-        total_flight_distance_km = int(df.chunk_len_km.sum())
-        total_contrails_distance_km = int(df.total_persistent_contrail_length_km.sum())
+        total_flight_distance_km = int(summary_df.chunk_len_km.sum())
+        total_contrails_distance_km = int(
+            summary_df.total_persistent_contrail_length_km.sum()
+        )
         percentage_flight_dist_w_contrails = round(
             total_contrails_distance_km / total_flight_distance_km * 100.0, 1
         )
@@ -690,35 +720,41 @@ class FlightsReportFetchSvc(BaseSvc):
             )
         else:
             total_goog_contrails_verified_distance_km = None
-        total_fuel_burn_metric_tons = round(df.total_fuel_burn_kg.sum() / 1000.0, 2)
-        total_co2_metric_tons = round(df.total_co2_kg.sum() / 1000.0, 2)
-        total_nox_metric_tons = round(df.total_nox_kg.sum() / 1000.0, 3)
-        total_so2_metric_tons = round(df.total_so2_kg.sum() / 1000.0, 3)
+        total_fuel_burn_metric_tons = round(
+            summary_df.total_fuel_burn_kg.sum() / 1000.0, 2
+        )
+        total_co2_metric_tons = round(summary_df.total_co2_kg.sum() / 1000.0, 2)
+        total_nox_metric_tons = round(summary_df.total_nox_kg.sum() / 1000.0, 3)
+        total_so2_metric_tons = round(summary_df.total_so2_kg.sum() / 1000.0, 3)
 
         # kg CO2e,20
-        total_contrails_co2e20 = df.co2e20_kg.sum()
+        total_contrails_co2e20 = summary_df.co2e20_kg.sum()
         total_contrails_co2e20_metric_tons = round(total_contrails_co2e20 / 1000.0, 3)
         # kg CO2e,100
-        total_contrails_co2e100 = df.co2e100_kg.sum()
+        total_contrails_co2e100 = summary_df.co2e100_kg.sum()
         total_contrails_co2e100_metric_tons = round(total_contrails_co2e100 / 1000.0, 3)
 
         # CO2GWP20 by local takeoff hour-of-day
         warm_group = (
-            df[df.co2e100_kg > 0].groupby("start_time_hour_local").co2e100_kg.sum()
+            summary_df[summary_df.co2e100_kg > 0]
+            .groupby("start_time_hour_local")
+            .co2e100_kg.sum()
         )
         co2e_warming_by_takeoff_hr = warm_group.to_dict()
         # report as metric tons
         for k, v in co2e_warming_by_takeoff_hr.items():
             co2e_warming_by_takeoff_hr[k] = v / 1000
         cool_group = (
-            df[df.co2e100_kg < 0].groupby("start_time_hour_local").co2e100_kg.sum()
+            summary_df[summary_df.co2e100_kg < 0]
+            .groupby("start_time_hour_local")
+            .co2e100_kg.sum()
         )
         co2e_cooling_by_takeoff_hr = cool_group.to_dict()
         # report as metric tons
         for k, v in co2e_cooling_by_takeoff_hr.items():
             co2e_cooling_by_takeoff_hr[k] = v / 1000
 
-        net_group = df.groupby("start_time_hour_local").co2e100_kg.sum()
+        net_group = summary_df.groupby("start_time_hour_local").co2e100_kg.sum()
         co2e_by_takeoff_hr = net_group.to_dict()
         # report as metric tons
         for k, v in co2e_by_takeoff_hr.items():
@@ -750,6 +786,7 @@ class FlightsReportFetchSvc(BaseSvc):
         }
 
         if not self._dryrun:
+            now_unix = int(datetime.now(tz=UTC).timestamp())
             # export raw data, values by flight_id
             export_raw_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
                 audience="internal",
@@ -757,10 +794,10 @@ class FlightsReportFetchSvc(BaseSvc):
                 day=self._day_str,
                 unixtime=now_unix,
             )
-            df.to_csv(export_raw_fn, index=False)
+            summary_df.to_csv(export_raw_fn, index=False)
 
             # export sanitized data, values by flight_id
-            df_customer = self._format_customer_df(df)
+            df_customer = self._format_customer_df(summary_df)
             export_customer_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
                 audience="external",
                 airline=self._airline,
@@ -802,7 +839,7 @@ class FlightsReportFetchSvc(BaseSvc):
                     transform=ccrs.Geodetic(),
                 )
             )
-            for ix, row in df.iterrows():
+            for ix, row in summary_df.iterrows():
                 plt.plot(
                     [row.lon_start, row.lon_end],
                     [row.lat_start, row.lat_end],
