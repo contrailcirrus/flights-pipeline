@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import uuid
 from abc import ABC, abstractmethod
 import argparse
 from datetime import datetime, UTC, timedelta
@@ -503,6 +504,7 @@ class FlightsReportFetchSvc(BaseSvc):
         self._verbose = input.verbose
         self._dryrun = input.dryrun
         self._goog_fp = input.goog_fp
+        self._validate_case_study_fids(input.case_study_fids)
         self._case_study_fids = input.case_study_fids
 
         self._bq_handler = BigQueryHandler()
@@ -520,6 +522,23 @@ class FlightsReportFetchSvc(BaseSvc):
         """
         _ = datetime.strptime(daystr, "%Y-%m-%d")
         return daystr
+
+    @staticmethod
+    def _validate_case_study_fids(cs_fids: str):
+        """
+        Validates input string passed to the handler (-s "<case_study_fids>").
+        Expects a single UUID string literal, or list of comma separated UUID string literals.
+        """
+        fids = cs_fids.split(",")
+        for fid in fids:
+            try:
+                uuid.UUID(fid)
+            except ValueError as e:
+                raise Exception(
+                    f"bad argument for -s/--case_study_fids. "
+                    f"Must be a comma separated list of valid UUID strings. "
+                    f"Exception: {e}"
+                )
 
     @staticmethod
     def _format_customer_df(df_in: pd.DataFrame) -> pd.DataFrame:
