@@ -8,7 +8,7 @@ candidate_flights_tb AS
   AND flight_id IN (@flight_ids)
   AND timestamp_trunc(time_start, DAY) >= @day_start
   AND timestamp_trunc(time_start, DAY) <= @day_end
-  AND seg_cnt=1,
+  AND seg_cnt=1
   ),
 ranked_candidate_flights_tb AS
   (SELECT ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY _processed_at DESC) as row_number, * FROM candidate_flights_tb)

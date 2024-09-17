@@ -697,7 +697,10 @@ class FlightsReportFetchSvc(BaseSvc):
             case_studies_df: pd.DataFrame = self._bq_handler.query(  # noqa: F841
                 case_studies_query, cfg
             )
-            # TODO: grp by fid, pop grps to case_study_dfs
+            for _, df in case_studies_df.groupby("flight_id"):
+                df.reset_index(inplace=True, drop=True)
+                case_study_dfs.append(df)
+
             # TODO: export to file
 
         # build summary stats
