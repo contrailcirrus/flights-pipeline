@@ -504,8 +504,9 @@ class FlightsReportFetchSvc(BaseSvc):
         self._verbose = input.verbose
         self._dryrun = input.dryrun
         self._goog_fp = input.goog_fp
-        self._validate_case_study_fids(input.case_study_fids)
         self._case_study_fids = input.case_study_fids
+        if self._case_study_fids:
+            self._validate_case_study_fids(self._case_study_fids)
 
         self._bq_handler = BigQueryHandler()
         if self._goog_fp:
@@ -609,28 +610,17 @@ class FlightsReportFetchSvc(BaseSvc):
 
         return df
 
-    def run(self):
-        logger.info(
-            f"🐶 fetching report for airline {self._airline} on day/day-range {self._day_str}..."
-        )
-
-        query = self._bq_handler.import_query(self.REPORT_QUERY_FILENAME)
-        cfg = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("airline", "STRING", self._airline),
-                bigquery.ScalarQueryParameter(
-                    "day_start", "STRING", self._day_range[0]
-                ),
-                bigquery.ScalarQueryParameter("day_end", "STRING", self._day_range[1]),
-            ]
-        )
-        df: pd.DataFrame = self._bq_handler.query(query, cfg)
-
+    @classmethod
+    def augment_summary_df(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Helper method to add additional columns to the summary flights report df retrieved from BQ.
+        """
+        df = df.copy(deep=True)
         # calculate CO2e
         # kg CO2e,20
-        df["co2e20_kg"] = df["sum_ef_mj"] * 10**6 * self.ERF_RF / self.AGWP20
+        df["co2e20_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP20
         # kg CO2e,100
-        df["co2e100_kg"] = df["sum_ef_mj"] * 10**6 * self.ERF_RF / self.AGWP100
+        df["co2e100_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP100
 
         # calculate total flight duration; based on the assumption of 1min segments
         df["flight_duration_h"] = round(df["seg_cnt"] / 60, 2)
@@ -654,9 +644,31 @@ class FlightsReportFetchSvc(BaseSvc):
         df.loc[:, "time_start_local"] = df.apply(
             lambda row: utc_to_local("start", row), axis=1
         )
+        df.loc[:, "start_time_hour_local"] = df.time_start.apply(lambda ts: ts.hour)
         df.loc[:, "time_end_local"] = df.apply(
             lambda row: utc_to_local("end", row), axis=1
         )
+        return df
+
+    def run(self):
+        logger.info(
+            f"🐶 fetching report for airline {self._airline} on day/day-range {self._day_str}..."
+            f"case study flight_ids: {self._case_study_fids}"
+        )
+
+        summary_query = self._bq_handler.import_query(self.REPORT_QUERY_FILENAME)
+        cfg = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("airline", "STRING", self._airline),
+                bigquery.ScalarQueryParameter(
+                    "day_start", "STRING", self._day_range[0]
+                ),
+                bigquery.ScalarQueryParameter("day_end", "STRING", self._day_range[1]),
+            ]
+        )
+        df: pd.DataFrame = self._bq_handler.query(summary_query, cfg)
+
+        df = self.augment_summary_df(df)
 
         now_unix = int(datetime.now(tz=UTC).timestamp())
 
@@ -672,14 +684,12 @@ class FlightsReportFetchSvc(BaseSvc):
         percentage_flight_dist_w_contrails = round(
             total_contrails_distance_km / total_flight_distance_km * 100.0, 1
         )
-
         if self._goog_handler:
             total_goog_contrails_verified_distance_km = int(
                 self._goog_handler.df.attributed_contrail_length_km.sum()
             )
         else:
             total_goog_contrails_verified_distance_km = None
-
         total_fuel_burn_metric_tons = round(df.total_fuel_burn_kg.sum() / 1000.0, 2)
         total_co2_metric_tons = round(df.total_co2_kg.sum() / 1000.0, 2)
         total_nox_metric_tons = round(df.total_nox_kg.sum() / 1000.0, 3)
@@ -693,7 +703,6 @@ class FlightsReportFetchSvc(BaseSvc):
         total_contrails_co2e100_metric_tons = round(total_contrails_co2e100 / 1000.0, 3)
 
         # CO2GWP20 by local takeoff hour-of-day
-        df.loc[:, "start_time_hour_local"] = df.time_start.apply(lambda ts: ts.hour)
         warm_group = (
             df[df.co2e100_kg > 0].groupby("start_time_hour_local").co2e100_kg.sum()
         )
@@ -701,7 +710,6 @@ class FlightsReportFetchSvc(BaseSvc):
         # report as metric tons
         for k, v in co2e_warming_by_takeoff_hr.items():
             co2e_warming_by_takeoff_hr[k] = v / 1000
-
         cool_group = (
             df[df.co2e100_kg < 0].groupby("start_time_hour_local").co2e100_kg.sum()
         )
@@ -715,8 +723,6 @@ class FlightsReportFetchSvc(BaseSvc):
         # report as metric tons
         for k, v in co2e_by_takeoff_hr.items():
             co2e_by_takeoff_hr[k] = v / 1000
-
-        df.drop(columns="start_time_hour_local", axis=1, inplace=True)
 
         summary = {
             "count_aircrafts": int(count_aircrafts),
