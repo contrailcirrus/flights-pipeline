@@ -447,6 +447,7 @@ class FlightsReportFetchSvc(BaseSvc):
     """
 
     REPORT_QUERY_FILENAME = "sql/bq_flights_report_daily.sql"
+    CASE_STUDY_QUERY_FILENAME = "sql/bq_flights_report_fid_trajectory.sql"
     EXPORT_RAW_FILENAME_TEMPLATE = (
         "flights_report_raw_{audience}_{airline}_{day}_{unixtime}.csv"
     )
@@ -502,6 +503,7 @@ class FlightsReportFetchSvc(BaseSvc):
         self._verbose = input.verbose
         self._dryrun = input.dryrun
         self._goog_fp = input.goog_fp
+        self._case_study_fids = input.case_study_fids
 
         self._bq_handler = BigQueryHandler()
         if self._goog_fp:

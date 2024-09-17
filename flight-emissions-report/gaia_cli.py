@@ -149,6 +149,12 @@ report_fetch_parser.add_argument(
     help="file path to google dataset",
     dest="goog_fp",
 )
+report_fetch_parser.add_argument(
+    "-s",
+    "--case_study_fids",
+    help="comma delimited set of flight ids for full-trajectory analysis",
+    dest="case_study_fids",
+)
 
 report_fetch_parser.set_defaults(func=FlightsReportFetchSvc)
 
