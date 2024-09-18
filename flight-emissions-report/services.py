@@ -646,11 +646,18 @@ class FlightsReportFetchSvc(BaseSvc):
             return ts_utc.astimezone(pytz.timezone(tz_str))
 
         df.loc[:, "time_start_local"] = df.apply(
-            lambda row: utc_to_local("start", row), axis=1
+            lambda row: utc_to_local("start", row),
+            axis=1,
         )
         df.loc[:, "start_time_hour_local"] = df.time_start.apply(lambda ts: ts.hour)
         df.loc[:, "time_end_local"] = df.apply(
-            lambda row: utc_to_local("end", row), axis=1
+            lambda row: utc_to_local("end", row),
+            axis=1,
+        )
+
+        df.loc[:, "airport_icao_od"] = df.apply(
+            lambda row: f"{row.departure_airport_icao}_{row.arrival_airport_icao}",
+            axis=1,
         )
         return df
 
@@ -728,7 +735,9 @@ class FlightsReportFetchSvc(BaseSvc):
                 df.reset_index(inplace=True, drop=True)
                 case_study_dfs.append(df)
 
+        # -----------------
         # build summary stats
+        # -----------------
         count_aircrafts = summary_df.icao_address.nunique()
         count_flights = summary_df.flight_id.nunique()
         count_flights_positive_ef = len(summary_df[summary_df.sum_ef_mj > 0])
@@ -762,7 +771,9 @@ class FlightsReportFetchSvc(BaseSvc):
         total_contrails_co2e100 = summary_df.co2e100_kg.sum()
         total_contrails_co2e100_metric_tons = round(total_contrails_co2e100 / 1000.0, 3)
 
+        # -----------------
         # CO2GWP20 by local takeoff hour-of-day
+        # -----------------
         warm_group = (
             summary_df[summary_df.co2e100_kg > 0]
             .groupby("start_time_hour_local")
@@ -788,6 +799,15 @@ class FlightsReportFetchSvc(BaseSvc):
         for k, v in co2e_by_takeoff_hr.items():
             co2e_by_takeoff_hr[k] = v / 1000
 
+        # -----------------
+        # Per-OD-pair summary
+        # -----------------
+        od_group_co2e = summary_df.groupby("airport_icao_od").co2e100_kg.sum()
+        od_group_cnt = summary_df.groupby("airport_icao_od").size()
+
+        # -----------------
+        # package summary
+        # -----------------
         summary = {
             "count_aircrafts": int(count_aircrafts),
             "count_flights": int(count_flights),
@@ -811,11 +831,16 @@ class FlightsReportFetchSvc(BaseSvc):
             "takeoff_time_local_co2e100_metric_tons_warming": co2e_warming_by_takeoff_hr,
             "takeoff_time_local_co2e100_metric_tons_cooling": co2e_cooling_by_takeoff_hr,
             "takeoff_time_local_co2e100_metric_tons_net": co2e_by_takeoff_hr,
+            "od_pair_co2e100": od_group_co2e.to_dict(),
+            "od_pair_flight_count": od_group_cnt.to_dict(),
         }
 
         if not self._dryrun:
             now_unix = int(datetime.now(tz=UTC).timestamp())
+
+            # -----------------
             # export raw data, values by flight_id
+            # -----------------
             export_raw_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
                 audience="internal",
                 airline=self._airline,
@@ -824,7 +849,9 @@ class FlightsReportFetchSvc(BaseSvc):
             )
             summary_df.to_csv(export_raw_fn, index=False)
 
+            # -----------------
             # export sanitized data, values by flight_id
+            # -----------------
             df_customer = self._format_customer_df(summary_df)
             export_customer_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
                 audience="external",
@@ -834,7 +861,9 @@ class FlightsReportFetchSvc(BaseSvc):
             )
             df_customer.to_csv(export_customer_fn, index=False)
 
+            # -----------------
             # export summary json
+            # -----------------
             export_summary_fn = self.EXPORT_SUMMARY_FILENAME_TEMPLATE.format(
                 airline=self._airline,
                 day=self._day_str,
@@ -847,7 +876,9 @@ class FlightsReportFetchSvc(BaseSvc):
                 f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
             )
 
+            # -----------------
             # export per-segment cocip outputs
+            # -----------------
             for seg_df in case_study_dfs:
                 fid = seg_df["flight_id"].iloc[0]
                 seg_df_fn = self.EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE.format(
