@@ -17,7 +17,7 @@ conus_intersect_tb AS
 ranked_candidate_flights_tb AS
   (SELECT ROW_NUMBER() OVER (PARTITION BY _chunk_hash ORDER BY _processed_at DESC) as row_number, * FROM candidate_flights_tb)
 
-SELECT *
+SELECT rcf_tb.*, ci_tb.in_conus EXCEPT (row_number)
 FROM ranked_candidate_flights_tb rcf_tb LEFT JOIN conus_intersect_tb ci_tb
 ON rcf_tb._chunk_hash=ci_tb._chunk_hash
 WHERE row_number=1
