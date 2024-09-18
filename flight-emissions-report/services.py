@@ -805,14 +805,18 @@ class FlightsReportFetchSvc(BaseSvc):
         od_group_co2e = summary_df.groupby("airport_icao_od").co2e100_kg.sum()
         od_group_cnt = summary_df.groupby("airport_icao_od").size()
         od_group_dist_km = summary_df.groupby("airport_icao_od").chunk_len_km.sum()
-        od_pairs = {}
+        od_pairs = []
         for k, v in od_group_co2e.to_dict().items():
-            od_pairs.update(
-                {k: {"co2e_100": None, "flight_count": None, "tot_dist_km": None}}
-            )
-            od_pairs[k]["co2e_100"] = v
-            od_pairs[k]["flight_count"] = od_group_cnt.to_dict().get(k)
-            od_pairs[k]["tot_dist_km"] = od_group_dist_km.to_dict().get(k)
+            entry = {
+                "airport_icao_od": k,
+                "co2e100_metric_tons": v / 1000.0,
+                "flight_count": od_group_cnt.to_dict().get(k),
+                "tot_dist_km": od_group_dist_km.to_dict().get(k),
+            }
+            od_pairs.append(entry)
+        od_pairs = sorted(
+            od_pairs, key=lambda itm: itm["co2e100_metric_tons"], reverse=True
+        )
 
         # -----------------
         # package summary
