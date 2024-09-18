@@ -458,12 +458,16 @@ class FlightsReportFetchSvc(BaseSvc):
     EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE = (
         "flights_report_trajectories_{airline}_{day}_{unixtime}.png"
     )
+    EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE = (
+        "flights_report_cocip_segments_{flight_id}.csv"
+    )
 
     AREA_EARTH = 5.101e14  # m^2, surface of the earth
     SECONDS_PER_YEAR = 60 * 60 * 24 * 365  # s
     AGWP100 = 92.5e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,100
     AGWP20 = 25.2e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,20
     ERF_RF = 0.42
+    CONUS_BOX = (-140.0, 6.0, -45.0, 56.0)  # lng1, lat1, lng2, lat2
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -672,6 +676,9 @@ class FlightsReportFetchSvc(BaseSvc):
         # fetch per-segment data for case study flight ids
         case_study_dfs: list[pd.DataFrame] = []  # noqa: F841
         if self._case_study_fids:
+            day_end = datetime.strptime(self._day_range[1], "%Y-%m-%d")
+            next_day = day_end + timedelta(days=1)
+            next_day_str = next_day.strftime("%Y-%m-%d")
             case_studies_query = self._bq_handler.import_query(
                 self.CASE_STUDY_QUERY_FILENAME
             )
@@ -690,7 +697,27 @@ class FlightsReportFetchSvc(BaseSvc):
                     bigquery.ScalarQueryParameter(
                         "day_end",
                         "STRING",
-                        self._day_range[1],
+                        next_day_str,
+                    ),
+                    bigquery.ScalarQueryParameter(
+                        "lng1",
+                        "FLOAT64",
+                        self.CONUS_BOX[0],
+                    ),
+                    bigquery.ScalarQueryParameter(
+                        "lat1",
+                        "FLOAT64",
+                        self.CONUS_BOX[1],
+                    ),
+                    bigquery.ScalarQueryParameter(
+                        "lng2",
+                        "FLOAT64",
+                        self.CONUS_BOX[2],
+                    ),
+                    bigquery.ScalarQueryParameter(
+                        "lat2",
+                        "FLOAT64",
+                        self.CONUS_BOX[3],
                     ),
                 ]
             )
@@ -700,8 +727,6 @@ class FlightsReportFetchSvc(BaseSvc):
             for _, df in case_studies_df.groupby("flight_id"):
                 df.reset_index(inplace=True, drop=True)
                 case_study_dfs.append(df)
-
-            # TODO: export to file
 
         # build summary stats
         count_aircrafts = summary_df.icao_address.nunique()
@@ -822,6 +847,14 @@ class FlightsReportFetchSvc(BaseSvc):
                 f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
             )
 
+            # export per-segment cocip outputs
+            for seg_df in case_study_dfs:
+                fid = seg_df["flight_id"].iloc[0]
+                seg_df_fn = self.EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE.format(
+                    flight_id=fid
+                )
+                seg_df.to_csv(seg_df_fn, index=False)
+
             projection = ccrs.Mercator(
                 central_longitude=12, min_latitude=-56.9, max_latitude=84.0
             )
@@ -832,9 +865,9 @@ class FlightsReportFetchSvc(BaseSvc):
             ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.5, alpha=0.5)
             ax.add_patch(
                 mpatches.Rectangle(
-                    xy=[-140.0, 6.0],
-                    width=95,
-                    height=50,
+                    xy=(self.CONUS_BOX[0], self.CONUS_BOX[1]),
+                    width=self.CONUS_BOX[2] - self.CONUS_BOX[0],
+                    height=self.CONUS_BOX[3] - self.CONUS_BOX[1],
                     facecolor="#F7CA45",
                     edgecolor="#F7CA45",
                     linewidth=1.0,
