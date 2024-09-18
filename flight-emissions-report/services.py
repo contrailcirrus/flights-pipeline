@@ -804,6 +804,15 @@ class FlightsReportFetchSvc(BaseSvc):
         # -----------------
         od_group_co2e = summary_df.groupby("airport_icao_od").co2e100_kg.sum()
         od_group_cnt = summary_df.groupby("airport_icao_od").size()
+        od_group_dist_km = summary_df.groupby("airport_icao_od").chunk_len_km.sum()
+        od_pairs = {}
+        for k, v in od_group_co2e.to_dict().items():
+            od_pairs.update(
+                {k: {"co2e_100": None, "flight_count": None, "tot_dist_km": None}}
+            )
+            od_pairs[k]["co2e_100"] = v
+            od_pairs[k]["flight_count"] = od_group_cnt.to_dict().get(k)
+            od_pairs[k]["tot_dist_km"] = od_group_dist_km.to_dict().get(k)
 
         # -----------------
         # package summary
@@ -831,8 +840,7 @@ class FlightsReportFetchSvc(BaseSvc):
             "takeoff_time_local_co2e100_metric_tons_warming": co2e_warming_by_takeoff_hr,
             "takeoff_time_local_co2e100_metric_tons_cooling": co2e_cooling_by_takeoff_hr,
             "takeoff_time_local_co2e100_metric_tons_net": co2e_by_takeoff_hr,
-            "od_pair_co2e100": od_group_co2e.to_dict(),
-            "od_pair_flight_count": od_group_cnt.to_dict(),
+            "od_pairs": od_pairs,
         }
 
         if not self._dryrun:
