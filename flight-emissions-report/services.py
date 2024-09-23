@@ -459,7 +459,7 @@ class FlightsReportFetchSvc(BaseSvc):
         "flights_report_trajectories_{airline}_{day}_{unixtime}.png"
     )
     EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE = (
-        "flights_report_cocip_segments_{flight_id}.csv"
+        "flights_report_cocip_segments_{flight_id}_{ts}.csv"
     )
     EXPORT_GOOGLE_DATASET_FILENAME_TEMPLATE = "flights_report_goog_dataset_{ts}.csv"
 
@@ -765,8 +765,35 @@ class FlightsReportFetchSvc(BaseSvc):
             case_studies_df: pd.DataFrame = self._bq_handler.query(  # noqa: F841
                 case_studies_query, cfg
             )
-            for _, df in case_studies_df.groupby("flight_id"):
+            for flight_id, df in case_studies_df.groupby("flight_id"):
                 df.reset_index(inplace=True, drop=True)
+                df = self.augment_summary_df(df)
+                # add in google sat detection, if available
+                df["goog_is_attributed"] = (
+                    False  # flight segment has google sat attribution
+                )
+                if self._goog_handler:
+                    df_goog_fid = df["google_flight_id"].unique()
+                    if len(df_goog_fid) > 1:
+                        logger.warning(
+                            f"more than one google_flight_id "
+                            f"for per-segment dataset w. flight_id: {flight_id}. "
+                            f"Skipping merge of google dataset."
+                        )
+                    else:
+                        # fetch periods of time when goog has attribution for the flight
+                        attr_periods = self._goog_handler.df[
+                            self._goog_handler.df["google_flight_id"] == df_goog_fid[0]
+                        ]
+                        for ix, row in attr_periods.iterrows():
+                            period_start_utc = row["timestamp_utc_start"]
+                            period_end_utc = row["timestamp_utc_end"]
+                            slice = df[
+                                df["time_start"]
+                                >= period_start_utc & df["end_time"]
+                                <= period_end_utc
+                            ]
+                            df.loc[slice, "goog_is_attributed"] = True
                 case_study_dfs.append(df)
 
         # -----------------
@@ -939,7 +966,8 @@ class FlightsReportFetchSvc(BaseSvc):
             for seg_df in case_study_dfs:
                 fid = seg_df["flight_id"].iloc[0]
                 seg_df_fn = self.EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE.format(
-                    flight_id=fid
+                    flight_id=fid,
+                    ts=now_unix,
                 )
                 seg_df.to_csv(seg_df_fn, index=False)
 
