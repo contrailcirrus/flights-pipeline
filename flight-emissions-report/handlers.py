@@ -1304,12 +1304,15 @@ class GoogDatasetHandler:
     """
 
     COL_MAP = {
-        "DATE_UTC": "date_start",
+        "departure_date_local": "departure_date_local",
+        "timestamp_utc_start": "timestamp_utc_start",
+        "timestamp_utc_end": "timestamp_utc_end",
         "origin_airport": "origin_airport_iata",
         "destination_airport": "destination_airport_iata",
         "carrier": "airline_iata",
         "flight_number": "flight_number",
-        "Analyzed Flight Length Km": "analyzed_length_km",
+        "tail_number": "tail_number",
+        "analyzed_flight_length_km": "analyzed_length_km",
         "attributed_contrail_km": "attributed_contrail_length_km",
         "eef_climatology_terajoules": "eef_tj",
     }
@@ -1323,10 +1326,29 @@ class GoogDatasetHandler:
         """
         self._goog_df = pd.read_csv(csv_fp)
         self._goog_df.rename(columns=self.COL_MAP, inplace=True)
-        self._goog_df.loc[:, "date_start"] = pd.to_datetime(
-            self._goog_df["date_start"], utc=True
+        self._goog_df["departure_date_local"] = pd.to_datetime(
+            self._goog_df["departure_date_local"]
+        )
+        self._goog_df["timestamp_utc_start"] = pd.to_datetime(
+            self._goog_df["timestamp_utc_start"],
+            unit="s",
+            utc=True,
+        )
+        self._goog_df["timestamp_utc_end"] = pd.to_datetime(
+            self._goog_df["timestamp_utc_end"],
+            unit="s",
+            utc=True,
         )
         self._goog_df = self.add_airport_icao(self._goog_df)
+
+        # add composite ID to join into our dataset
+        self.goog_df["google_flight_id"] = self._goog_df.apply(
+            lambda row: f"{int(row['departure_date_local'].timestamp())}_"
+            f"{row['origin_airport_icao']}_"
+            f"{row['destination_airport_icao']}_"
+            f"{row['flight_number']}",
+            axis=1,
+        )
 
     @staticmethod
     def add_airport_icao(df: pd.DataFrame) -> pd.DataFrame:
