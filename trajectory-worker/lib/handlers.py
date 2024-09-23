@@ -159,7 +159,7 @@ class PubSubSubscriptionHandler:
         # Signal lease manager thread exit
         exit_when_set.set()
         # Block until lease manager thread exits
-        lease_manager.join()
+        # lease_manager.join()
 
     def ack(self, message: Message):
         """Acknowledge the message to remove from the queue."""
