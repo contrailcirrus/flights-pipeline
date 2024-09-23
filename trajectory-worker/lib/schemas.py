@@ -689,7 +689,7 @@ class CocipTrajectoryChunk:
             "departure_scheduled_time": iso_to_microseconds(
                 self.departure_scheduled_time
             ),
-            "arrival_airport_icao": self.departure_airport_icao,
+            "arrival_airport_icao": self.arrival_airport_icao,
             "arrival_scheduled_time": iso_to_microseconds(self.arrival_scheduled_time),
         }
         return json.dumps(blob).encode("utf-8")
