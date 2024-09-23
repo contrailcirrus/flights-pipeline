@@ -1342,13 +1342,26 @@ class GoogDatasetHandler:
         self._goog_df = self.add_airport_icao(self._goog_df)
 
         # add composite ID to join into our dataset
-        self.goog_df["google_flight_id"] = self._goog_df.apply(
+        self._goog_df["google_flight_id"] = self._goog_df.apply(
             lambda row: f"{int(row['departure_date_local'].timestamp())}_"
             f"{row['origin_airport_icao']}_"
             f"{row['destination_airport_icao']}_"
             f"{row['flight_number']}",
             axis=1,
         )
+
+        # add summary_df (summary per-flight basis)
+        # fields: attributed_contrail_length_km, eef_tj, analyzed_length_km
+        df_tg = self._goog_df[~self._goog_df["attributed_contrail_length_km"].isnull()]
+        df_grp_fid = df_tg.groupby("google_flight_id")
+        df_grp_analyzed_flight_length = df_grp_fid.first()["analyzed_length_km"]
+        self._goog_df_summary = df_grp_fid.sum()[
+            ["attributed_contrail_length_km", "eef_tj"]
+        ]
+        self._goog_df_summary = self._goog_df_summary.join(
+            df_grp_analyzed_flight_length
+        )
+        self._goog_df_summary.reset_index(inplace=True)
 
     @staticmethod
     def add_airport_icao(df: pd.DataFrame) -> pd.DataFrame:
@@ -1391,3 +1404,7 @@ class GoogDatasetHandler:
     @property
     def df(self) -> pd.DataFrame:
         return self._goog_df
+
+    @property
+    def df_summary(self) -> pd.DataFrame:
+        return self._goog_df_summary
