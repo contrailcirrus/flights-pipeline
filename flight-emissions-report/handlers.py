@@ -1355,9 +1355,9 @@ class GoogDatasetHandler:
         df_tg = self._goog_df[~self._goog_df["attributed_contrail_length_km"].isnull()]
         df_grp_fid = df_tg.groupby("google_flight_id")
         df_grp_analyzed_flight_length = df_grp_fid.first()["analyzed_length_km"]
-        self._goog_df_summary = df_grp_fid.sum()[
+        self._goog_df_summary = df_grp_fid[
             ["attributed_contrail_length_km", "eef_tj"]
-        ]
+        ].sum()
         self._goog_df_summary = self._goog_df_summary.join(
             df_grp_analyzed_flight_length
         )

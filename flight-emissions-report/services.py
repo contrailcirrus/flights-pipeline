@@ -461,7 +461,7 @@ class FlightsReportFetchSvc(BaseSvc):
     EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE = (
         "flights_report_cocip_segments_{flight_id}.csv"
     )
-    EXPORT_GOOGLE_DATASET_FILENAME_TEMPLATE = "google_dataset_{ts}.csv"
+    EXPORT_GOOGLE_DATASET_FILENAME_TEMPLATE = "flights_report_goog_dataset_{ts}.csv"
 
     AREA_EARTH = 5.101e14  # m^2, surface of the earth
     SECONDS_PER_YEAR = 60 * 60 * 24 * 365  # s
@@ -674,7 +674,7 @@ class FlightsReportFetchSvc(BaseSvc):
         #    Goog's dataset appears to have some field manipulation/sanitization)
         # ....
         # 1) flight_number
-        #    reviate dataset has zero padding on str literals (e.g. str: "02")
+        #    reviate dataset has prefix of the airline iata (e.g. str: "D02")
         #    google dataset reports integers w/o padding (e.g. int: 2)
         # 2) tail_number
         #    reviate dataset includes hyphenation (e.g. str: "G-DHLS")
@@ -683,7 +683,7 @@ class FlightsReportFetchSvc(BaseSvc):
             lambda row: f"{int(row['start_time_date_local'].timestamp())}_"
             f"{row['departure_airport_icao']}_"
             f"{row['arrival_airport_icao']}_"
-            f"{int(row['flight_number'])}",
+            f"{row['flight_number'][2:] if row['flight_number'] else None}",
             axis=1,
         )
         return df
@@ -706,6 +706,13 @@ class FlightsReportFetchSvc(BaseSvc):
         )
         summary_df: pd.DataFrame = self._bq_handler.query(summary_query, cfg)
         summary_df = self.augment_summary_df(summary_df)
+        if self._goog_handler:
+            summary_df = pd.merge(
+                summary_df,
+                self._goog_handler.df_summary,
+                how="left",
+                on="google_flight_id",
+            )
 
         # fetch per-segment data for case study flight ids
         case_study_dfs: list[pd.DataFrame] = []  # noqa: F841
