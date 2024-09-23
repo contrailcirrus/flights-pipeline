@@ -461,6 +461,7 @@ class FlightsReportFetchSvc(BaseSvc):
     EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE = (
         "flights_report_cocip_segments_{flight_id}.csv"
     )
+    EXPORT_GOOGLE_DATASET_FILENAME_TEMPLATE = "google_dataset_{ts}"
 
     AREA_EARTH = 5.101e14  # m^2, surface of the earth
     SECONDS_PER_YEAR = 60 * 60 * 24 * 365  # s
@@ -649,14 +650,28 @@ class FlightsReportFetchSvc(BaseSvc):
             lambda row: utc_to_local("start", row),
             axis=1,
         )
-        df.loc[:, "start_time_hour_local"] = df.time_start.apply(lambda ts: ts.hour)
         df.loc[:, "time_end_local"] = df.apply(
             lambda row: utc_to_local("end", row),
             axis=1,
         )
 
+        df.loc[:, "start_time_hour_local"] = df.time_start.apply(lambda ts: ts.hour)
+
+        df.loc[:, "start_time_date_local"] = df.time_start.apply(
+            lambda ts: ts.strftime("%Y-%m-%d")
+        )
+        df.loc[:, "start_time_date_local"] = pd.to_datetime(df["start_time_date_local"])
+
         df.loc[:, "airport_icao_od"] = df.apply(
             lambda row: f"{row.departure_airport_icao}_{row.arrival_airport_icao}",
+            axis=1,
+        )
+
+        df.loc[:, "google_flight_id"] = df.apply(
+            lambda row: f"{int(row['start_time_date_local'].timestamp())}_"
+            f"{row['departure_airport_icao']}_"
+            f"{row['arrival_airport_icao']}_"
+            f"{row['flight_number']}",
             axis=1,
         )
         return df
@@ -889,6 +904,17 @@ class FlightsReportFetchSvc(BaseSvc):
             )
 
             # -----------------
+            # export augmented google dataset
+            # -----------------
+            if self._goog_handler:
+                self._goog_handler.df.to_csv(
+                    self.EXPORT_GOOGLE_DATASET_FILENAME_TEMPLATE.format(
+                        ts=now_unix,
+                    ),
+                    index=False,
+                )
+
+            # -----------------
             # export per-segment cocip outputs
             # -----------------
             for seg_df in case_study_dfs:
@@ -898,6 +924,9 @@ class FlightsReportFetchSvc(BaseSvc):
                 )
                 seg_df.to_csv(seg_df_fn, index=False)
 
+            # -----------------
+            # export OD-pair map
+            # -----------------
             projection = ccrs.Mercator(
                 central_longitude=12, min_latitude=-56.9, max_latitude=84.0
             )

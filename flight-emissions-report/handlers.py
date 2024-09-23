@@ -1389,5 +1389,5 @@ class GoogDatasetHandler:
         return df_cp
 
     @property
-    def df(self):
+    def df(self) -> pd.DataFrame:
         return self._goog_df
