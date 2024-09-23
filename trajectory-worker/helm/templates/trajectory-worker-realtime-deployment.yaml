@@ -20,7 +20,7 @@ spec:
       # has this much time to gracefully exit before being killed.
       terminationGracePeriodSeconds: 600
       nodeSelector:
-        cloud.google.com/compute-class: "Scale-Out"
+        cloud.google.com/compute-class: "Balanced"
       containers:
       - name: trajectory-worker-realtime
         image: {{ .Values.image | required ".Values.image is required" | quote }}
