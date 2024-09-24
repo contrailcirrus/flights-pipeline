@@ -787,7 +787,9 @@ class FlightsReportFetchSvc(BaseSvc):
                         ]
                         for ix, row in attr_periods.iterrows():
                             period_start_utc = row["timestamp_utc_start"]
+                            period_start_utc = period_start_utc.floor(freq="min")
                             period_end_utc = row["timestamp_utc_end"]
+                            period_end_utc = period_end_utc.ceil(freq="min")
                             slice = (df["time_start"] >= period_start_utc) & (
                                 df["time_end"] <= period_end_utc
                             )
