@@ -788,11 +788,9 @@ class FlightsReportFetchSvc(BaseSvc):
                         for ix, row in attr_periods.iterrows():
                             period_start_utc = row["timestamp_utc_start"]
                             period_end_utc = row["timestamp_utc_end"]
-                            slice = df[
-                                df["time_start"]
-                                >= period_start_utc & df["end_time"]
-                                <= period_end_utc
-                            ]
+                            slice = (df["time_start"] >= period_start_utc) & (
+                                df["time_end"] <= period_end_utc
+                            )
                             df.loc[slice, "goog_is_attributed"] = True
                 case_study_dfs.append(df)
 
