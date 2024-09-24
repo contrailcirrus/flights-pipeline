@@ -386,7 +386,7 @@ class CocipTrajectoryHandler:
     PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
     BADA3_DATASET_FP = "bada3"
     LOW_MEM_WAYPOINT_COUNT = (
-        400  # use low-mem cocip trajectory if traj length is above this val
+        300  # use low-mem cocip trajectory if traj length is above this val
     )
 
     # matched to values used by api-preprocessor
