@@ -11,6 +11,7 @@ from lib.handlers import (
     PubSubSubscriptionHandler,
 )
 from lib.log import format_traceback, logger
+from datetime import UTC, datetime
 
 
 def run(
@@ -66,6 +67,8 @@ def run(
             job_handler.nack(message)
             continue
 
+        now = datetime.now(tz=UTC)
+
         # ===================
         # publish trajectory chunk model outputs to BQ
         # ===================
@@ -78,7 +81,7 @@ def run(
         )
 
         trajectory_cocip_bq_publisher.publish_async(
-            data=output.to_bq_flatmap(),
+            data=output.to_bq_flatmap(processed_at=now),
             timeout_seconds=110,
             log_context=dict(
                 client_name="trajectory_cocip_bq_publisher_traj_summary",
@@ -102,7 +105,7 @@ def run(
             )
             for seg in seg_outputs:
                 trajectory_cocip_bq_publisher.publish_async(
-                    data=seg.to_bq_flatmap(),
+                    data=seg.to_bq_flatmap(processed_at=now),
                     timeout_seconds=110,
                     log_context=dict(
                         client_name="trajectory_cocip_bq_publisher_traj_per_seg",

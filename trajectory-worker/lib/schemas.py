@@ -604,7 +604,7 @@ class CocipTrajectoryChunk:
 
         return outputs
 
-    def to_bq_flatmap(self) -> bytes:
+    def to_bq_flatmap(self, processed_at: datetime) -> bytes:
         """
         Flattens records into a single utf-8 encoded json string literals,
         ready for egress to big query.
@@ -619,6 +619,10 @@ class CocipTrajectoryChunk:
         <pycontrails_ver><aircraft_type_icao><engine_uid>
         <perf_model_id><icao_address>
         <time_start><time_end>
+
+        Parameters
+        -------
+        processed_at a datetime object indicating the server side processing time for this record.
         """
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
@@ -641,7 +645,7 @@ class CocipTrajectoryChunk:
         hash_int = int(hash_trunc, 16)
         blob = {
             "_chunk_hash": hash_int,
-            "_processed_at": iso_to_microseconds(datetime.now(tz=UTC).isoformat()),
+            "_processed_at": iso_to_microseconds(processed_at.isoformat()),
             "seg_cnt": self.seg_cnt,
             "seg_ef_cnt": self.seg_ef_cnt,
             "seg_ef_nan_cnt": self.seg_ef_nan_cnt,
