@@ -429,6 +429,7 @@ class CocipTrajectoryHandler:
         self._flight: pycontrails.Flight = self._create_flight(
             self._job, self._engine_uid
         )
+        logger.debug("instantiated cocip handler.")
 
     @classmethod
     def _verify_altitude(cls, job: WaypointsRecord):
@@ -590,12 +591,13 @@ class CocipTrajectoryHandler:
         """
         self._zarr_model_run_at = self._nearest_zarr_store(self._job)
         zarr_path = f"{self._hres_src}/{self._zarr_model_run_at}"
-
+        logger.debug(f"opening PL zarr store at: {zarr_path}")
         pl = xr.open_zarr(f"{zarr_path}/pl.zarr")
         met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
         met.standardize_variables(variables)
 
+        logger.debug(f"opening SL zarr store at: {zarr_path}")
         sl = xr.open_zarr(f"{zarr_path}/sl.zarr")
         rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables)
@@ -608,6 +610,7 @@ class CocipTrajectoryHandler:
         """
         Run the cocip trajectory model.
         """
+        logger.debug("running cocip model.")
         if not self._met_dataset or not self._rad_dataset:
             raise ValueError(
                 "met dataset or rad dataset have not been loaded. Run load()."
@@ -632,8 +635,9 @@ class CocipTrajectoryHandler:
                 **self.STATIC_PARAMS,
                 preprocess_lowmem=True,
             )
-
+        logger.debug("evaluating cocip model.")
         result: Flight = model.eval(self._flight)
+        logger.debug("finished evaluating cocip model.")
         return result
 
     @property

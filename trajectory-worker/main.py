@@ -72,6 +72,7 @@ def run(
         # ===================
         # publish trajectory chunk model outputs to BQ
         # ===================
+        logger.debug("publishing cocip outputs to BQ.")
         output = schemas.CocipTrajectoryChunk.from_cocip_result(
             source_id=message.ordering_key.split(":")[0],
             git_sha=env.GIT_SHA,
@@ -96,6 +97,7 @@ def run(
         # if enabled, publish all trajectory segments to BQ
         # ===================
         if job.export_cocip_trajectory:
+            logger.debug("exporting per-segment cocip outputs to BQ.")
             seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
                 source_id=message.ordering_key.split(":")[0],
                 git_sha=env.GIT_SHA,
