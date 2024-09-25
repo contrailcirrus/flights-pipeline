@@ -971,6 +971,10 @@ class FlightsReportFetchSvc(BaseSvc):
                 )
                 seg_df.to_csv(seg_df_fn, index=False)
 
+                # -----------------
+                # export case study plots
+                # -----------------
+
             # -----------------
             # export OD-pair map
             # -----------------
