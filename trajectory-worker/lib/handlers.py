@@ -592,13 +592,27 @@ class CocipTrajectoryHandler:
         self._zarr_model_run_at = self._nearest_zarr_store(self._job)
         zarr_path = f"{self._hres_src}/{self._zarr_model_run_at}"
         logger.debug(f"opening PL zarr store at: {zarr_path}")
-        pl = xr.open_zarr(f"{zarr_path}/pl.zarr")
+        pl = xr.open_dataset(
+            f"{zarr_path}/pl.zarr",
+            backend_kwargs={
+                "storage_options": {"project": "contrails-301217", "token": "cloud"}
+            },
+            engine="zarr",
+        )
+        # pl = xr.open_zarr(f"{zarr_path}/pl.zarr")
         met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
         met.standardize_variables(variables)
 
         logger.debug(f"opening SL zarr store at: {zarr_path}")
-        sl = xr.open_zarr(f"{zarr_path}/sl.zarr")
+        sl = xr.open_dataset(
+            f"{zarr_path}/sl.zarr",
+            backend_kwargs={
+                "storage_options": {"project": "contrails-301217", "token": "cloud"}
+            },
+            engine="zarr",
+        )
+        # sl = xr.open_zarr(f"{zarr_path}/sl.zarr")
         rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables)
         rad.standardize_variables(variables)
