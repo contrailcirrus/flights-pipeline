@@ -594,7 +594,7 @@ class CocipTrajectoryHandler:
         logger.debug(f"opening PL zarr store at: {zarr_path}")
         pl = xr.open_zarr(
             f"{zarr_path}/pl.zarr",
-            storage_options={"project": "contrails-301217", "token": "cloud"},
+            storage_options={"token": "cloud"},
         )
         met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
