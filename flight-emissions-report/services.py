@@ -13,7 +13,6 @@ from timezonefinder import TimezoneFinder
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature  # noqa: F401
-import matplotlib.patches as mpatches
 from helpers import key_max_value_count
 from handlers import (
     PubSubSubscriptionHandler,
@@ -468,6 +467,7 @@ class FlightsReportFetchSvc(BaseSvc):
     AGWP100 = 92.5e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,100
     AGWP20 = 25.2e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,20
     ERF_RF = 0.42
+    CONUS_COORDS = ((-134.03, 50.07), (-121.2, 14.9), (-63.2, 10.5), (-46.1, 44.1))
     CONUS_WKT = (
         "POLYGON((-134.03 50.07, -121.2 14.9, -63.2 10.5, -46.1 44.1, -134.03 50.07))"
     )
@@ -973,17 +973,14 @@ class FlightsReportFetchSvc(BaseSvc):
             ax.set_global()
             ax.add_feature(cfeature.LAND, color="#C4C7C5")
             ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.5, alpha=0.5)
-            ax.add_patch(
-                mpatches.Rectangle(
-                    xy=(self.CONUS_BOX[0], self.CONUS_BOX[1]),
-                    width=self.CONUS_BOX[2] - self.CONUS_BOX[0],
-                    height=self.CONUS_BOX[3] - self.CONUS_BOX[1],
-                    facecolor="#F7CA45",
-                    edgecolor="#F7CA45",
-                    linewidth=1.0,
-                    alpha=0.5,
-                    transform=ccrs.Geodetic(),
-                )
+            ax.fill(
+                [c[0] for c in self.CONUS_COORDS],
+                [c[1] for c in self.CONUS_COORDS],
+                facecolor="#F7CA45",
+                edgecolor="#F7CA45",
+                linewidth=1.0,
+                alpha=0.5,
+                transform=ccrs.Geodetic(),
             )
             for ix, row in summary_df.iterrows():
                 plt.plot(
