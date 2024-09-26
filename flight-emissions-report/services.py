@@ -468,7 +468,9 @@ class FlightsReportFetchSvc(BaseSvc):
     AGWP100 = 92.5e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,100
     AGWP20 = 25.2e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,20
     ERF_RF = 0.42
-    CONUS_BOX = (-140.0, 6.0, -45.0, 56.0)  # lng1, lat1, lng2, lat2
+    CONUS_WKT = (
+        "POLYGON((-134.03 50.07, -121.2 14.9, -63.2 10.5, -46.1 44.1, -134.03 50.07))"
+    )
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -741,24 +743,9 @@ class FlightsReportFetchSvc(BaseSvc):
                         next_day_str,
                     ),
                     bigquery.ScalarQueryParameter(
-                        "lng1",
-                        "FLOAT64",
-                        self.CONUS_BOX[0],
-                    ),
-                    bigquery.ScalarQueryParameter(
-                        "lat1",
-                        "FLOAT64",
-                        self.CONUS_BOX[1],
-                    ),
-                    bigquery.ScalarQueryParameter(
-                        "lng2",
-                        "FLOAT64",
-                        self.CONUS_BOX[2],
-                    ),
-                    bigquery.ScalarQueryParameter(
-                        "lat2",
-                        "FLOAT64",
-                        self.CONUS_BOX[3],
+                        "conus_wkt",
+                        "STRING",
+                        self.CONUS_WKT,
                     ),
                 ]
             )

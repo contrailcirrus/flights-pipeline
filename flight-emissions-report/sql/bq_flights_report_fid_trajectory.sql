@@ -14,6 +14,6 @@ WITH candidate_flights_tb AS
           FROM candidate_flights_tb
           QUALIFY row_number = 1)
 SELECT * EXCEPT (row_number),
-       ST_INTERSECTSBOX(ST_GEOGPOINT(lon_start, lat_start), @lng1, @lat1, @lng2, @lat2) AS in_conus
+       ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start), ST_GEOGFROMTEXT(@conus_wkt)) AS in_conus
 FROM ranked_candidate_flights_tb
 ORDER BY time_start ASC;
