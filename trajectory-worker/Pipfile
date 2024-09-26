@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 dask = "==2024.9.0"
-gcsfs = "==2023.12.2post1"
+gcsfs = "==2024.9.0"
 google-cloud-pubsub = "==2.19.7"
 matplotlib = "==3.9.1"
 pycontrails = "==0.53.0"
