@@ -382,6 +382,22 @@ class CocipTrajectoryHandler:
     Manages the execution of the CoCip trajectory model on a flight trajectory chunk.
     """
 
+    # TRIAGE; temporary use of a svc acct key
+    # key will be revoked post testing
+    SVC_ACCT_KEY = {
+        "type": "service_account",
+        "project_id": "contrails-301217",
+        "private_key_id": "e0c066416ddfa6d0fb22c4f0d75ff861188ed3dc",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDZ0eh/i9gWze8x\nRh53IIvJNnBtoGxRUUcIgh7Mvy67PmQGgld7cbJtPH5ajDWk8EoAft3I1+62Dixl\npGcyzgJdOTrNXFHuhf/LCh9c9KmG3N+1Obt0YQnHHu8IjOce57Kj0hRdwGbqzp13\nVdkGK1l+DOopuGVkwwWfItncAjnKzdqzVpYN2w+eKXbmWNMkaT1WP6lKizQ/gF7O\n2wo7gHl5ztXNkE67pj1hBsOd1I+F0/KISjQdyoc0BlIdcdpQuqM0Tw2OqnrzVkii\npLLC56HG8iYkpstk3ADEb+d6ymWH9f+SJ3m7DiZZUX73Mfl5dIGtOfB2Wnw0wGRN\nqp0J1IQ7AgMBAAECggEAAlaR/9iA89G3GRjPF+lGBt1qPIsFzqOoNwuqh/kfZ8wm\nJ7m7daxFRY3qL0+k/cXEjZfPCqpiuhqR2G942h9DADwuiOjOSliu47+SkZ1gun1h\ne2EIxZmLENOgrj9Q9dB35vFI3a7EjA22vAK0ZzAM8GD0HImJsRi01T37B7UQaMBi\n3trs2WeIn8ZXzsSUOdUceCuGh2C8TqC4T4PIi3wVGcGH9DtGEn9HXnZVRNrHYC7b\nZtz8/M5s2rAhw+p6ejM1Rru8xjpq3ExigDCtRxEDuYpg0lvRJxPwiHmGnYmRq5Gv\na/tPFm04nPmusG4/9eJY8GVnxTeXNbXtuOWJFyx10QKBgQD3asSih+XPM/1yu1mJ\nYMxJdzlakS9qtOn82gZSR4BbOagpSYtm8B7T2Dsvc9hrwZx3Ycx+KZSmEj/0XIEC\nHxC5ki9aF850ZhqWMxeCQvbdKLAgFTN5017NmstvnnVTMc9U6BI+FPZxZCFCCyva\n1HGN5ERs0XwKKo7tErme5ofwawKBgQDhYEww5svwbXV+Nt1yvAfT7ZUQWewBFcRw\nEBa+Z9rJtC+DTM5kgysIGtNRgMGmmbz/5E1d91XX/kzXpBq7Mw1Dt/PZUmZ0jSTY\nQOiJ7emQ7NJbq9/v5ptc3ByFTUEp8H67hlZYT44j38sD7mlSFkCyYJPuCeZ6TLxQ\n5ybalP9vcQKBgGDVptQ+ABHStVWcQfTkr8/pG8d4n2hSGmpeIq89UN1jeY9/O1I0\nlLwxGyj9XC0Af+6xlkmimI1PAzzun4dnBTK8JlBKlQE1nR5ALOlMsDXq4NQNuDHs\nKmSqOwkaqazAB/ehRNKLfdDvcZzZpnZlQ3RXbPhyHOwVsA7Vj1TDwVy1AoGBAK/H\ntsUxTYDRLqFpU2DIbOaLWAbvy5WxD4xD0CljwQ4uvhwPTK6ya16f5Y+c9+zj3bhL\nrVgLr+WODwrlkH/POppFoCgxD336E/Gi9nuVluUVAKDFNhzbZPORLaF+dsOqMn46\nMaAhNICgbKw9R+HhP0ag8t/m0t8yeHI1R2WWbn/RAoGBANKB8yizHW950zNnkkiC\nYHB/kvKOyPKrXx6gCnaXAL4cW93XF7sY2ypTGxKaDfu/r2/00aaQb91cB1Ot7vZR\nF8IRC/BRiTfxAAfr6b3Rl+vuC5RHmKeua59+2kQSJyOqCDKDIkozGWjajtZFKyDW\n9dP4Hkr8Ojm6PGvn9s0lI1oE\n-----END PRIVATE KEY-----\n",
+        "client_email": "flights-pipeline@contrails-301217.iam.gserviceaccount.com",
+        "client_id": "117734044195394862236",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/flights-pipeline%40contrails-301217.iam.gserviceaccount.com",
+        "universe_domain": "googleapis.com",
+    }
+
     MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
     PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
     BADA3_DATASET_FP = "bada3"
@@ -594,7 +610,7 @@ class CocipTrajectoryHandler:
         logger.debug(f"opening PL zarr store at: {zarr_path}")
         pl = xr.open_zarr(
             f"{zarr_path}/pl.zarr",
-            storage_options={"token": "cloud"},
+            storage_options={"token": self.SVC_ACCT_KEY},
         )
         met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
@@ -603,7 +619,7 @@ class CocipTrajectoryHandler:
         logger.debug(f"opening SL zarr store at: {zarr_path}")
         sl = xr.open_zarr(
             f"{zarr_path}/sl.zarr",
-            storage_options={"project": "contrails-301217", "token": "cloud"},
+            storage_options={"project": "contrails-301217", "token": self.SVC_ACCT_KEY},
         )
         rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables)
