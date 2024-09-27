@@ -1,0 +1,61 @@
+-- the following scripting creates table that mirrors the BQ source-of-truth
+-- and configures access for our users
+
+create table public."trajectory-cocip"
+(
+    _chunk_hash integer,
+    _processed_at integer,
+    seg_cnt integer,
+    seg_ef_cnt integer,
+    seg_ef_nan_cnt integer,
+    chunk_len_km float,
+    lat_start float,
+    lon_start  float,
+    lat_end  float,
+    lon_end  float,
+    time_start timestamp,
+    time_end timestamp,
+    total_persistent_contrail_length_km float,
+    total_contrail_length_sac_km float,
+    max_contrail_lifetime_h float,
+    median_contrail_lifetime_h float,
+    pycontrails_ver text,
+    perf_model_id text,
+    nvpm_data_source  text,
+    source_id text,
+    git_sha text,
+    zarr_uri text,
+    sum_ef_mj integer,
+    total_fuel_burn_kg integer,
+    total_co2_kg integer,
+    total_h2o_kg integer,
+    total_so2_kg float,
+    total_sulphates_kg float,
+    total_oc_kg float,
+    total_nox_kg float,
+    total_co_kg float,
+    total_hc_kg float,
+    total_nvpm_kg float,
+    total_nvpm_giga_cnt integer,
+    aircraft_type_icao text,
+    engine_uid text,
+    mean_aircraft_mass_kg float,
+    mean_overall_efficiency float,
+    icao_address text,
+    flight_id text,
+    callsign text,
+    tail_number text,
+    flight_number text,
+    airline_iata text,
+    departure_airport_icao text,
+    departure_scheduled_time timestamp,
+    arrival_airport_icao  text,
+    arrival_scheduled_time timestamp,
+    median_altitude_ft integer,
+    seg_pos_ef_cnt integer,
+    total_pos_ef_persistent_contrail_length_km float
+);
+
+grant delete, insert, select, update on public."trajectory-cocip" to internal_user_rw;
+
+grant select on public."trajectory-cocip" to internal_user_ro;
