@@ -1,61 +1,61 @@
 [
   {
     "name": "_chunk_hash",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "unique hash for the trajectory chunk job"
   },
   {
     "name": "_processed_at",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "time at which trajectory worker submits record to BQ pubsub"
   },
   {
     "name": "seg_cnt",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "total number of segments in the chunk"
   },
     {
     "name": "seg_ef_cnt",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "number of segments with non-zero ef"
   },
   {
     "name": "seg_ef_nan_cnt",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "number of segments with nan ef"
   },
   {
     "name": "chunk_len_km",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "total length of the flight chunk"
   },
   {
     "name": "lat_start",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "latitude of first waypoint in chunk"
   },
   {
     "name": "lon_start",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "longitude of first waypoint in chunk"
   },
   {
     "name": "lat_end",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "latitude of last waypoint in chunk"
   },
   {
     "name": "lon_end",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "longitude of last waypoint in chunk"
   },
@@ -72,32 +72,26 @@
     "description": "timestamp of last waypoint in chunk"
   },
   {
-    "name": "median_altitude_ft",
-    "type": "INT64",
-    "mode": "NULLABLE",
-    "description": "median altitude across flight segments, in feet"
-  },
-  {
     "name": "total_persistent_contrail_length_km",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "NULLABLE",
     "description": "total length of flight segments that produce persistent contrails (non-zero EF)"
   },
   {
     "name": "total_contrail_length_sac_km",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "NULLABLE",
     "description": "total length of flight segments that meet the SAC"
   },
   {
     "name": "max_contrail_lifetime_h",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "NULLABLE",
     "description": "maximum contrail segment lifetime among contrail forming flight segments."
   },
   {
     "name": "median_contrail_lifetime_h",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "NULLABLE",
     "description": "median contrail segment lifetime among contrail forming flight segments."
   },
@@ -139,73 +133,73 @@
   },
   {
     "name": "sum_ef_mj",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "sum of the calculated ef values, units 10^6*[J]"
   },
   {
     "name": "total_fuel_burn_kg",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "total kg of fuel burn for chunk"
   },
   {
     "name": "total_co2_kg",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "total kg of co2 from fuel combustion for chunk"
   },
   {
     "name": "total_h2o_kg",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "total kg of h2o from fuel combustion ..."
   },
   {
     "name": "total_so2_kg",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "total kg of so2 from fuel combustion ..."
   },
   {
     "name": "total_sulphates_kg",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "total kg of sulphates from fuel combustion ..."
   },
   {
     "name": "total_oc_kg",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "total kg of organic carbon from fuel combustion ..."
   },
   {
     "name": "total_nox_kg",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "total kg of nox from fuel combustion ..."
   },
   {
     "name": "total_co_kg",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "total kg of co from fuel combustion ..."
   },
   {
     "name": "total_hc_kg",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "total kg of hydrocarbons from fuel combustion ..."
   },
   {
     "name": "total_nvpm_kg",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "REQUIRED",
     "description": "total kg of non-volatile PM from fuel combustion ..."
   },
   {
     "name": "total_nvpm_giga_cnt",
-    "type": "INT64",
+    "type": "INTEGER",
     "mode": "REQUIRED",
     "description": "total cnt (*10^9) of non-volatile PM ..."
   },
@@ -223,13 +217,13 @@
   },
   {
     "name": "mean_aircraft_mass_kg",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "NULLABLE",
     "description": "mean (time averaged) aircraft mass in [kg]"
   },
   {
     "name": "mean_overall_efficiency",
-    "type": "FLOAT64",
+    "type": "FLOAT",
     "mode": "NULLABLE",
     "description": "mean (time averaged) engine efficiency"
   },
@@ -292,5 +286,24 @@
     "type": "TIMESTAMP",
     "mode": "NULLABLE",
     "description": "scheduled time for arrival to destination"
+  },
+  {
+    "name": "median_altitude_ft",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "median altitude across flight segments, in feet"
+  },
+
+  {
+    "name": "seg_pos_ef_cnt",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "number of segments with positive ef"
+  },
+  {
+    "name": "total_pos_ef_persistent_contrail_length_km",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "total length of flight segments that produce persistent contrails with positive ef"
   }
 ]
