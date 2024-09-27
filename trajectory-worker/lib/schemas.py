@@ -240,6 +240,7 @@ class CocipTrajectoryChunk:
 
     seg_cnt: int  # total number of segments in the chunk
     seg_ef_cnt: int  # number of segments with non-zero ef in chunk
+    seg_pos_ef_cnt: int  # number of segs with positive ef in chunk
     seg_ef_nan_cnt: int  # number of segments with nan ef values in chunk
     chunk_len_km: float  # total length of the flight chunk
     lat_start: float  # latitude of first waypoint in chunk
@@ -250,6 +251,7 @@ class CocipTrajectoryChunk:
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
     median_altitude_ft: int  # median altitude across all waypoints in trajectory chunk
     total_persistent_contrail_length_km: float
+    total_pos_ef_persistent_contrail_length_km: float
     total_contrail_length_sac_km: float
     max_contrail_lifetime_h: float
     median_contrail_lifetime_h: float
@@ -365,6 +367,13 @@ class CocipTrajectoryChunk:
             None if np.isnan(tot_contrail_len) else float(tot_contrail_len / 1000.0)
         )
 
+        tot_pos_contrail_len = np.nansum(df_sl[df_sl["cocip"] > 0]["segment_length"])
+        tot_pos_contrail_len = (
+            None
+            if np.isnan(tot_pos_contrail_len)
+            else float(tot_pos_contrail_len / 1000.0)
+        )
+
         tot_sac_len = np.nansum(df_sl[df_sl["sac"] == 1]["segment_length"])
         tot_sac_len = None if np.isnan(tot_sac_len) else float(tot_sac_len / 1000.0)
 
@@ -400,6 +409,7 @@ class CocipTrajectoryChunk:
         return CocipTrajectoryChunk(
             seg_cnt=len(segs_ef_j),
             seg_ef_cnt=int(sum(np.abs(segs_ef_j) > 0)),
+            seg_pos_ef_cnt=int(sum(segs_ef_j > 0)),
             seg_ef_nan_cnt=int(np.isnan(segs_ef_j).sum()),
             chunk_len_km=float(np.nansum(result["segment_length"][sl]) / 1000.0),
             lat_start=input_chunk.records[0].latitude,
@@ -410,6 +420,7 @@ class CocipTrajectoryChunk:
             time_end=input_chunk.records[-1].timestamp,
             median_altitude_ft=median_altitude_ft,
             total_persistent_contrail_length_km=tot_contrail_len,
+            total_pos_ef_persistent_contrail_length_km=tot_pos_contrail_len,
             total_contrail_length_sac_km=tot_sac_len,
             max_contrail_lifetime_h=max_contrail_age_hr,
             median_contrail_lifetime_h=median_contrail_age_hr,
@@ -517,6 +528,9 @@ class CocipTrajectoryChunk:
             tot_contrail_len = (
                 float(ds["segment_length"] / 1000.0) if ds["cocip"] != 0 else None
             )
+            tot_pos_contrail_len = (
+                float(ds["segment_length"] / 1000.0) if ds["cocip"] > 0 else None
+            )
 
             tot_sac_len = float(ds["segment_length"]) / 1000.0 if ds["sac"] == 1 else 0
             max_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
@@ -540,6 +554,7 @@ class CocipTrajectoryChunk:
             seg = CocipTrajectoryChunk(
                 seg_cnt=1,
                 seg_ef_cnt=1 if np.abs(ds["ef"]) > 0 else 0,
+                seg_pos_ef_cnt=1 if ds["ef"] > 0 else 0,
                 seg_ef_nan_cnt=1 if np.isnan(ds["ef"]) else 0,
                 chunk_len_km=float(ds["segment_length"] / 1000.0),
                 lat_start=float(ds["latitude"]),
@@ -550,6 +565,7 @@ class CocipTrajectoryChunk:
                 time_end=ds_next["time"].isoformat() + "Z",
                 median_altitude_ft=median_altitude_ft,
                 total_persistent_contrail_length_km=tot_contrail_len,
+                total_pos_ef_persistent_contrail_length_km=tot_pos_contrail_len,
                 total_contrail_length_sac_km=tot_sac_len,
                 max_contrail_lifetime_h=max_contrail_age_hr,
                 median_contrail_lifetime_h=median_contrail_age_hr,
@@ -648,6 +664,7 @@ class CocipTrajectoryChunk:
             "_processed_at": iso_to_microseconds(processed_at.isoformat()),
             "seg_cnt": self.seg_cnt,
             "seg_ef_cnt": self.seg_ef_cnt,
+            "seg_pos_ef_cnt": self.seg_pos_ef_cnt,
             "seg_ef_nan_cnt": self.seg_ef_nan_cnt,
             "chunk_len_km": self.chunk_len_km,
             "lat_start": self.lat_start,
@@ -658,6 +675,7 @@ class CocipTrajectoryChunk:
             "time_end": time_end_us,
             "median_altitude_ft": self.median_altitude_ft,
             "total_persistent_contrail_length_km": self.total_persistent_contrail_length_km,
+            "total_pos_ef_persistent_contrail_length_km": self.total_pos_ef_persistent_contrail_length_km,
             "total_contrail_length_sac_km": self.total_contrail_length_sac_km,
             "max_contrail_lifetime_h": self.max_contrail_lifetime_h,
             "median_contrail_lifetime_h": self.median_contrail_lifetime_h,

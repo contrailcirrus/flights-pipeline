@@ -35,7 +35,7 @@ class Input:
     dryrun: bool = False
     verbose: bool = False
     export_waypoints: bool = False
-    full_traj: bool = False
+    full_traj: bool = True
 
 
 DAILY_TARGETS = [
