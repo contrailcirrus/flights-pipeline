@@ -248,7 +248,11 @@ class CocipTrajectoryChunk:
     lat_end: float  # lat of last waypoint in chunk
     lon_end: float  # lon of " " "
     time_start: str  # timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    time_start_tz: (
+        str  # timezone representation as an integer offset from UTC e.g. "-08"
+    )
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    time_end_tz: str  # timezone representation as an integer offset from UTC e.g. "-08"
     median_altitude_ft: int  # median altitude across all waypoints in trajectory chunk
     total_persistent_contrail_length_km: float
     total_pos_ef_persistent_contrail_length_km: float
@@ -672,7 +676,9 @@ class CocipTrajectoryChunk:
             "lat_end": self.lat_end,
             "lon_end": self.lon_end,
             "time_start": time_start_us,
+            "time_start_tz": self.time_start_tz,
             "time_end": time_end_us,
+            "time_end_tz": self.time_end_tz,
             "median_altitude_ft": self.median_altitude_ft,
             "total_persistent_contrail_length_km": self.total_persistent_contrail_length_km,
             "total_pos_ef_persistent_contrail_length_km": self.total_pos_ef_persistent_contrail_length_km,
