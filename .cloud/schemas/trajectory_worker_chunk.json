@@ -305,5 +305,17 @@
     "type": "FLOAT",
     "mode": "NULLABLE",
     "description": "total length of flight segments that produce persistent contrails with positive ef"
+  },
+    {
+    "name": "time_start_tz",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "local time zone associated with time_start"
+  },
+    {
+    "name": "time_end_tz",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "local time zone associated with time_end"
   }
 ]
