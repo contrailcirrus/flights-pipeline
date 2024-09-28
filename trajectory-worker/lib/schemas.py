@@ -6,9 +6,13 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import TypedDict
 from uuid import UUID
+import pytz
+from timezonefinder import TimezoneFinder
 
 import numpy as np
 import pycontrails.core
+
+tf = TimezoneFinder()
 
 
 @dataclass
@@ -295,6 +299,36 @@ class CocipTrajectoryChunk:
     departure_scheduled_time: str | None  # e.g. 2024-03-01T16:25:00Z
     arrival_airport_icao: str | None  # e.g. LFPG
     arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
+
+    @staticmethod
+    def _utc_to_local_tz(ts_str: str, lng: float, lat: float) -> str:
+        """
+        Helper func to determine the local timezone given a datetime string.
+
+        Parameters
+        ----------
+        ts_str
+            A datetime represented as an ISO format datestring e.g. "2024-03-01T17:40:00Z"
+        lng
+            Longitude position of object at ts.
+        lat
+            Latitude position of object at ts.
+
+        Returns
+        ---------
+        str
+            A string representation of the integer hours offset from UTC for the local timezone. e.g. "-08"
+        """
+        ts = datetime.fromisoformat(ts_str)
+        tz_str = tf.timezone_at(lng=lng, lat=lat)
+        ts_local = ts.astimezone(pytz.timezone(tz_str))
+        hr_offset = int(ts_local.utcoffset().total_seconds() / 3600)
+        if hr_offset >= 0:
+            sign = "+"
+        else:
+            sign = "-"
+
+        return f"{sign}{abs(hr_offset):02d}"
 
     @staticmethod
     def from_cocip_result(
