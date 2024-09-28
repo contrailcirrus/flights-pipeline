@@ -6,9 +6,13 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import TypedDict
 from uuid import UUID
+import pytz
+from timezonefinder import TimezoneFinder
 
 import numpy as np
 import pycontrails.core
+
+tf = TimezoneFinder()
 
 
 @dataclass
@@ -248,7 +252,11 @@ class CocipTrajectoryChunk:
     lat_end: float  # lat of last waypoint in chunk
     lon_end: float  # lon of " " "
     time_start: str  # timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    time_start_tz: (
+        str  # timezone representation as an integer offset from UTC e.g. "-08"
+    )
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    time_end_tz: str  # timezone representation as an integer offset from UTC e.g. "-08"
     median_altitude_ft: int  # median altitude across all waypoints in trajectory chunk
     total_persistent_contrail_length_km: float
     total_pos_ef_persistent_contrail_length_km: float
@@ -292,8 +300,39 @@ class CocipTrajectoryChunk:
     arrival_airport_icao: str | None  # e.g. LFPG
     arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
 
-    @staticmethod
+    @classmethod
+    def _utc_to_local_tz(cls, ts_str: str, lng: float, lat: float) -> str:
+        """
+        Helper func to determine the local timezone given a datetime string.
+
+        Parameters
+        ----------
+        ts_str
+            A datetime represented as an ISO format datestring e.g. "2024-03-01T17:40:00Z"
+        lng
+            Longitude position of object at ts.
+        lat
+            Latitude position of object at ts.
+
+        Returns
+        ---------
+        str
+            A string representation of the integer hours offset from UTC for the local timezone. e.g. "-08"
+        """
+        ts = datetime.fromisoformat(ts_str)
+        tz_str = tf.timezone_at(lng=lng, lat=lat)
+        ts_local = ts.astimezone(pytz.timezone(tz_str))
+        hr_offset = int(ts_local.utcoffset().total_seconds() / 3600)
+        if hr_offset >= 0:
+            sign = "+"
+        else:
+            sign = "-"
+
+        return f"{sign}{abs(hr_offset):02d}"
+
+    @classmethod
     def from_cocip_result(
+        cls,
         source_id: str,
         git_sha: str,
         input_chunk: WaypointsRecord,
@@ -417,7 +456,17 @@ class CocipTrajectoryChunk:
             lat_end=input_chunk.records[-1].latitude,
             lon_end=input_chunk.records[-1].longitude,
             time_start=input_chunk.records[0].timestamp,
+            time_start_tz=cls._utc_to_local_tz(
+                input_chunk.records[0].timestamp,
+                input_chunk.records[0].longitude,
+                input_chunk.records[0].latitude,
+            ),
             time_end=input_chunk.records[-1].timestamp,
+            time_end_tz=cls._utc_to_local_tz(
+                input_chunk.records[-1].timestamp,
+                input_chunk.records[-1].longitude,
+                input_chunk.records[-1].latitude,
+            ),
             median_altitude_ft=median_altitude_ft,
             total_persistent_contrail_length_km=tot_contrail_len,
             total_pos_ef_persistent_contrail_length_km=tot_pos_contrail_len,
@@ -458,8 +507,9 @@ class CocipTrajectoryChunk:
             arrival_scheduled_time=input_chunk.flight_info.arrival_scheduled_time,
         )
 
-    @staticmethod
+    @classmethod
     def from_cocip_result_all_segs(
+        cls,
         source_id: str,
         git_sha: str,
         input_chunk: WaypointsRecord,
@@ -562,7 +612,17 @@ class CocipTrajectoryChunk:
                 lat_end=float(ds_next["latitude"]),
                 lon_end=float(ds_next["longitude"]),
                 time_start=ds["time"].isoformat() + "Z",
+                time_start_tz=cls._utc_to_local_tz(
+                    ds["time"].isoformat() + "Z",
+                    float(ds["longitude"]),
+                    float(ds["latitude"]),
+                ),
                 time_end=ds_next["time"].isoformat() + "Z",
+                time_end_tz=cls._utc_to_local_tz(
+                    ds_next["time"].isoformat() + "Z",
+                    float(ds_next["longitude"]),
+                    float(ds_next["latitude"]),
+                ),
                 median_altitude_ft=median_altitude_ft,
                 total_persistent_contrail_length_km=tot_contrail_len,
                 total_pos_ef_persistent_contrail_length_km=tot_pos_contrail_len,
@@ -672,7 +732,9 @@ class CocipTrajectoryChunk:
             "lat_end": self.lat_end,
             "lon_end": self.lon_end,
             "time_start": time_start_us,
+            "time_start_tz": self.time_start_tz,
             "time_end": time_end_us,
+            "time_end_tz": self.time_end_tz,
             "median_altitude_ft": self.median_altitude_ft,
             "total_persistent_contrail_length_km": self.total_persistent_contrail_length_km,
             "total_pos_ef_persistent_contrail_length_km": self.total_pos_ef_persistent_contrail_length_km,
