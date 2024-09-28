@@ -635,7 +635,7 @@ class CocipTrajectoryChunk:
                 source_id=source_id,
                 git_sha=git_sha,
                 zarr_uri=zarr_uri,
-                sum_ef_mj=int(ds["ef"] // 10**6),
+                sum_ef_mj=int(ds["ef"] // 10**6) if not np.isnan(ds["ef"]) else 0,
                 total_fuel_burn_kg=(
                     int(ds["fuel_burn"]) if not np.isnan(ds["fuel_burn"]) else 0
                 ),
