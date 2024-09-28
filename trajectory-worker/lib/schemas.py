@@ -593,7 +593,7 @@ class CocipTrajectoryChunk:
             median_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
             median_contrail_age_hr = (
                 None
-                if (np.isnan(max_contrail_age_hr) or median_contrail_age_hr == 0)
+                if (np.isnan(median_contrail_age_hr) or median_contrail_age_hr == 0)
                 else median_contrail_age_hr
             )
 
