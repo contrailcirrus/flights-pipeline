@@ -585,12 +585,16 @@ class CocipTrajectoryChunk:
             tot_sac_len = float(ds["segment_length"]) / 1000.0 if ds["sac"] == 1 else 0
             max_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
             max_contrail_age_hr = (
-                None if max_contrail_age_hr == 0 else max_contrail_age_hr
+                None
+                if (np.isnan(max_contrail_age_hr) or max_contrail_age_hr == 0)
+                else max_contrail_age_hr
             )
 
             median_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
             median_contrail_age_hr = (
-                None if median_contrail_age_hr == 0 else median_contrail_age_hr
+                None
+                if (np.isnan(max_contrail_age_hr) or median_contrail_age_hr == 0)
+                else median_contrail_age_hr
             )
 
             mean_aircraft_mass = np.nanmean(
