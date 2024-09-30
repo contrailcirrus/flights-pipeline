@@ -37,6 +37,11 @@ spec:
             value: "1"
           - name: LOG_LEVEL
             value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
+          - name: GCP_SVC_ACCT_KEY
+            valueFrom:
+              secretKeyRef:
+                name: gcp-service-account-key
+                key: GCP_SVC_ACCT_KEY
         resources:
           limits:
             cpu: "0.75"

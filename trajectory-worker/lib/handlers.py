@@ -33,6 +33,7 @@ from lib.exceptions import (
 )
 from lib.log import format_traceback, logger
 from lib.schemas import WaypointsRecord
+import lib.environment as env
 
 
 @dataclass(frozen=True)
@@ -594,7 +595,7 @@ class CocipTrajectoryHandler:
         logger.debug(f"opening PL zarr store at: {zarr_path}")
         pl = xr.open_zarr(
             f"{zarr_path}/pl.zarr",
-            storage_options={"token": "cloud"},
+            storage_options={"token": env.GCP_SVC_ACCT_KEY},
         )
         met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
@@ -603,7 +604,10 @@ class CocipTrajectoryHandler:
         logger.debug(f"opening SL zarr store at: {zarr_path}")
         sl = xr.open_zarr(
             f"{zarr_path}/sl.zarr",
-            storage_options={"project": "contrails-301217", "token": "cloud"},
+            storage_options={
+                "project": "contrails-301217",
+                "token": env.GCP_SVC_ACCT_KEY,
+            },
         )
         rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
         variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables)
