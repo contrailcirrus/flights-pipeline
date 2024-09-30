@@ -409,16 +409,16 @@ class CocipTrajectoryChunk:
                 or (sr_mod >= ts_mod >= ss_mod)
             ):
                 # nighttime
-                ss_offset_mins = -1 * ts_ss_diff
-                sr_offset_mins = ts_sr_diff
+                ss_offset_mins = int(-1 * ts_ss_diff)
+                sr_offset_mins = int(ts_sr_diff)
             elif (
                 (ts_mod >= sr_mod >= ss_mod)
                 or (sr_mod >= ss_mod >= ts_mod)
                 or (ss_mod >= ts_mod >= sr_mod)
             ):
                 # daytime
-                ss_offset_mins = ts_ss_diff
-                sr_offset_mins = -1 * ts_sr_diff
+                ss_offset_mins = int(ts_ss_diff)
+                sr_offset_mins = int(-1 * ts_sr_diff)
             else:
                 logger.error(
                     "unhandled case. did not generate daytime/nighttime offsets."
@@ -549,6 +549,15 @@ class CocipTrajectoryChunk:
             input_chunk.records[0].latitude,
         )
 
+        time_start_sunrise_offset_mins, time_start_sunset_offset_mins = (
+            cls.sunrise_sunset_mins_offset(
+                input_chunk.records[0].timestamp,
+                tz_start_str,
+                input_chunk.records[0].latitude,
+                input_chunk.records[0].longitude,
+            )
+        )
+
         def nan_to_null(x):
             if np.isnan(x):
                 return None
@@ -567,6 +576,8 @@ class CocipTrajectoryChunk:
             lon_end=input_chunk.records[-1].longitude,
             time_start=input_chunk.records[0].timestamp,
             time_start_tz=tz_start_offset,
+            time_start_sunrise_offset_mins=time_start_sunrise_offset_mins,
+            time_start_sunset_offset_mins=time_start_sunset_offset_mins,
             time_end=input_chunk.records[-1].timestamp,
             time_end_tz=tz_end_offset,
             median_altitude_ft=median_altitude_ft,
@@ -719,18 +730,29 @@ class CocipTrajectoryChunk:
                 float(ds_next["latitude"]),
             )
 
+            time_start_str = ds["time"].isoformat() + "Z"
+            lat_start = float(ds["latitude"])
+            lon_start = float(ds["longitude"])
+            time_start_sunrise_offset_mins, time_start_sunset_offset_mins = (
+                cls.sunrise_sunset_mins_offset(
+                    time_start_str, tz_start_str, lat_start, lon_start
+                )
+            )
+
             seg = CocipTrajectoryChunk(
                 seg_cnt=1,
                 seg_ef_cnt=1 if np.abs(ds["ef"]) > 0 else 0,
                 seg_pos_ef_cnt=1 if ds["ef"] > 0 else 0,
                 seg_ef_nan_cnt=1 if np.isnan(ds["ef"]) else 0,
                 chunk_len_km=float(ds["segment_length"] / 1000.0),
-                lat_start=float(ds["latitude"]),
-                lon_start=float(ds["longitude"]),
+                lat_start=lat_start,
+                lon_start=lon_start,
                 lat_end=float(ds_next["latitude"]),
                 lon_end=float(ds_next["longitude"]),
-                time_start=ds["time"].isoformat() + "Z",
+                time_start=time_start_str,
                 time_start_tz=tz_start_offset,
+                time_start_sunrise_offset_mins=time_start_sunrise_offset_mins,
+                time_start_sunset_offset_mins=time_start_sunset_offset_mins,
                 time_end=ds_next["time"].isoformat() + "Z",
                 time_end_tz=tz_end_offset,
                 median_altitude_ft=median_altitude_ft,
