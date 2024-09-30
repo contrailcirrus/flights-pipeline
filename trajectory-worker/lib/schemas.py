@@ -255,6 +255,8 @@ class CocipTrajectoryChunk:
     time_start_tz: (
         str  # timezone representation as an integer offset from UTC e.g. "-08"
     )
+    time_start_sunrise_offset_mins: int  # minutes from sunrise; clockwise positive
+    time_start_sunset_offset_mins: int  # minutes from sunset; clockwise positive
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
     time_end_tz: str  # timezone representation as an integer offset from UTC e.g. "-08"
     median_altitude_ft: int  # median altitude across all waypoints in trajectory chunk
@@ -737,6 +739,8 @@ class CocipTrajectoryChunk:
             "lon_end": self.lon_end,
             "time_start": time_start_us,
             "time_start_tz": self.time_start_tz,
+            "time_start_sunrise_offset_mins": self.time_start_sunrise_offset_mins,
+            "time_start_sunset_offset_mins": self.time_start_sunset_offset_mins,
             "time_end": time_end_us,
             "time_end_tz": self.time_end_tz,
             "median_altitude_ft": self.median_altitude_ft,
