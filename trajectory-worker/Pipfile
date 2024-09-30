@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+astral = "==3.2"
 dask = "==2024.9.0"
 gcsfs = "==2024.6.1"
 google-cloud-pubsub = "==2.19.7"
