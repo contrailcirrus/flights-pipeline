@@ -6,9 +6,17 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import TypedDict
 from uuid import UUID
+import pytz
+from timezonefinder import TimezoneFinder
+from astral import LocationInfo
+from astral.sun import sun
 
 import numpy as np
 import pycontrails.core
+
+from lib.log import logger
+
+tf = TimezoneFinder()
 
 
 @dataclass
@@ -240,6 +248,7 @@ class CocipTrajectoryChunk:
 
     seg_cnt: int  # total number of segments in the chunk
     seg_ef_cnt: int  # number of segments with non-zero ef in chunk
+    seg_pos_ef_cnt: int  # number of segs with positive ef in chunk
     seg_ef_nan_cnt: int  # number of segments with nan ef values in chunk
     chunk_len_km: float  # total length of the flight chunk
     lat_start: float  # latitude of first waypoint in chunk
@@ -247,9 +256,16 @@ class CocipTrajectoryChunk:
     lat_end: float  # lat of last waypoint in chunk
     lon_end: float  # lon of " " "
     time_start: str  # timestamp of first waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    time_start_tz: (
+        str  # timezone representation as an integer offset from UTC e.g. "-08"
+    )
+    time_start_sunrise_offset_mins: int  # minutes from sunrise; clockwise positive
+    time_start_sunset_offset_mins: int  # minutes from sunset; clockwise positive
     time_end: str  # timestamp of last waypoint in chunk; e.g. "2024-03-01T17:40:00Z"
+    time_end_tz: str  # timezone representation as an integer offset from UTC e.g. "-08"
     median_altitude_ft: int  # median altitude across all waypoints in trajectory chunk
     total_persistent_contrail_length_km: float
+    total_pos_ef_persistent_contrail_length_km: float
     total_contrail_length_sac_km: float
     max_contrail_lifetime_h: float
     median_contrail_lifetime_h: float
@@ -290,8 +306,131 @@ class CocipTrajectoryChunk:
     arrival_airport_icao: str | None  # e.g. LFPG
     arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
 
-    @staticmethod
+    @classmethod
+    def _utc_to_local_tz(cls, ts_str: str, lng: float, lat: float) -> tuple[str, str]:
+        """
+        Helper func to determine the local timezone given a datetime string.
+
+        Parameters
+        ----------
+        ts_str
+            A datetime represented as an ISO format datestring e.g. "2024-03-01T17:40:00Z"
+        lng
+            Longitude position of object at ts.
+        lat
+            Latitude position of object at ts.
+
+        Returns
+        ---------
+        tuple(str, str)
+            itm0: A string representation of the integer hours offset from UTC for the local timezone. e.g. "-08"
+            itm1: A string representation of the timezone in `<region>/<city>` convention, e.g. "America/Denver"
+        """
+        ts = datetime.fromisoformat(ts_str)
+        tz_str = tf.timezone_at(lng=lng, lat=lat)
+        ts_local = ts.astimezone(pytz.timezone(tz_str))
+        hr_offset = int(ts_local.utcoffset().total_seconds() / 3600)
+        if hr_offset >= 0:
+            sign = "+"
+        else:
+            sign = "-"
+
+        return f"{sign}{abs(hr_offset):02d}", tz_str
+
+    @classmethod
+    def sunrise_sunset_mins_offset(
+        cls, ts_str: str, timezone_str: str, lat: float, lon: float
+    ) -> tuple[int | None, int | None]:
+        """
+        Calculates the offset in minutes to sunrise/sunset from a timestamp.
+        By convention, clockwise is positive.
+        A positive sunset offset and negative sunrise offset means daytime.
+        A negative sunset offset and positive sunrise offset means nighttime.
+
+        Parameters
+        ----------
+        ts_str
+            An iso-formatted UTC datetime string literal for the target time. e.g. "2024-03-01T17:40:00Z"
+        timezone_str
+            A string representing the timezone of the object with `ts` timestamp. e.g. "America/Denver"
+        lat
+            Latitude location of the object with `ts` timestamp
+        lon
+            Longitude location of the object with `ts` timestamp
+
+        Returns
+        --------
+        tuple[str,str]
+            itm0: sunrise offset in minutes; negative value means daytime
+            itm1: sunset offset in minutes; negative value means nighttime
+        """
+
+        ts = datetime.fromisoformat(ts_str)
+        loc = LocationInfo(
+            name=timezone_str.split("/")[1],
+            region=timezone_str.split("/")[0],
+            timezone=timezone_str,
+            longitude=lon,
+            latitude=lat,
+        )
+
+        s = sun(observer=loc.observer, date=ts.date())
+        sunrise = s["sunrise"]
+        sunset = s["sunset"]
+
+        ts_mod = ts.minute + 60 * ts.hour
+        sr_mod = sunrise.minute + 60 * sunrise.hour  # sunrise minute-of-day
+        ss_mod = sunset.minute + 60 * sunset.hour  # sunset minute-of-day
+
+        sr_offset_mins = (
+            None  # offset of timestamp from sunrise, radial clockwise positive
+        )
+        ss_offset_mins = (
+            None  # offset of timestamp from sunset, radial clockwise positive
+        )
+
+        mins_per_day = 24 * 60
+        half_circle = mins_per_day / 2
+
+        ts_sr_diff = abs(ts_mod - sr_mod)
+        ts_ss_diff = abs(ts_mod - ss_mod)
+
+        ts_sr_diff = (
+            ts_sr_diff if ts_sr_diff <= half_circle else (mins_per_day - ts_sr_diff)
+        )
+        ts_ss_diff = (
+            ts_ss_diff if ts_ss_diff <= half_circle else (mins_per_day - ts_ss_diff)
+        )
+
+        try:
+            if (
+                (ts_mod >= ss_mod >= sr_mod)
+                or (ss_mod >= sr_mod >= ts_mod)
+                or (sr_mod >= ts_mod >= ss_mod)
+            ):
+                # nighttime
+                ss_offset_mins = int(-1 * ts_ss_diff)
+                sr_offset_mins = int(ts_sr_diff)
+            elif (
+                (ts_mod >= sr_mod >= ss_mod)
+                or (sr_mod >= ss_mod >= ts_mod)
+                or (ss_mod >= ts_mod >= sr_mod)
+            ):
+                # daytime
+                ss_offset_mins = int(ts_ss_diff)
+                sr_offset_mins = int(-1 * ts_sr_diff)
+            else:
+                logger.error(
+                    "unhandled case. did not generate daytime/nighttime offsets."
+                )
+        except Exception as _:
+            logger.error("failed to generate daytime/nighttime offsets.")
+
+        return sr_offset_mins, ss_offset_mins
+
+    @classmethod
     def from_cocip_result(
+        cls,
         source_id: str,
         git_sha: str,
         input_chunk: WaypointsRecord,
@@ -365,6 +504,13 @@ class CocipTrajectoryChunk:
             None if np.isnan(tot_contrail_len) else float(tot_contrail_len / 1000.0)
         )
 
+        tot_pos_contrail_len = np.nansum(df_sl[df_sl["cocip"] > 0]["segment_length"])
+        tot_pos_contrail_len = (
+            None
+            if np.isnan(tot_pos_contrail_len)
+            else float(tot_pos_contrail_len / 1000.0)
+        )
+
         tot_sac_len = np.nansum(df_sl[df_sl["sac"] == 1]["segment_length"])
         tot_sac_len = None if np.isnan(tot_sac_len) else float(tot_sac_len / 1000.0)
 
@@ -391,6 +537,27 @@ class CocipTrajectoryChunk:
 
         median_altitude_ft = int(np.nanmedian(df_sl["altitude_ft"]))
 
+        tz_start_offset, tz_start_str = cls._utc_to_local_tz(
+            input_chunk.records[0].timestamp,
+            input_chunk.records[0].longitude,
+            input_chunk.records[0].latitude,
+        )
+
+        tz_end_offset, tz_end_str = cls._utc_to_local_tz(
+            input_chunk.records[0].timestamp,
+            input_chunk.records[0].longitude,
+            input_chunk.records[0].latitude,
+        )
+
+        time_start_sunrise_offset_mins, time_start_sunset_offset_mins = (
+            cls.sunrise_sunset_mins_offset(
+                input_chunk.records[0].timestamp,
+                tz_start_str,
+                input_chunk.records[0].latitude,
+                input_chunk.records[0].longitude,
+            )
+        )
+
         def nan_to_null(x):
             if np.isnan(x):
                 return None
@@ -400,6 +567,7 @@ class CocipTrajectoryChunk:
         return CocipTrajectoryChunk(
             seg_cnt=len(segs_ef_j),
             seg_ef_cnt=int(sum(np.abs(segs_ef_j) > 0)),
+            seg_pos_ef_cnt=int(sum(segs_ef_j > 0)),
             seg_ef_nan_cnt=int(np.isnan(segs_ef_j).sum()),
             chunk_len_km=float(np.nansum(result["segment_length"][sl]) / 1000.0),
             lat_start=input_chunk.records[0].latitude,
@@ -407,9 +575,14 @@ class CocipTrajectoryChunk:
             lat_end=input_chunk.records[-1].latitude,
             lon_end=input_chunk.records[-1].longitude,
             time_start=input_chunk.records[0].timestamp,
+            time_start_tz=tz_start_offset,
+            time_start_sunrise_offset_mins=time_start_sunrise_offset_mins,
+            time_start_sunset_offset_mins=time_start_sunset_offset_mins,
             time_end=input_chunk.records[-1].timestamp,
+            time_end_tz=tz_end_offset,
             median_altitude_ft=median_altitude_ft,
             total_persistent_contrail_length_km=tot_contrail_len,
+            total_pos_ef_persistent_contrail_length_km=tot_pos_contrail_len,
             total_contrail_length_sac_km=tot_sac_len,
             max_contrail_lifetime_h=max_contrail_age_hr,
             median_contrail_lifetime_h=median_contrail_age_hr,
@@ -447,8 +620,9 @@ class CocipTrajectoryChunk:
             arrival_scheduled_time=input_chunk.flight_info.arrival_scheduled_time,
         )
 
-    @staticmethod
+    @classmethod
     def from_cocip_result_all_segs(
+        cls,
         source_id: str,
         git_sha: str,
         input_chunk: WaypointsRecord,
@@ -517,16 +691,23 @@ class CocipTrajectoryChunk:
             tot_contrail_len = (
                 float(ds["segment_length"] / 1000.0) if ds["cocip"] != 0 else None
             )
+            tot_pos_contrail_len = (
+                float(ds["segment_length"] / 1000.0) if ds["cocip"] > 0 else None
+            )
 
             tot_sac_len = float(ds["segment_length"]) / 1000.0 if ds["sac"] == 1 else 0
             max_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
             max_contrail_age_hr = (
-                None if max_contrail_age_hr == 0 else max_contrail_age_hr
+                None
+                if (np.isnan(max_contrail_age_hr) or max_contrail_age_hr == 0)
+                else max_contrail_age_hr
             )
 
             median_contrail_age_hr = float(ds["contrail_age"] / np.timedelta64(1, "h"))
             median_contrail_age_hr = (
-                None if median_contrail_age_hr == 0 else median_contrail_age_hr
+                None
+                if (np.isnan(median_contrail_age_hr) or median_contrail_age_hr == 0)
+                else median_contrail_age_hr
             )
 
             mean_aircraft_mass = np.nanmean(
@@ -537,19 +718,46 @@ class CocipTrajectoryChunk:
                 np.nanmedian([ds["altitude_ft"], ds_next["altitude_ft"]])
             )
 
+            tz_start_offset, tz_start_str = cls._utc_to_local_tz(
+                ds["time"].isoformat() + "Z",
+                float(ds["longitude"]),
+                float(ds["latitude"]),
+            )
+
+            tz_end_offset, tz_end_str = cls._utc_to_local_tz(
+                ds_next["time"].isoformat() + "Z",
+                float(ds_next["longitude"]),
+                float(ds_next["latitude"]),
+            )
+
+            time_start_str = ds["time"].isoformat() + "Z"
+            lat_start = float(ds["latitude"])
+            lon_start = float(ds["longitude"])
+            time_start_sunrise_offset_mins, time_start_sunset_offset_mins = (
+                cls.sunrise_sunset_mins_offset(
+                    time_start_str, tz_start_str, lat_start, lon_start
+                )
+            )
+
             seg = CocipTrajectoryChunk(
                 seg_cnt=1,
                 seg_ef_cnt=1 if np.abs(ds["ef"]) > 0 else 0,
+                seg_pos_ef_cnt=1 if ds["ef"] > 0 else 0,
                 seg_ef_nan_cnt=1 if np.isnan(ds["ef"]) else 0,
                 chunk_len_km=float(ds["segment_length"] / 1000.0),
-                lat_start=float(ds["latitude"]),
-                lon_start=float(ds["longitude"]),
+                lat_start=lat_start,
+                lon_start=lon_start,
                 lat_end=float(ds_next["latitude"]),
                 lon_end=float(ds_next["longitude"]),
-                time_start=ds["time"].isoformat() + "Z",
+                time_start=time_start_str,
+                time_start_tz=tz_start_offset,
+                time_start_sunrise_offset_mins=time_start_sunrise_offset_mins,
+                time_start_sunset_offset_mins=time_start_sunset_offset_mins,
                 time_end=ds_next["time"].isoformat() + "Z",
+                time_end_tz=tz_end_offset,
                 median_altitude_ft=median_altitude_ft,
                 total_persistent_contrail_length_km=tot_contrail_len,
+                total_pos_ef_persistent_contrail_length_km=tot_pos_contrail_len,
                 total_contrail_length_sac_km=tot_sac_len,
                 max_contrail_lifetime_h=max_contrail_age_hr,
                 median_contrail_lifetime_h=median_contrail_age_hr,
@@ -559,7 +767,7 @@ class CocipTrajectoryChunk:
                 source_id=source_id,
                 git_sha=git_sha,
                 zarr_uri=zarr_uri,
-                sum_ef_mj=int(ds["ef"] // 10**6),
+                sum_ef_mj=int(ds["ef"] // 10**6) if not np.isnan(ds["ef"]) else 0,
                 total_fuel_burn_kg=(
                     int(ds["fuel_burn"]) if not np.isnan(ds["fuel_burn"]) else 0
                 ),
@@ -648,6 +856,7 @@ class CocipTrajectoryChunk:
             "_processed_at": iso_to_microseconds(processed_at.isoformat()),
             "seg_cnt": self.seg_cnt,
             "seg_ef_cnt": self.seg_ef_cnt,
+            "seg_pos_ef_cnt": self.seg_pos_ef_cnt,
             "seg_ef_nan_cnt": self.seg_ef_nan_cnt,
             "chunk_len_km": self.chunk_len_km,
             "lat_start": self.lat_start,
@@ -655,9 +864,14 @@ class CocipTrajectoryChunk:
             "lat_end": self.lat_end,
             "lon_end": self.lon_end,
             "time_start": time_start_us,
+            "time_start_tz": self.time_start_tz,
+            "time_start_sunrise_offset_mins": self.time_start_sunrise_offset_mins,
+            "time_start_sunset_offset_mins": self.time_start_sunset_offset_mins,
             "time_end": time_end_us,
+            "time_end_tz": self.time_end_tz,
             "median_altitude_ft": self.median_altitude_ft,
             "total_persistent_contrail_length_km": self.total_persistent_contrail_length_km,
+            "total_pos_ef_persistent_contrail_length_km": self.total_pos_ef_persistent_contrail_length_km,
             "total_contrail_length_sac_km": self.total_contrail_length_sac_km,
             "max_contrail_lifetime_h": self.max_contrail_lifetime_h,
             "median_contrail_lifetime_h": self.median_contrail_lifetime_h,
