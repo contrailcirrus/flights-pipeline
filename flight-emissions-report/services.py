@@ -11,7 +11,7 @@ import pandas as pd
 from google.cloud import bigquery
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature  # noqa: F401
+import cartopy.feature as cfeature
 from helpers import key_max_value_count
 from handlers import (
     PubSubSubscriptionHandler,
@@ -603,7 +603,8 @@ class FlightsReportFetchSvc(BaseSvc):
                 "flight_duration_h",
                 "total_flight_distance_km",
                 "co2e20_kg",
-                "c02e50_kg" "co2e100_kg",
+                "co2e50_kg",
+                "co2e100_kg",
                 "total_fuel_burn_kg",
                 "total_co2_kg",
                 "total_h2o_kg",
@@ -852,7 +853,7 @@ class FlightsReportFetchSvc(BaseSvc):
             co2e_warming_by_takeoff_hr[k] = v / 1000
         cool_group = (
             summary_df[summary_df.co2e50_kg < 0]
-            .groupby("time_start_hour_local")
+            .groupby("time_start_local_hour")
             .co2e50_kg.sum()
         )
         co2e_cooling_by_takeoff_hr = cool_group.to_dict()
@@ -860,7 +861,7 @@ class FlightsReportFetchSvc(BaseSvc):
         for k, v in co2e_cooling_by_takeoff_hr.items():
             co2e_cooling_by_takeoff_hr[k] = v / 1000
 
-        net_group = summary_df.groupby("time_start_hour_local").co2e50_kg.sum()
+        net_group = summary_df.groupby("time_start_local_hour").co2e50_kg.sum()
         co2e_by_takeoff_hr = net_group.to_dict()
         # report as metric tons
         for k, v in co2e_by_takeoff_hr.items():

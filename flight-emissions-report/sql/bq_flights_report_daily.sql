@@ -3,8 +3,9 @@
 WITH
 candidate_flights_tb AS
   (SELECT * FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
-  WHERE source_id="flightsreport"
+  WHERE source_id="flightsreport_full"
   AND airline_iata=@airline
+  AND seg_cnt > 1
   AND timestamp_trunc(time_start, DAY) >= @day_start
   AND timestamp_trunc(time_start, DAY) <= @day_end
   ),
