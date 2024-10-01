@@ -3,13 +3,12 @@ import json
 import uuid
 from abc import ABC, abstractmethod
 import argparse
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, UTC, timedelta, timezone
 from typing import Union, Tuple
 
+import numpy as np
 import pandas as pd
-import pytz
 from google.cloud import bigquery
-from timezonefinder import TimezoneFinder
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature  # noqa: F401
@@ -22,8 +21,11 @@ from handlers import (
     ResampleHandler,
     GoogDatasetHandler,
 )
+
+
 from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord
 from log import logger
+from helpers import lookup_airport_icao_to_iata
 
 
 class BaseSvc(ABC):
@@ -460,11 +462,15 @@ class FlightsReportFetchSvc(BaseSvc):
     EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE = (
         "flights_report_cocip_segments_{flight_id}_{ts}.csv"
     )
+    EXPORT_FLIGHT_CASE_STUDY_FIG_TEMPLATE = (
+        "flights_report_flight_case_study_{flight_id}_{ts}.png"
+    )
     EXPORT_GOOGLE_DATASET_FILENAME_TEMPLATE = "flights_report_goog_dataset_{ts}.csv"
 
     AREA_EARTH = 5.101e14  # m^2, surface of the earth
     SECONDS_PER_YEAR = 60 * 60 * 24 * 365  # s
     AGWP100 = 92.5e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,100
+    AGWP50 = 53.0e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,50
     AGWP20 = 25.2e-15 * AREA_EARTH * SECONDS_PER_YEAR  # J per kg-CO2,20
     ERF_RF = 0.42
     CONUS_COORDS = ((-134.03, 50.07), (-121.2, 14.9), (-63.2, 10.5), (-46.1, 44.1))
@@ -597,7 +603,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 "flight_duration_h",
                 "total_flight_distance_km",
                 "co2e20_kg",
-                "co2e100_kg",
+                "c02e50_kg" "co2e100_kg",
                 "total_fuel_burn_kg",
                 "total_co2_kg",
                 "total_h2o_kg",
@@ -626,6 +632,8 @@ class FlightsReportFetchSvc(BaseSvc):
         # calculate CO2e
         # kg CO2e,20
         df["co2e20_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP20
+        # kg CO2e,50
+        df["co2e50_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         # kg CO2e,100
         df["co2e100_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP100
 
@@ -637,35 +645,39 @@ class FlightsReportFetchSvc(BaseSvc):
             df["total_nvpm_giga_cnt"] / df["total_fuel_burn_kg"], 2
         )
 
-        # add local tz timestamp
-        tf = TimezoneFinder()
-
-        def utc_to_local(suffix: str, row: pd.Series):
-            ts_utc: pd.Timestamp = row["time_" + suffix]
-            tz_str = tf.timezone_at(
-                lng=row["lon_" + suffix],
-                lat=row["lat_" + suffix],
-            )
-            return ts_utc.astimezone(pytz.timezone(tz_str))
-
         df.loc[:, "time_start_local"] = df.apply(
-            lambda row: utc_to_local("start", row),
+            lambda row: row["time_start"].astimezone(
+                timezone(timedelta(hours=int(row["time_start_tz"])))
+            ),
             axis=1,
         )
         df.loc[:, "time_end_local"] = df.apply(
-            lambda row: utc_to_local("end", row),
+            lambda row: row["time_end"].astimezone(
+                timezone(timedelta(hours=int(row["time_end_tz"])))
+            ),
             axis=1,
         )
 
-        df.loc[:, "start_time_hour_local"] = df.time_start.apply(lambda ts: ts.hour)
+        df.loc[:, "time_start_local_hour"] = df.time_start.apply(lambda ts: ts.hour)
 
-        df.loc[:, "start_time_date_local"] = df.time_start.apply(
+        df.loc[:, "time_start_local_date"] = df.time_start.apply(
             lambda ts: ts.strftime("%Y-%m-%d")
         )
-        df.loc[:, "start_time_date_local"] = pd.to_datetime(df["start_time_date_local"])
+        df.loc[:, "time_start_local_date"] = pd.to_datetime(df["time_start_local_date"])
+
+        df.loc[:, "departure_airport_iata"] = df.departure_airport_icao.apply(
+            lambda airport_icao: lookup_airport_icao_to_iata(airport_icao)
+        )
+        df.loc[:, "arrival_airport_iata"] = df.arrival_airport_icao.apply(
+            lambda airport_icao: lookup_airport_icao_to_iata(airport_icao)
+        )
 
         df.loc[:, "airport_icao_od"] = df.apply(
             lambda row: f"{row.departure_airport_icao}_{row.arrival_airport_icao}",
+            axis=1,
+        )
+        df.loc[:, "airport_iata_od"] = df.apply(
+            lambda row: f"{row.departure_airport_iata}_{row.arrival_airport_iata}",
             axis=1,
         )
 
@@ -682,12 +694,13 @@ class FlightsReportFetchSvc(BaseSvc):
         #    reviate dataset includes hyphenation (e.g. str: "G-DHLS")
         #    Goog's dataset does NOT include hyphenation (e.g. str: "GDHLS")
         df.loc[:, "google_flight_id"] = df.apply(
-            lambda row: f"{int(row['start_time_date_local'].timestamp())}_"
+            lambda row: f"{int(row['time_start_local_date'].timestamp())}_"
             f"{row['departure_airport_icao']}_"
             f"{row['arrival_airport_icao']}_"
             f"{row['flight_number'][2:] if row['flight_number'] else None}",
             axis=1,
         )
+
         return df
 
     def run(self):
@@ -796,6 +809,9 @@ class FlightsReportFetchSvc(BaseSvc):
         total_contrails_distance_km = int(
             summary_df.total_persistent_contrail_length_km.sum()
         )
+        total_warming_contrails_distance_km = int(
+            summary_df.total_pos_ef_persistent_contrail_length_km.sum()
+        )
         percentage_flight_dist_w_contrails = round(
             total_contrails_distance_km / total_flight_distance_km * 100.0, 1
         )
@@ -816,32 +832,35 @@ class FlightsReportFetchSvc(BaseSvc):
         total_contrails_co2e20 = summary_df.co2e20_kg.sum()
         total_contrails_co2e20_metric_tons = round(total_contrails_co2e20 / 1000.0, 3)
         # kg CO2e,100
+        total_contrails_co2e50 = summary_df.co2e50_kg.sum()
+        total_contrails_co2e50_metric_tons = round(total_contrails_co2e50 / 1000.0, 3)
+        # kg CO2e,100
         total_contrails_co2e100 = summary_df.co2e100_kg.sum()
         total_contrails_co2e100_metric_tons = round(total_contrails_co2e100 / 1000.0, 3)
 
         # -----------------
-        # CO2GWP20 by local takeoff hour-of-day
+        # CO2GWP50 by local takeoff hour-of-day
         # -----------------
         warm_group = (
-            summary_df[summary_df.co2e100_kg > 0]
-            .groupby("start_time_hour_local")
-            .co2e100_kg.sum()
+            summary_df[summary_df.co2e50_kg > 0]
+            .groupby("time_start_local_hour")
+            .co2e50_kg.sum()
         )
         co2e_warming_by_takeoff_hr = warm_group.to_dict()
         # report as metric tons
         for k, v in co2e_warming_by_takeoff_hr.items():
             co2e_warming_by_takeoff_hr[k] = v / 1000
         cool_group = (
-            summary_df[summary_df.co2e100_kg < 0]
-            .groupby("start_time_hour_local")
-            .co2e100_kg.sum()
+            summary_df[summary_df.co2e50_kg < 0]
+            .groupby("time_start_hour_local")
+            .co2e50_kg.sum()
         )
         co2e_cooling_by_takeoff_hr = cool_group.to_dict()
         # report as metric tons
         for k, v in co2e_cooling_by_takeoff_hr.items():
             co2e_cooling_by_takeoff_hr[k] = v / 1000
 
-        net_group = summary_df.groupby("start_time_hour_local").co2e100_kg.sum()
+        net_group = summary_df.groupby("time_start_hour_local").co2e50_kg.sum()
         co2e_by_takeoff_hr = net_group.to_dict()
         # report as metric tons
         for k, v in co2e_by_takeoff_hr.items():
@@ -850,20 +869,20 @@ class FlightsReportFetchSvc(BaseSvc):
         # -----------------
         # Per-OD-pair summary
         # -----------------
-        od_group_co2e = summary_df.groupby("airport_icao_od").co2e100_kg.sum()
-        od_group_cnt = summary_df.groupby("airport_icao_od").size()
-        od_group_dist_km = summary_df.groupby("airport_icao_od").chunk_len_km.sum()
+        od_group_co2e = summary_df.groupby("airport_iata_od").co2e50_kg.sum()
+        od_group_cnt = summary_df.groupby("airport_iata_od").size()
+        od_group_dist_km = summary_df.groupby("airport_iata_od").chunk_len_km.sum()
         od_pairs = []
         for k, v in od_group_co2e.to_dict().items():
             entry = {
-                "airport_icao_od": k,
-                "co2e100_metric_tons": v / 1000.0,
+                "airport_iata_od": k,
+                "co2e50_metric_tons": v / 1000.0,
                 "flight_count": od_group_cnt.to_dict().get(k),
                 "tot_dist_km": od_group_dist_km.to_dict().get(k),
             }
             od_pairs.append(entry)
         od_pairs = sorted(
-            od_pairs, key=lambda itm: itm["co2e100_metric_tons"], reverse=True
+            od_pairs, key=lambda itm: itm["co2e50_metric_tons"], reverse=True
         )
 
         # -----------------
@@ -878,20 +897,24 @@ class FlightsReportFetchSvc(BaseSvc):
             "total_flight_distance_km": total_flight_distance_km,
             "percentage_flight_distance_w_contrails": percentage_flight_dist_w_contrails,
             "total_contrails_flight_distance_km": total_contrails_distance_km,
+            "total_warming_contrails_flight_distance_km": total_warming_contrails_distance_km,
             "total_contrails_goog_sat_verified_distance_km": total_goog_contrails_verified_distance_km,
             "total_fuel_burn_metric_tons": float(total_fuel_burn_metric_tons),
             "total_co2_metric_tons": float(total_co2_metric_tons),
             "total_contrails_co2e20_metric_tons": float(
                 total_contrails_co2e20_metric_tons
             ),
+            "total_contrails_co2e50_metric_tons": float(
+                total_contrails_co2e50_metric_tons
+            ),
             "total_contrails_co2e100_metric_tons": float(
                 total_contrails_co2e100_metric_tons
             ),
             "total_nox_metric_tons": float(total_nox_metric_tons),
             "total_so2_metric_tons": float(total_so2_metric_tons),
-            "takeoff_time_local_co2e100_metric_tons_warming": co2e_warming_by_takeoff_hr,
-            "takeoff_time_local_co2e100_metric_tons_cooling": co2e_cooling_by_takeoff_hr,
-            "takeoff_time_local_co2e100_metric_tons_net": co2e_by_takeoff_hr,
+            "takeoff_time_local_co2e50_metric_tons_warming": co2e_warming_by_takeoff_hr,
+            "takeoff_time_local_co2e50_metric_tons_cooling": co2e_cooling_by_takeoff_hr,
+            "takeoff_time_local_co2e50_metric_tons_net": co2e_by_takeoff_hr,
             "od_pairs": od_pairs,
         }
 
@@ -961,6 +984,92 @@ class FlightsReportFetchSvc(BaseSvc):
                 # -----------------
                 # export case study plots
                 # -----------------
+                df_plt = seg_df.copy(deep=True)
+                df_plt.sort_values(["time_start"], inplace=True)
+                df_plt.reset_index(inplace=True, drop=True)
+                df_plt.loc[:, "dist_cum_km"] = df_plt["chunk_len_km"].cumsum()
+
+                fig = plt.figure(figsize=(9, 3))
+                ax = fig.add_subplot(1, 1, 1)
+
+                x_v = df_plt["dist_cum_km"]
+                y_v = df_plt["median_altitude_ft"] / 100.0
+
+                min_x = -100
+                max_x = df_plt["dist_cum_km"].max() + 100
+                min_y = y_v.min() - 10
+                max_y = y_v.max() + 45
+
+                x_contrails_pred = x_v[df["sum_ef_mj"] != 0]
+                y_contrails_pred = y_v[df["sum_ef_mj"] != 0]
+
+                x_contrails_attr = x_v[df["goog_is_attributed"] != 0]
+                y_contrails_attr = y_v[df["goog_is_attributed"] != 0]
+
+                x_conus_min = df[df["in_conus"]]["dist_cum_km"].min()
+                x_conus_max = df[df["in_conus"]]["dist_cum_km"].max()
+
+                conus_patch = plt.Rectangle(
+                    (x_conus_min, min_y),
+                    x_conus_max - x_conus_min,
+                    max_y - min_y,
+                    alpha=0.4,
+                    facecolor="#F7CA45",
+                )
+                ax.add_patch(conus_patch)
+
+                ax.scatter(
+                    x_contrails_pred,
+                    y_contrails_pred,
+                    color="#D3E3FD",
+                    s=1000,
+                )
+                ax.scatter(
+                    x_contrails_attr,
+                    y_contrails_attr,
+                    color="#F7CA45",
+                    s=400,
+                )
+                ax.plot(
+                    x_v,
+                    y_v,
+                    color="black",
+                    linewidth=2.5,
+                )
+
+                title_str = "{origin}-{dest} {date}".format(
+                    origin=df_plt.iloc[0]["departure_airport_iata"],
+                    dest=df_plt.iloc[0]["arrival_airport_iata"],
+                    date=df_plt.iloc[0]["time_start_local_date"].strftime("%B %d, %Y"),
+                )
+                ax.set_title(title_str, loc="left")
+                ax.grid(axis="y", linewidth=1.5, linestyle="dotted", color="#C4C7C5")
+
+                ax.spines["top"].set_visible(False)
+                ax.spines["right"].set_visible(False)
+                ax.spines["left"].set_visible(False)
+                ax.spines["bottom"].set_color("#C4C7C5")
+                ax.spines["bottom"].set_linewidth(5)
+
+                x_range = list(np.arange(0, 20000, 1000))
+                x_range_labels = [f"{i:,}km" for i in x_range]
+                ax.set_xticks(x_range, labels=x_range_labels, rotation=90)
+
+                y_range = list(np.arange(100, 500, 50))
+                y_range_labels = [f"FL{i}" for i in y_range]
+                ax.set_yticks(y_range, labels=y_range_labels)
+
+                ax.set_xlim([min_x, max_x])
+                ax.set_ylim([min_y, max_y])
+
+                fig.set_tight_layout(True)
+
+                plt.savefig(
+                    self.EXPORT_FLIGHT_CASE_STUDY_FIG_TEMPLATE.format(
+                        flight_id=fid,
+                        ts=now_unix,
+                    )
+                )
 
             # -----------------
             # export OD-pair map

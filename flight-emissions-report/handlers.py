@@ -30,7 +30,7 @@ from exceptions import (
     RocdError,
     FlightAltitudeProfileError,
 )
-from helpers import key_max_value_count
+from helpers import key_max_value_count, lookup_airport_iata_to_icao
 from schemas import SpireWaypointPositional
 from log import logger, format_traceback
 
@@ -1374,29 +1374,14 @@ class GoogDatasetHandler:
          - origin_airport_icao
          - destination_airport_icao
         """
-        airport_df = airports.global_airport_database()
-
-        def lookup_iata_to_icao(icao: str) -> str | None:
-            match = airport_df[airport_df["iata_code"] == icao]
-            if len(match) == 0:
-                return
-            if len(match) > 1:
-                raise ValueError(
-                    f"found multiple airport matches for iata code: {icao}"
-                )
-
-            iata = match.iloc[0]["icao_code"]
-            if pd.isnull(iata):
-                return
-            return iata
 
         df_cp = df.copy(deep=True)
         df_cp.loc[:, "origin_airport_icao"] = df_cp.apply(
-            lambda row: lookup_iata_to_icao(row["origin_airport_iata"]),
+            lambda row: lookup_airport_iata_to_icao(row["origin_airport_iata"]),
             axis=1,
         )
         df_cp.loc[:, "destination_airport_icao"] = df_cp.apply(
-            lambda row: lookup_iata_to_icao(row["destination_airport_iata"]),
+            lambda row: lookup_airport_iata_to_icao(row["destination_airport_iata"]),
             axis=1,
         )
         return df_cp
