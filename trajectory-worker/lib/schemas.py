@@ -339,7 +339,7 @@ class CocipTrajectoryChunk:
 
     @classmethod
     def sunrise_sunset_mins_offset(
-        ts_str: str, timezone_str: str, lat: float, lon: float
+        cls, ts_str: str, timezone_str: str, lat: float, lon: float
     ) -> tuple[int | None, int | None]:
         """
         Calculates the offset in minutes to sunrise/sunset from a timestamp.
