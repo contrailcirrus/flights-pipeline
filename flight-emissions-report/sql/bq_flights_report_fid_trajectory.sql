@@ -23,10 +23,15 @@ WITH candidate_flights_tb AS
                                   (0 <= time_start_sunset_offset_mins))                                                                         AS is_nighttime
                           FROM ranked_candidate_flights_tb)
 SELECT *,
-       IF(is_nighttime, sum_ef_mj, 0)                  AS nighttime_sum_ef_mj,
-       IF(IFNULL(is_nighttime, TRUE), 0, sum_ef_mj)    AS daytime_sum_ef_mj,
-       IF(is_nighttime, chunk_len_km, 0)               AS nighttime_dist_km,
-       IF(IFNULL(is_nighttime, TRUE), 0, chunk_len_km) AS daytime_dist_km,
+       IF(is_nighttime, sum_ef_mj, 0)                                                AS nighttime_sum_ef_mj,
+       IF(IFNULL(is_nighttime, TRUE), 0, sum_ef_mj)                                  AS daytime_sum_ef_mj,
+       IF(is_nighttime, chunk_len_km, 0)                                             AS nighttime_dist_km,
+       IF(IFNULL(is_nighttime, TRUE), 0, chunk_len_km)                               AS daytime_dist_km,
+       IF(is_nighttime, total_persistent_contrail_length_km, 0)                      AS nighttime_contrail_dist_km,
+       IF(IFNULL(is_nighttime, TRUE), 0, total_persistent_contrail_length_km)        AS daytime_contrail_dist_km,
+       IF(is_nighttime, total_pos_ef_persistent_contrail_length_km, 0)               AS nighttime_warming_contrail_dist_km,
+       IF(IFNULL(is_nighttime, TRUE), 0,
+          total_pos_ef_persistent_contrail_length_km)                                AS daytime_warming_contrail_dist_km,
 
 FROM rcf_augmented_tb
 ORDER BY time_start ASC;
