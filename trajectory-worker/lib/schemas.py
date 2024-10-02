@@ -339,7 +339,7 @@ class CocipTrajectoryChunk:
 
     @classmethod
     def sunrise_sunset_mins_offset(
-        cls, ts_str: str, timezone_str: str, lat: float, lon: float
+        ts_str: str, timezone_str: str, lat: float, lon: float
     ) -> tuple[int | None, int | None]:
         """
         Calculates the offset in minutes to sunrise/sunset from a timestamp.
@@ -365,60 +365,56 @@ class CocipTrajectoryChunk:
             itm1: sunset offset in minutes; negative value means nighttime
         """
 
-        ts = datetime.fromisoformat(ts_str)
-        loc = LocationInfo(
-            name=timezone_str.split("/")[1],
-            region=timezone_str.split("/")[0],
-            timezone=timezone_str,
-            longitude=lon,
-            latitude=lat,
-        )
-
-        s = sun(observer=loc.observer, date=ts.date())
-        sunrise = s["sunrise"]
-        sunset = s["sunset"]
-
-        ts_mod = ts.minute + 60 * ts.hour
-        sr_mod = sunrise.minute + 60 * sunrise.hour  # sunrise minute-of-day
-        ss_mod = sunset.minute + 60 * sunset.hour  # sunset minute-of-day
-
-        sr_offset_mins = (
-            None  # offset of timestamp from sunrise, radial clockwise positive
-        )
-        ss_offset_mins = (
-            None  # offset of timestamp from sunset, radial clockwise positive
-        )
-
-        mins_per_day = 24 * 60
-        half_circle = mins_per_day / 2
-
-        ts_sr_diff = abs(ts_mod - sr_mod)
-        ts_ss_diff = abs(ts_mod - ss_mod)
-
-        ts_sr_diff = (
-            ts_sr_diff if ts_sr_diff <= half_circle else (mins_per_day - ts_sr_diff)
-        )
-        ts_ss_diff = (
-            ts_ss_diff if ts_ss_diff <= half_circle else (mins_per_day - ts_ss_diff)
-        )
+        sr_offset_mins = None
+        ss_offset_mins = None
 
         try:
-            if (
-                (ts_mod >= ss_mod >= sr_mod)
-                or (ss_mod >= sr_mod >= ts_mod)
-                or (sr_mod >= ts_mod >= ss_mod)
-            ):
+            ts = datetime.fromisoformat(ts_str)
+            loc = LocationInfo(
+                name=timezone_str.split("/")[1],
+                region=timezone_str.split("/")[0],
+                timezone=timezone_str,
+                longitude=lon,
+                latitude=lat,
+            )
+
+            s = sun(observer=loc.observer, date=ts.date())
+            sunrise = s["sunrise"]
+            sunset = s["sunset"]
+
+            ts_mod = ts.minute + 60 * ts.hour
+            sr_mod = sunrise.minute + 60 * sunrise.hour
+            ss_mod = sunset.minute + 60 * sunset.hour
+
+            # rotate coord sys to zero ts_mod
+            sr_mod = sr_mod - ts_mod
+            ss_mod = ss_mod - ts_mod
+            ts_mod = 0
+
+            # rotate negative coord positions to positive coord positions
+            mins_per_day = 24 * 60
+            sr_mod = sr_mod if sr_mod >= 0 else mins_per_day + sr_mod
+            ss_mod = ss_mod if ss_mod >= 0 else mins_per_day + ss_mod
+
+            # sunrise, ts, sunset minute-of-day breakpoints
+            breakpts = [
+                ["ts_mod", ts_mod],
+                ["sr_mod", sr_mod],
+                ["ss_mod", ss_mod],
+            ]
+            breakpts.sort(key=lambda itm: itm[1])  # order by mod asc
+
+            # ts_mod will be zero index
+            # ix[1] will be the right-hand breakpoint
+            # ix[2] is the left-hand breakpoint
+            if breakpts[1][0] == "sr_mod":
                 # nighttime
-                ss_offset_mins = int(-1 * ts_ss_diff)
-                sr_offset_mins = int(ts_sr_diff)
-            elif (
-                (ts_mod >= sr_mod >= ss_mod)
-                or (sr_mod >= ss_mod >= ts_mod)
-                or (ss_mod >= ts_mod >= sr_mod)
-            ):
+                sr_offset_mins = breakpts[1][1]
+                ss_offset_mins = breakpts[2][1] - mins_per_day  # rotate to lhs
+            elif breakpts[1][0] == "ss_mod":
                 # daytime
-                ss_offset_mins = int(ts_ss_diff)
-                sr_offset_mins = int(-1 * ts_sr_diff)
+                ss_offset_mins = breakpts[1][1]
+                sr_offset_mins = breakpts[2][1] - mins_per_day  # rotate to lhs
             else:
                 logger.error(
                     "unhandled case. did not generate daytime/nighttime offsets."
