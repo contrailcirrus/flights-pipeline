@@ -11,8 +11,9 @@ WITH base_tb AS (SELECT *
           WHERE seg_cnt > 1),
      candidate_segments_tb AS
          (SELECT *,
-                 ((time_start_sunset_offset_mins < 3 * 60) AND
-                  (time_start_sunrise_offset_mins < 3 * 60)) AS is_nighttime
+                 ((time_start_sunrise_offset_mins <= 0) AND (time_start_sunset_offset_mins <= 3 * 60)) OR
+                 ((0 < time_start_sunrise_offset_mins) AND (time_start_sunset_offset_mins < 0)) OR
+                 ((-3 * 60 <= time_start_sunrise_offset_mins) AND (0 <= time_start_sunset_offset_mins)) AS is_nighttime
           FROM base_tb
           WHERE seg_cnt = 1),
      ranked_candidate_flights_tb AS
