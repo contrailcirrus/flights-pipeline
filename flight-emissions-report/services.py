@@ -490,6 +490,7 @@ class FlightsReportFetchSvc(BaseSvc):
             - dryrun
             - verbose
             - goog_fp
+            - case_study_fids
 
         `day` accepts supported forms:
         `%Y-%m-%d` for a singular day, or `%Y-%m-%d_%Y-%m-%d` for a range, inclusive.
@@ -633,10 +634,28 @@ class FlightsReportFetchSvc(BaseSvc):
         # calculate CO2e
         # kg CO2e,20
         df["co2e20_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP20
+        df["daytime_co2e20_kg"] = (
+            df["daytime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP20
+        )
+        df["nighttime_co2e20_kg"] = (
+            df["nighttime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP20
+        )
         # kg CO2e,50
         df["co2e50_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
+        df["daytime_co2e50_kg"] = (
+            df["daytime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
+        )
+        df["nighttime_co2e50_kg"] = (
+            df["nighttime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
+        )
         # kg CO2e,100
         df["co2e100_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP100
+        df["daytime_co2e100_kg"] = (
+            df["daytime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP100
+        )
+        df["nighttime_co2e100_kg"] = (
+            df["nighttime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP100
+        )
 
         # calculate total flight duration; based on the assumption of 1min segments
         df["flight_duration_h"] = round(df["seg_cnt"] / 60, 2)
@@ -813,6 +832,8 @@ class FlightsReportFetchSvc(BaseSvc):
         total_warming_contrails_distance_km = int(
             summary_df.total_pos_ef_persistent_contrail_length_km.sum()
         )
+        total_daytime_flight_distance_km = int(summary_df.daytime_dist_km.sum())
+        total_nighttime_flight_distance_km = int(summary_df.nighttime_dist_km.sum())
         percentage_flight_dist_w_contrails = round(
             total_contrails_distance_km / total_flight_distance_km * 100.0, 1
         )
@@ -832,9 +853,18 @@ class FlightsReportFetchSvc(BaseSvc):
         # kg CO2e,20
         total_contrails_co2e20 = summary_df.co2e20_kg.sum()
         total_contrails_co2e20_metric_tons = round(total_contrails_co2e20 / 1000.0, 3)
-        # kg CO2e,100
+        # kg CO2e,50
         total_contrails_co2e50 = summary_df.co2e50_kg.sum()
         total_contrails_co2e50_metric_tons = round(total_contrails_co2e50 / 1000.0, 3)
+        total_daytime_contrails_co2e50 = summary_df.daytime_co2e50_kg.sum()
+        total_daytime_contrails_co2e50_metric_tons = round(
+            total_daytime_contrails_co2e50 / 1000.0, 3
+        )
+        total_nighttime_contrails_co2e50 = summary_df.nighttime_co2e50_kg.sum()
+        total_nighttime_contrails_co2e50_metric_tons = round(
+            total_nighttime_contrails_co2e50 / 1000.0, 3
+        )
+
         # kg CO2e,100
         total_contrails_co2e100 = summary_df.co2e100_kg.sum()
         total_contrails_co2e100_metric_tons = round(total_contrails_co2e100 / 1000.0, 3)
@@ -896,6 +926,8 @@ class FlightsReportFetchSvc(BaseSvc):
             "total_flight_hours": int(total_flight_hours),
             "total_contrails_flight_hours": int(total_contrails_flight_hours),
             "total_flight_distance_km": total_flight_distance_km,
+            "total_daytime_flight_distance_km": total_daytime_flight_distance_km,
+            "total_nighttime_flight_distance_km": total_nighttime_flight_distance_km,
             "percentage_flight_distance_w_contrails": percentage_flight_dist_w_contrails,
             "total_contrails_flight_distance_km": total_contrails_distance_km,
             "total_warming_contrails_flight_distance_km": total_warming_contrails_distance_km,
@@ -907,6 +939,12 @@ class FlightsReportFetchSvc(BaseSvc):
             ),
             "total_contrails_co2e50_metric_tons": float(
                 total_contrails_co2e50_metric_tons
+            ),
+            "total_daytime_contrails_co2e50_metric_tons": float(
+                total_daytime_contrails_co2e50_metric_tons
+            ),
+            "total_nighttime_contrails_co2e50_metric_tons": float(
+                total_nighttime_contrails_co2e50_metric_tons
             ),
             "total_contrails_co2e100_metric_tons": float(
                 total_contrails_co2e100_metric_tons
@@ -1001,14 +1039,14 @@ class FlightsReportFetchSvc(BaseSvc):
                 min_y = y_v.min() - 10
                 max_y = y_v.max() + 45
 
-                x_contrails_pred = x_v[df["sum_ef_mj"] != 0]
-                y_contrails_pred = y_v[df["sum_ef_mj"] != 0]
+                x_contrails_pred = x_v[df_plt["sum_ef_mj"] != 0]
+                y_contrails_pred = y_v[df_plt["sum_ef_mj"] != 0]
 
-                x_contrails_attr = x_v[df["goog_is_attributed"] != 0]
-                y_contrails_attr = y_v[df["goog_is_attributed"] != 0]
+                x_contrails_attr = x_v[df_plt["goog_is_attributed"] != 0]
+                y_contrails_attr = y_v[df_plt["goog_is_attributed"] != 0]
 
-                x_conus_min = df[df["in_conus"]]["dist_cum_km"].min()
-                x_conus_max = df[df["in_conus"]]["dist_cum_km"].max()
+                x_conus_min = df_plt[df_plt["in_conus"]]["dist_cum_km"].min()
+                x_conus_max = df_plt[df_plt["in_conus"]]["dist_cum_km"].max()
 
                 conus_patch = plt.Rectangle(
                     (x_conus_min, min_y),

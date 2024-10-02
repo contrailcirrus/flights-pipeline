@@ -12,8 +12,18 @@ WITH candidate_flights_tb AS
      ranked_candidate_flights_tb AS
          (SELECT ROW_NUMBER() OVER (PARTITION BY _chunk_hash ORDER BY _processed_at DESC) as row_number, *
           FROM candidate_flights_tb
-          QUALIFY row_number = 1)
-SELECT * EXCEPT (row_number),
-       ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start), ST_GEOGFROMTEXT(@conus_wkt)) AS in_conus
-FROM ranked_candidate_flights_tb
+          QUALIFY row_number = 1),
+     rcf_augmented_tb AS (SELECT * EXCEPT (row_number),
+                                 ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start),
+                                               ST_GEOGFROMTEXT("POLYGON((-134.03 50.07, -121.2 14.9, -63.2 10.5, -46.1 44.1, -134.03 50.07))")) AS in_conus,
+                                 ((time_start_sunset_offset_mins < 3 * 60) AND
+                                  (time_start_sunrise_offset_mins < 3 * 60))                                                                    AS is_nighttime
+                          FROM ranked_candidate_flights_tb)
+SELECT *,
+       IF(is_nighttime, sum_ef_mj, 0)                  AS nighttime_sum_ef_mj,
+       IF(IFNULL(is_nighttime, TRUE), 0, sum_ef_mj)    AS daytime_sum_ef_mj,
+       IF(is_nighttime, chunk_len_km, 0)               AS nighttime_dist_km,
+       IF(IFNULL(is_nighttime, TRUE), 0, chunk_len_km) AS daytime_dist_km,
+
+FROM rcf_augmented_tb
 ORDER BY time_start ASC;
