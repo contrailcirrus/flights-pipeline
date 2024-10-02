@@ -713,13 +713,25 @@ class FlightsReportFetchSvc(BaseSvc):
         # 2) tail_number
         #    reviate dataset includes hyphenation (e.g. str: "G-DHLS")
         #    Goog's dataset does NOT include hyphenation (e.g. str: "GDHLS")
-        df.loc[:, "google_flight_id"] = df.apply(
-            lambda row: f"{int(row['time_start_local_date'].timestamp())}_"
-            f"{row['departure_airport_icao']}_"
-            f"{row['arrival_airport_icao']}_"
-            f"{row['flight_number'][2:] if row['flight_number'] else None}",
-            axis=1,
-        )
+        if len(df["flight_id"].unique()) == 1:
+            # we're handling a dataframe with per-segment data
+            # here, we want to use the time_start_local_date of the flight instance
+            # NOT the time_start_local_date of each segment
+            dep_airport_icao = key_max_value_count(df, "departure_airport_icao")
+            ar_airport_icao = key_max_value_count(df, "arrival_airport_icao")
+            flight_number = key_max_value_count(df, "flight_number")
+            ts_local_date = df["time_start_local_date"].min()
+            df.loc[:, "google_flight_id"] = (
+                f"{int(ts_local_date.timestamp())}_{dep_airport_icao}_{ar_airport_icao}_{flight_number[2:] if flight_number else None}"
+            )
+        else:
+            df.loc[:, "google_flight_id"] = df.apply(
+                lambda row: f"{int(row['time_start_local_date'].timestamp())}_"
+                f"{row['departure_airport_icao']}_"
+                f"{row['arrival_airport_icao']}_"
+                f"{row['flight_number'][2:] if row['flight_number'] else None}",
+                axis=1,
+            )
 
         return df
 
@@ -795,7 +807,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 if self._goog_handler:
                     df_goog_fid = df["google_flight_id"].unique()
                     if len(df_goog_fid) > 1:
-                        logger.warning(
+                        raise Exception(
                             f"more than one google_flight_id "
                             f"for per-segment dataset w. flight_id: {flight_id}. "
                             f"Skipping merge of google dataset."
