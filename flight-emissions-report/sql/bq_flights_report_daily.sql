@@ -21,7 +21,12 @@ WITH base_tb AS (SELECT *
           FROM candidate_flights_tb),
      summary_flights_tb AS
          (SELECT * FROM ranked_candidate_flights_tb WHERE row_number = 1 ORDER BY time_start ASC),
-     nighttime_agg_tb AS (SELECT flight_id, is_nighttime, SUM(chunk_len_km) AS dist_km, SUM(sum_ef_mj) AS sum_ef_mj
+     nighttime_agg_tb AS (SELECT flight_id,
+                                 is_nighttime,
+                                 SUM(chunk_len_km)                               AS dist_km,
+                                 SUM(sum_ef_mj)                                  AS sum_ef_mj,
+                                 SUM(total_persistent_contrail_length_km)        AS contrail_dist_km,
+                                 SUM(total_pos_ef_persistent_contrail_length_km) AS warming_contrail_dist_km
                           FROM candidate_segments_tb
                           WHERE is_nighttime IS NOT NULL
                           GROUP BY flight_id, is_nighttime
@@ -29,13 +34,25 @@ WITH base_tb AS (SELECT *
      flat_nighttime_agg_tb AS (SELECT COALESCE(nt_tb.flight_id, dt_tb.flight_id) AS flight_id,
                                       nighttime_dist_km,
                                       nighttime_sum_ef_mj,
+                                      nighttime_contrail_dist_km,
+                                      nighttime_warming_contrail_dist_km,
                                       daytime_dist_km,
-                                      daytime_sum_ef_mj
-                               FROM (SELECT flight_id, dist_km AS nighttime_dist_km, sum_ef_mj AS nighttime_sum_ef_mj
+                                      daytime_sum_ef_mj,
+                                      daytime_contrail_dist_km,
+                                      daytime_warming_contrail_dist_km,
+                               FROM (SELECT flight_id,
+                                            dist_km                  AS nighttime_dist_km,
+                                            sum_ef_mj                AS nighttime_sum_ef_mj,
+                                            contrail_dist_km         AS nighttime_contrail_dist_km,
+                                            warming_contrail_dist_km AS nighttime_warming_contrail_dist_km,
                                      FROM nighttime_agg_tb
                                      WHERE is_nighttime IS TRUE) nt_tb
                                         FULL OUTER JOIN
-                                    (SELECT flight_id, dist_km AS daytime_dist_km, sum_ef_mj AS daytime_sum_ef_mj
+                                    (SELECT flight_id,
+                                            dist_km                  AS daytime_dist_km,
+                                            sum_ef_mj                AS daytime_sum_ef_mj,
+                                            contrail_dist_km         AS daytime_contrail_dist_km,
+                                            warming_contrail_dist_km AS daytime_warming_contrail_dist_km,
                                      FROM nighttime_agg_tb
                                      WHERE is_nighttime IS FALSE) dt_tb ON nt_tb.flight_id = dt_tb.flight_id)
 SELECT *
