@@ -22,6 +22,7 @@ WITH base_tb AS (SELECT *
          (SELECT * FROM ranked_candidate_flights_tb WHERE row_number = 1 ORDER BY time_start ASC),
      nighttime_agg_tb AS (SELECT flight_id, is_nighttime, SUM(chunk_len_km) AS dist_km, SUM(sum_ef_mj) AS sum_ef_mj
                           FROM candidate_segments_tb
+                          WHERE is_nighttime IS NOT NULL
                           GROUP BY flight_id, is_nighttime
                           ORDER BY flight_id),
      flat_nighttime_agg_tb AS (SELECT COALESCE(nt_tb.flight_id, dt_tb.flight_id) AS flight_id,
