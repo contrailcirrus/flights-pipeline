@@ -32,6 +32,14 @@ SELECT *,
        IF(is_nighttime, total_pos_ef_persistent_contrail_length_km, 0)               AS nighttime_warming_contrail_dist_km,
        IF(IFNULL(is_nighttime, TRUE), 0,
           total_pos_ef_persistent_contrail_length_km)                                AS daytime_warming_contrail_dist_km,
+       IF(in_conus, chunk_len_km, 0) AS in_conus_dist_km,
+       IF(in_conus, sum_ef_mj, 0) AS in_conus_sum_ef_mj,
+       IF(in_conus, total_persistent_contrail_length_km, 0) AS in_conus_contrail_dist_km,
+       IF(in_conus, total_pos_ef_persistent_contrail_length_km, 0) AS in_conus_warming_contrail_dist_km,
+       IF(in_conus, 0, chunk_len_km) AS out_conus_dist_km,
+       IF(in_conus, 0, sum_ef_mj) AS out_conus_sum_ef_mj,
+       IF(in_conus, 0, total_persistent_contrail_length_km) AS out_conus_contrail_dist_km,
+       IF(in_conus, 0, total_pos_ef_persistent_contrail_length_km) AS out_conus_warming_contrail_dist_km,
 
 FROM rcf_augmented_tb
 ORDER BY time_start ASC;
