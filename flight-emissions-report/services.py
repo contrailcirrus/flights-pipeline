@@ -889,7 +889,9 @@ class FlightsReportFetchSvc(BaseSvc):
         else:
             total_goog_contrails_verified_distance_km = None
 
-        total_in_conus_contrails_distance_km = summary_df.in_conus_dist_km.sum()
+        total_in_conus_contrails_distance_km = (
+            summary_df.in_conus_contrail_dist_km.sum()
+        )
 
         total_fuel_burn_metric_tons = round(
             summary_df.total_fuel_burn_kg.sum() / 1000.0, 2
