@@ -957,15 +957,20 @@ class FlightsReportFetchSvc(BaseSvc):
         od_group_dist_km = summary_df.groupby("airport_iata_od").chunk_len_km.sum()
         od_pairs = []
         for k, v in od_group_co2e.to_dict().items():
+            co2e = v / 1000.0
+            dist = od_group_dist_km.to_dict().get(k)
             entry = {
                 "airport_iata_od": k,
-                "co2e50_metric_tons": v / 1000.0,
+                "co2e50_metric_tons": co2e,
                 "flight_count": od_group_cnt.to_dict().get(k),
-                "tot_dist_km": od_group_dist_km.to_dict().get(k),
+                "tot_dist_km": dist,
+                "impact_density_co2e_metric_tons_per_dist_km": co2e / dist,
             }
             od_pairs.append(entry)
         od_pairs = sorted(
-            od_pairs, key=lambda itm: itm["co2e50_metric_tons"], reverse=True
+            od_pairs,
+            key=lambda itm: itm["impact_density_co2e_metric_tons_per_dist_km"],
+            reverse=True,
         )
 
         # -----------------
