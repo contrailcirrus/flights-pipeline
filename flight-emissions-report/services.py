@@ -845,9 +845,30 @@ class FlightsReportFetchSvc(BaseSvc):
             summary_df.total_pos_ef_persistent_contrail_length_km.sum()
         )
         total_daytime_flight_distance_km = int(summary_df.daytime_dist_km.sum())
+        total_daytime_contrail_distance_km = int(
+            summary_df.daytime_contrail_dist_km.sum()
+        )
+        total_daytime_warming_contrail_distance_km = int(
+            summary_df.total_daytime_warming_contrail_dist_km.sum()
+        )
         total_nighttime_flight_distance_km = int(summary_df.nighttime_dist_km.sum())
+        total_nighttime_contrail_distance_km = int(
+            summary_df.nighttime_contrail_dist_km.sum()
+        )
+        total_nighttime_warming_contrail_distance_km = int(
+            summary_df.total_nighttime_warming_contrail_dist_km.sum()
+        )
         percentage_flight_dist_w_contrails = round(
             total_contrails_distance_km / total_flight_distance_km * 100.0, 1
+        )
+        percentage_flight_dist_w_warming_contrails = round(
+            total_warming_contrails_distance_km / total_flight_distance_km * 100.0, 1
+        )
+        percentage_daytime_total_flight_distance = round(
+            total_daytime_flight_distance_km / total_flight_distance_km * 100.0, 1
+        )
+        percentage_nighttime_total_flight_distance = round(
+            total_nighttime_flight_distance_km / total_flight_distance_km * 100.0, 1
         )
         if self._goog_handler:
             total_goog_contrails_verified_distance_km = int(
@@ -875,6 +896,12 @@ class FlightsReportFetchSvc(BaseSvc):
         total_nighttime_contrails_co2e50 = summary_df.nighttime_co2e50_kg.sum()
         total_nighttime_contrails_co2e50_metric_tons = round(
             total_nighttime_contrails_co2e50 / 1000.0, 3
+        )
+        percentage_daytime_total_contrails_co2e50 = round(
+            total_daytime_contrails_co2e50 / total_contrails_co2e50 * 100.0, 1
+        )
+        percentage_nighttime_total_contrails_co2e50 = round(
+            total_nighttime_contrails_co2e50 / total_contrails_co2e50 * 100.0, 1
         )
 
         # kg CO2e,100
@@ -939,8 +966,15 @@ class FlightsReportFetchSvc(BaseSvc):
             "total_contrails_flight_hours": int(total_contrails_flight_hours),
             "total_flight_distance_km": total_flight_distance_km,
             "total_daytime_flight_distance_km": total_daytime_flight_distance_km,
+            "total_daytime_contrail_distance_km": total_daytime_contrail_distance_km,
+            "total_daytime_warming_contrail_distance_km": total_daytime_warming_contrail_distance_km,
             "total_nighttime_flight_distance_km": total_nighttime_flight_distance_km,
+            "total_nighttime_contrail_distance_km": total_nighttime_contrail_distance_km,
+            "total_nighttime_warming_contrail_distance_km": total_nighttime_warming_contrail_distance_km,
             "percentage_flight_distance_w_contrails": percentage_flight_dist_w_contrails,
+            "percentage_flight_dist_w_warming_contrails": percentage_flight_dist_w_warming_contrails,
+            "percentage_daytime_total_flight_distance": percentage_daytime_total_flight_distance,
+            "percentage_nighttime_total_flight_distance": percentage_nighttime_total_flight_distance,
             "total_contrails_flight_distance_km": total_contrails_distance_km,
             "total_warming_contrails_flight_distance_km": total_warming_contrails_distance_km,
             "total_contrails_goog_sat_verified_distance_km": total_goog_contrails_verified_distance_km,
@@ -958,6 +992,8 @@ class FlightsReportFetchSvc(BaseSvc):
             "total_nighttime_contrails_co2e50_metric_tons": float(
                 total_nighttime_contrails_co2e50_metric_tons
             ),
+            "percentage_daytime_total_contrails_co2e50": percentage_daytime_total_contrails_co2e50,
+            "percentage_nighttime_total_contrails_co2e50": percentage_nighttime_total_contrails_co2e50,
             "total_contrails_co2e100_metric_tons": float(
                 total_contrails_co2e100_metric_tons
             ),
