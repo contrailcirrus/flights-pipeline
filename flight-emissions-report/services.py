@@ -870,6 +870,19 @@ class FlightsReportFetchSvc(BaseSvc):
         percentage_nighttime_total_flight_distance = round(
             total_nighttime_flight_distance_km / total_flight_distance_km * 100.0, 1
         )
+        percentage_daytime_warming_contrail_distance = round(
+            total_daytime_warming_contrail_distance_km
+            / total_warming_contrails_distance_km
+            * 100.0,
+            1,
+        )
+        percentage_nighttime_warming_contrail_distance = round(
+            total_nighttime_warming_contrail_distance_km
+            / total_warming_contrails_distance_km
+            * 100.0,
+            1,
+        )
+
         if self._goog_handler:
             total_goog_contrails_verified_distance_km = int(
                 self._goog_handler.df.attributed_contrail_length_km.sum()
@@ -975,6 +988,8 @@ class FlightsReportFetchSvc(BaseSvc):
             "percentage_flight_dist_w_warming_contrails": percentage_flight_dist_w_warming_contrails,
             "percentage_daytime_total_flight_distance": percentage_daytime_total_flight_distance,
             "percentage_nighttime_total_flight_distance": percentage_nighttime_total_flight_distance,
+            "percentage_daytime_warming_contrail_distance": percentage_daytime_warming_contrail_distance,
+            "percentage_nighttime_warming_contrail_distance": percentage_nighttime_warming_contrail_distance,
             "total_contrails_flight_distance_km": total_contrails_distance_km,
             "total_warming_contrails_flight_distance_km": total_warming_contrails_distance_km,
             "total_contrails_goog_sat_verified_distance_km": total_goog_contrails_verified_distance_km,
