@@ -961,12 +961,9 @@ class FlightsReportFetchSvc(BaseSvc):
         for k, v in od_group_co2e.to_dict().items():
             co2e = v / 1000.0
             dist = od_group_dist_km.to_dict().get(k)
+            nighttime_co2e = od_group_nighttime_co2e.to_dict().get(k) / 1000.0
             perc_nighttime_co2e = (
-                round(
-                    od_group_nighttime_co2e.to_dict().get(k) / co2e / 1000.0 * 100.0, 1
-                )
-                if co2e > 0
-                else None
+                max(round(nighttime_co2e / co2e * 100.0, 0), 100) if co2e > 0 else None
             )  # percentage of total co2e that was from nighttime contrails
             entry = {
                 "airport_iata_od": k,
