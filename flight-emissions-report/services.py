@@ -848,7 +848,7 @@ class FlightsReportFetchSvc(BaseSvc):
             summary_df.total_pos_ef_persistent_contrail_length_km.sum()
         )
         total_in_conus_warming_contrails_distance_km = int(
-            summary_df.in_conus_warming_contrail_dist_km
+            summary_df.in_conus_warming_contrail_dist_km.sum()
         )
         total_daytime_flight_distance_km = int(summary_df.daytime_dist_km.sum())
         total_daytime_contrail_distance_km = int(
