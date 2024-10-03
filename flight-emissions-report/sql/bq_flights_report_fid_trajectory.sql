@@ -15,7 +15,7 @@ WITH candidate_flights_tb AS
           QUALIFY row_number = 1),
      rcf_augmented_tb AS (SELECT * EXCEPT (row_number),
                                  ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start),
-                                               ST_GEOGFROMTEXT("POLYGON((-134.03 50.07, -121.2 14.9, -63.2 10.5, -46.1 44.1, -134.03 50.07))")) AS in_conus,
+                                               ST_GEOGFROMTEXT(@conus_wkt)) AS in_conus,
                                  ((time_start_sunrise_offset_mins <= 0) AND
                                   (time_start_sunset_offset_mins <= 3 * 60)) OR
                                  ((0 < time_start_sunrise_offset_mins) AND (time_start_sunset_offset_mins < 0)) OR

@@ -15,7 +15,7 @@ WITH base_tb AS (SELECT *
                  ((0 < time_start_sunrise_offset_mins) AND (time_start_sunset_offset_mins < 0)) OR
                  ((-3 * 60 <= time_start_sunrise_offset_mins) AND (0 <= time_start_sunset_offset_mins)) AS is_nighttime,
                  ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start),
-                               ST_GEOGFROMTEXT("POLYGON((-134.03 50.07, -121.2 14.9, -63.2 10.5, -46.1 44.1, -134.03 50.07))")) AS in_conus,
+                               ST_GEOGFROMTEXT(@conus_wkt)) AS in_conus,
           FROM base_tb
           WHERE seg_cnt = 1),
      ranked_candidate_flights_tb AS
