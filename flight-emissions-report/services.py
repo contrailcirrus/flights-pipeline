@@ -1009,6 +1009,12 @@ class FlightsReportFetchSvc(BaseSvc):
             ),
             "percentage_daytime_total_contrails_co2e50": percentage_daytime_total_contrails_co2e50,
             "percentage_nighttime_total_contrails_co2e50": percentage_nighttime_total_contrails_co2e50,
+            "percentage_gwp50co2_to_co2": round(
+                total_contrails_co2e50_metric_tons
+                / (total_contrails_co2e50_metric_tons + total_co2_metric_tons)
+                * 100.0,
+                1,
+            ),
             "total_contrails_co2e100_metric_tons": float(
                 total_contrails_co2e100_metric_tons
             ),
