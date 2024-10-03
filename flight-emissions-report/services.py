@@ -848,14 +848,14 @@ class FlightsReportFetchSvc(BaseSvc):
             summary_df.daytime_contrail_dist_km.sum()
         )
         total_daytime_warming_contrail_distance_km = int(
-            summary_df.total_daytime_warming_contrail_dist_km.sum()
+            summary_df.daytime_warming_contrail_dist_km.sum()
         )
         total_nighttime_flight_distance_km = int(summary_df.nighttime_dist_km.sum())
         total_nighttime_contrail_distance_km = int(
             summary_df.nighttime_contrail_dist_km.sum()
         )
         total_nighttime_warming_contrail_distance_km = int(
-            summary_df.total_nighttime_warming_contrail_dist_km.sum()
+            summary_df.nighttime_warming_contrail_dist_km.sum()
         )
         percentage_flight_dist_w_contrails = round(
             total_contrails_distance_km / total_flight_distance_km * 100.0, 1
@@ -961,8 +961,10 @@ class FlightsReportFetchSvc(BaseSvc):
         for k, v in od_group_co2e.to_dict().items():
             co2e = v / 1000.0
             dist = od_group_dist_km.to_dict().get(k)
-            perc_nighttime_co2e = round(
-                od_group_nighttime_co2e.to_dict().get(k) / co2e * 100.0, 1
+            perc_nighttime_co2e = (
+                round(od_group_nighttime_co2e.to_dict().get(k) / co2e * 100.0, 1)
+                if co2e > 0
+                else None
             )  # percentage of total co2e that was from nighttime contrails
             entry = {
                 "airport_iata_od": k,
