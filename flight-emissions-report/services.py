@@ -641,6 +641,9 @@ class FlightsReportFetchSvc(BaseSvc):
         )
         # kg CO2e,50
         df["co2e50_kg"] = df["sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
+        df["in_conus_co2e50_kg"] = (
+            df["in_conus_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
+        )
         df["daytime_co2e50_kg"] = (
             df["daytime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         )
@@ -837,11 +840,15 @@ class FlightsReportFetchSvc(BaseSvc):
         total_contrails_flight_hours = summary_df.seg_ef_cnt.sum() // 60
 
         total_flight_distance_km = int(summary_df.chunk_len_km.sum())
+        total_in_conus_flight_distance_km = int(summary_df.in_conus_dist_km.sum())
         total_contrails_distance_km = int(
             summary_df.total_persistent_contrail_length_km.sum()
         )
         total_warming_contrails_distance_km = int(
             summary_df.total_pos_ef_persistent_contrail_length_km.sum()
+        )
+        total_in_conus_warming_contrails_distance_km = int(
+            summary_df.in_conus_warming_contrail_dist_km
         )
         total_daytime_flight_distance_km = int(summary_df.daytime_dist_km.sum())
         total_daytime_contrail_distance_km = int(
@@ -897,6 +904,10 @@ class FlightsReportFetchSvc(BaseSvc):
         # kg CO2e,50
         total_contrails_co2e50 = summary_df.co2e50_kg.sum()
         total_contrails_co2e50_metric_tons = round(total_contrails_co2e50 / 1000.0, 3)
+        total_in_conus_contrails_co2e50 = summary_df.in_conus_co2e50_kg.sum()
+        total_in_conus_contrails_co2e50_metric_tons = round(
+            total_in_conus_contrails_co2e50 / 1000.0, 3
+        )
         total_daytime_contrails_co2e50 = summary_df.daytime_co2e50_kg.sum()
         total_daytime_contrails_co2e50_metric_tons = round(
             total_daytime_contrails_co2e50 / 1000.0, 3
@@ -985,16 +996,18 @@ class FlightsReportFetchSvc(BaseSvc):
             },
             "flight_distance_km": {
                 "total": total_flight_distance_km,
+                "in_conus": total_in_conus_flight_distance_km,
                 "daytime": total_daytime_flight_distance_km,
                 "nighttime": total_nighttime_flight_distance_km,
                 "with_contrails": {
                     "total": total_contrails_distance_km,
-                    "total_in_conus": total_in_conus_contrails_distance_km,
-                    "total_goog_sat_verified": total_goog_contrails_verified_distance_km,
+                    "in_conus": total_in_conus_contrails_distance_km,
+                    "goog_sat_verified": total_goog_contrails_verified_distance_km,
                     "daytime": total_daytime_contrail_distance_km,
                     "nighttime": total_nighttime_contrail_distance_km,
                     "is_warming": {
                         "total": total_warming_contrails_distance_km,
+                        "in_conus": total_in_conus_warming_contrails_distance_km,
                         "daytime": total_daytime_warming_contrail_distance_km,
                         "nighttime": total_nighttime_warming_contrail_distance_km,
                     },
@@ -1019,6 +1032,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 },
                 "gwp50": {
                     "total": float(total_contrails_co2e50_metric_tons),
+                    "in_conus": total_in_conus_contrails_co2e50_metric_tons,
                     "daytime": {
                         "total": total_daytime_contrails_co2e50_metric_tons,
                     },
