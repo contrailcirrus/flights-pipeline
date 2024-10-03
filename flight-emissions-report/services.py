@@ -866,17 +866,8 @@ class FlightsReportFetchSvc(BaseSvc):
         percentage_daytime_total_flight_distance = round(
             total_daytime_flight_distance_km / total_flight_distance_km * 100.0, 1
         )
-        percentage_nighttime_total_flight_distance = round(
-            total_nighttime_flight_distance_km / total_flight_distance_km * 100.0, 1
-        )
         percentage_daytime_warming_contrail_distance = round(
             total_daytime_warming_contrail_distance_km
-            / total_warming_contrails_distance_km
-            * 100.0,
-            1,
-        )
-        percentage_nighttime_warming_contrail_distance = round(
-            total_nighttime_warming_contrail_distance_km
             / total_warming_contrails_distance_km
             * 100.0,
             1,
@@ -889,7 +880,7 @@ class FlightsReportFetchSvc(BaseSvc):
         else:
             total_goog_contrails_verified_distance_km = None
 
-        total_in_conus_contrails_distance_km = (
+        total_in_conus_contrails_distance_km = int(
             summary_df.in_conus_contrail_dist_km.sum()
         )
 
@@ -917,10 +908,6 @@ class FlightsReportFetchSvc(BaseSvc):
         percentage_daytime_total_contrails_co2e50 = round(
             total_daytime_contrails_co2e50 / total_contrails_co2e50 * 100.0, 1
         )
-        percentage_nighttime_total_contrails_co2e50 = round(
-            total_nighttime_contrails_co2e50 / total_contrails_co2e50 * 100.0, 1
-        )
-
         # kg CO2e,100
         total_contrails_co2e100 = summary_df.co2e100_kg.sum()
         total_contrails_co2e100_metric_tons = round(total_contrails_co2e100 / 1000.0, 3)
@@ -992,50 +979,57 @@ class FlightsReportFetchSvc(BaseSvc):
             "count_aircrafts": int(count_aircrafts),
             "count_flights": int(count_flights),
             "count_flights_positive_ef": int(count_flights_positive_ef),
-            "total_flight_hours": int(total_flight_hours),
-            "total_contrails_flight_hours": int(total_contrails_flight_hours),
-            "total_flight_distance_km": total_flight_distance_km,
-            "total_daytime_flight_distance_km": total_daytime_flight_distance_km,
-            "total_daytime_contrail_distance_km": total_daytime_contrail_distance_km,
-            "total_daytime_warming_contrail_distance_km": total_daytime_warming_contrail_distance_km,
-            "total_nighttime_flight_distance_km": total_nighttime_flight_distance_km,
-            "total_nighttime_contrail_distance_km": total_nighttime_contrail_distance_km,
-            "total_nighttime_warming_contrail_distance_km": total_nighttime_warming_contrail_distance_km,
-            "percentage_flight_distance_w_contrails": percentage_flight_dist_w_contrails,
-            "percentage_flight_dist_w_warming_contrails": percentage_flight_dist_w_warming_contrails,
-            "percentage_daytime_total_flight_distance": percentage_daytime_total_flight_distance,
-            "percentage_nighttime_total_flight_distance": percentage_nighttime_total_flight_distance,
-            "percentage_daytime_warming_contrail_distance": percentage_daytime_warming_contrail_distance,
-            "percentage_nighttime_warming_contrail_distance": percentage_nighttime_warming_contrail_distance,
-            "total_contrails_flight_distance_km": total_contrails_distance_km,
-            "total_in_conus_contrails_flight_distance_km": total_in_conus_contrails_distance_km,
-            "total_warming_contrails_flight_distance_km": total_warming_contrails_distance_km,
-            "total_contrails_goog_sat_verified_distance_km": total_goog_contrails_verified_distance_km,
+            "flight_hours": {
+                "total": int(total_flight_hours),
+                "with_contrails": int(total_contrails_flight_hours),
+            },
+            "flight_distance_km": {
+                "total": total_flight_distance_km,
+                "daytime": total_daytime_flight_distance_km,
+                "nighttime": total_nighttime_flight_distance_km,
+                "with_contrails": {
+                    "total": total_contrails_distance_km,
+                    "total_in_conus": total_in_conus_contrails_distance_km,
+                    "total_goog_sat_verified": total_goog_contrails_verified_distance_km,
+                    "daytime": total_daytime_contrail_distance_km,
+                    "nighttime": total_nighttime_contrail_distance_km,
+                    "is_warming": {
+                        "total": total_warming_contrails_distance_km,
+                        "daytime": total_daytime_warming_contrail_distance_km,
+                        "nighttime": total_nighttime_warming_contrail_distance_km,
+                    },
+                },
+            },
+            "percentages": {
+                "flight_distance_with_contrails": percentage_flight_dist_w_contrails,
+                "flight_distance_with_warming_contrails": percentage_flight_dist_w_warming_contrails,
+                "flight_distance_during_daytime": percentage_daytime_total_flight_distance,
+                "daytime_warming_contrails": percentage_daytime_warming_contrail_distance,
+                "daytime_contrail_co2e50": percentage_daytime_total_contrails_co2e50,
+                "co2e50_vs_all_co2": round(
+                    total_contrails_co2e50_metric_tons
+                    / (total_contrails_co2e50_metric_tons + total_co2_metric_tons)
+                    * 100.0,
+                    1,
+                ),
+            },
+            "co2e_metric_tons": {
+                "gwp20": {
+                    "total": float(total_contrails_co2e20_metric_tons),
+                },
+                "gwp50": {
+                    "total": float(total_contrails_co2e50_metric_tons),
+                    "daytime": {
+                        "total": total_daytime_contrails_co2e50_metric_tons,
+                    },
+                    "nighttime": {
+                        "total": float(total_nighttime_contrails_co2e50_metric_tons),
+                    },
+                },
+                "gwp100": {"total": float(total_contrails_co2e100_metric_tons)},
+            },
             "total_fuel_burn_metric_tons": float(total_fuel_burn_metric_tons),
             "total_co2_metric_tons": float(total_co2_metric_tons),
-            "total_contrails_co2e20_metric_tons": float(
-                total_contrails_co2e20_metric_tons
-            ),
-            "total_contrails_co2e50_metric_tons": float(
-                total_contrails_co2e50_metric_tons
-            ),
-            "total_daytime_contrails_co2e50_metric_tons": float(
-                total_daytime_contrails_co2e50_metric_tons
-            ),
-            "total_nighttime_contrails_co2e50_metric_tons": float(
-                total_nighttime_contrails_co2e50_metric_tons
-            ),
-            "percentage_daytime_total_contrails_co2e50": percentage_daytime_total_contrails_co2e50,
-            "percentage_nighttime_total_contrails_co2e50": percentage_nighttime_total_contrails_co2e50,
-            "percentage_gwp50co2_to_co2": round(
-                total_contrails_co2e50_metric_tons
-                / (total_contrails_co2e50_metric_tons + total_co2_metric_tons)
-                * 100.0,
-                1,
-            ),
-            "total_contrails_co2e100_metric_tons": float(
-                total_contrails_co2e100_metric_tons
-            ),
             "total_nox_metric_tons": float(total_nox_metric_tons),
             "total_so2_metric_tons": float(total_so2_metric_tons),
             "takeoff_time_local_co2e50_metric_tons_warming": co2e_warming_by_takeoff_hr,
