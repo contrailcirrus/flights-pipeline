@@ -888,6 +888,9 @@ class FlightsReportFetchSvc(BaseSvc):
             )
         else:
             total_goog_contrails_verified_distance_km = None
+
+        total_in_conus_contrails_distance_km = summary_df.in_conus_dist_km.sum()
+
         total_fuel_burn_metric_tons = round(
             summary_df.total_fuel_burn_kg.sum() / 1000.0, 2
         )
@@ -1003,6 +1006,7 @@ class FlightsReportFetchSvc(BaseSvc):
             "percentage_daytime_warming_contrail_distance": percentage_daytime_warming_contrail_distance,
             "percentage_nighttime_warming_contrail_distance": percentage_nighttime_warming_contrail_distance,
             "total_contrails_flight_distance_km": total_contrails_distance_km,
+            "total_in_conus_contrails_flight_distance_km": total_in_conus_contrails_distance_km,
             "total_warming_contrails_flight_distance_km": total_warming_contrails_distance_km,
             "total_contrails_goog_sat_verified_distance_km": total_goog_contrails_verified_distance_km,
             "total_fuel_burn_metric_tons": float(total_fuel_burn_metric_tons),
