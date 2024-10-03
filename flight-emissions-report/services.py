@@ -22,7 +22,6 @@ from handlers import (
     GoogDatasetHandler,
 )
 
-
 from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord
 from log import logger
 from helpers import lookup_airport_icao_to_iata
@@ -954,14 +953,21 @@ class FlightsReportFetchSvc(BaseSvc):
         # -----------------
         od_group_co2e = summary_df.groupby("airport_iata_od").co2e50_kg.sum()
         od_group_cnt = summary_df.groupby("airport_iata_od").size()
+        od_group_nighttime_co2e = summary_df.groupby(
+            "airport_iata_od"
+        ).nighttime_co2e50_kg.sum()
         od_group_dist_km = summary_df.groupby("airport_iata_od").chunk_len_km.sum()
         od_pairs = []
         for k, v in od_group_co2e.to_dict().items():
             co2e = v / 1000.0
             dist = od_group_dist_km.to_dict().get(k)
+            perc_nighttime_co2e = round(
+                od_group_nighttime_co2e.to_dict().get(k) / co2e * 100.0, 1
+            )  # percentage of total co2e that was from nighttime contrails
             entry = {
                 "airport_iata_od": k,
                 "co2e50_metric_tons": co2e,
+                "percentage_nighttime_co2e": perc_nighttime_co2e,
                 "flight_count": od_group_cnt.to_dict().get(k),
                 "tot_dist_km": dist,
                 "impact_density_co2e_metric_tons_per_dist_km": co2e / dist,
