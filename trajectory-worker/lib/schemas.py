@@ -416,11 +416,31 @@ class CocipTrajectoryChunk:
                 ss_offset_mins = breakpts[1][1]
                 sr_offset_mins = breakpts[2][1] - mins_per_day  # rotate to lhs
             else:
-                logger.error(
+                logger.warning(
                     "unhandled case. did not generate daytime/nighttime offsets."
                 )
+        except ValueError as e:
+            msg = str(e)
+            even_offset_min = (24 * 60) / 2
+            if msg == "Sun is always below the horizon on this day, at this location.":
+                # nighttime
+                # ---------
+                # by convention, nighttime means positive offset to sunset
+                # hence, here we will set an evenly spaced sunset/sunrise offset
+                # that meets our sign convention
+                sr_offset_mins = even_offset_min
+                ss_offset_mins = -1 * even_offset_min
+            elif (
+                msg == "Sun is always above the horizon on this day, at this location."
+            ):
+                # daytime
+                # -------
+                sr_offset_mins = -1 * even_offset_min
+                ss_offset_mins = even_offset_min
+            else:
+                logger.warning("failed to generate daytime/nighttime offsets.")
         except Exception as _:
-            logger.error("failed to generate daytime/nighttime offsets.")
+            logger.warning("failed to generate daytime/nighttime offsets.")
 
         return sr_offset_mins, ss_offset_mins
 
