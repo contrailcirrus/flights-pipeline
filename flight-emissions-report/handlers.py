@@ -30,7 +30,7 @@ from exceptions import (
     RocdError,
     FlightAltitudeProfileError,
 )
-from helpers import key_max_value_count
+from helpers import key_max_value_count, lookup_airport_iata_to_icao
 from schemas import SpireWaypointPositional
 from log import logger, format_traceback
 
@@ -1304,12 +1304,15 @@ class GoogDatasetHandler:
     """
 
     COL_MAP = {
-        "DATE_UTC": "date_start",
+        "departure_date_local": "departure_date_local",
+        "timestamp_utc_start": "timestamp_utc_start",
+        "timestamp_utc_end": "timestamp_utc_end",
         "origin_airport": "origin_airport_iata",
         "destination_airport": "destination_airport_iata",
         "carrier": "airline_iata",
         "flight_number": "flight_number",
-        "Analyzed Flight Length Km": "analyzed_length_km",
+        "tail_number": "tail_number",
+        "analyzed_flight_length_km": "analyzed_length_km",
         "attributed_contrail_km": "attributed_contrail_length_km",
         "eef_climatology_terajoules": "eef_tj",
     }
@@ -1323,10 +1326,42 @@ class GoogDatasetHandler:
         """
         self._goog_df = pd.read_csv(csv_fp)
         self._goog_df.rename(columns=self.COL_MAP, inplace=True)
-        self._goog_df.loc[:, "date_start"] = pd.to_datetime(
-            self._goog_df["date_start"], utc=True
+        self._goog_df["departure_date_local"] = pd.to_datetime(
+            self._goog_df["departure_date_local"]
+        )
+        self._goog_df["timestamp_utc_start"] = pd.to_datetime(
+            self._goog_df["timestamp_utc_start"],
+            unit="s",
+            utc=True,
+        )
+        self._goog_df["timestamp_utc_end"] = pd.to_datetime(
+            self._goog_df["timestamp_utc_end"],
+            unit="s",
+            utc=True,
         )
         self._goog_df = self.add_airport_icao(self._goog_df)
+
+        # add composite ID to join into our dataset
+        self._goog_df["google_flight_id"] = self._goog_df.apply(
+            lambda row: f"{int(row['departure_date_local'].timestamp())}_"
+            f"{row['origin_airport_icao']}_"
+            f"{row['destination_airport_icao']}_"
+            f"{row['flight_number']}",
+            axis=1,
+        )
+
+        # add summary_df (summary per-flight basis)
+        # fields: attributed_contrail_length_km, eef_tj, analyzed_length_km
+        df_tg = self._goog_df[~self._goog_df["attributed_contrail_length_km"].isnull()]
+        df_grp_fid = df_tg.groupby("google_flight_id")
+        df_grp_analyzed_flight_length = df_grp_fid.first()["analyzed_length_km"]
+        self._goog_df_summary = df_grp_fid[
+            ["attributed_contrail_length_km", "eef_tj"]
+        ].sum()
+        self._goog_df_summary = self._goog_df_summary.join(
+            df_grp_analyzed_flight_length
+        )
+        self._goog_df_summary.reset_index(inplace=True)
 
     @staticmethod
     def add_airport_icao(df: pd.DataFrame) -> pd.DataFrame:
@@ -1339,33 +1374,22 @@ class GoogDatasetHandler:
          - origin_airport_icao
          - destination_airport_icao
         """
-        airport_df = airports.global_airport_database()
-
-        def lookup_iata_to_icao(icao: str) -> str | None:
-            match = airport_df[airport_df["iata_code"] == icao]
-            if len(match) == 0:
-                return
-            if len(match) > 1:
-                raise ValueError(
-                    f"found multiple airport matches for iata code: {icao}"
-                )
-
-            iata = match.iloc[0]["icao_code"]
-            if pd.isnull(iata):
-                return
-            return iata
 
         df_cp = df.copy(deep=True)
         df_cp.loc[:, "origin_airport_icao"] = df_cp.apply(
-            lambda row: lookup_iata_to_icao(row["origin_airport_iata"]),
+            lambda row: lookup_airport_iata_to_icao(row["origin_airport_iata"]),
             axis=1,
         )
         df_cp.loc[:, "destination_airport_icao"] = df_cp.apply(
-            lambda row: lookup_iata_to_icao(row["destination_airport_iata"]),
+            lambda row: lookup_airport_iata_to_icao(row["destination_airport_iata"]),
             axis=1,
         )
         return df_cp
 
     @property
-    def df(self):
+    def df(self) -> pd.DataFrame:
         return self._goog_df
+
+    @property
+    def df_summary(self) -> pd.DataFrame:
+        return self._goog_df_summary

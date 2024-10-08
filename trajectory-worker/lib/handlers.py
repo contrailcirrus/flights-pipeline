@@ -605,7 +605,6 @@ class CocipTrajectoryHandler:
         sl = xr.open_zarr(
             f"{zarr_path}/sl.zarr",
             storage_options={
-                "project": "contrails-301217",
                 "token": env.GCP_SVC_ACCT_KEY,
             },
         )

@@ -57,3 +57,8 @@ make pytest
 # or to run tests and static analyses
 make test
 ```
+
+## Spire access
+This service expects the Spire API token to be stored as a k8s secret in the `flights-pipeline-<dev/prod>` namespace.
+
+See `helm/Makefile` for an example of how to instantiate the k8s secret via Helm.
