@@ -423,6 +423,7 @@ class CocipTrajectoryHandler:
             e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
         """
         self._hres_src = hres_src
+        self._era5_src = era5_src
         self._job = job
         self._zarr_model_run_at: str | None = None
         self._met_dataset: MetDataset | None = None
@@ -518,9 +519,9 @@ class CocipTrajectoryHandler:
         )
 
     @staticmethod
-    def _nearest_zarr_store(job: WaypointsRecord) -> str:
+    def _find_nearest_hres_zarr_store(job: WaypointsRecord) -> str:
         """
-        Method for inferring the target zarr store, based on now() and the job's flight
+        Method for inferring the target HRES zarr store, based on now() and the job's flight
         timestamp range.
 
         Guarantees that the entire flight trajectory (start_time -> end_time),
@@ -587,13 +588,52 @@ class CocipTrajectoryHandler:
 
         return target_model_run_at.strftime("%Y%m%d%H")
 
+    @classmethod
+    def _find_era5_zarr_stores(cls, job: WaypointsRecord) -> list[str]:
+        """
+        Method for identifying the target zarr stores needed to run the given job.
+
+        The ERA5 zarr stores are sharded on a per-day basis, meaning each store holds
+        meteorological data for the file namesake day (UTC).
+
+        For example, this store: gs://contrails-301217-ecmwf-era5-zarr-v2/20230510_sl.zarr
+        holds surface level data for 2023-05-10T00:00:00Z -> 2023-05-10:23:00:00Z,
+        data being available on an hourly basis.
+
+        This method returns a list of date-string objects,
+        e.g. the "20230510" in "gs://contrails-301217-ecmwf-era5-zarr-v2/20230510_sl.zarr"
+        such that the zarr stores represented by the set of those dates is sufficient
+        to run CoCiP trajectory on the given job.
+
+        Parameters
+        ----------
+        job
+            Trajectory worker job w/ list of waypoints constituting the trajectory chunk
+
+        Returns
+        -------
+        List of filename prefixes representing the era5 zarr stores needed to run the job.
+        e.g. ['20240411', '20240412', ...]
+         in "gs://contrails-301217-ecmwf-era5-zarr-v2/<fn_prefix>_<sl/pl>.zarr
+        """
+        earliest_waypoint = pd.Timestamp(job.records[0].timestamp)
+        latest_waypoint = pd.Timestamp(job.records[-1].timestamp)
+        latest_contrail = latest_waypoint + cls.STATIC_PARAMS["max_age"]
+        date_range = pd.date_range(
+            start=earliest_waypoint.strftime("%Y-%m-%d"),
+            end=latest_contrail.strftime("%Y-%m-%d"),
+            freq="D",
+        ).to_list()
+
+        return [dt.strftime("%Y%m%d") for dt in date_range]
+
     def load(self):
         """
         Open forecast zarr stores.
 
         Will choose the most recent _usable_ forecast.
         """
-        self._zarr_model_run_at = self._nearest_zarr_store(self._job)
+        self._zarr_model_run_at = self._find_nearest_hres_zarr_store(self._job)
         zarr_path = f"{self._hres_src}/{self._zarr_model_run_at}"
         logger.debug(f"opening PL zarr store at: {zarr_path}")
         pl = xr.open_zarr(
