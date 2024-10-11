@@ -4,6 +4,7 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from enum import Enum
 from typing import TypedDict
 from uuid import UUID
 import pytz
@@ -217,8 +218,13 @@ class WaypointsRecord:
     expanded and generalized from the SpireWaypointsRecord.
     """
 
+    class MetSource(Enum):
+        HRES = 1
+        ERA5 = 2
+
     flight_info: FlightInfoWide
     records: list[SpireWaypointPositional]
+    met_source: MetSource = MetSource.HRES
     export_cocip_trajectory: bool = False
 
     def as_utf8_json(self) -> bytes:
@@ -234,9 +240,10 @@ class WaypointsRecord:
         Takes a utf8 json blob and marshals to an instance of this class.
         """
         return WaypointsRecord(
-            export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
             flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
+            met_source=json.loads(blob)["met_source"],
+            export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
 
 
@@ -275,7 +282,7 @@ class CocipTrajectoryChunk:
     nvpm_data_source: str
     source_id: str  # the source identifier for the trajectory chunk job
     git_sha: str  # git sha of the trajectory-worker
-    zarr_uri: str  # zarr store model_run_at identifier; e.g. '2024041506'
+    zarr_uri: str  # zarr store identifier; e.g. '<HRES/ERA5>/2024041506<,...>'
 
     sum_ef_mj: int  # sum of the calculated ef values, units 10^6*[J]
     total_fuel_burn_kg: int  # total kg of fuel burn for chunk

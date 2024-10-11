@@ -75,11 +75,21 @@ def run(
         # publish trajectory chunk model outputs to BQ
         # ===================
         logger.debug("publishing cocip outputs to BQ.")
+
+        fq_zarr_uri: str
+        # qualify the zarr uri with the source type
+        if job.met_source == schemas.WaypointsRecord.MetSource.HRES:
+            fq_zarr_uri = f"HRES/{trajectory_cocip_handler.zarr_uri}"
+        elif job.met_source == schemas.WaypointsRecord.MetSource.ERA5:
+            fq_zarr_uri = f"ERA5/{','.join(trajectory_cocip_handler.zarr_uri)}"
+        else:
+            raise ValueError("traj worker job met source not recognized")
+
         output = schemas.CocipTrajectoryChunk.from_cocip_result(
             source_id=message.ordering_key.split(":")[0],
             git_sha=env.GIT_SHA,
             input_chunk=job,
-            zarr_uri=trajectory_cocip_handler.zarr_uri,
+            zarr_uri=fq_zarr_uri,
             result=cocip_result,
         )
 
