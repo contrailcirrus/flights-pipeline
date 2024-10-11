@@ -10,6 +10,8 @@ trajectoryChunkRealtimeSubscriptionId:
 
 hresSourcePath:
 
+era5SourcePath:
+
 gitSha:
 
 trajectoryCocipBqTopicId:

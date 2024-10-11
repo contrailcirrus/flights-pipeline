@@ -41,7 +41,9 @@ def run(
         # apply CoCip Trajectory model
         # ===================
         try:
-            trajectory_cocip_handler = CocipTrajectoryHandler(job, env.HRES_SOURCE_PATH)
+            trajectory_cocip_handler = CocipTrajectoryHandler(
+                job, env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
+            )
         except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
             logger.warning(
                 f"skipping trajectory chunk "

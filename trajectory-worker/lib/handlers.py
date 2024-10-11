@@ -409,7 +409,7 @@ class CocipTrajectoryHandler:
         max_age=np.timedelta64(12, "h"),
     )
 
-    def __init__(self, job: WaypointsRecord, hres_src: str):
+    def __init__(self, job: WaypointsRecord, hres_src: str, era5_src: str):
         """
         Parameters
         ----------
@@ -418,6 +418,9 @@ class CocipTrajectoryHandler:
         hres_src
             Fully-qualified uri for the source path the hres zarr store.
             e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
+        era5_src
+            Fully-qualified uri for the source path the era5 zarr store.
+            e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
         """
         self._hres_src = hres_src
         self._job = job
