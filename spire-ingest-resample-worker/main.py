@@ -226,6 +226,8 @@ def run(
             trajectory_chunk = WaypointsRecord(
                 flight_info=validated_flight_info_wide,
                 records=resampled_records,
+                met_source=WaypointsRecord.MetSource.HRES,
+                export_cocip_trajectory=False,
             )
             trajectory_publish_handler.publish_async(
                 data=trajectory_chunk.as_utf8_json(),

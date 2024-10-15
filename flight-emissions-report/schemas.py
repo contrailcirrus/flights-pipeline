@@ -135,7 +135,7 @@ class SpireWaypointsRecord:
         swp = SpireWaypointPositional(
             ingestion_time=None,
             latitude=wp["latitude"],
-            longitude=wp["latitude"],
+            longitude=wp["longitude"],
             collection_type=None,
             altitude_baro=wp["altitude_ft"],
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
@@ -145,7 +145,7 @@ class SpireWaypointsRecord:
         )
         return flight_id, swp
 
-    def to_bq_flatmap(self) -> list[bytes]:
+    def to_bq_flatmap(self, source_id: str) -> list[bytes]:
         """
         Flattens records into a list of utf-8 encoded json string literals,
         ready for egress to big query.
@@ -156,6 +156,11 @@ class SpireWaypointsRecord:
         Adds an `_instance_hash` k-v, of type int,
         generated as a hash of the composite <icao_address><timestamp>,
         where timestamp is epoch time in microseconds
+
+        Parameters
+        ----------
+        source_id
+            An identifier appended to the biq query record, indicating the origin of these records
         """
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
@@ -174,6 +179,7 @@ class SpireWaypointsRecord:
             hash_int = int(hash_trunc, 16)
             blob = {
                 "_instance_hash": hash_int,
+                "src_id": source_id,
                 "ingestion_time": iso_to_microseconds(record.ingestion_time),
                 "timestamp": ts,
                 "latitude": record.latitude,
@@ -572,13 +578,14 @@ class CocipTrajectoryChunk:
             input_chunk.records[0].latitude,
         )
 
-        time_start_sunrise_offset_mins, time_start_sunset_offset_mins = (
-            cls.sunrise_sunset_mins_offset(
-                input_chunk.records[0].timestamp,
-                tz_start_str,
-                input_chunk.records[0].latitude,
-                input_chunk.records[0].longitude,
-            )
+        (
+            time_start_sunrise_offset_mins,
+            time_start_sunset_offset_mins,
+        ) = cls.sunrise_sunset_mins_offset(
+            input_chunk.records[0].timestamp,
+            tz_start_str,
+            input_chunk.records[0].latitude,
+            input_chunk.records[0].longitude,
         )
 
         def nan_to_null(x):
@@ -756,10 +763,11 @@ class CocipTrajectoryChunk:
             time_start_str = ds["time"].isoformat() + "Z"
             lat_start = float(ds["latitude"])
             lon_start = float(ds["longitude"])
-            time_start_sunrise_offset_mins, time_start_sunset_offset_mins = (
-                cls.sunrise_sunset_mins_offset(
-                    time_start_str, tz_start_str, lat_start, lon_start
-                )
+            (
+                time_start_sunrise_offset_mins,
+                time_start_sunset_offset_mins,
+            ) = cls.sunrise_sunset_mins_offset(
+                time_start_str, tz_start_str, lat_start, lon_start
             )
 
             seg = CocipTrajectoryChunk(
