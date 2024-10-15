@@ -254,6 +254,117 @@ class WaypointsRecord:
 
 
 @dataclass
+class WaypointCache:
+    """
+    A record living in shared cache, indicating the last known waypoint for a flight instance.
+    Our CoCip calculation requires at minimum two segments (three waypoints),
+    in order to compute CoCip outputs.
+    i.e. suppose we wanted to calculate CoCip on a segment s0, formed by waypoints (w0, w1)
+         this requires taking [w0, w1, w2], forming segments {s0: (w0, w1), s1: (w1, w2)}
+         note that segment s1 is necessary, but CoCip is only calculated/available on s0.
+
+    As such, the WaypointCache object endeavors to retain the _two_ most recent waypoints
+    for a given flight instance.
+    """
+
+    class Waypoint(TypedDict):
+        flight_id: bytes  # UUID
+        latitude: float  # WSG ESPG:4326
+        longitude: float  # WSG ESPG:4326
+        altitude_ft: int  # feet MSL
+        timestamp: int  # unixtime
+
+    key: str  # <source_identifier>:<icao_address>, e.g. `spr:4B0293`
+    waypoints: tuple[Waypoint, ...]  # record[0].timestamp < record[1].timestamp
+
+    def to_flatmap(self) -> dict[str, object]:
+        """
+        Returns
+        -------
+        dict
+            Waypoints tuple flattened into a dict.
+            Tuple indexes prefixed to dict key as 'w{N}_'
+        """
+        out = {}
+        for n, waypoint in enumerate(self.waypoints):
+            for k, v in waypoint.items():
+                out.update({f"w{n}_{k}": v})
+        return out
+
+    @staticmethod
+    def from_flatmap(rec: dict[bytes, bytes]):
+        """
+        Parameters
+        ----------
+        rec
+            A dictionary object representing a flattened set of two WaypointCache.Waypoint objects.
+            Dictionary has bytes k-v, as is the flatmap when returned from redis.
+
+        Returns
+        -------
+        List[WaypointCache.Waypoint]
+            Waypoint objects extracted from the flatmap,
+            ordered by flatmap key prefixes w0_, w1_
+        """
+        extracted: list[dict] = [{}, {}]
+        ix = {"w0": 0, "w1": 1}
+        for k, v in rec.items():
+            prefix = k.decode("utf-8").split("_")[0]
+            key = "_".join(k.decode("utf-8").split("_")[1:])
+            try:
+                extracted[ix[prefix]].update({key: v})
+            except KeyError:
+                raise KeyError(
+                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"expected one of {list(ix.keys())}"
+                )
+
+        def type_cast(w: dict[str, bytes]) -> WaypointCache.Waypoint:
+            return WaypointCache.Waypoint(
+                flight_id=w["flight_id"],
+                latitude=float(w["latitude"].decode("utf-8")),
+                longitude=float(w["longitude"].decode("utf-8")),
+                altitude_ft=int(w["altitude_ft"].decode("utf-8")),
+                timestamp=int(w["timestamp"].decode("utf-8")),
+            )
+
+        out = [type_cast(w) for w in extracted if w]
+        return out
+
+    @staticmethod
+    def from_spire_waypoint_positional(
+        key: str,
+        flight_id: str,
+        spire_wps: tuple[SpireWaypointPositional, ...],
+    ):
+        """
+        Builds a cache object from SpireWaypointPositional objects.
+        Parameters
+        ----------
+        key
+            the key to use for the cache lookup
+        flight_id
+            the unique flight identifier for the flight_instance
+        spire_wps
+            the 1 or two waypoints to cache
+        """
+        waypoints: list[WaypointCache.Waypoint] = []
+        wp: SpireWaypointPositional
+        for wp in spire_wps:
+            waypoints.append(
+                WaypointCache.Waypoint(
+                    flight_id=UUID(flight_id).bytes,
+                    latitude=wp.latitude,
+                    longitude=wp.longitude,
+                    altitude_ft=wp.altitude_baro,
+                    timestamp=int(datetime.fromisoformat(wp.timestamp).timestamp()),
+                )
+            )
+
+        return WaypointCache(key=key, waypoints=tuple(waypoints))
+
+
+@dataclass
 class CocipTrajectoryChunk:
     """
     Object that holds chunk-level summary values from running Cocip against the flight traj chunk.
