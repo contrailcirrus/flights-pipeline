@@ -335,9 +335,9 @@ class WaypointsRecord:
     expanded and generalized from the SpireWaypointsRecord.
     """
 
-    class MetSource(Enum):
-        HRES = 1
-        ERA5 = 2
+    class MetSource(str, Enum):
+        HRES = "hres"
+        ERA5 = "era5"
 
     flight_info: FlightInfoWide
     records: list[SpireWaypointPositional]
@@ -359,7 +359,7 @@ class WaypointsRecord:
         return WaypointsRecord(
             flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
-            met_source=json.loads(blob)["met_source"],
+            met_source=WaypointsRecord.MetSource(json.loads(blob)["met_source"]),
             export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
 

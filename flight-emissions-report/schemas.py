@@ -15,7 +15,7 @@ from astral.sun import sun
 import numpy as np
 import pycontrails.core
 
-from log import logger
+from lib.log import logger
 
 tf = TimezoneFinder()
 
@@ -209,51 +209,6 @@ class SpireWaypointsRecord:
 
 
 @dataclass
-class FlightInfoWide(SpireFlightInfo):
-    """
-    Flight info object expanding on those values provided in Spire.
-    """
-
-    engine_uid: str | None  # icao edb engine uid identifier
-
-
-@dataclass
-class WaypointsRecord:
-    """
-    A representation of a series of waypoints and flight metadata,
-    expanded and generalized from the SpireWaypointsRecord.
-    """
-
-    class MetSource(Enum):
-        HRES = 1
-        ERA5 = 2
-
-    flight_info: FlightInfoWide
-    records: list[SpireWaypointPositional]
-    met_source: MetSource = MetSource.ERA5
-    export_cocip_trajectory: bool = False
-
-    def as_utf8_json(self) -> bytes:
-        """
-        Builds a utf-8 encoded JSON blob from the class' attributes.
-        """
-        js = json.dumps(asdict(self))
-        return js.encode("utf-8")
-
-    @staticmethod
-    def from_utf8_json(blob: bytes):
-        """
-        Takes a utf8 json blob and marshals to an instance of this class.
-        """
-        return WaypointsRecord(
-            flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
-            records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
-            met_source=json.loads(blob)["met_source"],
-            export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
-        )
-
-
-@dataclass
 class WaypointCache:
     """
     A record living in shared cache, indicating the last known waypoint for a flight instance.
@@ -362,6 +317,51 @@ class WaypointCache:
             )
 
         return WaypointCache(key=key, waypoints=tuple(waypoints))
+
+
+@dataclass
+class FlightInfoWide(SpireFlightInfo):
+    """
+    Flight info object expanding on those values provided in Spire.
+    """
+
+    engine_uid: str | None  # icao edb engine uid identifier
+
+
+@dataclass
+class WaypointsRecord:
+    """
+    A representation of a series of waypoints and flight metadata,
+    expanded and generalized from the SpireWaypointsRecord.
+    """
+
+    class MetSource(str, Enum):
+        HRES = "hres"
+        ERA5 = "era5"
+
+    flight_info: FlightInfoWide
+    records: list[SpireWaypointPositional]
+    met_source: MetSource = MetSource.ERA5
+    export_cocip_trajectory: bool = False
+
+    def as_utf8_json(self) -> bytes:
+        """
+        Builds a utf-8 encoded JSON blob from the class' attributes.
+        """
+        js = json.dumps(asdict(self))
+        return js.encode("utf-8")
+
+    @staticmethod
+    def from_utf8_json(blob: bytes):
+        """
+        Takes a utf8 json blob and marshals to an instance of this class.
+        """
+        return WaypointsRecord(
+            flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
+            records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
+            met_source=WaypointsRecord.MetSource(json.loads(blob)["met_source"]),
+            export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
+        )
 
 
 @dataclass
