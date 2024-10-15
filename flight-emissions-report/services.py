@@ -312,6 +312,7 @@ class FlightsSubmitSvc(BaseSvc):
             job = WaypointsRecord(
                 flight_info=flight_info,
                 records=waypoints_resampled,
+                met_source=WaypointsRecord.MetSource.HRES,
                 export_cocip_trajectory=self._full_traj,
             )
 
