@@ -618,7 +618,9 @@ class CocipTrajectoryHandler:
         """
         earliest_waypoint = pd.Timestamp(job.records[0].timestamp)
         latest_waypoint = pd.Timestamp(job.records[-1].timestamp)
-        latest_contrail = latest_waypoint + cls.STATIC_PARAMS["max_age"]
+        latest_contrail = (
+            latest_waypoint + cls.STATIC_PARAMS["max_age"] + np.timedelta64(30, "m"),
+        )
         date_range = pd.date_range(
             start=earliest_waypoint.strftime("%Y-%m-%d"),
             end=latest_contrail.strftime("%Y-%m-%d"),
