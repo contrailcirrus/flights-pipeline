@@ -224,7 +224,7 @@ class WaypointsRecord:
 
     flight_info: FlightInfoWide
     records: list[SpireWaypointPositional]
-    met_source: MetSource = MetSource.HRES
+    met_source: MetSource = MetSource.ERA5
     export_cocip_trajectory: bool = False
 
     def as_utf8_json(self) -> bytes:
