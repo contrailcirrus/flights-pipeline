@@ -409,7 +409,7 @@ class CocipTrajectoryHandler:
         max_age=np.timedelta64(12, "h"),
     )
 
-    def __init__(self, job: WaypointsRecord, hres_src: str):
+    def __init__(self, job: WaypointsRecord, hres_src: str, era5_src: str):
         """
         Parameters
         ----------
@@ -418,10 +418,14 @@ class CocipTrajectoryHandler:
         hres_src
             Fully-qualified uri for the source path the hres zarr store.
             e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
+        era5_src
+            Fully-qualified uri for the source path the era5 zarr store.
+            e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
         """
         self._hres_src = hres_src
+        self._era5_src = era5_src
         self._job = job
-        self._zarr_model_run_at: str | None = None
+        self._zarr_src_fn: str | list[str] | None = None
         self._met_dataset: MetDataset | None = None
         self._rad_dataset: MetDataset | None = None
 
@@ -515,9 +519,9 @@ class CocipTrajectoryHandler:
         )
 
     @staticmethod
-    def _nearest_zarr_store(job: WaypointsRecord) -> str:
+    def _find_nearest_hres_zarr_store(job: WaypointsRecord) -> str:
         """
-        Method for inferring the target zarr store, based on now() and the job's flight
+        Method for inferring the target HRES zarr store, based on now() and the job's flight
         timestamp range.
 
         Guarantees that the entire flight trajectory (start_time -> end_time),
@@ -584,37 +588,129 @@ class CocipTrajectoryHandler:
 
         return target_model_run_at.strftime("%Y%m%d%H")
 
+    @classmethod
+    def _find_era5_zarr_stores(cls, job: WaypointsRecord) -> list[str]:
+        """
+        Method for identifying the target zarr stores needed to run the given job.
+
+        The ERA5 zarr stores are sharded on a per-day basis, meaning each store holds
+        meteorological data for the file namesake day (UTC).
+
+        For example, this store: gs://contrails-301217-ecmwf-era5-zarr-v2/20230510_sl.zarr
+        holds surface level data for 2023-05-10T00:00:00Z -> 2023-05-10:23:00:00Z,
+        data being available on an hourly basis.
+
+        This method returns a list of date-string objects,
+        e.g. the "20230510" in "gs://contrails-301217-ecmwf-era5-zarr-v2/20230510_sl.zarr"
+        such that the zarr stores represented by the set of those dates is sufficient
+        to run CoCiP trajectory on the given job.
+
+        Parameters
+        ----------
+        job
+            Trajectory worker job w/ list of waypoints constituting the trajectory chunk
+
+        Returns
+        -------
+        List of filename prefixes representing the era5 zarr stores needed to run the job.
+        e.g. ['20240411', '20240412', ...]
+         in "gs://contrails-301217-ecmwf-era5-zarr-v2/<fn_prefix>_<sl/pl>.zarr
+        """
+        earliest_waypoint = pd.Timestamp(job.records[0].timestamp)
+        latest_waypoint = pd.Timestamp(job.records[-1].timestamp)
+        latest_contrail = (
+            latest_waypoint + cls.STATIC_PARAMS["max_age"] + np.timedelta64(30, "m"),
+        )
+        date_range = pd.date_range(
+            start=earliest_waypoint.strftime("%Y-%m-%d"),
+            end=latest_contrail.strftime("%Y-%m-%d"),
+            freq="D",
+        ).to_list()
+
+        return [dt.strftime("%Y%m%d") for dt in date_range]
+
     def load(self):
         """
-        Open forecast zarr stores.
+        Open met data zarr stores.
 
-        Will choose the most recent _usable_ forecast.
+        HRES: Will choose the most recent _usable_ forecast.
+        ERA5: Will choose store(s) that overlap entire flight traj + contrail evolution time.
         """
-        self._zarr_model_run_at = self._nearest_zarr_store(self._job)
-        zarr_path = f"{self._hres_src}/{self._zarr_model_run_at}"
-        logger.debug(f"opening PL zarr store at: {zarr_path}")
-        pl = xr.open_zarr(
-            f"{zarr_path}/pl.zarr",
-            storage_options={"token": env.GCP_SVC_ACCT_KEY},
-        )
-        met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
-        variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables)
-        met.standardize_variables(variables)
+        if self._job.met_source == WaypointsRecord.MetSource.HRES:
+            self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
+            zarr_path = f"{self._hres_src}/{self._zarr_src_fn}"
+            logger.debug(f"opening HRES PL zarr store at: {zarr_path}")
+            pl = xr.open_zarr(
+                f"{zarr_path}/pl.zarr",
+                storage_options={"token": env.GCP_SVC_ACCT_KEY},
+            )
+            met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
+            variables = (
+                v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables
+            )
+            met.standardize_variables(variables)
 
-        logger.debug(f"opening SL zarr store at: {zarr_path}")
-        sl = xr.open_zarr(
-            f"{zarr_path}/sl.zarr",
-            storage_options={
-                "project": "contrails-301217",
-                "token": env.GCP_SVC_ACCT_KEY,
-            },
-        )
-        rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
-        variables = (v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables)
-        rad.standardize_variables(variables)
+            logger.debug(f"opening HRES SL zarr store at: {zarr_path}")
+            sl = xr.open_zarr(
+                f"{zarr_path}/sl.zarr",
+                storage_options={
+                    "token": env.GCP_SVC_ACCT_KEY,
+                },
+            )
+            rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
+            variables = (
+                v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables
+            )
+            rad.standardize_variables(variables)
 
-        self._met_dataset = met
-        self._rad_dataset = rad
+            self._met_dataset = met
+            self._rad_dataset = rad
+        elif self._job.met_source == WaypointsRecord.MetSource.ERA5:
+            self._zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
+            pl_ds: list[xr.Dataset] = []
+            sl_ds: list[xr.Dataset] = []
+            for src_fn in self._zarr_src_fn:
+                zarr_path = f"{self._era5_src}/{src_fn}"
+                logger.debug(f"opening ERA5 PL zarr store at: {zarr_path}")
+                pl = xr.open_zarr(
+                    f"{zarr_path}/pl.zarr",
+                    storage_options={"token": env.GCP_SVC_ACCT_KEY},
+                )
+                pl_ds.append(pl)
+                logger.debug(f"opening ERA5 SL zarr store at: {zarr_path}")
+                sl = xr.open_zarr(
+                    f"{zarr_path}/sl.zarr",
+                    storage_options={
+                        "token": env.GCP_SVC_ACCT_KEY,
+                    },
+                )
+                sl_ds.append(sl)
+            pl_ds_agg = xr.concat(pl_ds, dim="time")
+            sl_ds_agg = xr.concat(sl_ds, dim="time")
+
+            met = MetDataset(
+                pl_ds_agg, provider="ECMWF", dataset="ERA5", product="reanalysis"
+            )
+            variables = (
+                v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables
+            )
+            met.standardize_variables(variables)
+
+            rad = MetDataset(
+                sl_ds_agg, provider="ECMWF", dataset="ERA5", product="reanalysis"
+            )
+            variables = (
+                v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables
+            )
+            rad.standardize_variables(variables)
+
+            self._met_dataset = met
+            self._rad_dataset = rad
+
+        else:
+            raise ValueError(
+                "Unrecognized met source specified in trajectory worker job."
+            )
 
     def run(self) -> Flight:
         """
@@ -656,4 +752,4 @@ class CocipTrajectoryHandler:
         Returns the subdirectory that houses the hres zarr data
         and uniquely identifies the store based on the model_run_at time.
         """
-        return self._zarr_model_run_at
+        return self._zarr_src_fn

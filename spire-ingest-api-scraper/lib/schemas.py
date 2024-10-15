@@ -121,7 +121,7 @@ class SpireWaypointsRecord:
         flight_id = str(UUID(bytes=wp["flight_id"]))
         swp = SpireWaypointPositional(
             latitude=wp["latitude"],
-            longitude=wp["latitude"],
+            longitude=wp["longitude"],
             collection_type=None,
             altitude_baro=wp["altitude_ft"],
             ingestion_time=None,

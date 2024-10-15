@@ -4,6 +4,7 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from enum import Enum
 from typing import TypedDict
 from uuid import UUID
 import pytz
@@ -134,7 +135,7 @@ class SpireWaypointsRecord:
         swp = SpireWaypointPositional(
             ingestion_time=None,
             latitude=wp["latitude"],
-            longitude=wp["latitude"],
+            longitude=wp["longitude"],
             collection_type=None,
             altitude_baro=wp["altitude_ft"],
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
@@ -144,7 +145,7 @@ class SpireWaypointsRecord:
         )
         return flight_id, swp
 
-    def to_bq_flatmap(self) -> list[bytes]:
+    def to_bq_flatmap(self, source_id: str) -> list[bytes]:
         """
         Flattens records into a list of utf-8 encoded json string literals,
         ready for egress to big query.
@@ -155,6 +156,11 @@ class SpireWaypointsRecord:
         Adds an `_instance_hash` k-v, of type int,
         generated as a hash of the composite <icao_address><timestamp>,
         where timestamp is epoch time in microseconds
+
+        Parameters
+        ----------
+        source_id
+            An identifier appended to the biq query record, indicating the origin of these records
         """
 
         def iso_to_microseconds(timestamp: str | None) -> int | None:
@@ -173,6 +179,7 @@ class SpireWaypointsRecord:
             hash_int = int(hash_trunc, 16)
             blob = {
                 "_instance_hash": hash_int,
+                "src_id": source_id,
                 "ingestion_time": iso_to_microseconds(record.ingestion_time),
                 "timestamp": ts,
                 "latitude": record.latitude,
@@ -202,6 +209,117 @@ class SpireWaypointsRecord:
 
 
 @dataclass
+class WaypointCache:
+    """
+    A record living in shared cache, indicating the last known waypoint for a flight instance.
+    Our CoCip calculation requires at minimum two segments (three waypoints),
+    in order to compute CoCip outputs.
+    i.e. suppose we wanted to calculate CoCip on a segment s0, formed by waypoints (w0, w1)
+         this requires taking [w0, w1, w2], forming segments {s0: (w0, w1), s1: (w1, w2)}
+         note that segment s1 is necessary, but CoCip is only calculated/available on s0.
+
+    As such, the WaypointCache object endeavors to retain the _two_ most recent waypoints
+    for a given flight instance.
+    """
+
+    class Waypoint(TypedDict):
+        flight_id: bytes  # UUID
+        latitude: float  # WSG ESPG:4326
+        longitude: float  # WSG ESPG:4326
+        altitude_ft: int  # feet MSL
+        timestamp: int  # unixtime
+
+    key: str  # <source_identifier>:<icao_address>, e.g. `spr:4B0293`
+    waypoints: tuple[Waypoint, ...]  # record[0].timestamp < record[1].timestamp
+
+    def to_flatmap(self) -> dict[str, object]:
+        """
+        Returns
+        -------
+        dict
+            Waypoints tuple flattened into a dict.
+            Tuple indexes prefixed to dict key as 'w{N}_'
+        """
+        out = {}
+        for n, waypoint in enumerate(self.waypoints):
+            for k, v in waypoint.items():
+                out.update({f"w{n}_{k}": v})
+        return out
+
+    @staticmethod
+    def from_flatmap(rec: dict[bytes, bytes]):
+        """
+        Parameters
+        ----------
+        rec
+            A dictionary object representing a flattened set of two WaypointCache.Waypoint objects.
+            Dictionary has bytes k-v, as is the flatmap when returned from redis.
+
+        Returns
+        -------
+        List[WaypointCache.Waypoint]
+            Waypoint objects extracted from the flatmap,
+            ordered by flatmap key prefixes w0_, w1_
+        """
+        extracted: list[dict] = [{}, {}]
+        ix = {"w0": 0, "w1": 1}
+        for k, v in rec.items():
+            prefix = k.decode("utf-8").split("_")[0]
+            key = "_".join(k.decode("utf-8").split("_")[1:])
+            try:
+                extracted[ix[prefix]].update({key: v})
+            except KeyError:
+                raise KeyError(
+                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"expected one of {list(ix.keys())}"
+                )
+
+        def type_cast(w: dict[str, bytes]) -> WaypointCache.Waypoint:
+            return WaypointCache.Waypoint(
+                flight_id=w["flight_id"],
+                latitude=float(w["latitude"].decode("utf-8")),
+                longitude=float(w["longitude"].decode("utf-8")),
+                altitude_ft=int(w["altitude_ft"].decode("utf-8")),
+                timestamp=int(w["timestamp"].decode("utf-8")),
+            )
+
+        out = [type_cast(w) for w in extracted if w]
+        return out
+
+    @staticmethod
+    def from_spire_waypoint_positional(
+        key: str,
+        flight_id: str,
+        spire_wps: tuple[SpireWaypointPositional, ...],
+    ):
+        """
+        Builds a cache object from SpireWaypointPositional objects.
+        Parameters
+        ----------
+        key
+            the key to use for the cache lookup
+        flight_id
+            the unique flight identifier for the flight_instance
+        spire_wps
+            the 1 or two waypoints to cache
+        """
+        waypoints: list[WaypointCache.Waypoint] = []
+        wp: SpireWaypointPositional
+        for wp in spire_wps:
+            waypoints.append(
+                WaypointCache.Waypoint(
+                    flight_id=UUID(flight_id).bytes,
+                    latitude=wp.latitude,
+                    longitude=wp.longitude,
+                    altitude_ft=wp.altitude_baro,
+                    timestamp=int(datetime.fromisoformat(wp.timestamp).timestamp()),
+                )
+            )
+
+        return WaypointCache(key=key, waypoints=tuple(waypoints))
+
+
+@dataclass
 class FlightInfoWide(SpireFlightInfo):
     """
     Flight info object expanding on those values provided in Spire.
@@ -217,8 +335,13 @@ class WaypointsRecord:
     expanded and generalized from the SpireWaypointsRecord.
     """
 
+    class MetSource(Enum):
+        HRES = 1
+        ERA5 = 2
+
     flight_info: FlightInfoWide
     records: list[SpireWaypointPositional]
+    met_source: MetSource = MetSource.ERA5
     export_cocip_trajectory: bool = False
 
     def as_utf8_json(self) -> bytes:
@@ -234,9 +357,10 @@ class WaypointsRecord:
         Takes a utf8 json blob and marshals to an instance of this class.
         """
         return WaypointsRecord(
-            export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
             flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
+            met_source=json.loads(blob)["met_source"],
+            export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
 
 
@@ -275,7 +399,7 @@ class CocipTrajectoryChunk:
     nvpm_data_source: str
     source_id: str  # the source identifier for the trajectory chunk job
     git_sha: str  # git sha of the trajectory-worker
-    zarr_uri: str  # zarr store model_run_at identifier; e.g. '2024041506'
+    zarr_uri: str  # zarr store identifier; e.g. '<HRES/ERA5>/2024041506<,...>'
 
     sum_ef_mj: int  # sum of the calculated ef values, units 10^6*[J]
     total_fuel_burn_kg: int  # total kg of fuel burn for chunk
@@ -565,13 +689,14 @@ class CocipTrajectoryChunk:
             input_chunk.records[0].latitude,
         )
 
-        time_start_sunrise_offset_mins, time_start_sunset_offset_mins = (
-            cls.sunrise_sunset_mins_offset(
-                input_chunk.records[0].timestamp,
-                tz_start_str,
-                input_chunk.records[0].latitude,
-                input_chunk.records[0].longitude,
-            )
+        (
+            time_start_sunrise_offset_mins,
+            time_start_sunset_offset_mins,
+        ) = cls.sunrise_sunset_mins_offset(
+            input_chunk.records[0].timestamp,
+            tz_start_str,
+            input_chunk.records[0].latitude,
+            input_chunk.records[0].longitude,
         )
 
         def nan_to_null(x):
@@ -749,10 +874,11 @@ class CocipTrajectoryChunk:
             time_start_str = ds["time"].isoformat() + "Z"
             lat_start = float(ds["latitude"])
             lon_start = float(ds["longitude"])
-            time_start_sunrise_offset_mins, time_start_sunset_offset_mins = (
-                cls.sunrise_sunset_mins_offset(
-                    time_start_str, tz_start_str, lat_start, lon_start
-                )
+            (
+                time_start_sunrise_offset_mins,
+                time_start_sunset_offset_mins,
+            ) = cls.sunrise_sunset_mins_offset(
+                time_start_str, tz_start_str, lat_start, lon_start
             )
 
             seg = CocipTrajectoryChunk(

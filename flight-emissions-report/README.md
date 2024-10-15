@@ -125,6 +125,10 @@ data mongering, but, will _not_ write any assets to local file.
 - `-g <FILEPATH>` google synthesis.  This expects a `<FILEPATH>` pointing to a local file containing
 Google's flight-matching outputs.  If this flag is used, then the output assets will include summary
 stats that use Google's flight matching for the target airline/date(s).
+- `-s <flight_id_list>` case study flight ids.  This expects `<flight_id_list>`, a comma-delimited
+list of flight ids for which we want to generate case study outputs.  If one or more values
+are specified for this flag, then x-y plots will be generated for those trajectories,
+and a csv file is generated per flight-id containing the per-segment values.
 
 
 ## Setup
