@@ -7,6 +7,7 @@ deploy: --check-env
 		--set trajectoryChunkRealtimeSubscriptionId=$(TRAJECTORY_CHUNK_REALTIME_SUBSCRIPTION_ID) \
 		--set trajectoryChunkGaiaSubscriptionId=$(TRAJECTORY_CHUNK_GAIA_SUBSCRIPTION_ID) \
 		--set hresSourcePath=$(HRES_SOURCE_PATH) \
+		--set era5SourcePath=$(ERA5_SOURCE_PATH) \
 		--set gitSha=$(GIT_SHA) \
 		--set trajectoryCocipBqTopicId=$(TRAJECTORY_COCIP_BQ_TOPIC_ID)
 
@@ -18,5 +19,6 @@ deploy: --check-env
 	@test $${TRAJECTORY_CHUNK_REALTIME_SUBSCRIPTION_ID?environment variable is required}
 	@test $${TRAJECTORY_CHUNK_GAIA_SUBSCRIPTION_ID?environment variable is required}
 	@test $${HRES_SOURCE_PATH?environment variable is required}
+	@test $${ERA5_SOURCE_PATH?environment variable is required}
 	@test $${GIT_SHA?environment variable is required}
 	@test $${TRAJECTORY_COCIP_BQ_TOPIC_ID?environment variable is required}
