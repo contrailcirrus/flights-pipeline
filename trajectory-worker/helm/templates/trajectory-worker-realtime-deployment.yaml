@@ -29,6 +29,8 @@ spec:
             value: {{ .Values.trajectoryChunkRealtimeSubscriptionId | required ".Values.trajectoryChunkRealtimeSubscriptionId is required" | quote }}
           - name: HRES_SOURCE_PATH
             value: {{ .Values.hresSourcePath | required ".Values.hresSourcePath is required" | quote }}
+          - name: ERA5_SOURCE_PATH
+            value: { { .Values.era5SourcePath | required ".Values.era5SourcePath is required" | quote } }
           - name: GIT_SHA
             value: {{ .Values.gitSha | required ".Values.gitSha is required" | quote }}
           - name: TRAJECTORY_COCIP_BQ_TOPIC_ID
