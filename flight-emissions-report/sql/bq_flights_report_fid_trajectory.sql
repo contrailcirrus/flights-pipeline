@@ -8,7 +8,7 @@ WITH candidate_flights_tb AS
             AND flight_id IN (@flight_ids)
             AND timestamp_trunc(time_start, DAY) >= @day_start
             AND timestamp_trunc(time_start, DAY) <= @day_end
-            AND zarr_uri LIKE ANY @met_src_str_match
+            AND zarr_uri LIKE ANY UNNEST(@met_src_str_match)
             AND seg_cnt = 1),
      ranked_candidate_flights_tb AS
          (SELECT ROW_NUMBER() OVER (PARTITION BY _chunk_hash ORDER BY _processed_at DESC) as row_number, *
