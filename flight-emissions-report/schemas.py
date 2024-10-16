@@ -15,7 +15,7 @@ from astral.sun import sun
 import numpy as np
 import pycontrails.core
 
-from lib.log import logger
+from log import logger
 
 tf = TimezoneFinder()
 

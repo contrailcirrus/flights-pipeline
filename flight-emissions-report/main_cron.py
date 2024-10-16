@@ -32,6 +32,7 @@ class Input:
     airline: str | None = None  # airline iata
     flight_id: str | None = None
     icao_address: str | None = None
+    met_data_src: str | None = None
     dryrun: bool = False
     verbose: bool = False
     export_waypoints: bool = False
@@ -72,7 +73,7 @@ if __name__ == "__main__":
         target_dtstr = now_less_two_days.strftime("%Y-%m-%d")
         for target_kwarg in DAILY_TARGETS:
             logger.info(f"submitting flights for {target_kwarg} on {target_dtstr}")
-            args = Input(day=target_dtstr, **target_kwarg)
+            args = Input(day=target_dtstr, met_data_src="hres", **target_kwarg)
             svc = FlightsSubmitSvc(Namespace(**asdict(args)))
             svc.run()
     except Exception:
