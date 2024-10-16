@@ -532,6 +532,7 @@ class FlightsReportFetchSvc(BaseSvc):
 
         self._airline = input.airline
         self._day_str = input.day
+        self._met_data_src = input.met_data_src
         self._verbose = input.verbose
         self._dryrun = input.dryrun
         self._goog_fp = input.goog_fp
@@ -544,6 +545,11 @@ class FlightsReportFetchSvc(BaseSvc):
             self._goog_handler = GoogDatasetHandler(self._goog_fp)
         else:
             self._goog_handler = None
+
+        if self._met_data_src not in WaypointsRecord.MetSource:
+            raise ValueError(
+                f"--met-data-src must be one of {[i.value for i in WaypointsRecord.MetSource]}"
+            )
 
     @staticmethod
     def _validate_day_str(daystr: str) -> str:
@@ -761,10 +767,22 @@ class FlightsReportFetchSvc(BaseSvc):
             f"case study flight_ids: {self._case_study_fids}"
         )
 
+        if self._met_data_src == WaypointsRecord.MetSource.HRES:
+            # note: we retain `2%` as a valid match for HRES
+            # to support traj outputs that were generated prior to the introduction of ERA5
+            # previously, zarr_uri in the BQ table was always `%Y%m%d%H`
+            # now, zarr_uri is `HRES/%Y%m%d%H` or `ERA5/%Y%m%d%H`
+            met_src_str_match = ["HRES/%", "2%"]
+        elif self._met_data_src == WaypointsRecord.MetSource.ERA5:
+            met_src_str_match = ["ERA5/%"]
+
         summary_query = self._bq_handler.import_query(self.REPORT_QUERY_FILENAME)
         cfg = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("airline", "STRING", self._airline),
+                bigquery.ArrayQueryParameter(
+                    "met_src_str_match", "STRING", met_src_str_match
+                ),
                 bigquery.ScalarQueryParameter(
                     "day_start", "STRING", self._day_range[0]
                 ),
@@ -811,6 +829,9 @@ class FlightsReportFetchSvc(BaseSvc):
                         "day_end",
                         "STRING",
                         next_day_str,
+                    ),
+                    bigquery.ArrayQueryParameter(
+                        "met_src_str_match", "STRING", met_src_str_match
                     ),
                     bigquery.ScalarQueryParameter(
                         "conus_wkt",
