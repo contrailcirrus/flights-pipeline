@@ -673,13 +673,13 @@ class CocipTrajectoryHandler:
                 zarr_path = f"{self._era5_src}/{src_fn}"
                 logger.debug(f"opening ERA5 PL zarr store at: {zarr_path}")
                 pl = xr.open_zarr(
-                    f"{zarr_path}/pl.zarr",
+                    f"{zarr_path}_pl.zarr",
                     storage_options={"token": env.GCP_SVC_ACCT_KEY},
                 )
                 pl_ds.append(pl)
                 logger.debug(f"opening ERA5 SL zarr store at: {zarr_path}")
                 sl = xr.open_zarr(
-                    f"{zarr_path}/sl.zarr",
+                    f"{zarr_path}_sl.zarr",
                     storage_options={
                         "token": env.GCP_SVC_ACCT_KEY,
                     },
