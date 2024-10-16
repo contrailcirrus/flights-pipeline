@@ -73,6 +73,7 @@ class FlightsSubmitSvc(BaseSvc):
         self._day = input.day
         self._flight_id = input.flight_id
         self._icao_address = input.icao_address
+        self._met_data_src = input.met_data_src
         self._dryrun = input.dryrun
         self._verbose = input.verbose
         self._export_waypoints = input.export_waypoints
@@ -85,18 +86,23 @@ class FlightsSubmitSvc(BaseSvc):
 
         # caller must provide ONE OF the following sets of flags
         valid_flag_combos = {
-            (self._day, self._airline),
-            (self._day, self._flight_id),
-            (self._day, self._icao_address),
+            (self._day, self._airline, self._met_data_src),
+            (self._day, self._flight_id, self._met_data_src),
+            (self._day, self._icao_address, self._met_data_src),
         }
         is_valid = sum([all(itm) for itm in valid_flag_combos]) == 1
 
         if not is_valid:
             raise ValueError(
                 "Must provide flags: "
-                "(1) --flight_id & --day OR "
-                "(2) --airline & --day OR "
-                "(3) --icao_address & --day"
+                "(1) --flight-id & --day & --met-data-src OR "
+                "(2) --airline & --day & --met-data-src OR "
+                "(3) --icao-address & --day & --met-data-src"
+            )
+
+        if self._met_data_src not in WaypointsRecord.MetSource:
+            raise ValueError(
+                f"--met-data-src must be one of {[i.value for i in WaypointsRecord.MetSource]}"
             )
 
     def _fetch_airline_day(self) -> (pd.DataFrame, pd.DataFrame):
@@ -205,16 +211,18 @@ class FlightsSubmitSvc(BaseSvc):
 
     def run(self):
         if self._day and self._airline:
-            logger.info(f"🛠️submitting flights for ✈️ {self._airline} on 🗓️{self._day}")
+            logger.info(
+                f"🛠️submitting flights for ✈️ {self._airline} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
+            )
             df, df_satellite = self._fetch_airline_day()
         elif self._day and self._flight_id:
             logger.info(
-                f"🛠️submitting flight with 🛂 flight_id: {self._flight_id} on 🗓️{self._day}"
+                f"🛠️submitting flight with 🛂 flight_id: {self._flight_id} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
             )
             df, df_satellite = self._fetch_flight_id_day()
         elif self._day and self._icao_address:
             logger.info(
-                f"🛠️submitting flight with 🏤 icao_address: {self._icao_address} on 🗓️{self._day}"
+                f"🛠️submitting flight with 🏤 icao_address: {self._icao_address} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
             )
             df, df_satellite = self._fetch_icao_address_day()
         else:
@@ -312,7 +320,7 @@ class FlightsSubmitSvc(BaseSvc):
             job = WaypointsRecord(
                 flight_info=flight_info,
                 records=waypoints_resampled,
-                met_source=WaypointsRecord.MetSource.HRES,
+                met_source=WaypointsRecord.MetSource(self._met_data_src),
                 export_cocip_trajectory=self._full_traj,
             )
 
