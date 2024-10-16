@@ -33,13 +33,13 @@ one-row per flight segment (1min) of the flight instance (include the flag `-t` 
 The CLI is designed to help with dispatching batches of jobs.
 
 Required flag combinations:
-- `-a <airline_iata> -d <day>` this submits multiple jobs representing all flights originating 
-for `<airline_iata>` originating on day (utc) of `<day>`. 
-Originating means the first waypoint in the trajectory falls on `<day>`.
-- `-c <icao_addr>` this submits multiple jobs representing all flights for 
-a single aircraft (`<icao_addr>`) originating on day (utc) of `<day>`.
-- `-i <flight_id>` this submits a single job representing a single 
-flight instance (`<flight_id>`) which has origination on day (utc) of `<day>`.
+- `-a <airline_iata> -d <day> -s <met_data_src>` this submits multiple jobs representing all flights originating 
+for `<airline_iata>` originating on day (utc) of `<day>`, using met data source `<met_data_src>`.
+Originating means the first waypoint in the trajectory falls on `<day>`, using met data source `<met_data_src>`.
+- `-c <icao_addr> -s <met_data_src>` this submits multiple jobs representing all flights for 
+a single aircraft (`<icao_addr>`) originating on day (utc) of `<day>`, using met data source `<met_data_src>`.
+- `-i <flight_id> -s <met_data_src>` this submits a single job representing a single 
+flight instance (`<flight_id>`) which has origination on day (utc) of `<day>`, using met data source `<met_data_src>`.
 
 Optional flags:
 - `-e` this writes to file the resampled ADS-B data for each flight instance.
@@ -60,21 +60,24 @@ but will _not_ publish the jobs to the job queue.
 **Examples**
 
 ```bash
-# submit all flights for American Airlines that originate on Jan 12, 2024 (UTC), printout verbose
-./gaia_cli.py flights submit -a AA -d 2024-01-12 -v
+# submit all flights for American Airlines that originate on Jan 12, 2024 (UTC)
+# running the trajectory model using hres met data, w/ printout verbose
+./gaia_cli.py flights submit -a AA -d 2024-01-12 -s hres -v
 ```
 
 ```bash
 # submit all flights for aircraft w/ icao 3C6565 that originate on Jun 06, 2024 (UTC)
-# tell trajectory worker to write-off both per-flight summaries, as well as per-flight-segment values
-./gaia_cli.py flights submit -c 3C6565 -d 2024-06-01 -t
+# running the trajectory model using era5 met data,
+# telling trajectory worker to write-off both per-flight summaries, as well as per-flight-segment values
+./gaia_cli.py flights submit -c 3C6565 -d 2024-06-01 -s era5 -t
 ```
 
 ```bash
-# fetch all flights for KLM that originate on Apr 02, 2024, printout verbose
+# fetch all flights for KLM that originate on Apr 02, 2024, 
+# # running the trajectory model using era5 met data, w/printout verbose
 # save CSVs for the resampled ADS-B flight trajectories to local disk
 # does NOT submit the jobs
-./gaia_cli.py flights submit -a KL -d 2024-04-02 -e -v -r
+./gaia_cli.py flights submit -a KL -d 2024-04-02 -s era5 -e -v -r
 ```
 
 ### Job Re-injection (`flights reinject`)
@@ -117,6 +120,7 @@ Required flags:
 - `-d <date_or_range>` date or date range for which to pull outputs. Can be of the form `2024-04-01`,
 which pulls data for all flights originating on that date (UTC), or, `2024-04-01_2024-04-30` which 
 pulls data for all flights originating between those two date (UTC), inclusive.
+- `-s <met_data_src>` specifies whether to fetch output records generated using `hres` or `era5` met data.
 
 Optional flags:
 - `-v` verbose mode. Includes sterr logs w/ additional summary stats on those data fetched from BQ.

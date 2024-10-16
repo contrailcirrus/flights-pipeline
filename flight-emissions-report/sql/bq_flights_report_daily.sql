@@ -3,6 +3,7 @@ WITH base_tb AS (SELECT *
                  FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
                  WHERE source_id = "flightsreport_full"
                    AND airline_iata = @airline
+                   AND zarr_uri LIKE ANY UNNEST(@met_src_str_match)
                    AND timestamp_trunc(time_start, DAY) >= @day_start
                    AND timestamp_trunc(time_start, DAY) <= @day_end),
      candidate_flights_tb AS

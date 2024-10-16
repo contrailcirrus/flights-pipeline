@@ -38,17 +38,24 @@ flights_submit_parser.add_argument(
 )
 flights_submit_parser.add_argument(
     "-i",
-    "--flight_id",
+    "--flight-id",
     required=False,
     help="flight_id for target flight to submit",
     dest="flight_id",
 )
 flights_submit_parser.add_argument(
     "-c",
-    "--icao_address",
+    "--icao-address",
     required=False,
     help="icao_address for target flight to submit",
     dest="icao_address",
+)
+flights_submit_parser.add_argument(
+    "-s",
+    "--met-data-src",
+    required=True,
+    help="met data source for running model. One of: 'hres', 'era5'",
+    dest="met_data_src",
 )
 flights_submit_parser.add_argument(
     "-e",
@@ -59,7 +66,7 @@ flights_submit_parser.add_argument(
 )
 flights_submit_parser.add_argument(
     "-t",
-    "--full_traj",
+    "--full-traj",
     action="store_true",
     help="write the per-segment values to BQ",
     dest="full_traj",
@@ -130,6 +137,13 @@ report_fetch_parser.add_argument(
     dest="day",
 )
 report_fetch_parser.add_argument(
+    "-s",
+    "--met-data-src",
+    required=True,
+    help="met data source used in rendering model outputs. One of: 'hres', 'era5'",
+    dest="met_data_src",
+)
+report_fetch_parser.add_argument(
     "-v",
     "--verbose",
     action="store_true",
@@ -145,13 +159,13 @@ report_fetch_parser.add_argument(
 )
 report_fetch_parser.add_argument(
     "-g",
-    "--goog_fp",
+    "--goog-fp",
     help="file path to google dataset",
     dest="goog_fp",
 )
 report_fetch_parser.add_argument(
-    "-s",
-    "--case_study_fids",
+    "-c",
+    "--case-study-fids",
     help="comma delimited set of flight ids for full-trajectory analysis",
     dest="case_study_fids",
 )
