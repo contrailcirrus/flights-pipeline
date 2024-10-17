@@ -12,21 +12,24 @@ WITH base_tb AS (SELECT *
           WHERE seg_cnt > 1),
      candidate_segments_tb AS
          (SELECT *,
-                 FORMAT("%s_%s", flight_id, FORMAT_TIMESTAMP("%s", time_start)) AS seg_id,
+                 FORMAT("%s_%s", flight_id, FORMAT_TIMESTAMP("%s", time_start))                         AS seg_id,
                  ((time_start_sunrise_offset_mins <= 0) AND (time_start_sunset_offset_mins <= 3 * 60)) OR
                  ((0 < time_start_sunrise_offset_mins) AND (time_start_sunset_offset_mins < 0)) OR
                  ((-3 * 60 <= time_start_sunrise_offset_mins) AND (0 <= time_start_sunset_offset_mins)) AS is_nighttime,
                  ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start),
-                               ST_GEOGFROMTEXT(@conus_wkt)) AS in_conus,
+                               ST_GEOGFROMTEXT(@conus_wkt))                                             AS in_conus,
           FROM base_tb
           WHERE seg_cnt = 1),
-     summary_segments_tb AS -- dedupe candidate segments; take first record by _processed_at on (flight_id, time_start) basis
-     (SELECT * FROM candidate_segments_tb
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY seg_id ORDER BY _processed_at DESC) = 1
-     ),
-     summary_flights_tb AS  -- dedupe candidate flights; take first record by _processed_at on flight_id basis
-         (SELECT * FROM candidate_flights_tb
-         QUALIFY ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY _processed_at DESC) = 1 ORDER BY time_start DESC),
+     summary_segments_tb
+         AS -- dedupe candidate segments; take first record by _processed_at on (flight_id, time_start) basis
+         (SELECT *
+          FROM candidate_segments_tb
+          QUALIFY ROW_NUMBER() OVER (PARTITION BY seg_id ORDER BY _processed_at DESC) = 1),
+     summary_flights_tb AS -- dedupe candidate flights; take first record by _processed_at on flight_id basis
+         (SELECT *
+          FROM candidate_flights_tb
+          QUALIFY ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY _processed_at DESC) = 1
+          ORDER BY time_start DESC),
      nighttime_agg_tb AS (SELECT flight_id,
                                  is_nighttime,
                                  SUM(chunk_len_km)                               AS dist_km,
