@@ -590,7 +590,7 @@ class CocipTrajectoryChunk:
             the job (list of waypoints) passed to the trajectory worker, w/ flightinfo metadata
         zarr_uri
             the identifier specifying the model run at time of the zarr store used in running cocip
-            e.g. `2024041506`
+            e.g. `ERA5/202404-202405`
         result
             the model result from running the cocip trajectory model
         """

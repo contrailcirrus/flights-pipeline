@@ -81,7 +81,7 @@ def run(
         if job.met_source == schemas.WaypointsRecord.MetSource.HRES:
             fq_zarr_uri = f"HRES/{trajectory_cocip_handler.zarr_uri}"
         elif job.met_source == schemas.WaypointsRecord.MetSource.ERA5:
-            fq_zarr_uri = f"ERA5/{','.join(trajectory_cocip_handler.zarr_uri)}"
+            fq_zarr_uri = f"ERA5/{'-'.join(trajectory_cocip_handler.zarr_uri)}"
         else:
             raise ValueError("traj worker job met source not recognized")
 
@@ -114,7 +114,7 @@ def run(
                 source_id=message.ordering_key.split(":")[0],
                 git_sha=env.GIT_SHA,
                 input_chunk=job,
-                zarr_uri=trajectory_cocip_handler.zarr_uri,
+                zarr_uri=fq_zarr_uri,
                 result=cocip_result,
             )
             for seg in seg_outputs:
