@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "a9e4b138577a7c2bbb4f81e18af3fa010f402e03e45e69868c42b24b9a92a5fc"
+            "sha256": "9bdcc2d1b4c6c969e6c4bccc3f7278f9b0118ffd66b1f02003ff4b134f5bc660"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -519,6 +519,15 @@
             ],
             "markers": "python_version >= '3.6'",
             "version": "==1.2.1"
+        },
+        "google-cloud-bigquery": {
+            "hashes": [
+                "sha256:6265c39f9d5bdf50f11cb81a9c2a0605d285df34ac139de0d2333b1250add0ff",
+                "sha256:83a090aae16b3a687ef22e7b0a1b551e18da615b1c4855c5f312f198959e7739"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.7'",
+            "version": "==3.21.0"
         },
         "google-cloud-core": {
             "hashes": [
