@@ -18,3 +18,13 @@ At present, this is done by:
 a) the gaia cli (gaia_cli.py) in the `flight-emissions-report` service, when invoked manually by a user
 b) the daily cron (main_cron.py) in the `flight-emissions-report` service, 
 which dispatches a daily request to process a previous day's trajectories for a select list of airlines
+
+
+## Environment Variables
+The following environment variables are expected for production and development environments.
+
+| name                       |                                               description                                                |
+|:---------------------------|:--------------------------------------------------------------------------------------------------------:|
+| TWJD_CHUNK_SUBSCRIPTION_ID | fully-qualified uri for the pubsub subscription from which to dequeue trajectory worker job descriptions |
+| TRAJECTORY_CHUNK_TOPIC_ID  |       fully-qualified path for the pubsub topic to which the svc publishes trajectory worker jobs        |
+| LOG_LEVEL                  |                                log level for service in cloud environment                                |
