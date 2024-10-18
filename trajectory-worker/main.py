@@ -1,4 +1,4 @@
-"""Entrypoint for the Spire Ingest Resample Worker."""
+"""Entrypoint for the Trajectory Worker."""
 
 import sys
 
