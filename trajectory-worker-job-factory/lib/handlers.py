@@ -15,7 +15,12 @@ import google.api_core.exceptions
 import google.api_core.retry
 import google.auth
 from google.cloud import pubsub_v1, bigquery  # type: ignore
+from pycontrails import Flight
+
+from lib.exceptions import BadTrajectoryException
+from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
+from lib.schemas import SpireWaypointPositional
 
 
 @dataclass(frozen=True)
@@ -395,3 +400,291 @@ class BigQueryHandler:
         """
         with open(filename, "r") as fp:
             return fp.read()
+
+
+class HealTrajectoryHandler:
+    """
+    Takes a dataset with a single flight trajectory (single flight_id)
+    and applies a ruleset to heal quality issues with trajectories.
+    """
+
+    def __init__(self):
+        self._df: pd.DataFrame | None = None
+
+    def set(self, trajectory: pd.DataFrame):
+        """
+        Sets a target trajectory into this handler's state.
+
+        Parameters
+        ----------
+        trajectory
+            A dataset with one flight trajectory.
+            Each trajectory is identified by its flight_id.
+            Dataset must include columns matching those in the BQ table `spire_flights_raw_prod`
+        """
+        if len(trajectory) == 0:
+            raise BadTrajectoryException("flight trajectory is empty.")
+        if len(trajectory["flight_id"].unique()) > 1:
+            raise Exception(
+                "dataset passed to handler must be for a single flight instance ("
+                "flight_id)."
+            )
+        self._df = trajectory.copy(deep=True)
+
+    def unset(self):
+        """
+        Pops a trajectory from this handler's state.
+        """
+        self._df = None
+
+    @staticmethod
+    def _get_priority_map(df: pd.DataFrame, cols: list) -> dict:
+        """
+        Given a dataframe and list of columns,
+        return a mapping of the column name to the value of highest count in the column.
+
+        Parameters
+        ----------
+        df
+            A pandas dataframe
+        cols
+            Names of columns for evaluation. e.g. col=["callsign", "airline_iata"]
+
+        Returns
+        ----------
+        A dict with mapping of cols to value of highest count
+        e.g.
+        {"callsign": None, "airline_iata": AA}
+        """
+
+        resp = {}
+        for col in cols:
+            prio_val = key_max_value_count(df, col)
+            resp.update({col: prio_val})
+        return resp
+
+    @staticmethod
+    def _dataframe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Attempt to convert types for each dataframe column to expected type.
+        Implicitly also checks for existence of expected columns.
+        """
+        cols = {
+            "icao_address": str,
+            "flight_id": str,
+            "callsign": str,
+            "tail_number": str,
+            "flight_number": str,
+            "aircraft_type_icao": str,
+            "airline_iata": str,
+            "departure_airport_icao": str,
+            "departure_scheduled_time": "datetime64[ns, UTC]",
+            "arrival_airport_icao": str,
+            "arrival_scheduled_time": "datetime64[ns, UTC]",
+            "ingestion_time": "datetime64[ns, UTC]",
+            "timestamp": "datetime64[ns, UTC]",
+            "latitude": float,
+            "longitude": float,
+            "collection_type": str,
+            "altitude_baro": int,
+        }
+        return df.astype(cols)
+
+    def heal(self) -> pd.DataFrame:
+        """
+        Manipulate trajectories with qaqc heuristics.
+
+        Returns
+        -------
+        Dataset mirroring initiated dataset, with manipulations applied.
+        """
+
+        try:
+            self._df = self._dataframe_convert_types(self._df)
+            self._df.replace("nan", None, inplace=True)
+        except KeyError as e:
+            raise KeyError(
+                "flight trajectory dataframe is missing an expected column."
+            ) from e
+
+        # --------------
+        # update dataset so the following target keys are uniform/distinct for a given flight
+        # --------------
+        target_cols = [
+            "callsign",
+            "flight_number",
+            "arrival_airport_icao",
+            "departure_airport_icao",
+            "airline_iata",
+        ]
+
+        priority_values = self._get_priority_map(self._df, target_cols)
+
+        # fill any null values with our priority values
+        for col, val in priority_values.items():
+            if val:
+                self._df[col] = self._df[col].fillna(val)
+
+        # drop any rows where our column values don't match the priority value
+        for col, val in priority_values.items():
+            if val:
+                keep_filter = self._df[col] == val
+                self._df = self._df[keep_filter]
+
+        self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+        self._df.reset_index(drop=True, inplace=True)
+        if len(self._df) == 0:
+            raise BadTrajectoryException("flight trajectory is empty.")
+        return self._df
+
+
+class ResampleHandler:
+    """
+    Handles interpolation & data model coercing for a sequence of waypoints for a flight instance.
+    This handler takes:
+     (A) a sample of waypoints within a closed time window, and
+     (B) 1 or 2 waypoints** at some time prior to (A) (cached waypoints)
+         (**these are the waypoints from the right-hand-side of the previous window)
+
+     BB......................A.AA.AAA
+
+    Work includes:
+    - intra-window interpolation; i.e. interpolation within the window (A)
+    - inter-window interpolation; i.e. backward interpolation between A_0 and B
+    """
+
+    FLIGHT_LEVELS = [
+        200,
+        210,
+        220,
+        230,
+        240,
+        250,
+        260,
+        270,
+        280,
+        290,
+        300,
+        310,
+        320,
+        330,
+        340,
+        350,
+        360,
+        370,
+        380,
+        390,
+        400,
+        410,
+        420,
+        430,
+        440,
+    ]
+
+    def __init__(self):
+        self._min_records_ts: pd.Timestamp | None = None
+        self._waypoints_df: pd.DataFrame | None = None
+        self._waypoints_df_resampled: pd.DataFrame | None = None
+
+    def set(self, records_window: list[SpireWaypointPositional]):
+        """
+        sets the following into this handler's state:
+        - _min_records_ts
+        - _waypoints_df
+        """
+        df_records = pd.DataFrame(records_window)
+        df_records.rename(
+            columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True
+        )
+        df_records["time"] = pd.to_datetime(df_records["time"]).apply(
+            lambda r: r.tz_localize(None)
+        )
+
+        if df_records["time"].duplicated().sum():
+            df_records.drop_duplicates(["time"], inplace=True)
+
+        self._min_records_ts = df_records["time"].min()
+        self._waypoints_df = df_records
+
+    def unset(self):
+        """
+        pops the following from this handler's state:
+        - _waypoints_df_resampled
+        - _min_records_ts
+        - _waypoints_df
+        """
+        self._min_records_ts = None
+        self._waypoints_df = None
+        self._waypoints_df_resampled = None
+
+    def interpolate(self):
+        """
+        Run minute interpolation within the records time window, and backwards between
+        the first index of the records time window and the cached waypoints.
+        """
+        pyc_flight = Flight(self._waypoints_df)
+        flight_resampled: pd.DataFrame = pyc_flight.resample_and_fill().dataframe
+
+        # add imputation flags
+        # TODO add heuristics to appropriately apply imputation flag for full-trajectory resampling
+        flight_resampled["imputed"] = False
+
+        # compute the altitude_ft from altitude (note: pycontrails Flight operates on altitude [m])
+        flight_resampled.loc[:, "altitude_ft"] = (
+            flight_resampled["altitude"] * 3.28
+        ).astype(int)
+
+        flight_resampled["flight_level"] = flight_resampled["altitude_ft"].apply(
+            self.altitude_ft_to_flight_level
+        )
+
+        # flight_resampled at this point will include minute data
+        # the first row will match what was pulled from cache
+        # the last row will have a timestamp that is the bottom of the minute
+        # for the right-most minutes data in the spire waypoints record window ingested from pubsub
+        # -------------------
+
+        # Cleanup
+        flight_resampled.drop(columns=["altitude"], inplace=True)
+
+        self._waypoints_df_resampled = flight_resampled
+        return self
+
+    @property
+    def waypoints_resampled(self) -> list[SpireWaypointPositional]:
+        """
+        Returns
+        -------
+        List of SpireWaypointPositional objects, representing the resampled waypoints
+        between the cached waypoints and the records waypoints passed to this handler.
+        """
+        if not isinstance(self._waypoints_df_resampled, pd.DataFrame):
+            raise ValueError(
+                "interpolate() must be run before fetching the resampled waypoints."
+            )
+
+        waypoints: list[SpireWaypointPositional] = []
+        for _, r in self._waypoints_df_resampled.iterrows():
+            wp = SpireWaypointPositional(
+                ingestion_time=None,
+                timestamp=r["time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                latitude=r["latitude"],
+                longitude=r["longitude"],
+                collection_type=None,
+                altitude_baro=r["altitude_ft"],
+                imputed=r["imputed"],
+                flight_level=r["flight_level"],
+            )
+            waypoints.append(wp)
+        return waypoints
+
+    @classmethod
+    def altitude_ft_to_flight_level(cls, alt_ft: int):
+        """
+        Converts altitude in feet MSL to flight level (100s of ft), snapped to the nearest level.
+        """
+        if alt_ft < (cls.FLIGHT_LEVELS[0] * 100) - 500:
+            return -999
+        diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
+        min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
+        return cls.FLIGHT_LEVELS[min_ix]

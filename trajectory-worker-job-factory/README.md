@@ -37,7 +37,20 @@ tjwd = TrajectoryWorkerJobDescriptor(
 This TJWD tells this service to compose and submit a single trajectory worker job, for a single `flight_id`.
 Here, `day` should indicate the day (UTC) on which the flight originates.
 
-** (2) build a trajectory worker job for all flights belonging to an airline, on a given day **
+** (2) build trajectory worker jobs for all flights belonging to an icao address, on a given day **
+```python
+tjwd = TrajectoryWorkerJobDescriptor(
+    day="2024-10-12",
+    icao_address="013D4E",
+    met_source=MetSource.HRES,
+)
+```
+This TJWD tells this service to compose and submit multiple trajectory worker jobs
+(if multiple flights exist for a given aircraft originating on the same day)
+where each job is a flight instance belonging to an aircraft (`icao_address`) and where the
+flight instances all originate (UTC) on a given `day`.
+
+** (3) build trajectory worker jobs for all flights belonging to an airline, on a given day **
 ```python
 tjwd = TrajectoryWorkerJobDescriptor(
     day="2024-10-12",
@@ -66,6 +79,9 @@ A TJWD that targets a single flight instance (`flight_id`), in contrast, has a m
 (if the service fails on this flavor of TJWD, it is only retrying submission for a single flight instance).
 In contrast to the above, however, we have one query to BQ per flight instance, each query being billed
 as a day's scan of the BQ table, thus we incurr higher BQ costs.
+
+A TJWD that targets multiple flight instances occuring on the same day for a given aircraft (`icao_address`)
+falls between the two above cases (closer to the `flight_id` case...) w.r.t. BQ billing and failure blast radius.
 ```
 
 ## Environment Variables

@@ -7,6 +7,8 @@ from lib.handlers import (
     PubSubSubscriptionHandler,
     PubSubPublishHandler,
     BigQueryHandler,
+    HealTrajectoryHandler,
+    ResampleHandler,
 )
 from lib.schemas import (
     TrajectoryWorkerJobDescriptor,
@@ -14,7 +16,7 @@ from lib.schemas import (
 from lib.services import TrajectoryBuilderSvc
 from lib.utils import SigtermHandler
 from lib.log import logger, format_traceback
-
+from lib.exceptions import PermanentFailureException
 import lib.environment as env
 
 
@@ -36,7 +38,19 @@ def run(
             8
         )  # useful for keying in logs
         logger.info(f"got TJWD {job_hash}: {job.as_utf8_json}")
-        job_builder_svc.run(job)
+
+        try:
+            job_builder_svc.run(job)
+        except PermanentFailureException as e:
+            # ack message; avoid pubsub redelivery
+            logger.error(f"permanently failed to process TJWD. ack'ing msg: {e}")
+            input_job_handler.ack(message)
+            continue
+        except Exception as e:
+            # nack message; expect pubsub to retry
+            logger.error(f"failed to proces TJWD. nack'ing msg: {e}")
+            input_job_handler.nack(message)
+            continue
 
         input_job_handler.ack(message)
         logger.info(f"successfully processed TJWD {job_hash}: {job.as_utf8_json()}")
@@ -52,12 +66,16 @@ if __name__ == "__main__":
         sigterm_handler = SigtermHandler()
 
         bq_handler = BigQueryHandler()
+        heal_traj_handler = HealTrajectoryHandler()
+        resample_handler = ResampleHandler()
         output_job_handler = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
             ordered_queue=False,
         )
         job_builder_svc = TrajectoryBuilderSvc(
             bq_handler=bq_handler,
+            heal_traj_handler=heal_traj_handler,
+            resample_handler=resample_handler,
             job_out_handler=output_job_handler,
         )
 
