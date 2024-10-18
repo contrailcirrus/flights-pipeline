@@ -328,16 +328,17 @@ class FlightInfoWide(SpireFlightInfo):
     engine_uid: str | None  # icao edb engine uid identifier
 
 
+class MetSource(str, Enum):
+    HRES = "hres"
+    ERA5 = "era5"
+
+
 @dataclass
 class WaypointsRecord:
     """
     A representation of a series of waypoints and flight metadata,
     expanded and generalized from the SpireWaypointsRecord.
     """
-
-    class MetSource(str, Enum):
-        HRES = "hres"
-        ERA5 = "era5"
 
     flight_info: FlightInfoWide
     records: list[SpireWaypointPositional]
@@ -359,7 +360,7 @@ class WaypointsRecord:
         return WaypointsRecord(
             flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
-            met_source=WaypointsRecord.MetSource(json.loads(blob)["met_source"]),
+            met_source=MetSource(json.loads(blob)["met_source"]),
             export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
 

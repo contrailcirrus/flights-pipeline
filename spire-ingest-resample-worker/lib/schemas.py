@@ -82,6 +82,7 @@ class SpireFlightInfo:
     arrival_airport_icao: str | None  # e.g. LFPG
     # arrival_airport_iata: str  # e.g. CDG
     arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
+
     # arrival_estimated_time: str  # e.g. 2024-03-01T17:45:00Z
 
     def as_utf8_json(self) -> bytes:
@@ -328,16 +329,17 @@ class FlightInfoWide(SpireFlightInfo):
     engine_uid: str | None  # icao edb engine uid identifier
 
 
+class MetSource(str, Enum):
+    HRES = "hres"
+    ERA5 = "era5"
+
+
 @dataclass
 class WaypointsRecord:
     """
     A representation of a series of waypoints and flight metadata,
     expanded and generalized from the SpireWaypointsRecord.
     """
-
-    class MetSource(str, Enum):
-        HRES = "hres"
-        ERA5 = "era5"
 
     flight_info: FlightInfoWide
     records: list[SpireWaypointPositional]
@@ -359,7 +361,7 @@ class WaypointsRecord:
         return WaypointsRecord(
             flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
             records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
-            met_source=WaypointsRecord.MetSource(json.loads(blob)["met_source"]),
+            met_source=MetSource(json.loads(blob)["met_source"]),
             export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
 
