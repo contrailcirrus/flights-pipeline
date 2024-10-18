@@ -7,7 +7,7 @@ Required environment variables should be imported first, followed by optional en
 
 import os
 
-TRAJECTORY_CHUNK_SUBSCRIPTION_ID = os.environ["TWJD_SUBSCRIPTION_ID"]
+TWJD_SUBSCRIPTION_ID = os.environ["TWJD_SUBSCRIPTION_ID"]
 TRAJECTORY_CHUNK_TOPIC_ID = os.environ[
     "TRAJECTORY_CHUNK_TOPIC_ID"
 ]  # trajectory worker job queue
