@@ -50,6 +50,14 @@ resource "google_pubsub_topic" "dev_trajectory_worker_cocip_egress_bigquery_dead
   name = "dev-fp-trajectory-worker-cocip-egress-bigquery-dead-letter"
 }
 
+resource "google_pubsub_topic" "dev_twjd_ingress" {
+  name = "dev-fp-twjd-ingress"
+}
+
+resource "google_pubsub_topic" "dev_twjd_ingress_dead_letter" {
+  name = "dev-fp-twjd-ingress-dead-letter"
+}
+
 # --------------
 # SUBSCRIPTIONS
 # --------------
@@ -312,5 +320,48 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_cocip_bigquery_dead
 
   depends_on = [
     google_pubsub_topic.dev_trajectory_worker_cocip_egress_bigquery_dead_letter,
+  ]
+}
+
+resource "google_pubsub_subscription" "dev_twjd_ingress" {
+  name = "dev-fp-twjd-ingress"
+  topic = google_pubsub_topic.dev_twjd_ingress.id
+
+  ack_deadline_seconds         = 60
+  enable_message_ordering      = false
+  enable_exactly_once_delivery = false
+  message_retention_duration = "86400s"  # 1 day
+
+  dead_letter_policy {
+    max_delivery_attempts = 5
+    dead_letter_topic = google_pubsub_topic.dev_twjd_ingress_dead_letter.id
+  }
+
+  retry_policy {
+    minimum_backoff = "1s"
+    maximum_backoff = "2s"
+  }
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.dev_twjd_ingress,
+    google_pubsub_topic.dev_twjd_ingress_dead_letter,
+  ]
+}
+
+resource "google_pubsub_subscription" "dev_twjd_ingress_dead_letter" {
+  name  = "dev-fp-twjd-ingress-dead-letter"
+  topic = google_pubsub_topic.dev_twjd_ingress_dead_letter.id
+  message_retention_duration = "86400s"  # 1 day
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.dev_twjd_ingress_dead_letter,
   ]
 }
