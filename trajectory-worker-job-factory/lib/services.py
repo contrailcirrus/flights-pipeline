@@ -124,7 +124,7 @@ class TrajectoryBuilderSvc:
         td = pd.Timestamp.now(tz="UTC") - pd.Timestamp(day, tz="UTC")
         if td < pd.Timedelta(days=1):
             raise InvalidQueryException("flight day must be at least 1 day in the past")
-        next_day = (pd.Timestamp(self.day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
         query = self._bq_handler.import_query(self.FLIGHT_ID_QUERY_FILENAME)
         cfg = bigquery.QueryJobConfig(

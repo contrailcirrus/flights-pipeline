@@ -1079,8 +1079,10 @@ class TrajectoryWorkerJobDescriptor:
         return TrajectoryWorkerJobDescriptor(
             day=json.loads(blob)["day"],
             met_source=MetSource(json.loads(blob)["met_source"]),
+            full_traj=json.loads(blob)["full_traj"],
             airline_iata=json.loads(blob)["airline_iata"],
             flight_id=json.loads(blob)["flight_id"],
+            icao_address=json.loads(blob)["icao_address"],
         )
 
     def as_utf8_json(self) -> bytes:
