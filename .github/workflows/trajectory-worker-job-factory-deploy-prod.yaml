@@ -1,0 +1,64 @@
+name: trajectory-worker-job-factory-deploy-prod
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - trajectory-worker-job-factory/**
+      - .github/workflows/trajectory-worker-job-factory-deploy-prod.yaml
+
+# avoid possible race condition on multiple merges
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up GCP auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up gcloud plugins
+        run: gcloud components install gke-gcloud-auth-plugin
+
+      - name: Authorize kubectl CLI
+        run: gcloud container clusters get-credentials contrails-gke-general --region us-east1
+
+      - name: Authorize docker CLI
+        run: gcloud auth configure-docker us-east1-docker.pkg.dev
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: trajectory-worker-job-factory/
+          push: true
+          tags: |
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-prod:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-prod:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy helm resources
+        working-directory: trajectory-worker-job-factory/helm
+        run: make deploy
+        env:
+          NAMESPACE: flights-pipeline-prod
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-prod:${{ github.sha }}
+          LOG_LEVEL: INFO
+          TWJD_SUBSCRIPTION_ID: projects/contrails-301217/topics/prod-fp-twjd-ingress
+          TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/prod-fp-resample-worker-trajectory-chunk-egress

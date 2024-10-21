@@ -1,0 +1,10 @@
+# image is the docker image uri to be deployed including the image tag
+image:
+
+# logLevel is the python-named minimum level to emit logs
+logLevel:
+
+twjdSubscriptionId:
+
+trajectoryChunkTopicId:
+

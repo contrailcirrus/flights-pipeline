@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trajectory-worker-job-factory
+  labels:
+    app: trajectory-worker-job-factory
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trajectory-worker-job-factory
+  template:
+    metadata:
+      labels:
+        app: trajectory-worker-job-factory
+    spec:
+      serviceAccountName: flights-pipeline-default-sa
+      # terminationGracePeriodSeconds should be greater than the time to
+      # perform a single job iteration. When a SIGTERM is received, the job
+      # has this much time to gracefully exit before being killed.
+      terminationGracePeriodSeconds: 600
+#      nodeSelector:
+#        cloud.google.com/compute-class: "Scale-Out"
+      containers:
+      - name: trajectory-worker-job-factory
+        image: {{ .Values.image | required ".Values.image is required" | quote }}
+        env:
+          - name: TWJD_SUBSCRIPTION_ID
+            value: {{ .Values.twjdSubscriptionId | required ".Values.twjdSubscriptionId is required" | quote }}
+          - name: TRAJECTORY_CHUNK_TOPIC_ID
+            value: {{ .Values.trajectoryChunkTopicId | required ".Values.trajectoryChunkTopicId is required" | quote }}
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
+        resources:
+          limits:
+            cpu: "0.75"
+            memory: "3Gi"
+          requests:
+            cpu: "0.75"
+            memory: "3Gi"

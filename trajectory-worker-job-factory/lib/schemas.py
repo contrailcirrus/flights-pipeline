@@ -15,7 +15,7 @@ from astral.sun import sun
 import numpy as np
 import pycontrails.core
 
-from lib.log import logger
+from log import logger
 
 tf = TimezoneFinder()
 
@@ -82,6 +82,7 @@ class SpireFlightInfo:
     arrival_airport_icao: str | None  # e.g. LFPG
     # arrival_airport_iata: str  # e.g. CDG
     arrival_scheduled_time: str | None  # e.g. 2024-03-01T17:40:00Z
+
     # arrival_estimated_time: str  # e.g. 2024-03-01T17:45:00Z
 
     def as_utf8_json(self) -> bytes:
@@ -591,7 +592,7 @@ class CocipTrajectoryChunk:
             the job (list of waypoints) passed to the trajectory worker, w/ flightinfo metadata
         zarr_uri
             the identifier specifying the model run at time of the zarr store used in running cocip
-            e.g. `ERA5/202404-202405`
+            e.g. `2024041506`
         result
             the model result from running the cocip trajectory model
         """
@@ -1054,3 +1055,65 @@ class CocipTrajectoryChunk:
             "arrival_scheduled_time": iso_to_microseconds(self.arrival_scheduled_time),
         }
         return json.dumps(blob).encode("utf-8")
+
+
+@dataclass
+class TrajectoryWorkerJobDescriptor:
+    """
+    A unit of work with instructions for how
+    to compose/build a trajectory worker job (WaypointsRecord).
+    """
+
+    day: str  # "%Y-%m-%d"
+    met_source: MetSource
+    full_traj: bool  # export per-seg cocip to bq
+    airline_iata: str | None = None
+    flight_id: str | None = None
+    icao_address: str | None = None
+
+    @staticmethod
+    def from_utf8_json(blob: bytes):
+        """
+        Takes a utf8 json blob and marshals to an instance of this class.
+        """
+        return TrajectoryWorkerJobDescriptor(
+            day=json.loads(blob)["day"],
+            met_source=MetSource(json.loads(blob)["met_source"]),
+            full_traj=json.loads(blob)["full_traj"],
+            airline_iata=json.loads(blob)["airline_iata"],
+            flight_id=json.loads(blob)["flight_id"],
+            icao_address=json.loads(blob)["icao_address"],
+        )
+
+    def as_utf8_json(self) -> bytes:
+        """
+        Builds a utf-8 encoded JSON blob from the class' attributes.
+        """
+        js = json.dumps(asdict(self))
+        return js.encode("utf-8")
+
+    def validate(self):
+        """
+        Check that the TJWD describes a valid job.
+        """
+        # caller must provide ONE OF the following sets of flags
+        valid_arg_combos = {
+            (self.day, self.airline_iata, self.met_source),
+            (self.day, self.flight_id, self.met_source),
+            (self.day, self.icao_address, self.met_source),
+        }
+        is_valid = sum([all(itm) for itm in valid_arg_combos]) == 1
+
+        if not is_valid:
+            raise ValueError(
+                "TJWD not valid. Must provide only one of ("
+                "1) flight_id, or (2) icao_address, or (3) airline_iata"
+            )
+
+        if self.met_source not in MetSource:
+            raise ValueError(
+                f"TJWD not valid. met_source must be one of {[i.value for i in MetSource]}"
+            )
+
+        # verify datestr parsing w/o exc
+        _ = datetime.strptime(self.day, "%Y-%m-%d")

@@ -66,8 +66,13 @@ class FlightsSubmitSvc(BaseSvc):
             expected to contain members:
             - airline
             - day
+            - flight_id
+            - icao_address
+            - met_data_src
             - dryrun
             - verbose
+            - export_waypoints
+            - full_traj
         """
         self._airline = input.airline
         self._day = input.day
@@ -313,9 +318,9 @@ class FlightsSubmitSvc(BaseSvc):
             resample_handler = ResampleHandler(records_window=records)
             resample_handler.interpolate()
 
-            waypoints_resampled: list[SpireWaypointPositional] = (
-                resample_handler.waypoints_resampled
-            )
+            waypoints_resampled: list[
+                SpireWaypointPositional
+            ] = resample_handler.waypoints_resampled
 
             job = WaypointsRecord(
                 flight_info=flight_info,
@@ -747,9 +752,9 @@ class FlightsReportFetchSvc(BaseSvc):
             ar_airport_icao = key_max_value_count(df, "arrival_airport_icao")
             flight_number = key_max_value_count(df, "flight_number")
             ts_local_date = df["time_start_local_date"].min()
-            df.loc[:, "google_flight_id"] = (
-                f"{int(ts_local_date.timestamp())}_{dep_airport_icao}_{ar_airport_icao}_{flight_number[2:] if flight_number else None}"
-            )
+            df.loc[
+                :, "google_flight_id"
+            ] = f"{int(ts_local_date.timestamp())}_{dep_airport_icao}_{ar_airport_icao}_{flight_number[2:] if flight_number else None}"
         else:
             df.loc[:, "google_flight_id"] = df.apply(
                 lambda row: f"{int(row['time_start_local_date'].timestamp())}_"
@@ -847,9 +852,9 @@ class FlightsReportFetchSvc(BaseSvc):
                 df.reset_index(inplace=True, drop=True)
                 df = self.augment_summary_df(df)
                 # add in google sat detection, if available
-                df["goog_is_attributed"] = (
-                    False  # flight segment has google sat attribution
-                )
+                df[
+                    "goog_is_attributed"
+                ] = False  # flight segment has google sat attribution
                 if self._goog_handler:
                     df_goog_fid = df["google_flight_id"].unique()
                     if len(df_goog_fid) > 1:
