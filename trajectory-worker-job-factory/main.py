@@ -70,7 +70,7 @@ if __name__ == "__main__":
         resample_handler = ResampleHandler()
         output_job_handler = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
-            ordered_queue=False,
+            ordered_queue=True,
         )
         job_builder_svc = TrajectoryBuilderSvc(
             bq_handler=bq_handler,

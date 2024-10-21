@@ -9,7 +9,7 @@ import os
 
 os.environ["TWJD_SUBSCRIPTION_ID"] = "foobar"
 os.environ["TRAJECTORY_CHUNK_TOPIC_ID"] = (
-    "projects/contrails-301217/subscriptions/prod-fp-trajectory-worker-gaia-chunk-ingress"
+    "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
 )
 os.environ["LOG_LEVEL"] = "INFO"
 
@@ -53,7 +53,7 @@ class TrajectoryBuilderSvcWrapper:
             resample_handler=ResampleHandler(),
             job_out_handler=PubSubPublishHandler(
                 topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
-                ordered_queue=False,
+                ordered_queue=True,
             ),
         )
         print(f"🚀 Running flights for: {self._twjd}")
