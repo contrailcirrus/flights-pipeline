@@ -12,7 +12,7 @@ from datetime import datetime, UTC, timedelta
 import sys
 
 from log import logger, format_traceback
-from services import FlightsSubmitSvc
+from services import JobWorkerSubmitSvc
 from argparse import Namespace
 import environment as env
 
@@ -23,7 +23,7 @@ import environment as env
 
 if not env.TRAJECTORY_WORKER_TOPIC:
     raise ValueError("TRAJECTORY_WORKER_TOPIC must be set in env vars.")
-FlightsSubmitSvc.TRAJECTORY_WORKER_TOPIC = env.TRAJECTORY_WORKER_TOPIC
+JobWorkerSubmitSvc.TRAJECTORY_WORKER_TOPIC = env.TRAJECTORY_WORKER_TOPIC
 
 
 @dataclass
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         for target_kwarg in DAILY_TARGETS:
             logger.info(f"submitting flights for {target_kwarg} on {target_dtstr}")
             args = Input(day=target_dtstr, met_data_src="hres", **target_kwarg)
-            svc = FlightsSubmitSvc(Namespace(**asdict(args)))
+            svc = JobWorkerSubmitSvc(Namespace(**asdict(args)))
             svc.run()
     except Exception:
         logger.error("Unhandled exception:" + format_traceback())

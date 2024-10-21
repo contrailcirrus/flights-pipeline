@@ -7,7 +7,7 @@ and aggregating the resulting values into a report.
 """
 
 import argparse
-from services import FlightsSubmitSvc, FlightsReportFetchSvc, FlightsReinjectSvc
+from services import JobWorkerSubmitSvc, FlightsReportFetchSvc, FlightsReinjectSvc
 
 
 parser = argparse.ArgumentParser(prog="fer-cli")
@@ -16,12 +16,10 @@ subparser = parser.add_subparsers()
 # --------------
 # FLIGHTS SUBMIT parser
 # --------------
-flights_parser = subparser.add_parser("flights")
+flights_parser = subparser.add_parser("jobworker")
 flights_subparser = flights_parser.add_subparsers()
 flights_submit_parser = flights_subparser.add_parser("submit")
 
-# must provide either airline & day, or flight_id
-# we enforce these required combinations of flags in our svc code, not here
 flights_submit_parser.add_argument(
     "-a",
     "--airline",
@@ -58,34 +56,13 @@ flights_submit_parser.add_argument(
     dest="met_data_src",
 )
 flights_submit_parser.add_argument(
-    "-e",
-    "--export-waypoints",
-    action="store_true",
-    help="exports (to file) resampled trajectory waypoints",
-    dest="export_waypoints",
-)
-flights_submit_parser.add_argument(
     "-t",
     "--full-traj",
     action="store_true",
     help="write the per-segment values to BQ",
     dest="full_traj",
 )
-flights_submit_parser.add_argument(
-    "-r",
-    "--dry-run",
-    action="store_true",
-    help="fetches records and build trajectory, but does not submit for processing",
-    dest="dryrun",
-)
-flights_submit_parser.add_argument(
-    "-v",
-    "--verbose",
-    action="store_true",
-    help="verbose printout",
-    dest="verbose",
-)
-flights_submit_parser.set_defaults(func=FlightsSubmitSvc)
+flights_submit_parser.set_defaults(func=JobWorkerSubmitSvc)
 
 # --------------
 # FLIGHTS REINJECT parser
