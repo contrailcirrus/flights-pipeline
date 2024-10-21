@@ -40,7 +40,7 @@ def run(
         logger.info(f"got TJWD {job_hash}: {job.as_utf8_json}")
 
         try:
-            job_builder_svc.run(job)
+            job_builder_svc.run(twjd=job)
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
             logger.error(f"permanently failed to process TJWD. ack'ing msg: {e}")
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         resample_handler = ResampleHandler()
         output_job_handler = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
-            ordered_queue=False,
+            ordered_queue=True,
         )
         job_builder_svc = TrajectoryBuilderSvc(
             bq_handler=bq_handler,

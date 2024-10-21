@@ -15,7 +15,7 @@ from astral.sun import sun
 import numpy as np
 import pycontrails.core
 
-from log import logger
+from lib.log import logger
 
 tf = TimezoneFinder()
 
@@ -1070,6 +1070,8 @@ class TrajectoryWorkerJobDescriptor:
     airline_iata: str | None = None
     flight_id: str | None = None
     icao_address: str | None = None
+    dry_run: bool = False  # cli (local) use only
+    export_waypoints: bool = False  # cli (local) use only
 
     @staticmethod
     def from_utf8_json(blob: bytes):
@@ -1083,6 +1085,8 @@ class TrajectoryWorkerJobDescriptor:
             airline_iata=json.loads(blob)["airline_iata"],
             flight_id=json.loads(blob)["flight_id"],
             icao_address=json.loads(blob)["icao_address"],
+            dry_run=json.loads(blob)["dry_run"],
+            export_waypoints=json.loads(blob)["export_waypoints"],
         )
 
     def as_utf8_json(self) -> bytes:
