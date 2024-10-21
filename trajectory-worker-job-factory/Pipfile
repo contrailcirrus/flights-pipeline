@@ -11,7 +11,6 @@ google-cloud-bigquery = "==3.21.0"
 google-cloud-pubsub = "==2.19.7"
 pandas = "==2.2.2"
 pycontrails = "==0.53.0"
-pycontrails-bada = {ref = "v0.5.3", git = "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git"}
 timezonefinder = "==6.5.2"
 zarr = "==2.18.3"
 

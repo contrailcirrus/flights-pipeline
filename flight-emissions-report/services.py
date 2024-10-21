@@ -25,7 +25,7 @@ from handlers import (
     GoogDatasetHandler,
 )
 
-from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord
+from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord, MetSource
 from log import logger
 from helpers import lookup_airport_icao_to_iata
 
@@ -105,9 +105,9 @@ class FlightsSubmitSvc(BaseSvc):
                 "(3) --icao-address & --day & --met-data-src"
             )
 
-        if self._met_data_src not in WaypointsRecord.MetSource:
+        if self._met_data_src not in MetSource:
             raise ValueError(
-                f"--met-data-src must be one of {[i.value for i in WaypointsRecord.MetSource]}"
+                f"--met-data-src must be one of {[i.value for i in MetSource]}"
             )
 
     def _fetch_airline_day(self) -> (pd.DataFrame, pd.DataFrame):
@@ -318,14 +318,14 @@ class FlightsSubmitSvc(BaseSvc):
             resample_handler = ResampleHandler(records_window=records)
             resample_handler.interpolate()
 
-            waypoints_resampled: list[
-                SpireWaypointPositional
-            ] = resample_handler.waypoints_resampled
+            waypoints_resampled: list[SpireWaypointPositional] = (
+                resample_handler.waypoints_resampled
+            )
 
             job = WaypointsRecord(
                 flight_info=flight_info,
                 records=waypoints_resampled,
-                met_source=WaypointsRecord.MetSource(self._met_data_src),
+                met_source=MetSource(self._met_data_src),
                 export_cocip_trajectory=self._full_traj,
             )
 
@@ -551,9 +551,9 @@ class FlightsReportFetchSvc(BaseSvc):
         else:
             self._goog_handler = None
 
-        if self._met_data_src not in WaypointsRecord.MetSource:
+        if self._met_data_src not in MetSource:
             raise ValueError(
-                f"--met-data-src must be one of {[i.value for i in WaypointsRecord.MetSource]}"
+                f"--met-data-src must be one of {[i.value for i in MetSource]}"
             )
 
     @staticmethod
@@ -752,9 +752,9 @@ class FlightsReportFetchSvc(BaseSvc):
             ar_airport_icao = key_max_value_count(df, "arrival_airport_icao")
             flight_number = key_max_value_count(df, "flight_number")
             ts_local_date = df["time_start_local_date"].min()
-            df.loc[
-                :, "google_flight_id"
-            ] = f"{int(ts_local_date.timestamp())}_{dep_airport_icao}_{ar_airport_icao}_{flight_number[2:] if flight_number else None}"
+            df.loc[:, "google_flight_id"] = (
+                f"{int(ts_local_date.timestamp())}_{dep_airport_icao}_{ar_airport_icao}_{flight_number[2:] if flight_number else None}"
+            )
         else:
             df.loc[:, "google_flight_id"] = df.apply(
                 lambda row: f"{int(row['time_start_local_date'].timestamp())}_"
@@ -772,13 +772,13 @@ class FlightsReportFetchSvc(BaseSvc):
             f"case study flight_ids: {self._case_study_fids}"
         )
 
-        if self._met_data_src == WaypointsRecord.MetSource.HRES:
+        if self._met_data_src == MetSource.HRES:
             # note: we retain `2%` as a valid match for HRES
             # to support traj outputs that were generated prior to the introduction of ERA5
             # previously, zarr_uri in the BQ table was always `%Y%m%d%H`
             # now, zarr_uri is `HRES/%Y%m%d%H` or `ERA5/%Y%m%d%H`
             met_src_str_match = ["HRES/%", "2%"]
-        elif self._met_data_src == WaypointsRecord.MetSource.ERA5:
+        elif self._met_data_src == MetSource.ERA5:
             met_src_str_match = ["ERA5/%"]
 
         summary_query = self._bq_handler.import_query(self.REPORT_QUERY_FILENAME)
@@ -852,9 +852,9 @@ class FlightsReportFetchSvc(BaseSvc):
                 df.reset_index(inplace=True, drop=True)
                 df = self.augment_summary_df(df)
                 # add in google sat detection, if available
-                df[
-                    "goog_is_attributed"
-                ] = False  # flight segment has google sat attribution
+                df["goog_is_attributed"] = (
+                    False  # flight segment has google sat attribution
+                )
                 if self._goog_handler:
                     df_goog_fid = df["google_flight_id"].unique()
                     if len(df_goog_fid) > 1:
