@@ -71,7 +71,10 @@ if __name__ == "__main__":
         now = datetime.now(tz=UTC)
         now_less_two_days = now - timedelta(days=2)
         target_dtstr = now_less_two_days.strftime("%Y-%m-%d")
-        for target_kwarg in DAILY_TARGETS:
+
+        for i in range(21, 30):
+            target_kwarg = {"airline": "NZ"}
+            target_dtstr = f"2024-09-{i:02d}"
             logger.info(f"submitting flights for {target_kwarg} on {target_dtstr}")
             args = Input(day=target_dtstr, met_data_src="hres", **target_kwarg)
             svc = FlightsSubmitSvc(Namespace(**asdict(args)))

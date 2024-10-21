@@ -40,7 +40,7 @@ def run(
         logger.info(f"got TJWD {job_hash}: {job.as_utf8_json}")
 
         try:
-            job_builder_svc.run(job)
+            job_builder_svc.run(twjd=job)
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
             logger.error(f"permanently failed to process TJWD. ack'ing msg: {e}")
