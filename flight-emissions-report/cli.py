@@ -10,7 +10,7 @@ import argparse
 from services import FlightsSubmitSvc, FlightsReportFetchSvc, FlightsReinjectSvc
 
 
-parser = argparse.ArgumentParser(prog="gaia")
+parser = argparse.ArgumentParser(prog="fer-cli")
 subparser = parser.add_subparsers()
 
 # --------------

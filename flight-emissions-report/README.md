@@ -62,14 +62,14 @@ but will _not_ publish the jobs to the job queue.
 ```bash
 # submit all flights for American Airlines that originate on Jan 12, 2024 (UTC)
 # running the trajectory model using hres met data, w/ printout verbose
-./gaia_cli.py flights submit -a AA -d 2024-01-12 -s hres -v
+./cli.py flights submit -a AA -d 2024-01-12 -s hres -v
 ```
 
 ```bash
 # submit all flights for aircraft w/ icao 3C6565 that originate on Jun 06, 2024 (UTC)
 # running the trajectory model using era5 met data,
 # telling trajectory worker to write-off both per-flight summaries, as well as per-flight-segment values
-./gaia_cli.py flights submit -c 3C6565 -d 2024-06-01 -s era5 -t
+./cli.py flights submit -c 3C6565 -d 2024-06-01 -s era5 -t
 ```
 
 ```bash
@@ -77,7 +77,7 @@ but will _not_ publish the jobs to the job queue.
 # # running the trajectory model using era5 met data, w/printout verbose
 # save CSVs for the resampled ADS-B flight trajectories to local disk
 # does NOT submit the jobs
-./gaia_cli.py flights submit -a KL -d 2024-04-02 -s era5 -e -v -r
+./cli.py flights submit -a KL -d 2024-04-02 -s era5 -e -v -r
 ```
 
 ### Job Re-injection (`flights reinject`)
@@ -97,12 +97,12 @@ Note that these messages are nack'ed, so they remain in the dead-letter queue
 
 ```bash
 # fetch up to 50 dead-lettered jobs and reinject them into the trajectory worker job queue
-./gaia_cli.py flights reinject -c 50
+./cli.py flights reinject -c 50
 ```
 
 ```bash
 # fetch a single message from the dead-letter queue, printout info on that job, but do not reinject
-./gaia_cli.py fights reinject -v -r
+./cli.py fights reinject -v -r
 ```
 
 ### Report Generation (`report fetch`)

@@ -3,7 +3,7 @@ main_cron.py
 
 Application entrypoint for cronjob automation of flight submission.
 
-Invocation of this entrypoint effectively calls `gaia_cli.py flights submit -a <A> -d <D>
+Invocation of this entrypoint effectively calls `cli.py flights submit -a <A> -d <D>
 for a list of target airlines: `A`, for two days prior from now: `d`.
 """
 
