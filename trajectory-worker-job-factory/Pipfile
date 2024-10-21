@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 astral = "==3.2"
 dask = "==2024.9.0"
+db-dtypes = "==1.2.0"
 gcsfs = "==2024.6.1"
 google-cloud-bigquery = "==3.21.0"
 google-cloud-pubsub = "==2.19.7"

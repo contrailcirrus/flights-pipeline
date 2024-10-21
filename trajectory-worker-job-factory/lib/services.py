@@ -1,3 +1,5 @@
+import dataclasses
+
 from lib.helpers import key_max_value_count
 from lib.schemas import (
     TrajectoryWorkerJobDescriptor,
@@ -30,9 +32,11 @@ class TrajectoryBuilderSvc:
     to the trajectory worker job queue.
     """
 
-    DAILY_FLIGHTS_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_airline.sql"
-    FLIGHT_ID_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_flight_id.sql"
-    ICAO_ADDRESS_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_icao_address.sql"
+    DAILY_FLIGHTS_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_airline.sql"
+    FLIGHT_ID_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_flight_id.sql"
+    ICAO_ADDRESS_QUERY_FILENAME = (
+        "lib/sql/bq_waypoints_flights_daily_by_icao_address.sql"
+    )
     # ordering key for traj worker jobs that should only export per-flight summary
     ORDERING_KEY_TEMPLATE = "flightsreport:{}"
     # ordering key for traj worker jobs that should export per-flight & per-segment summaries
@@ -330,9 +334,9 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.set(records)
                 self._resample_handler.interpolate()
 
-                waypoints_resampled: list[
-                    SpireWaypointPositional
-                ] = self._resample_handler.waypoints_resampled
+                waypoints_resampled: list[SpireWaypointPositional] = (
+                    self._resample_handler.waypoints_resampled
+                )
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
@@ -350,6 +354,24 @@ class TrajectoryBuilderSvc:
                     met_source=MetSource(twjd.met_source),
                     export_cocip_trajectory=twjd.full_traj,
                 )
+
+                if twjd.export_waypoints:
+                    # save waypoints to disk
+                    # CLI (local) use only
+                    resampled_df = pd.DataFrame(
+                        [
+                            {
+                                **dataclasses.asdict(flight_info),
+                                **dataclasses.asdict(pos),
+                            }
+                            for pos in waypoints_resampled
+                        ]
+                    )
+                    resampled_df.to_csv(
+                        f"{flight_info.airline_iata}_{flight_info.flight_id}.csv",
+                        index=False,
+                    )
+
                 if twjd.full_traj:
                     ordering_key = self.ORDERING_KEY_FULL_TRAJ_TEMPLATE.format(
                         job.flight_info.flight_id
@@ -358,11 +380,12 @@ class TrajectoryBuilderSvc:
                     ordering_key = self.ORDERING_KEY_TEMPLATE.format(
                         job.flight_info.flight_id
                     )
-                self._job_out_handler.publish_async(
-                    job.as_utf8_json(),
-                    timeout_seconds=45,
-                    ordering_key=ordering_key,
-                )
+                if not twjd.dry_run:
+                    self._job_out_handler.publish_async(
+                        job.as_utf8_json(),
+                        timeout_seconds=45,
+                        ordering_key=ordering_key,
+                    )
             except Exception as e:
                 logger.error(
                     f"failed to build and submit job for flight instance: {flight_id}. "
