@@ -33,10 +33,7 @@ class Input:
     flight_id: str | None = None
     icao_address: str | None = None
     met_data_src: str | None = None
-    dryrun: bool = False
-    verbose: bool = False
-    export_waypoints: bool = False
-    full_traj: bool = True
+    full_traj: bool = False
 
 
 DAILY_TARGETS = [
