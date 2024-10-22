@@ -1096,7 +1096,7 @@ class TrajectoryWorkerJobDescriptor:
         js = json.dumps(asdict(self))
         return js.encode("utf-8")
 
-    def validate(self):
+    def verify(self):
         """
         Check that the TJWD describes a valid job.
         """

@@ -13,11 +13,11 @@ from lib.handlers import (
     BigQueryHandler,
     HealTrajectoryHandler,
     ResampleHandler,
+    ValidateTrajectoryHandler,
 )
 from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
-    BadTrajectoryException,
 )
 
 from google.cloud import bigquery
@@ -46,11 +46,13 @@ class TrajectoryBuilderSvc:
         self,
         bq_handler: BigQueryHandler,
         heal_traj_handler: HealTrajectoryHandler,
+        validate_traj_handler: ValidateTrajectoryHandler,
         resample_handler: ResampleHandler,
         job_out_handler: PubSubPublishHandler,
     ):
         self._bq_handler = bq_handler
         self._traj_heal_handler = heal_traj_handler
+        self._validate_traj_handler = validate_traj_handler
         self._resample_handler = resample_handler
         self._job_out_handler = job_out_handler
 
@@ -212,7 +214,7 @@ class TrajectoryBuilderSvc:
         """
 
         try:
-            twjd.validate()
+            twjd.verify()
         except Exception as e:
             raise PermanentFailureException from e
 
@@ -269,16 +271,15 @@ class TrajectoryBuilderSvc:
             waypoints.fillna(value={"flight_id": flight_id}, inplace=True)
 
             # -------------
-            # apply qa/qc updates
+            # Apply common fixes to trajectory
             # -------------
-            # TODO: wire in validation handler in addition to heal handler
             try:
                 self._traj_heal_handler.set(waypoints)
                 waypoints = self._traj_heal_handler.heal()
                 self._traj_heal_handler.unset()
-            except BadTrajectoryException as e:
+            except Exception as e:
                 logger.error(
-                    f"failed to process flight_id: {flight_id} in healing step: {e}"
+                    f"skipping {flight_id}. failed to process in healing step: {e}"
                 )
                 continue
 
@@ -340,7 +341,40 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
-                    f"failed to resample flight instance: {flight_id}. error: {e}"
+                    f"skipping {flight_id}. failed to resample flight instance. error: {e}"
+                )
+                continue
+
+            resampled_df = pd.DataFrame(
+                [
+                    {
+                        **dataclasses.asdict(flight_info),
+                        **dataclasses.asdict(pos),
+                    }
+                    for pos in waypoints_resampled
+                ]
+            )
+
+            # ---------------
+            # confirm that trajectory meets acceptance criteria
+            # ---------------
+            try:
+                self._validate_traj_handler.set(resampled_df)
+                violations: None | list[Exception] = (
+                    self._validate_traj_handler.evaluate()
+                )
+                self._validate_traj_handler.unset()
+
+                if violations:
+                    logger.warning(
+                        f"skipping {flight_id}. invalid flight instance. "
+                        f" violations: {violations}"
+                    )
+                    continue
+            except Exception as e:
+                logger.error(
+                    f"skipping {flight_id}. failed to run trajectory validation handler. "
+                    f" {e}"
                 )
                 continue
 
@@ -358,15 +392,6 @@ class TrajectoryBuilderSvc:
                 if twjd.export_waypoints:
                     # save waypoints to disk
                     # CLI (local) use only
-                    resampled_df = pd.DataFrame(
-                        [
-                            {
-                                **dataclasses.asdict(flight_info),
-                                **dataclasses.asdict(pos),
-                            }
-                            for pos in waypoints_resampled
-                        ]
-                    )
                     resampled_df.to_csv(
                         f"{flight_info.airline_iata}_{flight_info.flight_id}.csv",
                         index=False,
@@ -388,7 +413,7 @@ class TrajectoryBuilderSvc:
                     )
             except Exception as e:
                 logger.error(
-                    f"failed to build and submit job for flight instance: {flight_id}. "
+                    f"skipping {flight_id}. failed to build and submit job for flight instance. "
                     f"error: {e}"
                 )
 

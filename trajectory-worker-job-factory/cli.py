@@ -18,6 +18,7 @@ from lib.handlers import (  # noqa:E402
     HealTrajectoryHandler,
     ResampleHandler,
     PubSubPublishHandler,
+    ValidateTrajectoryHandler,
 )
 from lib.schemas import TrajectoryWorkerJobDescriptor  # noqa:E402
 import argparse  # noqa:E402
@@ -49,6 +50,7 @@ class TrajectoryBuilderSvcWrapper:
         """
         svc = TrajectoryBuilderSvc(
             bq_handler=BigQueryHandler(),
+            validate_traj_handler=ValidateTrajectoryHandler(),
             heal_traj_handler=HealTrajectoryHandler(),
             resample_handler=ResampleHandler(),
             job_out_handler=PubSubPublishHandler(
