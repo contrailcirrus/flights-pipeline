@@ -9,6 +9,7 @@ from lib.handlers import (
     BigQueryHandler,
     HealTrajectoryHandler,
     ResampleHandler,
+    ValidateTrajectoryHandler,
 )
 from lib.schemas import (
     TrajectoryWorkerJobDescriptor,
@@ -67,6 +68,7 @@ if __name__ == "__main__":
 
         bq_handler = BigQueryHandler()
         heal_traj_handler = HealTrajectoryHandler()
+        validate_traj_handler = ValidateTrajectoryHandler()
         resample_handler = ResampleHandler()
         output_job_handler = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
@@ -75,6 +77,7 @@ if __name__ == "__main__":
         job_builder_svc = TrajectoryBuilderSvc(
             bq_handler=bq_handler,
             heal_traj_handler=heal_traj_handler,
+            validate_traj_handler=validate_traj_handler,
             resample_handler=resample_handler,
             job_out_handler=output_job_handler,
         )
