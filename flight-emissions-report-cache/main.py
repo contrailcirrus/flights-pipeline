@@ -3,19 +3,20 @@ import functions_framework
 from typing import List, Dict, Tuple
 from typing_extensions import TypedDict
 from datetime import datetime
-
-EXAMPLE_FLIGHT_ID = "7094901859951170919"
+from fakedb import query
 
 
 class ResponseObject(TypedDict):
-    airline: str
-    destination: str
-    flightNumber: str
-    id: str
-    origin: str
-    severity: str
-    tons: int
-    unixTime: int
+    airline_iata: str
+    arrival_airport_icao: str
+    arrival_scheduled_time: int
+    departure_airport_icao: str
+    departure_scheduled_time: int
+    flight_id: str
+    flight_number: str
+    sum_ef_mj: int
+    time_end: int
+    time_start: int
 
 
 ErrorResponse = Dict[str, str]
@@ -95,87 +96,7 @@ def handler(req: Request) -> Tuple[Response, int, Dict[str, str]]:
         if date_obj > today:
             raise ValueError("The date cannot be in the future")
 
-        # Convert date_obj to a datetime object at midnight
-        datetime_obj = datetime.combine(date_obj, datetime.min.time())
-        # multiply by 1000 to conform with dayjs date format
-        unix_time = int(datetime_obj.timestamp()) * 1000
-
-        response_data: List[ResponseObject] = []
-        if flight_number == "0":
-            response_data = []
-        elif flight_number == "1":
-            response_data = [
-                {
-                    "airline": airline,
-                    "destination": "Newark",
-                    "flightNumber": flight_number,
-                    "id": EXAMPLE_FLIGHT_ID,
-                    "origin": "Reykjavik",
-                    "severity": "moderate",
-                    "tons": 0,
-                    "unixTime": unix_time,
-                }
-            ]
-            print(response_data)
-        elif flight_number == "2":
-            response_data = [
-                {
-                    "airline": airline,
-                    "destination": "JFK",
-                    "flightNumber": flight_number,
-                    "id": EXAMPLE_FLIGHT_ID,
-                    "origin": "LAX",
-                    "severity": "moderate",
-                    "tons": 200,
-                    "unixTime": unix_time,
-                }
-            ]
-        elif flight_number == "3":
-            response_data = [
-                {
-                    "airline": airline,
-                    "destination": "JFK (moderate)",
-                    "flightNumber": flight_number,
-                    "id": "EXAMPLE_FLIGHT_ID + 1",
-                    "origin": "LAX",
-                    "severity": "moderate",
-                    "tons": 200,
-                    "unixTime": unix_time,
-                },
-                {
-                    "airline": airline,
-                    "destination": "Newark (high)",
-                    "flightNumber": flight_number,
-                    "id": "EXAMPLE_FLIGHT_ID + 2",
-                    "origin": "Reykjavik",
-                    "severity": "high",
-                    "tons": 900,
-                    "unixTime": unix_time,
-                },
-                {
-                    "airline": airline,
-                    "destination": "Newark (not warming)",
-                    "flightNumber": flight_number,
-                    "id": "EXAMPLE_FLIGHT_ID + 3",
-                    "origin": "Reykjavik",
-                    "severity": "high",
-                    "tons": 0,
-                    "unixTime": unix_time,
-                },
-            ]
-        else:
-            response_data = [
-                {
-                    "airline": airline,
-                    "destination": "Newark",
-                    "flightNumber": flight_number,
-                    "id": EXAMPLE_FLIGHT_ID,
-                    "origin": "Reykjavik",
-                    "severity": "high",
-                    "tons": 900,
-                    "unixTime": unix_time,
-                }
-            ]
+        response_data = query(airline, flight_number, date_obj)
 
         return jsonify(response_data), 200, headers
 
