@@ -4,12 +4,7 @@ image:
 # logLevel is the python-named minimum level to emit logs
 logLevel:
 
-trajectoryChunkGaiaSubscriptionId:
+twjdSubscriptionId:
 
-hresSourcePath:
+trajectoryChunkTopicId:
 
-era5SourcePath:
-
-gitSha:
-
-trajectoryCocipBqTopicId:

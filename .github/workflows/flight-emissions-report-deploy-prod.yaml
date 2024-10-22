@@ -61,4 +61,4 @@ jobs:
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-prod:${{ github.sha }}
           LOG_LEVEL: INFO
           TRAJECTORY_WORKER_TOPIC: projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk
-          SUSPEND_CRONJOB: false
+          SUSPEND_CRONJOB: true

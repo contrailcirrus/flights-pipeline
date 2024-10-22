@@ -3,7 +3,7 @@ main_cron.py
 
 Application entrypoint for cronjob automation of flight submission.
 
-Invocation of this entrypoint effectively calls `gaia_cli.py flights submit -a <A> -d <D>
+Invocation of this entrypoint effectively calls `cli.py flights submit -a <A> -d <D>
 for a list of target airlines: `A`, for two days prior from now: `d`.
 """
 
@@ -12,7 +12,7 @@ from datetime import datetime, UTC, timedelta
 import sys
 
 from log import logger, format_traceback
-from services import FlightsSubmitSvc
+from services import JobWorkerSubmitSvc
 from argparse import Namespace
 import environment as env
 
@@ -23,7 +23,7 @@ import environment as env
 
 if not env.TRAJECTORY_WORKER_TOPIC:
     raise ValueError("TRAJECTORY_WORKER_TOPIC must be set in env vars.")
-FlightsSubmitSvc.TRAJECTORY_WORKER_TOPIC = env.TRAJECTORY_WORKER_TOPIC
+JobWorkerSubmitSvc.TRAJECTORY_WORKER_TOPIC = env.TRAJECTORY_WORKER_TOPIC
 
 
 @dataclass
@@ -33,10 +33,7 @@ class Input:
     flight_id: str | None = None
     icao_address: str | None = None
     met_data_src: str | None = None
-    dryrun: bool = False
-    verbose: bool = False
-    export_waypoints: bool = False
-    full_traj: bool = True
+    full_traj: bool = False
 
 
 DAILY_TARGETS = [
@@ -74,7 +71,7 @@ if __name__ == "__main__":
         for target_kwarg in DAILY_TARGETS:
             logger.info(f"submitting flights for {target_kwarg} on {target_dtstr}")
             args = Input(day=target_dtstr, met_data_src="hres", **target_kwarg)
-            svc = FlightsSubmitSvc(Namespace(**asdict(args)))
+            svc = JobWorkerSubmitSvc(Namespace(**asdict(args)))
             svc.run()
     except Exception:
         logger.error("Unhandled exception:" + format_traceback())

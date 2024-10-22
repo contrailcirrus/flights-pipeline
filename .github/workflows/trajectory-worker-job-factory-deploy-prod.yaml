@@ -1,12 +1,12 @@
-name: spire-ingest-resample-worker-deploy-dev
+name: trajectory-worker-job-factory-deploy-prod
 
 on:
   push:
     branches:
-      - develop
+      - main
     paths:
-      - spire-ingest-resample-worker/**
-      - .github/workflows/spire-ingest-resample-worker-deploy-dev.yaml
+      - trajectory-worker-job-factory/**
+      - .github/workflows/trajectory-worker-job-factory-deploy-prod.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -45,23 +45,20 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: spire-ingest-resample-worker/
+          context: trajectory-worker-job-factory/
           push: true
           tags: |
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:${{ github.sha }}
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:latest
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-prod:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-prod:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Deploy helm resources
-        working-directory: spire-ingest-resample-worker/helm
+        working-directory: trajectory-worker-job-factory/helm
         run: make deploy
         env:
-          NAMESPACE: flights-pipeline-dev
-          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-ingest-resample-worker-dev:${{ github.sha }}
+          NAMESPACE: flights-pipeline-prod
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-prod:${{ github.sha }}
           LOG_LEVEL: INFO
-          SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/dev-fp-resample-worker-ingress
-          SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/dev-fp-spire-ingest-raw-bigquery
-          SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/dev-fp-spire-ingest-resampled-bigquery
-          REDIS_HOST: 10.231.195.4
-          REDIS_PORT: 6379
+          TWJD_SUBSCRIPTION_ID: projects/contrails-301217/topics/prod-fp-twjd-ingress
+          TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/prod-fp-resample-worker-trajectory-chunk-egress

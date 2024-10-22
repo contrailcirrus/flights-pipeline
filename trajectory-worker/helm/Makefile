@@ -4,7 +4,6 @@ deploy: --check-env
 		--namespace=$(NAMESPACE) \
 		--set image=$(IMAGE) \
 		--set logLevel=$(LOG_LEVEL) \
-		--set trajectoryChunkRealtimeSubscriptionId=$(TRAJECTORY_CHUNK_REALTIME_SUBSCRIPTION_ID) \
 		--set trajectoryChunkGaiaSubscriptionId=$(TRAJECTORY_CHUNK_GAIA_SUBSCRIPTION_ID) \
 		--set hresSourcePath=$(HRES_SOURCE_PATH) \
 		--set era5SourcePath=$(ERA5_SOURCE_PATH) \
@@ -16,7 +15,6 @@ deploy: --check-env
 	@test $${NAMESPACE?environment variable is required}
 	@test $${IMAGE?environment variable is required}
 	@test $${LOG_LEVEL?environment variable is required}
-	@test $${TRAJECTORY_CHUNK_REALTIME_SUBSCRIPTION_ID?environment variable is required}
 	@test $${TRAJECTORY_CHUNK_GAIA_SUBSCRIPTION_ID?environment variable is required}
 	@test $${HRES_SOURCE_PATH?environment variable is required}
 	@test $${ERA5_SOURCE_PATH?environment variable is required}

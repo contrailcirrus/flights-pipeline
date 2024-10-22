@@ -12,25 +12,31 @@ WITH base_tb AS (SELECT *
           WHERE seg_cnt > 1),
      candidate_segments_tb AS
          (SELECT *,
+                 FORMAT("%s_%s", flight_id, FORMAT_TIMESTAMP("%s", time_start))                         AS seg_id,
                  ((time_start_sunrise_offset_mins <= 0) AND (time_start_sunset_offset_mins <= 3 * 60)) OR
                  ((0 < time_start_sunrise_offset_mins) AND (time_start_sunset_offset_mins < 0)) OR
                  ((-3 * 60 <= time_start_sunrise_offset_mins) AND (0 <= time_start_sunset_offset_mins)) AS is_nighttime,
                  ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start),
-                               ST_GEOGFROMTEXT(@conus_wkt)) AS in_conus,
+                               ST_GEOGFROMTEXT(@conus_wkt))                                             AS in_conus,
           FROM base_tb
           WHERE seg_cnt = 1),
-     ranked_candidate_flights_tb AS
-         (SELECT ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY _processed_at DESC) as row_number, *
-          FROM candidate_flights_tb),
-     summary_flights_tb AS
-         (SELECT * FROM ranked_candidate_flights_tb WHERE row_number = 1 ORDER BY time_start ASC),
+     summary_segments_tb
+         AS -- dedupe candidate segments; take first record by _processed_at on (flight_id, time_start) basis
+         (SELECT *
+          FROM candidate_segments_tb
+          QUALIFY ROW_NUMBER() OVER (PARTITION BY seg_id ORDER BY _processed_at DESC) = 1),
+     summary_flights_tb AS -- dedupe candidate flights; take first record by _processed_at on flight_id basis
+         (SELECT *
+          FROM candidate_flights_tb
+          QUALIFY ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY _processed_at DESC) = 1
+          ORDER BY time_start DESC),
      nighttime_agg_tb AS (SELECT flight_id,
                                  is_nighttime,
                                  SUM(chunk_len_km)                               AS dist_km,
                                  SUM(sum_ef_mj)                                  AS sum_ef_mj,
                                  SUM(total_persistent_contrail_length_km)        AS contrail_dist_km,
                                  SUM(total_pos_ef_persistent_contrail_length_km) AS warming_contrail_dist_km
-                          FROM candidate_segments_tb
+                          FROM summary_segments_tb
                           WHERE is_nighttime IS NOT NULL
                           GROUP BY flight_id, is_nighttime
                           ORDER BY flight_id),
@@ -64,7 +70,7 @@ WITH base_tb AS (SELECT *
                                 SUM(sum_ef_mj)                                  AS sum_ef_mj,
                                 SUM(total_persistent_contrail_length_km)        AS contrail_dist_km,
                                 SUM(total_pos_ef_persistent_contrail_length_km) AS warming_contrail_dist_km
-                         FROM candidate_segments_tb
+                         FROM summary_segments_tb
                          GROUP BY flight_id, in_conus
                          ORDER BY flight_id),
      flat_in_conus_agg_tb AS (SELECT COALESCE(in_tb.flight_id, out_tb.flight_id) AS flight_id,

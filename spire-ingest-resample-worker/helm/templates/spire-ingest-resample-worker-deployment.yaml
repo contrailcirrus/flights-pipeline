@@ -31,8 +31,6 @@ spec:
             value: {{ .Values.spireRawWaypointsBigQueryTopicId | required ".Values.spireRawWaypointsBigQueryTopicId is required" | quote }}
           - name: SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID
             value: {{ .Values.spireWaypointsBigQueryTopicId | required ".Values.spireWaypointsBigQueryTopicId is required" | quote }}
-          - name: TRAJECTORY_CHUNK_TOPIC_ID
-            value: {{ .Values.trajectoryChunkTopicId | required ".Values.trajectoryChunkTopicId is required" | quote }}
           - name: REDIS_HOST
             value: {{ .Values.redisHost | required ".Values.redisHost is required" | quote }}
           - name: REDIS_PORT
