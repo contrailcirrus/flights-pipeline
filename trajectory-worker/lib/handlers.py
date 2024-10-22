@@ -688,10 +688,6 @@ class CocipTrajectoryHandler:
             pl_ds_agg = xr.concat(pl_ds, dim="time")
             sl_ds_agg = xr.concat(sl_ds, dim="time")
 
-            # TODO - remove tmp fix below
-            sl_ds_agg["ttr"].attrs["units"] = "J m**-2"
-            sl_ds_agg["tsr"].attrs["units"] = "J m**-2"
-
             met = MetDataset(
                 pl_ds_agg, provider="ECMWF", dataset="ERA5", product="reanalysis"
             )
