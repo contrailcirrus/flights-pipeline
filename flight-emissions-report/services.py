@@ -135,11 +135,9 @@ class FlightsReinjectSvc(BaseSvc):
 
     WORKER_JOB_DEAD_LETTER_SUBSCRIPTION = "projects/contrails-301217/subscriptions/prod-fp-trajectory-gaia-chunk-ingress-dead-letter"
     DEAD_LETTER_ACK_DEADLINE_SEC = 60  # reference subscriber settings
-    FLIGHT_ID_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_flight_id.sql"
     TRAJECTORY_WORKER_TOPIC = (
         "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
     )
-    ORDERING_KEY_TEMPLATE = "flightsreport:{}"
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -186,9 +184,7 @@ class FlightsReinjectSvc(BaseSvc):
                 self._publish_handler.publish_async(
                     msg.data,
                     timeout_seconds=45,
-                    ordering_key=self.ORDERING_KEY_TEMPLATE.format(
-                        record.flight_info.flight_id
-                    ),
+                    ordering_key=msg.ordering_key,
                 )
         if self._dryrun:
             logger.info("🌵dry run... exiting before submission")

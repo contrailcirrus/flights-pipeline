@@ -14,60 +14,61 @@ parser = argparse.ArgumentParser(prog="fer-cli")
 subparser = parser.add_subparsers()
 
 # --------------
-# FLIGHTS SUBMIT parser
+# JOBWORKER SUBMIT parser
 # --------------
-flights_parser = subparser.add_parser("jobworker")
-flights_subparser = flights_parser.add_subparsers()
-flights_submit_parser = flights_subparser.add_parser("submit")
+jobworker_parser = subparser.add_parser("jobworker")
+jobworker_subparser = jobworker_parser.add_subparsers()
+jobworker_submit_parser = jobworker_subparser.add_parser("submit")
 
-flights_submit_parser.add_argument(
+jobworker_submit_parser.add_argument(
     "-a",
     "--airline",
     required=False,
     help="airline IATA code",
     dest="airline",
 )
-flights_submit_parser.add_argument(
+jobworker_submit_parser.add_argument(
     "-d",
     "--day",
     required=False,
     help='calendar day (UTC) for fetching flights. Format "%Y-%m-%d". e.g. "2024-01-12"',
     dest="day",
 )
-flights_submit_parser.add_argument(
+jobworker_submit_parser.add_argument(
     "-i",
     "--flight-id",
     required=False,
     help="flight_id for target flight to submit",
     dest="flight_id",
 )
-flights_submit_parser.add_argument(
+jobworker_submit_parser.add_argument(
     "-c",
     "--icao-address",
     required=False,
     help="icao_address for target flight to submit",
     dest="icao_address",
 )
-flights_submit_parser.add_argument(
+jobworker_submit_parser.add_argument(
     "-s",
     "--met-data-src",
     required=True,
     help="met data source for running model. One of: 'hres', 'era5'",
     dest="met_data_src",
 )
-flights_submit_parser.add_argument(
+jobworker_submit_parser.add_argument(
     "-t",
     "--full-traj",
     action="store_true",
     help="write the per-segment values to BQ",
     dest="full_traj",
 )
-flights_submit_parser.set_defaults(func=JobWorkerSubmitSvc)
+jobworker_submit_parser.set_defaults(func=JobWorkerSubmitSvc)
 
 # --------------
 # FLIGHTS REINJECT parser
 # --------------
-
+flights_parser = subparser.add_parser("flights")
+flights_subparser = flights_parser.add_subparsers()
 flights_reinject_parser = flights_subparser.add_parser("reinject")
 flights_reinject_parser.add_argument(
     "-c",
