@@ -6,8 +6,6 @@ logLevel:
 
 trajectoryChunkGaiaSubscriptionId:
 
-trajectoryChunkRealtimeSubscriptionId:
-
 hresSourcePath:
 
 era5SourcePath:

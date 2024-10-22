@@ -66,13 +66,6 @@ graph
         twjd_ingress_deadletter(twjd-ingress-deadletter)
     end
     style pub_sub4 fill:#0864C8
-    subgraph pub_sub5[PubSub]
-        traj_worker_rt_topic(traj-worker-rt-topic)
-        traj_worker_rt_sub(traj-worker-rt-sub)
-        traj_worker_rt_5xop[5x]:::operationStyle
-        traj_worker_rt_deadletter(traj-worker-rt-deadletter)
-    end
-    style pub_sub5 fill:#0864C8
     subgraph pub_sub6[PubSub]
         traj_worker_gaia_topic(traj-worker-gaia-topic)
         traj_worker_gaia_sub(traj-worker-gaia-sub)
@@ -119,7 +112,6 @@ graph
     spire_ingest_api_sub --> spire_ingest_resample_worker
     spire_ingest_resample_worker --> spire_ingest_raw_bq_topic
     spire_ingest_resample_worker --> spire_ingest_resample_bq_topic
-    spire_ingest_resample_worker --> traj_worker_rt_topic
     spire_ingest_raw_bq_topic --> spire_ingest_raw_bq_sub
     spire_ingest_resample_bq_topic --> spire_ingest_resample_bq_sub
     
@@ -142,11 +134,6 @@ graph
     twjd_ingress_sub -.- twjd_ingress_5xop
     twjd_ingress_5xop -.-> twjd_ingress_deadletter
     
-    traj_worker_rt_topic --> traj_worker_rt_sub
-    traj_worker_rt_sub -.- traj_worker_rt_5xop
-    traj_worker_rt_5xop -.- traj_worker_rt_deadletter
-    
-    traj_worker_rt_sub --> trajectory_worker_rt
     
     traj_worker_gaia_topic --> traj_worker_gaia_sub
     traj_worker_gaia_sub -.- traj_worker_gaia_5xop
@@ -159,7 +146,6 @@ graph
     traj_worker_gaia_sub --> trajectory_worker_gaia
     
     trajectory_worker_gaia --> traj_worker_cocip_bq_topic
-    trajectory_worker_rt --> traj_worker_cocip_bq_topic
     
     traj_worker_cocip_bq_topic --> traj_worker_cocip_bq_sub
     traj_worker_cocip_bq_sub -.- traj_worker_cocip_bq_15xop
