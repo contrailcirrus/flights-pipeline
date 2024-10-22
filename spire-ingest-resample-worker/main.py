@@ -1,13 +1,11 @@
 """Entrypoint for the Spire Ingest Resample Worker."""
 
 import sys
-from dataclasses import asdict
 from datetime import datetime
 
 from lib import environment, handlers, schemas, utils
 from lib.handlers import (
     CacheHandler,
-    PerfModelLookup,
     PubSubPublishHandler,
     PubSubSubscriptionHandler,
     ResampleHandler,
@@ -15,11 +13,9 @@ from lib.handlers import (
 )
 from lib.log import format_traceback, logger
 from lib.schemas import (
-    FlightInfoWide,
     SpireWaypointPositional,
     SpireWaypointsRecord,
     WaypointCache,
-    WaypointsRecord,
 )
 
 
@@ -27,7 +23,6 @@ def run(
     cache_handler: CacheHandler,
     bq_raw_publish_handler: PubSubPublishHandler,
     bq_publish_handler: PubSubPublishHandler,
-    trajectory_publish_handler: PubSubPublishHandler,
     job_handler: PubSubSubscriptionHandler,
     sigterm_handler: utils.SigtermHandler,
 ) -> None:
@@ -213,35 +208,6 @@ def run(
         bq_publish_handler.wait_for_publish(timeout_seconds=120)
 
         # ===================
-        # trajectory worker: publish resampled records as trajectory chunk to pubsub
-        # ===================
-        if (
-            validated_flight_info.aircraft_type_icao
-            in PerfModelLookup().aircraft_type_icao
-        ) and (len(resampled_records) >= 3):
-            validated_flight_info_wide = FlightInfoWide(
-                **asdict(validated_flight_info),
-                engine_uid=None,
-            )
-            trajectory_chunk = WaypointsRecord(
-                flight_info=validated_flight_info_wide,
-                records=resampled_records,
-                met_source=WaypointsRecord.MetSource.HRES,
-                export_cocip_trajectory=False,
-            )
-            trajectory_publish_handler.publish_async(
-                data=trajectory_chunk.as_utf8_json(),
-                ordering_key=message.ordering_key,
-                timeout_seconds=110,
-                log_context=dict(
-                    client_name="trajectory_publish_handler",
-                    icao_address=trajectory_chunk.flight_info.icao_address,
-                    batch_first_ts=trajectory_chunk.records[0].timestamp,
-                ),
-            )
-            trajectory_publish_handler.wait_for_publish(timeout_seconds=120)
-
-        # ===================
         # update cache
         # ===================
         if len(resampled_records) > 1:
@@ -280,10 +246,6 @@ if __name__ == "__main__":
             topic_id=environment.SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID,
             ordered_queue=False,
         )
-        trajectory_publish_handler = handlers.PubSubPublishHandler(
-            topic_id=environment.TRAJECTORY_CHUNK_TOPIC_ID,
-            ordered_queue=True,
-        )
         job_handler = handlers.PubSubSubscriptionHandler(
             subscription=environment.SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID
         )
@@ -292,7 +254,6 @@ if __name__ == "__main__":
             cache_handler=cache_handler,
             bq_raw_publish_handler=bq_raw_publish_handler,
             bq_publish_handler=bq_publish_handler,
-            trajectory_publish_handler=trajectory_publish_handler,
             job_handler=job_handler,
             sigterm_handler=sigterm_handler,
         )

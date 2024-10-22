@@ -7,7 +7,6 @@ on a per flight-instance basis.
 
 This service generates and writes to pubsub:
 1) `SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID`: the 1Min resampled waypoints (to be injected into the BigQuery resampled Spire table) 
-2) `TRAJECTORY_CHUNK_TOPIC_ID`: flight segments for the flight instance, to be consumed by the realtime trajectory-worker
 
 
 Additionally, this service will echo the raw Spire data received from the `api-scraper`
@@ -42,7 +41,6 @@ The following environment variables are expected for production and development 
 | SPIRE_INGEST_WAYPOINTS_SUBSCRIPTION_ID |     fully-qualified uri for the waypoints record pubsub subscription     |
 | SPIRE_WAYPOINTS_BIGQUERY_TOPIC_ID      |        fully-qualified uri for the pubsub topic that writes to BQ        |
 | SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID  | fully-qualified uri for the pubsub topic that writes raw waypoints to BQ |
-| TRAJECTORY_CHUNK_TOPIC_ID              |    fully-qualified uri for the flights trajectory chunk pubsub topic     |
 | REDIS_HOST                             |                    ipv4 address of the redis instance                    |
 | REDIS_PORT                             |                       port for the redis instance                        |
 | LOG_LEVEL                              |                log level for service in cloud environment                |
