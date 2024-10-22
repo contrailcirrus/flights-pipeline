@@ -212,7 +212,7 @@ class TrajectoryBuilderSvc:
         """
 
         try:
-            twjd.validate()
+            twjd.verify()
         except Exception as e:
             raise PermanentFailureException from e
 
