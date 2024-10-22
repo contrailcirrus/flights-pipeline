@@ -1,4 +1,3 @@
-import dataclasses
 import json
 import uuid
 from abc import ABC, abstractmethod
@@ -20,12 +19,14 @@ from handlers import (
     PubSubSubscriptionHandler,
     PubSubPublishHandler,
     BigQueryHandler,
-    HealTrajectoryHandler,
-    ResampleHandler,
     GoogDatasetHandler,
 )
 
-from schemas import FlightInfoWide, SpireWaypointPositional, WaypointsRecord, MetSource
+from schemas import (
+    WaypointsRecord,
+    MetSource,
+    TrajectoryWorkerJobDescriptor,
+)
 from log import logger
 from helpers import lookup_airport_icao_to_iata
 
@@ -39,23 +40,12 @@ class BaseSvc(ABC):
         """
 
 
-class FlightsSubmitSvc(BaseSvc):
+class JobWorkerSubmitSvc(BaseSvc):
     """
     Service backing calls to the flights submit parser.
     """
 
-    DAILY_FLIGHTS_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_airline.sql"
-    FLIGHT_ID_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_flight_id.sql"
-    ICAO_ADDRESS_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_icao_address.sql"
-    TRAJECTORY_WORKER_TOPIC = (
-        "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
-    )
-    # ordering key for traj worker jobs that only export per-flight summary
-    # (i.e. self._full_traj = False)
-    ORDERING_KEY_TEMPLATE = "flightsreport:{}"
-    # ordering key for traj worker jobs that only export per-flight summary
-    # (i.e. self._full_traj = False)
-    ORDERING_KEY_FULL_TRAJ_TEMPLATE = "flightsreport_full:{}"
+    TWJD_TOPIC_ID = "projects/contrails-301217/topics/prod-fp-twjd-ingress"
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -69,9 +59,6 @@ class FlightsSubmitSvc(BaseSvc):
             - flight_id
             - icao_address
             - met_data_src
-            - dryrun
-            - verbose
-            - export_waypoints
             - full_traj
         """
         self._airline = input.airline
@@ -79,15 +66,11 @@ class FlightsSubmitSvc(BaseSvc):
         self._flight_id = input.flight_id
         self._icao_address = input.icao_address
         self._met_data_src = input.met_data_src
-        self._dryrun = input.dryrun
-        self._verbose = input.verbose
-        self._export_waypoints = input.export_waypoints
         self._full_traj = input.full_traj
         self._publish_handler = PubSubPublishHandler(
-            self.TRAJECTORY_WORKER_TOPIC,
-            ordered_queue=True,
+            self.TWJD_TOPIC_ID,
+            ordered_queue=False,
         )
-        self._bq_handler = BigQueryHandler()
 
         # caller must provide ONE OF the following sets of flags
         valid_flag_combos = {
@@ -110,271 +93,36 @@ class FlightsSubmitSvc(BaseSvc):
                 f"--met-data-src must be one of {[i.value for i in MetSource]}"
             )
 
-    def _fetch_airline_day(self) -> (pd.DataFrame, pd.DataFrame):
-        """
-        Fetch and clean a days flights (flights starting on calendar day) from BigQuery.
-        """
-        td = pd.Timestamp.now(tz="UTC") - pd.Timestamp(self._day, tz="UTC")
-        if td < pd.Timedelta(days=1):
-            raise ValueError(" 🔴 flight day must be at least 1 day in the past 🔴")
-
-        previous_day = (pd.Timestamp(self._day) - pd.Timedelta(days=1)).strftime(
-            "%Y-%m-%d"
-        )
-        next_day = (pd.Timestamp(self._day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-
-        query = self._bq_handler.import_query(self.DAILY_FLIGHTS_QUERY_FILENAME)
-        cfg = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("airline", "STRING", self._airline),
-                bigquery.ScalarQueryParameter("target_day", "STRING", self._day),
-                bigquery.ScalarQueryParameter(
-                    "target_day_before", "STRING", previous_day
-                ),
-                bigquery.ScalarQueryParameter("target_day_after", "STRING", next_day),
-            ]
-        )
-        df: pd.DataFrame = self._bq_handler.query(query, cfg)
-        df.drop_duplicates(inplace=True)
-
-        # segregate sat data (i.e. terr_waypoints with missing flight_id
-        df_satellite = df[df["flight_id"].isnull()]
-        df = df[~df["flight_id"].isnull()]
-        logger.info(
-            f"📜 received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
-            f"Flight count: {len(df['flight_id'].unique())}"
-        )
-        return df, df_satellite
-
-    def _fetch_flight_id_day(self) -> (pd.DataFrame, pd.DataFrame):
-        """
-        Fetch and clean a single flight (fetched by flight_id; filled w. sat) from BigQuery.
-        """
-        td = pd.Timestamp.now(tz="UTC") - pd.Timestamp(self._day, tz="UTC")
-        if td < pd.Timedelta(days=1):
-            raise ValueError(" 🔴 flight day must be at least 1 day in the past 🔴")
-        next_day = (pd.Timestamp(self._day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-
-        query = self._bq_handler.import_query(self.FLIGHT_ID_QUERY_FILENAME)
-        cfg = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("target_day", "STRING", self._day),
-                bigquery.ScalarQueryParameter("target_day_after", "STRING", next_day),
-                bigquery.ScalarQueryParameter("flight_id", "STRING", self._flight_id),
-            ]
-        )
-        df: pd.DataFrame = self._bq_handler.query(query, cfg)
-        df.drop_duplicates(inplace=True)
-
-        # segregate sat data (i.e. terr_waypoints with missing flight_id)
-        df_satellite = df[df["flight_id"].isnull()]
-        df = df[~df["flight_id"].isnull()]
-        logger.info(
-            f"📜 received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
-            f"Flight count: {len(df['flight_id'].unique())}"
-        )
-        return df, df_satellite
-
-    def _fetch_icao_address_day(self) -> (pd.DataFrame, pd.DataFrame):
-        """
-        Fetch and clean a day's flights ofr a given icao_address from BigQuery.
-        """
-        td = pd.Timestamp.now(tz="UTC") - pd.Timestamp(self._day, tz="UTC")
-        if td < pd.Timedelta(days=1):
-            raise ValueError(" 🔴 flight day must be at least 1 day in the past 🔴")
-
-        previous_day = (pd.Timestamp(self._day) - pd.Timedelta(days=1)).strftime(
-            "%Y-%m-%d"
-        )
-        next_day = (pd.Timestamp(self._day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-
-        query = self._bq_handler.import_query(self.ICAO_ADDRESS_QUERY_FILENAME)
-
-        cfg = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter(
-                    "icao_address", "STRING", self._icao_address
-                ),
-                bigquery.ScalarQueryParameter("target_day", "STRING", self._day),
-                bigquery.ScalarQueryParameter(
-                    "target_day_before", "STRING", previous_day
-                ),
-                bigquery.ScalarQueryParameter("target_day_after", "STRING", next_day),
-            ]
-        )
-        df: pd.DataFrame = self._bq_handler.query(query, cfg)
-        df.drop_duplicates(inplace=True)
-
-        # segregate sat data (i.e. terr_waypoints with missing flight_id
-        df_satellite = df[df["flight_id"].isnull()]
-        df = df[~df["flight_id"].isnull()]
-        logger.info(
-            f"📜 received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
-            f"Flight count: {len(df['flight_id'].unique())}"
-        )
-        return df, df_satellite
-
     def run(self):
         if self._day and self._airline:
             logger.info(
-                f"🛠️submitting flights for ✈️ {self._airline} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
+                f"🛠️submitting TWJDs for ✈️ {self._airline} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
             )
-            df, df_satellite = self._fetch_airline_day()
         elif self._day and self._flight_id:
             logger.info(
-                f"🛠️submitting flight with 🛂 flight_id: {self._flight_id} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
+                f"🛠️submitting TWJDs with 🛂 flight_id: {self._flight_id} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
             )
-            df, df_satellite = self._fetch_flight_id_day()
         elif self._day and self._icao_address:
             logger.info(
-                f"🛠️submitting flight with 🏤 icao_address: {self._icao_address} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
+                f"🛠️submitting TWJDs with 🏤 icao_address: {self._icao_address} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
             )
-            df, df_satellite = self._fetch_icao_address_day()
         else:
             raise NotImplementedError("unhandled runtime case.")
 
-        # -----------
-        # resample trajectories,
-        # compose trajectory-worker jobs, on each flight instance,
-        # and submit jobs to worker queue
-        # -----------
-        flight_instances = df.groupby("flight_id")
-        for flight_id, terr_waypoints in flight_instances:
-            # --------------
-            # merge sat data into terrestrial data
-            # --------------
-            first_terr_ts = min(terr_waypoints["timestamp"])
-            last_terr_ts = max(terr_waypoints["timestamp"])
+        twjd = TrajectoryWorkerJobDescriptor(
+            day=self._day,
+            met_source=MetSource(self._met_data_src),
+            full_traj=self._full_traj,
+            airline_iata=self._airline,
+            flight_id=self._flight_id,
+            icao_address=self._icao_address,
+        )
 
-            aircraft_sel = df_satellite["icao_address"] == (
-                key_max_value_count(terr_waypoints, "icao_address")
-            )
-            flight_tmrg_sel = (df_satellite["timestamp"] > first_terr_ts) & (
-                df_satellite["timestamp"] < last_terr_ts
-            )
+        self._publish_handler.publish_async(
+            twjd.as_utf8_json(),
+            timeout_seconds=10,
+        )
 
-            sat_waypoints = df_satellite[aircraft_sel & flight_tmrg_sel]
-
-            waypoints = pd.concat([terr_waypoints, sat_waypoints])
-            # fill null flight_ids (sat data does not have flight_id)
-            waypoints.fillna(value={"flight_id": flight_id}, inplace=True)
-
-            # -------------
-            # apply qa/qc updates
-            # -------------
-            pre_qaqc_len = len(waypoints)
-            qaqc_handler = HealTrajectoryHandler(waypoints)
-            waypoints = qaqc_handler.heal()
-
-            if len(waypoints) == 0:
-                continue
-
-            # --------------
-            # build jobs
-            # --------------
-            if not pd.isnull(waypoints["departure_scheduled_time"][0]):
-                departure_scheduled_time = waypoints["departure_scheduled_time"][
-                    0
-                ].strftime("%Y-%m-%dT%H:%M:%SZ")
-            else:
-                departure_scheduled_time = None
-            if not pd.isnull(waypoints["arrival_scheduled_time"][0]):
-                arrival_scheduled_time = waypoints["arrival_scheduled_time"][
-                    0
-                ].strftime("%Y-%m-%dT%H:%M:%SZ")
-            else:
-                arrival_scheduled_time = None
-
-            flight_info = FlightInfoWide(
-                engine_uid=None,
-                icao_address=waypoints["icao_address"][0],
-                flight_id=waypoints["flight_id"][0],
-                callsign=waypoints["callsign"][0],
-                tail_number=waypoints["tail_number"][0],
-                flight_number=waypoints["flight_number"][0],
-                aircraft_type_icao=waypoints["aircraft_type_icao"][0],
-                airline_iata=waypoints["airline_iata"][0],
-                departure_airport_icao=waypoints["departure_airport_icao"][0],
-                departure_scheduled_time=departure_scheduled_time,
-                arrival_airport_icao=waypoints["arrival_airport_icao"][0],
-                arrival_scheduled_time=arrival_scheduled_time,
-            )
-            records = []
-            for ix, ln in waypoints.iterrows():
-                record = SpireWaypointPositional(
-                    ingestion_time=ln["ingestion_time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    timestamp=ln["timestamp"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    latitude=ln["latitude"],
-                    longitude=ln["longitude"],
-                    collection_type=ln["collection_type"],
-                    imputed=False,
-                    altitude_baro=int(ln["altitude_baro"]),
-                )
-                records.append(record)
-
-            # -------------
-            # resample records
-            # -------------
-            resample_handler = ResampleHandler(records_window=records)
-            resample_handler.interpolate()
-
-            waypoints_resampled: list[SpireWaypointPositional] = (
-                resample_handler.waypoints_resampled
-            )
-
-            job = WaypointsRecord(
-                flight_info=flight_info,
-                records=waypoints_resampled,
-                met_source=MetSource(self._met_data_src),
-                export_cocip_trajectory=self._full_traj,
-            )
-
-            if self._export_waypoints:
-                resampled_df = pd.DataFrame(
-                    [
-                        {**dataclasses.asdict(flight_info), **dataclasses.asdict(pos)}
-                        for pos in waypoints_resampled
-                    ]
-                )
-                resampled_df.to_csv(
-                    f"{flight_info.airline_iata}_{flight_info.flight_id}.csv",
-                    index=False,
-                )
-
-            # --------------
-            # submit jobs
-            # --------------
-            should_skip = len(waypoints_resampled) < 3
-            if self._verbose:
-                logger.info(
-                    f" {'EMPTY! SKIPPING...' if should_skip else ''} "
-                    f"⇢ publishing trajectory for flight_id: {job.flight_info.flight_id} with "
-                    f"{len(waypoints_resampled)} records."
-                    f"(raw input: {len(terr_waypoints)} terrestrial, "
-                    f"{len(sat_waypoints)} satellite. "
-                    f"dropped {pre_qaqc_len - len(waypoints)} "
-                    f"due to invariant violations. "
-                    f"Job with export full trajectory? : {job.export_cocip_trajectory})"
-                )
-            if not self._dryrun and not should_skip:
-                if self._full_traj:
-                    ordering_key = self.ORDERING_KEY_FULL_TRAJ_TEMPLATE.format(
-                        job.flight_info.flight_id
-                    )
-                else:
-                    ordering_key = self.ORDERING_KEY_TEMPLATE.format(
-                        job.flight_info.flight_id
-                    )
-
-                self._publish_handler.publish_async(
-                    job.as_utf8_json(),
-                    timeout_seconds=45,
-                    ordering_key=ordering_key,
-                )
-
-        if self._dryrun:
-            logger.info("🌵dry run... exiting before submission")
-            return
         logger.info("⏲️ waiting for publish to finish...")
         self._publish_handler.wait_for_publish(timeout_seconds=300)
         logger.info("🙌 DONE!")
@@ -387,11 +135,9 @@ class FlightsReinjectSvc(BaseSvc):
 
     WORKER_JOB_DEAD_LETTER_SUBSCRIPTION = "projects/contrails-301217/subscriptions/prod-fp-trajectory-gaia-chunk-ingress-dead-letter"
     DEAD_LETTER_ACK_DEADLINE_SEC = 60  # reference subscriber settings
-    FLIGHT_ID_QUERY_FILENAME = "sql/bq_waypoints_flights_daily_by_flight_id.sql"
     TRAJECTORY_WORKER_TOPIC = (
         "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
     )
-    ORDERING_KEY_TEMPLATE = "flightsreport:{}"
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -438,9 +184,7 @@ class FlightsReinjectSvc(BaseSvc):
                 self._publish_handler.publish_async(
                     msg.data,
                     timeout_seconds=45,
-                    ordering_key=self.ORDERING_KEY_TEMPLATE.format(
-                        record.flight_info.flight_id
-                    ),
+                    ordering_key=msg.ordering_key,
                 )
         if self._dryrun:
             logger.info("🌵dry run... exiting before submission")
