@@ -18,6 +18,7 @@ from lib.handlers import (
 from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
+    RocdError,
 )
 
 from google.cloud import bigquery
@@ -37,10 +38,7 @@ class TrajectoryBuilderSvc:
     ICAO_ADDRESS_QUERY_FILENAME = (
         "lib/sql/bq_waypoints_flights_daily_by_icao_address.sql"
     )
-    # ordering key for traj worker jobs that should only export per-flight summary
     ORDERING_KEY_TEMPLATE = "flightsreport:{}"
-    # ordering key for traj worker jobs that should export per-flight & per-segment summaries
-    ORDERING_KEY_FULL_TRAJ_TEMPLATE = "flightsreport_full:{}"
 
     def __init__(
         self,
@@ -100,10 +98,6 @@ class TrajectoryBuilderSvc:
         # segregate sat data (i.e. terr_waypoints with missing flight_id
         df_satellite = df[df["flight_id"].isnull()]
         df = df[~df["flight_id"].isnull()]
-        logger.info(
-            f"received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
-            f"Flight count: {len(df['flight_id'].unique())}"
-        )
         return df, df_satellite
 
     def _fetch_flight_id_day(
@@ -146,10 +140,6 @@ class TrajectoryBuilderSvc:
         # segregate sat data (i.e. terr_waypoints with missing flight_id)
         df_satellite = df[df["flight_id"].isnull()]
         df = df[~df["flight_id"].isnull()]
-        logger.info(
-            f"received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
-            f"Flight count: {len(df['flight_id'].unique())}"
-        )
         return df, df_satellite
 
     def _fetch_icao_address_day(
@@ -198,10 +188,6 @@ class TrajectoryBuilderSvc:
         # segregate sat data (i.e. terr_waypoints with missing flight_id
         df_satellite = df[df["flight_id"].isnull()]
         df = df[~df["flight_id"].isnull()]
-        logger.info(
-            f"received {len(df)} terrestrial & {len(df_satellite)} satellite from BigQuery. "
-            f"Flight count: {len(df['flight_id'].unique())}"
-        )
         return df, df_satellite
 
     def run(self, twjd: TrajectoryWorkerJobDescriptor):
@@ -249,6 +235,11 @@ class TrajectoryBuilderSvc:
         # compose trajectory-worker jobs, on each flight instance,
         # and submit jobs to worker queue
         # -----------
+        logger.info(
+            f"airline_iata: {twjd.airline_iata}. "
+            f"flight count: {len(df['flight_id'].unique())}. "
+            f"waypoints: {len(df)} terrestrial & {len(df_satellite)} satellite."
+        )
         flight_instances = df.groupby("flight_id")
         for flight_id, terr_waypoints in flight_instances:
             # --------------
@@ -279,6 +270,7 @@ class TrajectoryBuilderSvc:
                 self._traj_heal_handler.unset()
             except Exception as e:
                 logger.error(
+                    f"airline_iata: {twjd.airline_iata}. "
                     f"skipping {flight_id}. failed to process in healing step: {e}"
                 )
                 continue
@@ -341,6 +333,7 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
+                    f"airline_iata: {twjd.airline_iata}. "
                     f"skipping {flight_id}. failed to resample flight instance. error: {e}"
                 )
                 continue
@@ -355,9 +348,29 @@ class TrajectoryBuilderSvc:
                 ]
             )
 
+            if twjd.export_waypoints:
+                # save waypoints to disk
+                # CLI (local) use only
+                resampled_df.to_csv(
+                    f"{flight_info.airline_iata}_{flight_info.flight_id}.csv",
+                    index=False,
+                )
+
+            # reconstructing the resampled df from the SpireWaypointPositional list
+            # does not preserve expected datatypes for datetime-like fields
+            # (which are string literals in our SpireWaypointPositional objs)
+            # thus, we re-apply the HealTrajectoryHandler to re-cast data-types
+            # prior to running the ValidateTrajectoryHandler
+            self._traj_heal_handler.set(resampled_df)
+            resampled_df = self._traj_heal_handler.heal()
+            self._traj_heal_handler.unset()
+
             # ---------------
             # confirm that trajectory meets acceptance criteria
             # ---------------
+            permitted_violation_types = [
+                RocdError,
+            ]
             try:
                 self._validate_traj_handler.set(resampled_df)
                 violations: None | list[Exception] = (
@@ -365,14 +378,22 @@ class TrajectoryBuilderSvc:
                 )
                 self._validate_traj_handler.unset()
 
-                if violations:
+                # pop permitted violations
+                violations = (
+                    [v for v in violations if type(v) not in permitted_violation_types]
+                    if violations
+                    else None
+                )
+                if violations and len(violations) > 0:
                     logger.warning(
+                        f"airline_iata: {twjd.airline_iata}. "
                         f"skipping {flight_id}. invalid flight instance. "
                         f" violations: {violations}"
                     )
                     continue
             except Exception as e:
                 logger.error(
+                    f"airline_iata: {twjd.airline_iata}. "
                     f"skipping {flight_id}. failed to run trajectory validation handler. "
                     f" {e}"
                 )
@@ -389,22 +410,9 @@ class TrajectoryBuilderSvc:
                     export_cocip_trajectory=twjd.full_traj,
                 )
 
-                if twjd.export_waypoints:
-                    # save waypoints to disk
-                    # CLI (local) use only
-                    resampled_df.to_csv(
-                        f"{flight_info.airline_iata}_{flight_info.flight_id}.csv",
-                        index=False,
-                    )
-
-                if twjd.full_traj:
-                    ordering_key = self.ORDERING_KEY_FULL_TRAJ_TEMPLATE.format(
-                        job.flight_info.flight_id
-                    )
-                else:
-                    ordering_key = self.ORDERING_KEY_TEMPLATE.format(
-                        job.flight_info.flight_id
-                    )
+                ordering_key = self.ORDERING_KEY_TEMPLATE.format(
+                    job.flight_info.flight_id
+                )
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
                         job.as_utf8_json(),
@@ -413,6 +421,7 @@ class TrajectoryBuilderSvc:
                     )
             except Exception as e:
                 logger.error(
+                    f"airline_iata: {twjd.airline_iata}. "
                     f"skipping {flight_id}. failed to build and submit job for flight instance. "
                     f"error: {e}"
                 )

@@ -1143,7 +1143,8 @@ class ValidateTrajectoryHandler:
                 RocdError(
                     f"flight trajectory has rate of climb/descent values "
                     "between consecutive waypoints that exceed threshold "
-                    f"of {self.CRUISE_ROCD_THRESHOLD_FPS} ft/sec"
+                    f"of {self.CRUISE_ROCD_THRESHOLD_FPS} ft/sec. "
+                    f"Max value found: {np.nanmax(self._df['rocd_fps'].abs())}"
                 )
             )
 

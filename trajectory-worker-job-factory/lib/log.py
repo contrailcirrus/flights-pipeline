@@ -42,7 +42,7 @@ logger = logging.getLogger("trajectory-worker-job-factory")
 
 # capture and redirect warnings from the `warn` pkg to our logger
 def log_warn(message, category, filename, lineno, file=None, line=None):
-    logger.warning(message)
+    logger.debug(message)
 
 
 warnings.showwarning = log_warn

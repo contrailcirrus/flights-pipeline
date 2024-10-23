@@ -1,7 +1,7 @@
 -- fetch most recently processed trajectory for a given flight_id, for a given airline, on a given day
 WITH base_tb AS (SELECT *
                  FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
-                 WHERE source_id = "flightsreport_full"
+                 WHERE source_id = "flightsreport"
                    AND airline_iata = @airline
                    AND zarr_uri LIKE ANY UNNEST(@met_src_str_match)
                    AND timestamp_trunc(time_start, DAY) >= @day_start

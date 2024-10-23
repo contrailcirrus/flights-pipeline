@@ -32,7 +32,7 @@ from lib.exceptions import (
     PerfModelUnsupportedError,
 )
 from lib.log import format_traceback, logger
-from lib.schemas import WaypointsRecord
+from lib.schemas import WaypointsRecord, MetSource
 import lib.environment as env
 
 
@@ -636,7 +636,7 @@ class CocipTrajectoryHandler:
         HRES: Will choose the most recent _usable_ forecast.
         ERA5: Will choose store(s) that overlap entire flight traj + contrail evolution time.
         """
-        if self._job.met_source == WaypointsRecord.MetSource.HRES:
+        if self._job.met_source == MetSource.HRES:
             self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
             zarr_path = f"{self._hres_src}/{self._zarr_src_fn}"
             logger.debug(f"opening HRES PL zarr store at: {zarr_path}")
@@ -665,7 +665,7 @@ class CocipTrajectoryHandler:
 
             self._met_dataset = met
             self._rad_dataset = rad
-        elif self._job.met_source == WaypointsRecord.MetSource.ERA5:
+        elif self._job.met_source == MetSource.ERA5:
             self._zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []

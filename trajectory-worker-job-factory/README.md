@@ -134,9 +134,11 @@ The data written locally represents exactly the ADS-B trajectory submitted to th
 This is a useful flag for fetching input data when investigating and reproducing behavior of the trajectory worker,
 or, can be used as a convenient way to fetch clean, resampled data for groups of flights.
 - `-t` this tells the trajectory worker to export to big query per-segment data in 
-addition to the full flight trajectory summary.  Records written to BQ using this flag show up 
-with `source_id="flightsreport_full"` rather than the default of 
-per flight summary data only (`"flightsreport"`).
+addition to the full flight trajectory summary.  
+If the per-segment trajectory data is exported by setting this flag to `True`,
+then both per-flight and per-segment summary data will be exported.
+The rows in the BQ table between per-seg and per-flight can be disambiguated 
+by selecting on `seg_cnt=1` (per-segment summary) vs. `seg_cnt>1` (per-flight summary).
 - `-v` this runs the CLI in verbose mode. This writes to stderr additional info such as the
 number of waypoints retrieved from bigquery for each flight (terrestrial vs. sat), 
 the number of waypoints ejected during trajectory validation, etc.

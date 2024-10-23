@@ -15,9 +15,10 @@ This cron runs daily.
 
 The output from those jobs is written to the big query table `trajectory_cocip_prod` 
 (as are all other jobs from the trajectory workers).
-The outputs from the daily FER cronjob can be disambiguated from other trajectory worker records
-by including `source_id="flightsreport"` or `source_id="flightsreport_full"`, the latter in the case of
-jobs using the `full_traj` flag set to `True`.
+If the per-segment trajectory data is exported by setting the `full_traj` flag set to `True`,
+then both per-flight and per-segment summary data will be exported.
+The rows in the BQ table between per-seg and per-flight can be disambiguated by selecting on `seg_cnt=1` (per-segment summary) vs.
+`seg_cnt>1` (per-flight summary).
 
 # Using the CLI
  
@@ -126,5 +127,5 @@ Note:
 Depending on your terminal/IDE, you may need to source your environment to the current shell
 before invoking the CLI (`pipenv shell`).
 
-Next, run the CLI by calling the entrypoint script as an executable: `./gaia-cli.py <ARGS>`
+Next, run the CLI by calling the entrypoint script as an executable: `./cli.py <ARGS>`
 

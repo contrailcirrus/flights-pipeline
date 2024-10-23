@@ -44,7 +44,11 @@ def run(
             job_builder_svc.run(twjd=job)
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
-            logger.error(f"permanently failed to process TJWD. ack'ing msg: {e}")
+            logger.error(
+                f"permanently failed to process TJWD. "
+                f"airline_iata: {job.airline_iata}"
+                f"ack'ing msg: {e}"
+            )
             input_job_handler.ack(message)
             continue
         except Exception as e:
