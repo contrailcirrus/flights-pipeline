@@ -78,9 +78,9 @@ def run(
 
         fq_zarr_uri: str
         # qualify the zarr uri with the source type
-        if job.met_source == schemas.WaypointsRecord.MetSource.HRES:
+        if job.met_source == schemas.MetSource.HRES:
             fq_zarr_uri = f"HRES/{trajectory_cocip_handler.zarr_uri}"
-        elif job.met_source == schemas.WaypointsRecord.MetSource.ERA5:
+        elif job.met_source == schemas.MetSource.ERA5:
             fq_zarr_uri = f"ERA5/{'-'.join(trajectory_cocip_handler.zarr_uri)}"
         else:
             raise ValueError("traj worker job met source not recognized")
