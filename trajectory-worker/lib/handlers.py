@@ -115,7 +115,7 @@ class PubSubSubscriptionHandler:
                 continue
 
             pubsub_msg = resp.received_messages[0]
-            logger.info(
+            logger.debug(
                 f"received 1 message from {self.subscription}. "
                 f"published_time: {pubsub_msg.message.publish_time}, "
                 f"message_id: {pubsub_msg.message.message_id}"

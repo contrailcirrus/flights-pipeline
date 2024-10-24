@@ -92,7 +92,7 @@ class PubSubSubscriptionHandler:
             The dequeued message from the pubsub subscription.
         """
         while True:
-            logger.info(f"fetching message from {self.subscription}")
+            logger.debug(f"fetching message from {self.subscription}")
 
             resp = self._client.pull(
                 request={"subscription": self.subscription, "max_messages": 1},
@@ -121,7 +121,7 @@ class PubSubSubscriptionHandler:
                 continue
 
             pubsub_msg = resp.received_messages[0]
-            logger.info(
+            logger.debug(
                 f"received 1 message from {self.subscription}. "
                 f"published_time: {pubsub_msg.message.publish_time}, "
                 f"message_id: {pubsub_msg.message.message_id}"
@@ -211,7 +211,7 @@ class PubSubSubscriptionHandler:
         """
         Extends the ack deadline for the currently outstanding message.
         """
-        logger.info("starting ack lease management worker...")
+        logger.debug("starting ack lease management worker...")
         while True:
             should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
