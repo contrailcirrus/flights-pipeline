@@ -32,9 +32,9 @@ def run(
         job = schemas.WaypointsRecord.from_utf8_json(message.data)
 
         logger.info(
-            f"got job with {len(job.records)} records. "
+            f"airline_iata: {job.flight_info.airline_iata}"
             f"flight_id: {job.flight_info.flight_id}. "
-            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
+            f"got job with {len(job.records)} records."
         )
 
         # ===================
@@ -46,10 +46,10 @@ def run(
             )
         except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
             logger.warning(
-                f"skipping trajectory chunk "
-                f"for icao_adddress {job.flight_info.icao_address} "
-                f"of airline_iata {job.flight_info.airline_iata} "
-                f"with start_time {job.records[0].timestamp}."
+                f"airline_iata: {job.flight_info.airline_iata}. "
+                f"skipping {job.flight_info.flight_id}. "
+                f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}. "
+                f"could not run cocip. "
                 f"{e}"
             )
             job_handler.ack(message)
@@ -60,11 +60,12 @@ def run(
             cocip_result = trajectory_cocip_handler.run()
         except Exception:
             logger.error(
-                f"failed to run cocip "
-                f"for icao_adddress {job.flight_info.icao_address} "
-                f"with start_time {job.records[0].timestamp}."
-                f"NACK'ing job."
-                f"traceback: {format_traceback()}"
+                f"NACK'ing (pubsub retry)."
+                f"airline_iata: {job.flight_info.airline_iata}. "
+                f"flight_id: {job.flight_info.flight_id}. "
+                f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}. "
+                f"cocip failed. "
+                f"{format_traceback()}"
             )
             job_handler.nack(message)
             continue
