@@ -193,7 +193,7 @@ class PubSubSubscriptionHandler:
                 ),
             ),
         )
-        logger.info("successfully ack'ed message.")
+        logger.debug("successfully ack'ed message.")
 
     def nack(self, message: Message):
         """Not-acknowledge the message to stop extending ack deadline.
