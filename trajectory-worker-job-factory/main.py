@@ -42,6 +42,7 @@ def run(
 
         try:
             job_builder_svc.run(twjd=job)
+            logger.info(f"finished TJWD {job_hash}: {job}")
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
             logger.error(
@@ -58,7 +59,6 @@ def run(
             continue
 
         input_job_handler.ack(message)
-        logger.info(f"successfully processed TJWD {job_hash}: {job.as_utf8_json()}")
 
 
 if __name__ == "__main__":
