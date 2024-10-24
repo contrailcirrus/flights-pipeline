@@ -116,6 +116,8 @@ class JobWorkerSubmitSvc(BaseSvc):
             airline_iata=self._airline,
             flight_id=self._flight_id,
             icao_address=self._icao_address,
+            dry_run=False,
+            export_waypoints=False,
         )
 
         self._publish_handler.publish_async(
