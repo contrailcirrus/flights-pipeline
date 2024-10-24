@@ -3,7 +3,8 @@
 import sys
 
 import lib.environment as env
-from lib import schemas, utils
+from lib import schemas
+from lib.utils import sigterm_manager
 from lib.exceptions import AircraftTypeUnrecognizedError, FlightTooLowError
 from lib.handlers import (
     CocipTrajectoryHandler,
@@ -17,7 +18,6 @@ from datetime import UTC, datetime
 def run(
     trajectory_cocip_bq_publisher: PubSubPublishHandler,
     job_handler: PubSubSubscriptionHandler,
-    sigterm_handler: utils.SigtermHandler,
 ) -> None:
     """
     Main entrypoint.
@@ -26,7 +26,7 @@ def run(
     - Export values (big query, other TBD)
     """
     for message in job_handler.subscribe():
-        if sigterm_handler.should_exit:
+        if sigterm_manager.should_exit:
             sys.exit(0)
 
         job = schemas.WaypointsRecord.from_utf8_json(message.data)
@@ -143,11 +143,9 @@ if __name__ == "__main__":
             ordered_queue=False,
         )
         job_handler = PubSubSubscriptionHandler(env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID)
-        sigterm_handler = utils.SigtermHandler()
         run(
             trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
             job_handler=job_handler,
-            sigterm_handler=sigterm_handler,
         )
 
     except Exception:
