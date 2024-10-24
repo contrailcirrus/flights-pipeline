@@ -221,7 +221,7 @@ class PubSubSubscriptionHandler:
             messages = self._outstanding_messages.copy()
             for message in messages:
                 ack_id = message.ack_id
-                logger.info(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
+                logger.debug(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
                 try:
                     self._client.modify_ack_deadline(
                         request={
@@ -236,7 +236,7 @@ class PubSubSubscriptionHandler:
                         f"traceback: {format_traceback()}"
                     )
 
-        logger.info("terminated ack lease management worker")
+        logger.debug("terminated ack lease management worker")
 
 
 class PubSubPublishHandler:
