@@ -61,4 +61,4 @@ jobs:
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-dev:${{ github.sha }}
           LOG_LEVEL: INFO
           TWJD_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/dev-fp-twjd-ingress
-          TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/dev-fp-resample-worker-trajectory-chunk-egress
+          TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/dev-fp-gaia-trajectory-chunk

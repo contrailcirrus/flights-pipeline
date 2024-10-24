@@ -38,7 +38,9 @@ def run(
         job_hash = hashlib.shake_128(job.as_utf8_json()).hexdigest(
             8
         )  # useful for keying in logs
-        logger.info(f"got TJWD {job_hash}: {job.as_utf8_json()}")
+        logger.info(
+            f"got TJWD {job_hash}: {[f'{k}:{v} ' for k, v in job.as_utf8_json().items()]}"
+        )
 
         try:
             job_builder_svc.run(twjd=job)
