@@ -3,7 +3,7 @@ import signal
 from lib.log import logger
 
 
-class SigtermHandler:
+class SigtermManager:
     def __init__(self):
         """Ensure workload gracefully exits on SIGTERM signal.
 
@@ -20,3 +20,6 @@ class SigtermHandler:
     def _handler(self, *args, **kwargs):
         logger.info("Received SIGTERM.")
         self.should_exit = True
+
+
+sigterm_manager = SigtermManager()

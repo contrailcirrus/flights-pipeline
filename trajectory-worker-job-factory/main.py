@@ -15,15 +15,14 @@ from lib.schemas import (
     TrajectoryWorkerJobDescriptor,
 )
 from lib.services import TrajectoryBuilderSvc
-from lib.utils import SigtermHandler
 from lib.log import logger, format_traceback
 from lib.exceptions import PermanentFailureException
 import lib.environment as env
+from lib.utils import sigterm_manager
 
 
 def run(
     input_job_handler: PubSubSubscriptionHandler,
-    sigterm_handler: SigtermHandler,
     job_builder_svc: TrajectoryBuilderSvc,
 ) -> None:
     """
@@ -31,7 +30,7 @@ def run(
     """
 
     for message in input_job_handler.subscribe():
-        if sigterm_handler.should_exit:
+        if sigterm_manager.should_exit:
             sys.exit(0)
 
         job = TrajectoryWorkerJobDescriptor.from_utf8_json(message.data)
@@ -68,7 +67,6 @@ if __name__ == "__main__":
         input_job_handler = PubSubSubscriptionHandler(
             env.TWJD_SUBSCRIPTION_ID,
         )
-        sigterm_handler = SigtermHandler()
 
         bq_handler = BigQueryHandler()
         heal_traj_handler = HealTrajectoryHandler()
@@ -88,7 +86,6 @@ if __name__ == "__main__":
 
         run(
             input_job_handler=input_job_handler,
-            sigterm_handler=sigterm_handler,
             job_builder_svc=job_builder_svc,
         )
 

@@ -5,6 +5,7 @@ Application handlers.
 import concurrent.futures
 import json
 import os
+import sys
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ from lib.exceptions import (
 from lib.log import format_traceback, logger
 from lib.schemas import WaypointsRecord, MetSource
 import lib.environment as env
+from lib.utils import sigterm_manager
 
 
 @dataclass(frozen=True)
@@ -86,6 +88,8 @@ class PubSubSubscriptionHandler:
             The dequeued message from the pubsub subscription.
         """
         while True:
+            if sigterm_manager.should_exit:
+                sys.exit(0)
             logger.debug(f"fetching message from {self.subscription}")
 
             resp = self._client.pull(
