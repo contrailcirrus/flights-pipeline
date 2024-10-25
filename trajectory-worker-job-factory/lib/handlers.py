@@ -1057,19 +1057,25 @@ class ValidateTrajectoryHandler:
         (between consecutive waypoints),
         and,
         on a rolling average basis.
+
+        For instantaneous speed, we clip the trajectory by 10 rows on the head and tail.
+        (assuming the trajectory is resampled prior to applying the validation handler,
+        that is 10min on head or tail).
         """
 
         violations: list[FlightTooSlowError] = []
 
-        below_inst_thresh = self._df[
+        below_inst_thresh = self._df.iloc[10:, :].iloc[:-10, :][
             self._df["ground_speed_m_s"]
             <= self.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS
         ]
         if len(below_inst_thresh) > 0:
             violations.append(
                 FlightTooSlowError(
-                    f"found instances where speed between waypoints is "
-                    f"below threshold of {self.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS} m/s"
+                    f"found {len(below_inst_thresh)} instances where speed between waypoints is "
+                    f"below threshold of {self.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS} m/s. "
+                    f" max value: {max(below_inst_thresh['ground_speed_m_s'])}, "
+                    f"min value: {min(below_inst_thresh['ground_speed_m_s'])},"
                 )
             )
 
