@@ -1,8 +1,0 @@
-functions-framework==3.*
-cloudevents
-google-events
-Flask
-mypy
-pg8000
-sqlalchemy
-cloud-sql-python-connector

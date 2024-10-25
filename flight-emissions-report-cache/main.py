@@ -1,16 +1,18 @@
-from flask import Request, jsonify, Response
-import functions_framework
-from typing import List, Dict, Tuple
-from typing_extensions import TypedDict
-from datetime import datetime, date
-from fakedb import query
+from dataclasses import dataclass
+import sys
+from datetime import datetime, UTC, timedelta
+from typing import TypedDict
 
-import os
-
-from google.cloud.sql.connector import Connector, IPTypes
 import pg8000
-
 import sqlalchemy
+from google.cloud.sql.connector import Connector, IPTypes
+
+import lib.environment as env
+from lib.log import logger
+
+SYNC_OFFSET_DAYS = (
+    2  # lag, in days, between now() and the target day for sync'ing records
+)
 
 
 class ResponseObject(TypedDict):
@@ -26,7 +28,7 @@ class ResponseObject(TypedDict):
     time_start: int
 
 
-ErrorResponse = Dict[str, str]
+ErrorResponse = dict[str, str]
 
 
 # AIRLINES = [
@@ -53,7 +55,8 @@ ErrorResponse = Dict[str, str]
 #     "air canada",  # {"icao_address": "C04FBB"},  # iagos tail_number: "C-GEFA"
 # ]
 
-AIRLINE_IATA_CODES = {
+# list of target airlines to sync. fmt <friendly name>:<iata designator>
+TARGET_AIRLINES = {
     "klm": "KL",
     "tui": "BY",
     "transavia": "HV",
@@ -69,41 +72,32 @@ AIRLINE_IATA_CODES = {
     "dhl": "D0",
 }
 
-INSTANCE_CONNECTION_NAME = "contrails-301217:us-east1:flight-emissions-report-dev"
-TABLE_NAME = "flight-emissions-report-dev.flights-pipeline.trajectory-cocip"
-# TABLE_NAME = "flight-emissions-report-prod.flights-pipeline.trajectory-cocip"
+instance_connection_name = "contrails-301217:us-east1:{database_name}".format(
+    database_name=env.PSDB_DATABASE,
+)
+table_name = "{database_name}.flights-pipeline.trajectory-cocip".format(
+    database_name=env.PSDB_DATABASE,
+)
 
 
 def connect_with_connector() -> sqlalchemy.engine.base.Engine:
     """
     Initializes a connection pool for a Cloud SQL instance of Postgres.
-
     Uses the Cloud SQL Python Connector package.
     """
-
-    instance_connection_name = os.environ[INSTANCE_CONNECTION_NAME]
-    db_user = os.environ["DB_USER"]  # e.g. 'my-db-user'
-    db_pass = os.environ["DB_PASS"]  # e.g. 'my-db-password'
-    db_name = os.environ["DB_NAME"]  # e.g. 'my-database'
-
-    ip_type = IPTypes.PRIVATE if os.environ.get("PRIVATE_IP") else IPTypes.PUBLIC
-
-    # initialize Cloud SQL Python Connector object
     connector = Connector()
 
     def getconn() -> pg8000.dbapi.Connection:
         conn: pg8000.dbapi.Connection = connector.connect(
             instance_connection_name,
             "pg8000",
-            user=db_user,
-            password=db_pass,
-            db=db_name,
-            ip_type=ip_type,
+            user=env.PSDB_USER,
+            password=env.PSDB_PASS,
+            db=env.PSDB_DATABASE,
+            ip_type=IPTypes.PUBLIC,
         )
         return conn
 
-    # The Cloud SQL Python Connector can be used with SQLAlchemy
-    # using the 'creator' argument to 'create_engine'
     pool = sqlalchemy.create_engine(
         "postgresql+pg8000://",
         creator=getconn,
@@ -120,12 +114,12 @@ def query_db(
     connection,
     airline_iata: str,
     flight_number: str,
-    date: date,
-) -> List[ResponseObject]:
+    date: str,
+) -> list[ResponseObject]:
     result = connection.execute(
         sqlalchemy.text(
             f"""
-            SELECT * FROM {TABLE_NAME}
+            SELECT * FROM {table_name}
             WHERE flight_number = :flight_number
             AND airline_iata = :airline_iata
             AND DATE(departure_scheduled_time) = :date
@@ -141,69 +135,49 @@ def query_db(
     return rows
 
 
-@functions_framework.http
-def handler(req: Request) -> Tuple[Response, int, Dict[str, str]]:
-    # Set CORS headers for the preflight request
-    if req.method == "OPTIONS":
-        # Allows GET requests from any origin with the Content-Type
-        # header and caches preflight response for an 3600s
-        headers = {
-            "Access-Control-Allow-Origin": "http://localhost:5173/",
-            "Access-Control-Allow-Methods": "GET",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "3600",
-        }
+@dataclass
+class MyBlob:
+    """
+    A data transfer object (DTO) representing a collection of flight emissions report records.
+    """
 
-        return (jsonify([]), 204, headers)
 
-    # Set CORS headers for the main request
-    headers = {"Access-Control-Allow-Origin": "*"}
+def bq_fetch(query_str: str) -> MyBlob:
+    """
+    Given a valid BQ query string, execute the query, and return the records.
+    """
+    return MyBlob()
+
+
+def psdb_push(records: MyBlob):
+    """
+    Given a batch of records, push those records to a postgres database table.
+    """
+
+
+if __name__ == "__main__":
+    """
+    Application entrypoint.
+
+    Fetch CoCiP fer outputs (per-flight CoCip summaries) from BQ, for target airlines on target day.
+    Target day is SYNC_OFFSET_DAYS prior to `now()`.
+    Upload those records to the target postgres database.
+    """
+
+    now = datetime.now(tz=UTC)
+    target_date = now - timedelta(days=SYNC_OFFSET_DAYS)
+    target_date_str = target_date.strftime(
+        "%Y-%m-%d"
+    )  # target date str as submitted to BQ
 
     try:
-        query_params = req.args
-        airline_name = query_params.get("airline")
-        date_str = query_params.get("date")
-        flight_number = query_params.get("flightNumber")
+        # TODO - fetch target records from BQ
+        records: MyBlob = bq_fetch("query_string")
 
-        if not airline_name or not date_str or not flight_number:
-            missing = []
-
-            if not airline_name:
-                missing.append("airline")
-            if not date_str:
-                missing.append("date")
-            if not flight_number:
-                missing.append("flightNumber")
-
-            raise ValueError(f"Missing required query parameters: {missing}")
-
-        if airline_name and airline_name.lower() not in AIRLINE_IATA_CODES:
-            raise ValueError(f"Invalid airline: {airline_name}")
-
-        try:
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            raise ValueError(
-                f"Invalid date format: {date_str}. Expected format: YYYY-MM-DD"
-            )
-
-        today = datetime.today().date()
-        if date_obj > today:
-            raise ValueError("The date cannot be in the future")
-
-        # airline_iata = AIRLINE_IATA_CODES[airline_name.lower()]
-
-        # # Initialize the SQLAlchemy engine
-        # engine = connect_with_connector()
-
-        # # Query the database
-        # with engine.connect() as connection:
-        #     response_data = query_db(connection, airline_iata, flight_number, date_obj)
-        response_data = query(airline_name, flight_number, date_obj)
-
-        return jsonify(response_data), 200, headers
-
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400, headers
+        # TODO - push records to psdb
+        psdb_push(records)
     except Exception as e:
-        return jsonify({"error": "Internal server error"}), 500, headers
+        logger.error(
+            f"failed to sync {target_date_str} between BQ table and PSDB table. {e}"
+        )
+        sys.exit(1)
