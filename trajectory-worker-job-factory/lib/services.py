@@ -224,7 +224,7 @@ class TrajectoryBuilderSvc:
                     icao_address=twjd.icao_address,
                 )
             else:
-                raise NotImplementedError("TJWD could not be processed.")
+                raise NotImplementedError("TWJD could not be processed.")
         except InvalidQueryException as e:
             raise PermanentFailureException("ads-b request to bq not valid.") from e
         except Exception as e:
