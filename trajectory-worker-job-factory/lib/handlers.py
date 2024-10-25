@@ -615,7 +615,7 @@ class ValidateTrajectoryHandler:
             Must have the same columns as in our spire raw data (see BQ table spire_flights_raw_prod).
         """
         if len(trajectory) == 0:
-            raise Exception("flight trajectory is empty.")
+            raise BadTrajectoryException("flight trajectory is empty.")
         if len(trajectory["flight_id"].unique()) > 1:
             raise Exception(
                 "dataset passed to handler must be for a single flight instance ("
