@@ -5,6 +5,7 @@ Application handlers.
 import concurrent.futures
 import math
 import os
+import sys
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -40,6 +41,7 @@ from lib.exceptions import (
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
 from lib.schemas import SpireWaypointPositional
+from lib.utils import sigterm_manager
 
 
 @dataclass(frozen=True)
@@ -92,7 +94,9 @@ class PubSubSubscriptionHandler:
             The dequeued message from the pubsub subscription.
         """
         while True:
-            logger.info(f"fetching message from {self.subscription}")
+            if sigterm_manager.should_exit:
+                sys.exit(0)
+            logger.debug(f"fetching message from {self.subscription}")
 
             resp = self._client.pull(
                 request={"subscription": self.subscription, "max_messages": 1},
@@ -121,7 +125,7 @@ class PubSubSubscriptionHandler:
                 continue
 
             pubsub_msg = resp.received_messages[0]
-            logger.info(
+            logger.debug(
                 f"received 1 message from {self.subscription}. "
                 f"published_time: {pubsub_msg.message.publish_time}, "
                 f"message_id: {pubsub_msg.message.message_id}"
@@ -193,7 +197,7 @@ class PubSubSubscriptionHandler:
                 ),
             ),
         )
-        logger.info("successfully ack'ed message.")
+        logger.debug("successfully ack'ed message.")
 
     def nack(self, message: Message):
         """Not-acknowledge the message to stop extending ack deadline.
@@ -211,7 +215,7 @@ class PubSubSubscriptionHandler:
         """
         Extends the ack deadline for the currently outstanding message.
         """
-        logger.info("starting ack lease management worker...")
+        logger.debug("starting ack lease management worker...")
         while True:
             should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
@@ -221,7 +225,7 @@ class PubSubSubscriptionHandler:
             messages = self._outstanding_messages.copy()
             for message in messages:
                 ack_id = message.ack_id
-                logger.info(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
+                logger.debug(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
                 try:
                     self._client.modify_ack_deadline(
                         request={
@@ -236,7 +240,7 @@ class PubSubSubscriptionHandler:
                         f"traceback: {format_traceback()}"
                     )
 
-        logger.info("terminated ack lease management worker")
+        logger.debug("terminated ack lease management worker")
 
 
 class PubSubPublishHandler:
@@ -611,7 +615,7 @@ class ValidateTrajectoryHandler:
             Must have the same columns as in our spire raw data (see BQ table spire_flights_raw_prod).
         """
         if len(trajectory) == 0:
-            raise Exception("flight trajectory is empty.")
+            raise BadTrajectoryException("flight trajectory is empty.")
         if len(trajectory["flight_id"].unique()) > 1:
             raise Exception(
                 "dataset passed to handler must be for a single flight instance ("

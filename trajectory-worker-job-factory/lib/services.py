@@ -19,6 +19,7 @@ from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
     RocdError,
+    BadTrajectoryException,
 )
 
 from google.cloud import bigquery
@@ -224,7 +225,7 @@ class TrajectoryBuilderSvc:
                     icao_address=twjd.icao_address,
                 )
             else:
-                raise NotImplementedError("TJWD could not be processed.")
+                raise NotImplementedError("TWJD could not be processed.")
         except InvalidQueryException as e:
             raise PermanentFailureException("ads-b request to bq not valid.") from e
         except Exception as e:
@@ -268,6 +269,12 @@ class TrajectoryBuilderSvc:
                 self._traj_heal_handler.set(waypoints)
                 waypoints = self._traj_heal_handler.heal()
                 self._traj_heal_handler.unset()
+            except BadTrajectoryException as e:
+                logger.warning(
+                    f"airline_iata: {twjd.airline_iata}. "
+                    f"skipping {flight_id}. failed to process in healing step: {e}"
+                )
+                continue
             except Exception as e:
                 logger.error(
                     f"airline_iata: {twjd.airline_iata}. "
@@ -391,6 +398,14 @@ class TrajectoryBuilderSvc:
                         f" violations: {violations}"
                     )
                     continue
+            except BadTrajectoryException as e:
+                logger.warning(
+                    f"airline_iata: {twjd.airline_iata}. "
+                    f"skipping {flight_id}. "
+                    f"received bad trajectory in trajectory validation handler. "
+                    f" {e}"
+                )
+                continue
             except Exception as e:
                 logger.error(
                     f"airline_iata: {twjd.airline_iata}. "

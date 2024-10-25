@@ -501,3 +501,62 @@ resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_no
     auto_close = "86400s"
   }
 }
+
+#
+# trajectory-worker-job-factory
+#
+resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_job_factory_prod_error_in_logs" {
+  display_name = "k8sdeployment-trajectory-worker-job-factory-prod-error-in-logs"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Error in logs"
+    condition_matched_log {
+      filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-prod"
+        labels.k8s-pod/app="trajectory-worker-job-factory"
+        severity>=ERROR
+        jsonPayload.textPayload !~ "PERMANENT_FAILURE_INVALID_ACK_ID"
+        EOF
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
+
+  alert_strategy {
+    notification_rate_limit {
+      period = "3600s"
+    }
+    auto_close = "86400s"
+  }
+}
+
+resource "google_monitoring_alert_policy" "pubsubtopic_prod_twjd_ingress_dead_letter_publish_count" {
+  display_name = "pubsubtopic-${google_pubsub_topic.prod_twjd_ingress_dead_letter.name}-publish-count"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Publish count above threshold"
+    condition_monitoring_query_language {
+      query    = <<EOF
+        fetch pubsub_topic
+        | metric 'pubsub.googleapis.com/topic/message_sizes'
+        | filter resource.topic_id == '${google_pubsub_topic.prod_twjd_ingress_dead_letter.name}'
+        | group_by sliding(30m), row_count()
+        | every 1m
+        | condition val() > 0
+        EOF
+      duration = "0s"
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
+}

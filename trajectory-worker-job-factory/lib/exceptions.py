@@ -16,11 +16,6 @@ class BadTrajectoryException(Exception):
     """
 
 
-"""
-Custom exceptions.
-"""
-
-
 class SchemaError(Exception):
     """
     Data object is inconsistent with required schema.
