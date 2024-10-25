@@ -570,7 +570,7 @@ class ValidateTrajectoryHandler:
     CRUISE_LOW_ALTITUDE_THRESHOLD_FT = 15000  # lowest expected cruise altitude
     INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS = 350  # 350m/sec ~= 780mph ~= 1260kph
     INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS = 45  # 45m/sec ~= 100mph ~= 160kph
-    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 120  # 120m/sec ~= 270mph ~= 430kph
+    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 100  # 120m/sec ~= 223mph ~= 360 kph
     AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN = (
         30  # rolling period for avg speed comparison
     )
@@ -1092,9 +1092,11 @@ class ValidateTrajectoryHandler:
         if len(below_avg_thresh) > 0:
             violations.append(
                 FlightTooSlowError(
-                    f"found instances where rolling average speed is "
+                    f"found {len(below_avg_thresh)} instances where rolling average speed is "
                     f"below threshold of {self.AVG_LOW_GROUND_SPEED_THRESHOLD_MPS} m/s "
-                    f"(rolling window of {self.AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN} minutes)"
+                    f"(rolling window of {self.AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN} minutes). "
+                    f" max value: {max(below_avg_thresh['ground_speed_m_s'])}, "
+                    f"min value: {min(below_avg_thresh['ground_speed_m_s'])},"
                 )
             )
 
