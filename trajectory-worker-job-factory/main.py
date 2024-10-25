@@ -47,13 +47,15 @@ def run(
             logger.error(
                 f"permanently failed to process TJWD. "
                 f"airline_iata: {job.airline_iata}"
-                f"ack'ing msg: {e}"
+                f"ack'ing msg: {e}. {format_traceback()}"
             )
             input_job_handler.ack(message)
             continue
         except Exception as e:
             # nack message; expect pubsub to retry
-            logger.error(f"failed to proces TJWD. nack'ing msg: {e}")
+            logger.error(
+                f"failed to proces TJWD. nack'ing msg: {e}. {format_traceback()}"
+            )
             input_job_handler.nack(message)
             continue
 

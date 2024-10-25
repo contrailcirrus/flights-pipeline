@@ -368,9 +368,22 @@ class TrajectoryBuilderSvc:
             # (which are string literals in our SpireWaypointPositional objs)
             # thus, we re-apply the HealTrajectoryHandler to re-cast data-types
             # prior to running the ValidateTrajectoryHandler
-            self._traj_heal_handler.set(resampled_df)
-            resampled_df = self._traj_heal_handler.heal()
-            self._traj_heal_handler.unset()
+            try:
+                self._traj_heal_handler.set(resampled_df)
+                resampled_df = self._traj_heal_handler.heal()
+                self._traj_heal_handler.unset()
+            except BadTrajectoryException as e:
+                logger.warning(
+                    f"airline_iata: {twjd.airline_iata}. "
+                    f"skipping {flight_id}. bad trajectory post resampling. error: {e}"
+                )
+                continue
+            except Exception as e:
+                logger.error(
+                    f"airline_iata: {twjd.airline_iata}. "
+                    f"skipping {flight_id}. failed to run heal handler post resampling. error: {e}"
+                )
+                continue
 
             # ---------------
             # confirm that trajectory meets acceptance criteria
