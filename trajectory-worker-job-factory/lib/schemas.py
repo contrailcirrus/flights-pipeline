@@ -1098,7 +1098,7 @@ class TrajectoryWorkerJobDescriptor:
 
     def verify(self):
         """
-        Check that the TJWD describes a valid job.
+        Check that the TWJD describes a valid job.
         """
         # caller must provide ONE OF the following sets of flags
         valid_arg_combos = {
@@ -1110,13 +1110,13 @@ class TrajectoryWorkerJobDescriptor:
 
         if not is_valid:
             raise ValueError(
-                "TJWD not valid. Must provide only one of ("
+                "TWJD not valid. Must provide only one of ("
                 "1) flight_id, or (2) icao_address, or (3) airline_iata"
             )
 
         if self.met_source not in MetSource:
             raise ValueError(
-                f"TJWD not valid. met_source must be one of {[i.value for i in MetSource]}"
+                f"TWJD not valid. met_source must be one of {[i.value for i in MetSource]}"
             )
 
         # verify datestr parsing w/o exc

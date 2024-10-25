@@ -5,6 +5,7 @@ Application handlers.
 import concurrent.futures
 import json
 import os
+import sys
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ from lib.exceptions import (
 from lib.log import format_traceback, logger
 from lib.schemas import WaypointsRecord, MetSource
 import lib.environment as env
+from lib.utils import sigterm_manager
 
 
 @dataclass(frozen=True)
@@ -86,7 +88,9 @@ class PubSubSubscriptionHandler:
             The dequeued message from the pubsub subscription.
         """
         while True:
-            logger.info(f"fetching message from {self.subscription}")
+            if sigterm_manager.should_exit:
+                sys.exit(0)
+            logger.debug(f"fetching message from {self.subscription}")
 
             resp = self._client.pull(
                 request={"subscription": self.subscription, "max_messages": 1},
@@ -115,7 +119,7 @@ class PubSubSubscriptionHandler:
                 continue
 
             pubsub_msg = resp.received_messages[0]
-            logger.info(
+            logger.debug(
                 f"received 1 message from {self.subscription}. "
                 f"published_time: {pubsub_msg.message.publish_time}, "
                 f"message_id: {pubsub_msg.message.message_id}"
@@ -152,7 +156,7 @@ class PubSubSubscriptionHandler:
                 yield message
                 # Guard against user failing to call ack() or nack()
                 if message in self._outstanding_messages:
-                    logger.warning(f"Message was never ack'ed or nack'ed: {message}")
+                    logger.warning(f"message was never ack'ed or nack'ed: {message}")
                     self._outstanding_messages.discard(message)
         except GeneratorExit:
             pass
@@ -170,7 +174,7 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"Message ack'ed or nack'ed multiple times: {message}")
+            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
 
         self._client.acknowledge(
             request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
@@ -187,7 +191,7 @@ class PubSubSubscriptionHandler:
                 ),
             ),
         )
-        logger.info("successfully ack'ed message.")
+        logger.debug("successfully ack'ed message.")
 
     def nack(self, message: Message):
         """Not-acknowledge the message to stop extending ack deadline.
@@ -199,13 +203,13 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"Message ack'ed or nack'ed multiple times: {message}")
+            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """
         Extends the ack deadline for the currently outstanding message.
         """
-        logger.info("starting ack lease management worker...")
+        logger.debug("starting ack lease management worker...")
         while True:
             should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
@@ -215,7 +219,7 @@ class PubSubSubscriptionHandler:
             messages = self._outstanding_messages.copy()
             for message in messages:
                 ack_id = message.ack_id
-                logger.info(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
+                logger.debug(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
                 try:
                     self._client.modify_ack_deadline(
                         request={
