@@ -1122,8 +1122,10 @@ class ValidateTrajectoryHandler:
         ]
         if len(above_inst_thresh) > 0:
             return FlightTooFastError(
-                f"found instances where speed between waypoints is "
+                f"found {len(above_inst_thresh)} instances where speed between waypoints is "
                 f"above threshold of {self.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS} m/s"
+                f" max value: {max(above_inst_thresh['ground_speed_m_s'])}, "
+                f"min value: {min(above_inst_thresh['ground_speed_m_s'])},"
             )
 
     def _is_expected_altitude_profile(
