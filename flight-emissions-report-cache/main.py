@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 import sys
 from datetime import datetime, UTC, timedelta
 from typing import TypedDict
 
 import pandas as pd
-import pg8000
 import sqlalchemy
 from google.cloud import bigquery
 from google.cloud.sql.connector import Connector, IPTypes
@@ -34,7 +32,6 @@ class ResponseObject(TypedDict):
 
 
 ErrorResponse = dict[str, str]
-
 
 # AIRLINES = [
 #     "klm",  # {"airline": "KL"},
@@ -77,81 +74,53 @@ TARGET_AIRLINES = {
     "dhl": "D0",
 }
 
-instance_connection_name = "contrails-301217:us-east1:{database_name}".format(
-    database_name=env.PSDB_DATABASE,
-)
-table_name = "{database_name}.flights-pipeline.trajectory-cocip".format(
-    database_name=env.PSDB_DATABASE,
-)
+DATABASE_NAME = "flights-pipeline"
+TABLE_NAME = "trajectory-cocip"
+
+instance_connection_uri = f"contrails-301217:us-east1:{env.PSDB_INSTANCE_NAME}"
+
+connector = Connector()
 
 
-def connect_with_connector() -> sqlalchemy.engine.base.Engine:
-    """
-    Initializes a connection pool for a Cloud SQL instance of Postgres.
-    Uses the Cloud SQL Python Connector package.
-    """
-    connector = Connector()
-
-    def getconn() -> pg8000.dbapi.Connection:
-        conn: pg8000.dbapi.Connection = connector.connect(
-            instance_connection_name,
-            "pg8000",
-            user=env.PSDB_USER,
-            password=env.PSDB_PASS,
-            db=env.PSDB_DATABASE,
-            ip_type=IPTypes.PUBLIC,
-        )
-        return conn
-
-    pool = sqlalchemy.create_engine(
-        "postgresql+pg8000://",
-        creator=getconn,
-        # pool_size=5,  # Optional: specify the size of the connection pool
-        # max_overflow=2,  # Optional: specify the maximum overflow size of the connection pool
-        # pool_timeout=30,  # Optional: specify the timeout for getting a connection from the pool
-        # pool_recycle=1800,  # Optional: specify the recycle time for connections in the pool
-        # pool_pre_ping=True,  # Optional: enable pre-ping to check the connection before using it
+def getconn():
+    conn = connector.connect(
+        instance_connection_uri,
+        "psycopg2",
+        user=env.PSDB_USER,
+        password=env.PSDB_PASS,
+        db=DATABASE_NAME,
+        ip_type=IPTypes.PUBLIC,
     )
-    return pool
+    return conn
 
 
-def query_db(
-    connection,
-    airline_iata: str,
-    flight_number: str,
-    date: str,
-) -> list[ResponseObject]:
-    result = connection.execute(
-        sqlalchemy.text(
-            f"""
-            SELECT * FROM {table_name}
-            WHERE flight_number = :flight_number
-            AND airline_iata = :airline_iata
-            AND DATE(departure_scheduled_time) = :date
-        """
-        ),
-        {
-            "flight_number": flight_number,
-            "airline_iata": airline_iata,
-            "date": date,
-        },
+pool = sqlalchemy.create_engine(
+    "postgresql+psycopg2://",
+    creator=getconn,
+    # pool_size=5,  # Optional: specify the size of the connection pool
+    # max_overflow=2,  # Optional: specify the maximum overflow size of the connection pool
+    # pool_timeout=30,  # Optional: specify the timeout for getting a connection from the pool
+    # pool_recycle=1800,  # Optional: specify the recycle time for connections in the pool
+    # pool_pre_ping=True,  # Optional: enable pre-ping to check the connection before using it
+)
+
+with pool.connect() as db_conn:
+    result = db_conn.execute(
+        sqlalchemy.text(f'SELECT * FROM "{TABLE_NAME}"')
+    ).fetchall()
+    db_conn.commit()
+    print(f"got {len(result)} rows.")
+    for row in result:
+        print(f"got row: {row}")
+
+records_df: pd.DataFrame = pd.DataFrame()
+with pool.connect() as db_conn:
+    records_df.to_sql(
+        TABLE_NAME, con=db_conn, if_exists="append", index=False, chunksize=5000
     )
-    rows = result.fetchall()
-    return rows
+    db_conn.commit()
 
-
-@dataclass
-class MyBlob:
-    """
-    A data transfer object (DTO) representing a collection of flight emissions report records.
-    """
-
-
-def psdb_push(records: MyBlob):
-    """
-    Given a batch of records, push those records to a postgres database table.
-    """
-
+connector.close()
 
 if __name__ == "__main__":
     """
@@ -187,9 +156,8 @@ if __name__ == "__main__":
             ]
         )
         records_df: pd.DataFrame = bq_handler.query(query, cfg)
+        logger.info(f"fetched {len(records_df)} records for BQ -> PSDB sync.")
 
-        # TODO - push records to psdb
-        psdb_push(records_df)
     except Exception as e:
         logger.error(
             f"failed to sync {target_date_str} between BQ table and PSDB table. {e}"
