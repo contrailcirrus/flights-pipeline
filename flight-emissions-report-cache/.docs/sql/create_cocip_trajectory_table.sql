@@ -3,11 +3,11 @@
 
 create table public."trajectory-cocip"
 (
-    _chunk_hash integer,
-    _processed_at integer,
-    seg_cnt integer,
-    seg_ef_cnt integer,
-    seg_ef_nan_cnt integer,
+    _chunk_hash  bigint,
+    _processed_at  bigint,
+    seg_cnt  bigint,
+    seg_ef_cnt  bigint,
+    seg_ef_nan_cnt  bigint,
     chunk_len_km float,
     lat_start float,
     lon_start  float,
@@ -25,10 +25,10 @@ create table public."trajectory-cocip"
     source_id text,
     git_sha text,
     zarr_uri text,
-    sum_ef_mj integer,
-    total_fuel_burn_kg integer,
-    total_co2_kg integer,
-    total_h2o_kg integer,
+    sum_ef_mj  bigint,
+    total_fuel_burn_kg  bigint,
+    total_co2_kg  bigint,
+    total_h2o_kg  bigint,
     total_so2_kg float,
     total_sulphates_kg float,
     total_oc_kg float,
@@ -36,7 +36,7 @@ create table public."trajectory-cocip"
     total_co_kg float,
     total_hc_kg float,
     total_nvpm_kg float,
-    total_nvpm_giga_cnt integer,
+    total_nvpm_giga_cnt  bigint,
     aircraft_type_icao text,
     engine_uid text,
     mean_aircraft_mass_kg float null,
@@ -51,13 +51,13 @@ create table public."trajectory-cocip"
     departure_scheduled_time timestamp null,
     arrival_airport_icao  text null,
     arrival_scheduled_time timestamp null,
-    median_altitude_ft integer null,
-    seg_pos_ef_cnt integer null,
+    median_altitude_ft  bigint null,
+    seg_pos_ef_cnt  bigint null,
     total_pos_ef_persistent_contrail_length_km float null,
     time_start_tz text null,
     time_end_tz text null,
-    time_start_sunrise_offset_mins integer null,
-    time_start_sunset_offset_mins integer null
+    time_start_sunrise_offset_mins  bigint null,
+    time_start_sunset_offset_mins  bigint null
 );
 
 grant delete, insert, select, update on public."trajectory-cocip" to internal_user_rw;
