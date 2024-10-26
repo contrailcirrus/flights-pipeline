@@ -570,7 +570,7 @@ class ValidateTrajectoryHandler:
     CRUISE_LOW_ALTITUDE_THRESHOLD_FT = 15000  # lowest expected cruise altitude
     INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS = 350  # 350m/sec ~= 780mph ~= 1260kph
     INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS = 45  # 45m/sec ~= 100mph ~= 160kph
-    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 120  # 120m/sec ~= 270mph ~= 430kph
+    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 100  # 120m/sec ~= 223mph ~= 360 kph
     AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN = (
         30  # rolling period for avg speed comparison
     )
@@ -1057,19 +1057,25 @@ class ValidateTrajectoryHandler:
         (between consecutive waypoints),
         and,
         on a rolling average basis.
+
+        For instantaneous speed, we clip the trajectory by 10 rows on the head and tail.
+        (assuming the trajectory is resampled prior to applying the validation handler,
+        that is 10min on head or tail).
         """
 
         violations: list[FlightTooSlowError] = []
 
-        below_inst_thresh = self._df[
+        below_inst_thresh = self._df.iloc[10:, :].iloc[:-10, :][
             self._df["ground_speed_m_s"]
             <= self.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS
         ]
         if len(below_inst_thresh) > 0:
             violations.append(
                 FlightTooSlowError(
-                    f"found instances where speed between waypoints is "
-                    f"below threshold of {self.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS} m/s"
+                    f"found {len(below_inst_thresh)} instances where speed between waypoints is "
+                    f"below threshold of {self.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS} m/s. "
+                    f" max value: {max(below_inst_thresh['ground_speed_m_s'])}, "
+                    f"min value: {min(below_inst_thresh['ground_speed_m_s'])},"
                 )
             )
 
@@ -1092,9 +1098,11 @@ class ValidateTrajectoryHandler:
         if len(below_avg_thresh) > 0:
             violations.append(
                 FlightTooSlowError(
-                    f"found instances where rolling average speed is "
+                    f"found {len(below_avg_thresh)} instances where rolling average speed is "
                     f"below threshold of {self.AVG_LOW_GROUND_SPEED_THRESHOLD_MPS} m/s "
-                    f"(rolling window of {self.AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN} minutes)"
+                    f"(rolling window of {self.AVG_LOW_GROUND_SPEED_ROLLING_WINDOW_PERIOD_MIN} minutes). "
+                    f" max value: {max(below_avg_thresh['ground_speed_m_s'])}, "
+                    f"min value: {min(below_avg_thresh['ground_speed_m_s'])},"
                 )
             )
 
@@ -1114,8 +1122,10 @@ class ValidateTrajectoryHandler:
         ]
         if len(above_inst_thresh) > 0:
             return FlightTooFastError(
-                f"found instances where speed between waypoints is "
+                f"found {len(above_inst_thresh)} instances where speed between waypoints is "
                 f"above threshold of {self.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS} m/s"
+                f" max value: {max(above_inst_thresh['ground_speed_m_s'])}, "
+                f"min value: {min(above_inst_thresh['ground_speed_m_s'])},"
             )
 
     def _is_expected_altitude_profile(
