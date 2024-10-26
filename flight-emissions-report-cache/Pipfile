@@ -9,6 +9,7 @@ db-dtypes = "==1.2.0"
 google-cloud-bigquery = "==3.21.0"
 pandas = "==2.2.2"
 psycopg2 = "==2.9.10"
+psycopg2-binary = "==2.9.10"
 sqlalchemy = "==2.0.36"
 
 [dev-packages]
