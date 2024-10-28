@@ -1,4 +1,0 @@
-google-cloud-bigquery
-pg8000
-sqlalchemy
-cloud-sql-python-connector
