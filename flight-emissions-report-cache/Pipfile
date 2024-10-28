@@ -1,0 +1,27 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+cloud-sql-python-connector = "==1.13.0"
+db-dtypes = "==1.2.0"
+google-cloud-bigquery = "==3.21.0"
+pandas = "==2.2.2"
+psycopg2 = "==2.9.10"
+psycopg2-binary = "==2.9.10"
+sqlalchemy = "==2.0.36"
+
+[dev-packages]
+black = "*"
+mypy = "*"
+pandas-stubs = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+ruff = "<=0.4.10"
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.0"
