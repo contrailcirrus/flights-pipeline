@@ -26,7 +26,7 @@ spec:
                 - name: PSDB_USER
                   value: {{ .Values.psdbUser | required ".Values.psdbUser is required" | quote }}
                 - name: PSDB_HOST
-                  value: { { .Values.psdbHost | required ".Values.psdbHost is required" | quote } }
+                  value: {{ .Values.psdbHost | required ".Values.psdbHost is required" | quote }}
                 - name: PSDB_PASS
                   valueFrom:
                     secretKeyRef:

@@ -46,7 +46,7 @@ def run(
             # ack message; avoid pubsub redelivery
             logger.error(
                 f"permanently failed to process TJWD. "
-                f"airline_iata: {job.airline_iata}"
+                f"airline_iata: {job.airline_iata} "
                 f"ack'ing msg: {e}. {format_traceback()}"
             )
             input_job_handler.ack(message)
