@@ -60,3 +60,13 @@ If using the web interface, navigate to `Users`, click the triple-dots next to a
 The current passwords for each user are stored in 1Password, in the Contrails-SRE collection.
 The passwords are also stored in GCP Secret Manager,
 under secret name `postgres-flight-emissions-report-<dev/prod>-internal-user-<ro/rw>`.
+
+## Environment Variables
+The following environment variables are expected for production and development environments.
+
+| name      |                              description                              |
+|:----------|:---------------------------------------------------------------------:|
+| PSDB_USER |         PSDB username for the read/write access internal user         |
+| PSDB_PASS |                          PSDB password " " "                          |
+| PSDB_HOST | public IPv4 address (_without_ protocol prefix) for the PSDB instance |
+| LOG_LEVEL |              log level for service in cloud environment               |
