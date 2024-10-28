@@ -19,7 +19,7 @@ In the UI, navigate to `Overview` and click the `Edit` button in the main view.
 Under "Connections > Authorized Networks" click `Add Network`, and enter your IP address.
 
 ### Initial Setup
-The GCP SQL instances, postgres databases and database users are codified in [.cloud/psdb.tf](../.cloud/psdb.tf).
+The GCP SQL instances, postgres databases and database users are codified in [.cloud/psdb_prod.tf](../.cloud/psdb_prod.tf).
 These definitions provide initial instantiation of the resources.
 
 See this reference for [database instance settings](https://cloud.google.com/sql/docs/postgres/instance-settings).
