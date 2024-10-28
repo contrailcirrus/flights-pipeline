@@ -5,6 +5,7 @@ deploy: --check-env
 		--set image=$(IMAGE) \
 		--set logLevel=$(LOG_LEVEL) \
 		--set psdbUser=$(PSDB_USER) \
+		--set psdbHost=$(PSDB_HOST) \
 		--set suspendCronjob=$(SUSPEND_CRONJOB)
 
 
