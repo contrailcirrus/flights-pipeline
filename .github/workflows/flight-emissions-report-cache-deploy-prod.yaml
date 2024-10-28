@@ -62,4 +62,4 @@ jobs:
           LOG_LEVEL: INFO
           PSDB_USER: internal_user_rw
           PSDB_HOST: 35.229.37.30
-          SUSPEND_CRONJOB: false
+          SUSPEND_CRONJOB: true
