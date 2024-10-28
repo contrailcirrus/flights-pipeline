@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: flight-emissions-report-cronjob
 spec:
-  schedule: "0 19 * * *"
+  schedule: "0 2 * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 1800
   suspend: {{ .Values.suspendCronjob | required ".Values.suspendCronjob is required" }}
