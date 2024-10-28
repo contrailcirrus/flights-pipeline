@@ -33,6 +33,9 @@ RUN mkdir -v /usr/src/.venv
 COPY --from=venv /usr/src/.venv/ /usr/src/.venv/
 ENV PATH /usr/src/.venv/bin:$PATH
 
+# install libs needed by postgres python client
+RUN apt-get update && apt-get install -y libpq-dev
+
 # Copy the application code
 WORKDIR /
 COPY sql ./sql
