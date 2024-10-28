@@ -1,12 +1,12 @@
-name: flight-emissions-report-deploy-prod
+name: flight-emissions-report-cache-deploy-dev
 
 on:
   push:
     branches:
-      - main
+      - develop
     paths:
-      - flight-emissions-report/**
-      - .github/workflows/flight-emissions-report-deploy-prod.yaml
+      - flight-emissions-report-cache/**
+      - .github/workflows/flight-emissions-report-cache-deploy-dev.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -45,20 +45,21 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: flight-emissions-report/
+          context: flight-emissions-report-cache/
           push: true
           tags: |
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-prod:${{ github.sha }}
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-prod:latest
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-cache-dev:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-cache-dev:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Deploy helm resources
-        working-directory: flight-emissions-report/helm
+        working-directory: flight-emissions-report-cache/helm
         run: make deploy
         env:
-          NAMESPACE: flights-pipeline-prod
-          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-prod:${{ github.sha }}
+          NAMESPACE: flights-pipeline-dev
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-cache-dev:${{ github.sha }}
           LOG_LEVEL: INFO
-          TRAJECTORY_WORKER_TOPIC: projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk
+          PSDB_USER: internal_user_rw
+          PSDB_HOST: 34.74.21.99
           SUSPEND_CRONJOB: false

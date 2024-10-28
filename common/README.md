@@ -87,3 +87,28 @@ kubectl create secret generic gcp-service-account-key --from-file=GCP_SVC_ACCT_K
 ```
 
 **Lastly**, permanently delete the local JSON file from your machine.
+
+### CloudSQL (PSDB) - flight emissions report database
+User credentials for accessing the flight emissions report (FER) SQL database are stored as kubernetes secrets in the `flights-pipeline-<dev>/<prod>` namespace.
+
+### Setup
+Two secrets are stored for FER DB access.
+(1) password for read-only user (`internal_user_ro`)
+(2) password for read-write user (`internal_user_rw`)
+
+Each secret is minted with the following command, substituting for respective users and environments.
+
+```bash
+PASSWORD=my_password && kubectl create secret generic fer-psdb-interal-user-<ro/rw>-pwd-secret --from-literal=PASSWORD=$(PASSWORD) -n flights-pipeline-<prod/dev>
+```
+
+The secret can be accessed in a k8s manifest by injecting an env var from this secret.
+
+e.g.
+```yaml
+- name: PSDB_PASS
+  valueFrom:
+    secretKeyRef:
+      name: fer-psdb-interal-user-ro-pwd-secret
+      key: PASSWORD
+```

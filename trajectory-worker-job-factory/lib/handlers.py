@@ -162,7 +162,7 @@ class PubSubSubscriptionHandler:
                 yield message
                 # Guard against user failing to call ack() or nack()
                 if message in self._outstanding_messages:
-                    logger.warning(f"Message was never ack'ed or nack'ed: {message}")
+                    logger.warning(f"message was never ack'ed or nack'ed: {message}")
                     self._outstanding_messages.discard(message)
         except GeneratorExit:
             pass
@@ -180,7 +180,7 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"Message ack'ed or nack'ed multiple times: {message}")
+            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
 
         self._client.acknowledge(
             request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
@@ -209,7 +209,7 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"Message ack'ed or nack'ed multiple times: {message}")
+            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """

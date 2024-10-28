@@ -1,41 +1,43 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: flight-emissions-report-cronjob
+  name: flight-emissions-report-cache-cronjob
 spec:
-  schedule: "0 2 * * *"
+  schedule: "0 10 * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 1800
   suspend: {{ .Values.suspendCronjob | required ".Values.suspendCronjob is required" }}
 
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 7200
+      activeDeadlineSeconds: 1200
       backoffLimit: 1
       template:
         spec:
-          # nodeSelector:
-           #  cloud.google.com/compute-class: "Scale-Out"
           restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
-          # terminationGracePeriodSeconds should be greater than the time to
-          # perform a single job iteration. When a SIGTERM is received, the job
-          # has this much time to gracefully exit before being killed.
-          terminationGracePeriodSeconds: 180
+          terminationGracePeriodSeconds: 60
           containers:
             - name: main
               image: {{ .Values.image | required ".Values.image is required" | quote }}
               env:
                 - name: LOG_LEVEL
                   value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
-                - name: TRAJECTORY_WORKER_TOPIC
-                  value: {{ .Values.trajectoryWorkerTopic | required ".Values.TrajectoryWorkerTopic is required" | quote }}
+                - name: PSDB_USER
+                  value: {{ .Values.psdbUser | required ".Values.psdbUser is required" | quote }}
+                - name: PSDB_HOST
+                  value: {{ .Values.psdbHost | required ".Values.psdbHost is required" | quote }}
+                - name: PSDB_PASS
+                  valueFrom:
+                    secretKeyRef:
+                      name: fer-psdb-interal-user-rw-pwd-secret
+                      key: PASSWORD
               resources:
                 requests:
-                  cpu: "1"  # 1:4 ratio for Scale-Out enforced
-                  memory: "6.5Gi"
+                  cpu: "1"
+                  memory: "5Gi"
                   ephemeral-storage: "1Gi"
                 limits:
                   cpu: "1"
-                  memory: "6.5Gi"
+                  memory: "5Gi"
                   ephemeral-storage: "1Gi"
