@@ -62,4 +62,4 @@ jobs:
           LOG_LEVEL: INFO
           PSDB_USER: internal_user_rw
           PSDB_PROXY_HOST: psdb-flight-emissions-report-proxy.flights-pipeline-dev.svc.cluster.local
-          SUSPEND_CRONJOB: false
+          SUSPEND_CRONJOB: true
