@@ -8,6 +8,6 @@ psdbUser:
 
 # psdbPass: <- this is imported from k8s secret directly in the helm/k8s manifest
 
-psdbHost:
+psdbConnectionName:
 
 suspendCronjob:

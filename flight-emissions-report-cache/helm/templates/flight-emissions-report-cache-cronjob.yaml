@@ -26,7 +26,7 @@ spec:
                 - name: PSDB_USER
                   value: {{ .Values.psdbUser | required ".Values.psdbUser is required" | quote }}
                 - name: PSDB_HOST
-                  value: {{ .Values.psdbHost | required ".Values.psdbHost is required" | quote }}
+                  value: "127.0.0.1"
                 - name: PSDB_PASS
                   valueFrom:
                     secretKeyRef:
@@ -41,3 +41,14 @@ spec:
                   cpu: "1"
                   memory: "5Gi"
                   ephemeral-storage: "1Gi"
+            - name: cloud-sql-proxy
+              # cloud sql proxy sidecar:
+              # https://cloud.google.com/sql/docs/postgres/sql-proxy
+              # https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes
+              image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:d8ad82fa35da3
+              args:
+                - "--auto-iam-authn"
+                - "--port=5432"
+                - {{ .Values.psdbConnectionName | required ".Values.psdbConnectionName is required" | quote }}
+              securityContext:
+                runAsNonRoot: true

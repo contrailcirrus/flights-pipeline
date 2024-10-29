@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 bigquery.ScalarQueryParameter(
                     "date_str",
                     "STRING",
-                    "2024-09-01",
+                    target_date_str,
                 ),
             ]
         )
