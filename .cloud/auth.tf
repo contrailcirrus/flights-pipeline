@@ -13,6 +13,8 @@ resource "google_service_account" "flights_pipeline_sa" {
 resource "google_project_iam_custom_role" "flights_pipeline_role" {
   description = "Custom role for flights-pipeline services"
   permissions = [
+    "cloudsql.instances.connect",
+    "cloudsql.instances.get",
     "datastore.databases.get",
     "datastore.databases.getMetadata",
     "datastore.entities.create",

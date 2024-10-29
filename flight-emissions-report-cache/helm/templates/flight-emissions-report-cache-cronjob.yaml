@@ -45,7 +45,7 @@ spec:
               # cloud sql proxy sidecar:
               # https://cloud.google.com/sql/docs/postgres/sql-proxy
               # https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes
-              image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:d8ad82fa35da3
+              image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.0
               args:
                 - "--auto-iam-authn"
                 - "--port=5432"

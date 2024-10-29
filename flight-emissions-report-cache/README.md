@@ -18,6 +18,16 @@ then you'll need to add your client IP address to the instance's security settin
 In the UI, navigate to `Overview` and click the `Edit` button in the main view.
 Under "Connections > Authorized Networks" click `Add Network`, and enter your IP address.
 
+#### PSDB k8s access
+The postgres instance is accessed by pods running in k8s by using a cloud SQL sidecar proxy.
+See the second container definition in the pod spec of the kubernetes manifest: 
+[helm/templates/flight-emissions-report-cache-cron.yaml](helm/templates/flight-emissions-report-cache-cronjob.yaml).
+The sidecar container creates a tunnel between the pod running in k8s and the Cloud SQL instance.
+Using this sidecar Cloud SQL proxy allows us to avoid networking rules, where we would
+otherwise have to specify the IP address of the pod as an acceptable client IP in the Cloud SQL firewall rules.
+
+See [this reference](https://cloud.google.com/sql/docs/postgres/sql-proxy) and this [reference](https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes).
+
 ### Initial Setup
 The GCP SQL instances, postgres databases and database users are codified in [.cloud/psdb_prod.tf](../.cloud/psdb_prod.tf).
 These definitions provide initial instantiation of the resources.
