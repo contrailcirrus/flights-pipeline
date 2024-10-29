@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from google.cloud import bigquery
 
 import lib.environment as env
-from lib.log import logger
+from lib.log import logger, format_traceback
 from lib.handlers import BigQueryHandler
 
 SYNC_OFFSET_DAYS = (
@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 bigquery.ScalarQueryParameter(
                     "date_str",
                     "STRING",
-                    "2024-09-01",
+                    target_date_str,
                 ),
             ]
         )
@@ -81,8 +81,9 @@ if __name__ == "__main__":
             )
             conn.commit()
 
-    except Exception as e:
+    except Exception:
         logger.error(
-            f"failed to sync {target_date_str} between BQ table and PSDB table. {e}"
+            f"failed to sync {target_date_str} between BQ table and PSDB table. "
+            f"{format_traceback()}"
         )
         sys.exit(1)

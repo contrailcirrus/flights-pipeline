@@ -18,6 +18,9 @@ then you'll need to add your client IP address to the instance's security settin
 In the UI, navigate to `Overview` and click the `Edit` button in the main view.
 Under "Connections > Authorized Networks" click `Add Network`, and enter your IP address.
 
+#### PSDB k8s access
+The postgres instance is accessed by talking with the Cloud SQL Proxy that is deployed in [psdb-flight-emissions-report-proxy](../psdb-flight-emissions-report-proxy).
+
 ### Initial Setup
 The GCP SQL instances, postgres databases and database users are codified in [.cloud/psdb_prod.tf](../.cloud/psdb_prod.tf).
 These definitions provide initial instantiation of the resources.
