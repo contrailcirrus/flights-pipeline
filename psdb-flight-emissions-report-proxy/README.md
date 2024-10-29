@@ -32,3 +32,6 @@ As such, pods can connect to PSDB using the address:
 ```text
  postgresql://USER:PASSWORD@psdb-flight-emissions-report-proxy.flights-pipeline-<dev/prod>.svc.cluster.local/DATABASE_NAME
 ```
+
+## Implementation
+See the `flight-emissions-report-cache` src code for an example implementation.
