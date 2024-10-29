@@ -47,6 +47,7 @@ spec:
               # https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes
               image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:d8ad82fa35da3
               args:
+                - "--auto-iam-authn"
                 - "--port=5432"
                 - {{ .Values.psdbConnectionName | required ".Values.psdbConnectionName is required" | quote }}
               securityContext:
