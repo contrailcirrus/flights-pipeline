@@ -26,4 +26,4 @@ spec:
               resource.labels.subscription_id: {{ .Values.twjdSubscriptionId | required ".Values.twjdSubscriptionId is required" | splitList "/" | last | quote }}
         target:
           type: Value
-          value: 5
+          value: 10
