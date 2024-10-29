@@ -5,6 +5,7 @@ deploy: --check-env
 		--set image=$(IMAGE) \
 		--set logLevel=$(LOG_LEVEL) \
 		--set psdbUser=$(PSDB_USER) \
+		--set psdbProxyHost=$(PSDB_PROXY_HOST) \
 		--set psdbConnectionName=$(PSDB_CONNECTION_NAME) \
 		--set suspendCronjob=$(SUSPEND_CRONJOB)
 
@@ -16,6 +17,7 @@ deploy: --check-env
 	@test $${IMAGE?environment variable is required}
 	@test $${LOG_LEVEL?environment variable is required}
 	@test $${PSDB_USER?environment variable is required}
+	@test $${PSDB_PROXY_HOST?environment variable is required}
 	@test $${PSDB_CONNECTION_NAME?environment variable is required}
 	@test $${SUSPEND_CRONJOB?environment variable is required}
 
