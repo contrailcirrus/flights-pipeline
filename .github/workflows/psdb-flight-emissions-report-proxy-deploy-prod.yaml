@@ -1,0 +1,41 @@
+name: psdb-flight-emissions-report-proxy-deploy-prod
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - psdb-flight-emissions-report-proxy/**
+      - .github/workflows/psdb-flight-emissions-report-proxy-deploy-prod.yaml
+
+# avoid possible race condition on multiple merges
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Set up GCP auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up gcloud plugins
+        run: gcloud components install gke-gcloud-auth-plugin
+
+      - name: Authorize kubectl CLI
+        run: gcloud container clusters get-credentials contrails-gke-general --region us-east1
+
+      - name: Deploy helm resources
+        working-directory: psdb-flight-emissions-report-proxy/helm
+        run: make deploy
+        env:
+          NAMESPACE: flights-pipeline-prod
+          PSDB_CONNECTION_NAME: contrails-301217:us-east1:flight-emissions-report-prod

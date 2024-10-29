@@ -61,5 +61,5 @@ jobs:
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-cache-dev:${{ github.sha }}
           LOG_LEVEL: INFO
           PSDB_USER: internal_user_rw
-          PSDB_CONNECTION_NAME: contrails-301217:us-east1:flight-emissions-report-dev
+          PSDB_PROXY_HOST: psdb-flight-emissions-report-proxy.flights-pipeline-dev.svc.cluster.local
           SUSPEND_CRONJOB: false
