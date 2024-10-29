@@ -37,6 +37,11 @@ graph
         fer_cache_cron(cron: flight-emissions-report-cache)
     end
     style k8s_6 fill:#C88908
+    subgraph k8s_7[Kubernetes]
+        psdb_proxy_dep(dep: psdb-flight-emissions-report-proxy)
+        psdb_proxy_svc(svc: psdb-flight-emissions-report-proxy)
+    end
+    style k8s_7 fill:#C88908
     subgraph redis1[Redis]
         resample_worker_cache(resample-worker-cache)
     end
@@ -106,7 +111,7 @@ graph
     end
     style twjf_cli fill:#c4c708
     subgraph sql_1[Cloud SQL]
-        psdb_fer_dev(psdb: flight-emissions-report)
+        psdb_fer(psdb: flight-emissions-report)
     end
     style sql_1 fill:#f01f4c
     
@@ -168,8 +173,11 @@ graph
     traj_worker_gaia_deadletter --> flights_reinject
     flights_reinject --> traj_worker_gaia_topic
     trajectory_cocip_tb --> report_fetch
-    
+
+    psdb_proxy_dep <--> psdb_fer
+    psdb_proxy_dep <--> psdb_proxy_svc
+
     trajectory_cocip_tb --> fer_cache_cron
-    fer_cache_cron --> psdb_fer_dev
+    fer_cache_cron --> psdb_proxy_svc
     
 ```
