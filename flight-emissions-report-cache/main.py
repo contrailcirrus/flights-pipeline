@@ -71,7 +71,10 @@ if __name__ == "__main__":
             ]
         )
         records_df: pd.DataFrame = bq_handler.query(query, cfg)
-        logger.info(f"fetched {len(records_df)} records for BQ -> PSDB sync.")
+        logger.info(
+            f"fetched {len(records_df)} records for {target_date_str}. "
+            f"starting BQ -> PSDB sync."
+        )
         db = create_engine(
             f"postgresql://{env.PSDB_USER}:{env.PSDB_PASS}@{env.PSDB_HOST}/{DATABASE_NAME}"
         )
