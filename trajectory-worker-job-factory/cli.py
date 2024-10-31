@@ -60,6 +60,7 @@ class TrajectoryBuilderSvcWrapper:
         )
         print(f"🚀 Running flights for: {self._twjd}")
         svc.run(twjd=self._twjd)
+        print(f"finished flights for: {self._twjd}")
 
 
 parser = argparse.ArgumentParser(prog="twjf-cli")
