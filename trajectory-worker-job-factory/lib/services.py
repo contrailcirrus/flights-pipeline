@@ -242,7 +242,14 @@ class TrajectoryBuilderSvc:
             f"waypoints: {len(df)} terrestrial & {len(df_satellite)} satellite."
         )
         flight_instances = df.groupby("flight_id")
+        counter = 0
         for flight_id, terr_waypoints in flight_instances:
+            counter += 1
+            if (counter % 500) == 0:
+                logger.info(
+                    f"airline iata: {twjd.airline_iata}. "
+                    f"processing {counter}/{len(df['flight_id'].unique())}"
+                )
             # --------------
             # merge sat data into terrestrial data
             # --------------
