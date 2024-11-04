@@ -1,4 +1,5 @@
 import dataclasses
+import sys
 
 from lib.helpers import key_max_value_count
 from lib.schemas import (
@@ -21,6 +22,7 @@ from lib.exceptions import (
     RocdError,
     BadTrajectoryException,
 )
+from lib.utils import sigterm_manager
 
 from google.cloud import bigquery
 import pandas as pd
@@ -244,6 +246,8 @@ class TrajectoryBuilderSvc:
         flight_instances = df.groupby("flight_id")
         counter = 0
         for flight_id, terr_waypoints in flight_instances:
+            if sigterm_manager.should_exit:
+                sys.exit(1)
             counter += 1
             if (counter % 500) == 0:
                 logger.info(
