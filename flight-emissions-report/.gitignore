@@ -2,3 +2,4 @@
 flights_report_summary_*
 flights_report_raw_*
 *.png
+*.pdf
