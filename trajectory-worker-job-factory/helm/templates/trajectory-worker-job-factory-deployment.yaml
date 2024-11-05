@@ -21,7 +21,7 @@ spec:
       terminationGracePeriodSeconds: 60
       nodeSelector:
         cloud.google.com/compute-class: "Performance"
-        cloud.google.com/machine-family: "c3"
+        cloud.google.com/machine-family: "c4"
       containers:
       - name: trajectory-worker-job-factory
         image: {{ .Values.image | required ".Values.image is required" | quote }}
