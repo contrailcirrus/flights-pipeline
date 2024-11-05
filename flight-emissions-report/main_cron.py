@@ -21,9 +21,9 @@ import environment as env
 # but we do it this way to maintain conformity with the class obj as expected
 # by argsparse in the CLI implementation
 
-if not env.TRAJECTORY_WORKER_TOPIC:
-    raise ValueError("TRAJECTORY_WORKER_TOPIC must be set in env vars.")
-JobWorkerSubmitSvc.TRAJECTORY_WORKER_TOPIC = env.TRAJECTORY_WORKER_TOPIC
+if not env.TWJD_TOPIC_ID:
+    raise ValueError("TWJD_TOPIC_ID must be set in env vars.")
+JobWorkerSubmitSvc.TWJD_TOPIC_ID = env.TWJD_TOPIC_ID
 
 
 @dataclass
