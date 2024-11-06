@@ -53,7 +53,7 @@ class TrajectoryBuilderSvc:
         resample_handler: ResampleHandler,
         job_out_handler: PubSubPublishHandler,
     ):
-        self._cache_handler = (cache_handler,)
+        self._cache_handler = cache_handler
         self._bq_handler = bq_handler
         self._traj_heal_handler = heal_traj_handler
         self._validate_traj_handler = validate_traj_handler
@@ -247,11 +247,33 @@ class TrajectoryBuilderSvc:
             f"waypoints: {len(df)} terrestrial & {len(df_satellite)} satellite."
         )
         flight_instances = df.groupby("flight_id", sort=True)
+
+        # fetch marker, if one exists, from redis cache
+        progress_marker = 1
+        if self._cache_handler and twjd.airline_iata:
+            # we skip cache handling if this is a twjd w/o airline_iata
+            # i.e. we don't bother with cache handling for small jobs
+            # where the trajectories are for a single icao_address or flight_id
+            key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
+            if resp := self._cache_handler.pull(key):
+                progress_marker = resp
+                logger.warning(
+                    f"resuming progress from a previous job "
+                    f"at marker {progress_marker}. "
+                    f"airline_iata: {twjd.airline_iata}. "
+                    f"TWJD: {twjd}"
+                )
+
         counter = 0
         for flight_id, terr_waypoints in flight_instances:
             if sigterm_manager.should_exit:
                 sys.exit(0)
             counter += 1
+
+            # fast-forward if we are resuming a job
+            if counter <= progress_marker:
+                continue
+
             if (counter % 500) == 0:
                 logger.info(
                     f"airline iata: {twjd.airline_iata}. "

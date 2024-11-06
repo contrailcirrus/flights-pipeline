@@ -1138,6 +1138,7 @@ class AirlineDayFlightsProgressMarker:
 
     airline_iata: str
     day: str  # "%Y-%m-%d"
+    met_source: str
     marker: int
 
     @property
@@ -1145,7 +1146,7 @@ class AirlineDayFlightsProgressMarker:
         """
         key to use in cache.
         """
-        return f"{self.airline_iata}:{self.day}"
+        return f"{self.airline_iata}:{self.day}:{self.met_source}"
 
     @property
     def value(self):
@@ -1155,8 +1156,9 @@ class AirlineDayFlightsProgressMarker:
         return str(self.marker)
 
     @staticmethod
-    def from_redis_resp(resp: bytes) -> int:
+    def from_redis_resp(resp: bytes | None) -> int | None:
         """
         Light marshalling to handle byte string response type from redis.
         """
-        return int(resp.decode("utf-8"))
+        if resp:
+            return int(resp.decode("utf-8"))
