@@ -15,6 +15,7 @@ from lib.handlers import (
     HealTrajectoryHandler,
     ResampleHandler,
     ValidateTrajectoryHandler,
+    RedisHandler,
 )
 from lib.exceptions import (
     PermanentFailureException,
@@ -45,12 +46,14 @@ class TrajectoryBuilderSvc:
 
     def __init__(
         self,
+        cache_handler: RedisHandler | None,
         bq_handler: BigQueryHandler,
         heal_traj_handler: HealTrajectoryHandler,
         validate_traj_handler: ValidateTrajectoryHandler,
         resample_handler: ResampleHandler,
         job_out_handler: PubSubPublishHandler,
     ):
+        self._cache_handler = (cache_handler,)
         self._bq_handler = bq_handler
         self._traj_heal_handler = heal_traj_handler
         self._validate_traj_handler = validate_traj_handler
@@ -243,11 +246,11 @@ class TrajectoryBuilderSvc:
             f"flight count: {len(df['flight_id'].unique())}. "
             f"waypoints: {len(df)} terrestrial & {len(df_satellite)} satellite."
         )
-        flight_instances = df.groupby("flight_id")
+        flight_instances = df.groupby("flight_id", sort=True)
         counter = 0
         for flight_id, terr_waypoints in flight_instances:
             if sigterm_manager.should_exit:
-                sys.exit(1)
+                sys.exit(0)
             counter += 1
             if (counter % 500) == 0:
                 logger.info(

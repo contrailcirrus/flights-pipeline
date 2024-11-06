@@ -10,6 +10,7 @@ from lib.handlers import (
     HealTrajectoryHandler,
     ResampleHandler,
     ValidateTrajectoryHandler,
+    RedisHandler,
 )
 from lib.schemas import (
     TrajectoryWorkerJobDescriptor,
@@ -66,10 +67,13 @@ if __name__ == "__main__":
     logger.info("starting trajectory-worker-job-factory instance")
 
     try:
+        cache_handler = RedisHandler(
+            env.REDIS_HOST,
+            env.REDIS_PORT,
+        )
         input_job_handler = PubSubSubscriptionHandler(
             env.TWJD_SUBSCRIPTION_ID,
         )
-
         bq_handler = BigQueryHandler()
         heal_traj_handler = HealTrajectoryHandler()
         validate_traj_handler = ValidateTrajectoryHandler()
@@ -79,6 +83,7 @@ if __name__ == "__main__":
             ordered_queue=True,
         )
         job_builder_svc = TrajectoryBuilderSvc(
+            cache_handler=cache_handler,
             bq_handler=bq_handler,
             heal_traj_handler=heal_traj_handler,
             validate_traj_handler=validate_traj_handler,
@@ -93,4 +98,4 @@ if __name__ == "__main__":
 
     except Exception:
         logger.error("Unhandled exception:" + format_traceback())
-        sys.exit(1)
+        sys.exit(0)
