@@ -73,7 +73,6 @@ if __name__ == "__main__":
             args = Input(day=target_dtstr, met_data_src="hres", **target_kwarg)
             svc = JobWorkerSubmitSvc(Namespace(**asdict(args)))
             svc.run()
-            sys.exit(0)
     except Exception:
         logger.error("Unhandled exception:" + format_traceback())
         sys.exit(1)
