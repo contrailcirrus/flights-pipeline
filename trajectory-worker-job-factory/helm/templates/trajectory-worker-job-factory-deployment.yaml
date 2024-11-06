@@ -13,8 +13,6 @@ spec:
     metadata:
       labels:
         app: trajectory-worker-job-factory
-      annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     spec:
       serviceAccountName: flights-pipeline-default-sa
       # terminationGracePeriodSeconds should be greater than the time to
@@ -34,6 +32,11 @@ spec:
             value: {{ .Values.trajectoryChunkTopicId | required ".Values.trajectoryChunkTopicId is required" | quote }}
           - name: LOG_LEVEL
             value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
+          - name: REDIS_HOST
+            value: {{ .Values.redisHost | required ".Values.redisHost is required" | quote }}
+          - name: REDIS_PORT
+            value: {{ .Values.redisPort | required ".Values.redisPort is required" | quote }}
+
         resources:
           limits:
             cpu: "1.2"

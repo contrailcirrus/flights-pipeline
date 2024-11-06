@@ -8,3 +8,7 @@ twjdSubscriptionId:
 
 trajectoryChunkTopicId:
 
+# redisHost is the ipv4 address of the redis instance
+redisHost:
+# redisPort is the port for the redis instance
+redisPort:

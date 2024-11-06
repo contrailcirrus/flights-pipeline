@@ -44,6 +44,7 @@ graph
     style k8s_7 fill:#C88908
     subgraph redis1[Redis]
         resample_worker_cache(resample-worker-cache)
+        twjf_cache(trajectory-worker-job-factory-cache)
     end
     style redis1 fill:#03ab52
     subgraph pub_sub1[PubSub]
@@ -153,6 +154,7 @@ graph
     
     fer_cron --> twjd_ingress_topic
     twjd_ingress_sub --> twjf
+    twjf <--> twjf_cache
     twjf --> traj_worker_gaia_topic
     
     traj_worker_gaia_sub --> trajectory_worker_gaia
