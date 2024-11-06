@@ -50,17 +50,16 @@ def run(
                 f"ack'ing msg: {e}. {format_traceback()}"
             )
             input_job_handler.ack(message)
-            sys.exit(0)
+            continue
         except Exception as e:
             # nack message; expect pubsub to retry
             logger.error(
                 f"failed to proces TJWD. nack'ing msg: {e}. {format_traceback()}"
             )
             input_job_handler.nack(message)
-            sys.exit(0)
+            continue
 
         input_job_handler.ack(message)
-        sys.exit(0)
 
 
 if __name__ == "__main__":
