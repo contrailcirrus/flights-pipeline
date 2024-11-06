@@ -8,6 +8,7 @@ from lib.schemas import (
     SpireWaypointPositional,
     WaypointsRecord,
     MetSource,
+    AirlineDayFlightsProgressMarker,
 )
 from lib.handlers import (
     PubSubPublishHandler,
@@ -484,6 +485,15 @@ class TrajectoryBuilderSvc:
                         ordering_key=ordering_key,
                     )
                     self._job_out_handler.wait_for_publish(timeout_seconds=300)
+                    if self._cache_handler and twjd.airline_iata:
+                        self._cache_handler.push(
+                            AirlineDayFlightsProgressMarker(
+                                airline_iata=twjd.airline_iata,
+                                day=twjd.day,
+                                met_source=twjd.met_source.value,
+                                marker=counter,
+                            )
+                        )
             except Exception as e:
                 logger.error(
                     f"airline_iata: {twjd.airline_iata}. "
