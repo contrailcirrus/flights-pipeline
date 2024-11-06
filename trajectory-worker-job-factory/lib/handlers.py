@@ -1462,6 +1462,8 @@ class RedisHandler:
 
     def pull(self, key: str) -> int:
         """
+        Retrieves the value for a key in redis.
+
         Parameters
         ----------
         key
@@ -1477,6 +1479,25 @@ class RedisHandler:
         )
         cache_resp = redis_client.get(key)
         return AirlineDayFlightsProgressMarker.from_redis_resp(cache_resp)
+
+    def pop(self, key: str):
+        """
+        Removes a k-v from redis.
+
+        Parameters
+        ----------
+        key
+            redis key corresponding to the target cache k-v
+        """
+        redis_retry = Retry(ExponentialBackoff(), 8)
+        redis_client = redis.Redis(
+            host=self._host,
+            port=self._port,
+            retry=redis_retry,
+            retry_on_timeout=True,
+            socket_timeout=1,
+        )
+        redis_client.delete(key)
 
     def push(self, cache_entry: AirlineDayFlightsProgressMarker):
         """
