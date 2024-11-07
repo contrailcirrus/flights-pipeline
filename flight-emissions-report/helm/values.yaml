@@ -4,6 +4,6 @@ image:
 # logLevel is the python-named minimum level to emit logs
 logLevel:
 
-trajectoryWorkerTopic:
+twjdTopicId:
 
 suspendCronjob:

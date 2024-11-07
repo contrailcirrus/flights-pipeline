@@ -49,6 +49,7 @@ class TrajectoryBuilderSvcWrapper:
         CLI entrypoint. Wraps TrajectoryWorkerBuilderSvc().run()
         """
         svc = TrajectoryBuilderSvc(
+            cache_handler=None,
             bq_handler=BigQueryHandler(),
             validate_traj_handler=ValidateTrajectoryHandler(),
             heal_traj_handler=HealTrajectoryHandler(),

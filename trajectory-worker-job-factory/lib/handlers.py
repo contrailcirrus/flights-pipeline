@@ -18,6 +18,7 @@ import pandas.api.types as pdtypes
 import google.api_core.exceptions
 import google.api_core.retry
 import google.auth
+import redis
 from google.cloud import pubsub_v1, bigquery  # type: ignore
 from pycontrails import Flight
 from pycontrails.physics import geo
@@ -40,8 +41,10 @@ from lib.exceptions import (
 )
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
-from lib.schemas import SpireWaypointPositional
+from lib.schemas import SpireWaypointPositional, AirlineDayFlightsProgressMarker
 from lib.utils import sigterm_manager
+from redis.backoff import ExponentialBackoff
+from redis.retry import Retry
 
 
 @dataclass(frozen=True)
@@ -1436,3 +1439,88 @@ class ResampleHandler:
         diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
         min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
         return cls.FLIGHT_LEVELS[min_ix]
+
+
+class RedisHandler:
+    """
+    Handler for interfacing with a remote redis cache.
+    """
+
+    KEY_EXPIRY_SEC = 4 * 60 * 60  # seconds before a key expires
+
+    def __init__(self, host: str, port: int):
+        """
+        Parameters
+        ----------
+        host
+            the remote Redis host address (ipv4)
+        port
+            the remote Redis host port
+        """
+        self._host = host
+        self._port = port
+
+    def pull(self, key: str) -> int:
+        """
+        Retrieves the value for a key in redis.
+
+        Parameters
+        ----------
+        key
+            redis key corresponding to the target cache k-v
+        """
+        redis_retry = Retry(ExponentialBackoff(), 8)
+        redis_client = redis.Redis(
+            host=self._host,
+            port=self._port,
+            retry=redis_retry,
+            retry_on_timeout=True,
+            socket_timeout=1,
+        )
+        cache_resp = redis_client.get(key)
+        return AirlineDayFlightsProgressMarker.from_redis_resp(cache_resp)
+
+    def pop(self, key: str):
+        """
+        Removes a k-v from redis.
+
+        Parameters
+        ----------
+        key
+            redis key corresponding to the target cache k-v
+        """
+        redis_retry = Retry(ExponentialBackoff(), 8)
+        redis_client = redis.Redis(
+            host=self._host,
+            port=self._port,
+            retry=redis_retry,
+            retry_on_timeout=True,
+            socket_timeout=1,
+        )
+        redis_client.delete(key)
+
+    def push(self, cache_entry: AirlineDayFlightsProgressMarker):
+        """
+        Parameters
+        ----------
+        cache_entry:
+            An AirlineDayFlightsProgressMarker
+            The key is composed based on the airline iata and day.
+            The value is the marker integer.
+        """
+        redis_retry = Retry(ExponentialBackoff(), 3)
+        redis_client = redis.Redis(
+            host=self._host,
+            port=self._port,
+            retry=redis_retry,
+            retry_on_timeout=True,
+            socket_timeout=1,
+        )
+        try:
+            # try writing single record w/ expiry as an atomic transaction
+            transaction = redis_client.pipeline()
+            transaction.set(name=cache_entry.key, value=cache_entry.value)
+            transaction.expire(cache_entry.key, self.KEY_EXPIRY_SEC)
+            transaction.execute()
+        finally:
+            redis_client.connection_pool.disconnect()

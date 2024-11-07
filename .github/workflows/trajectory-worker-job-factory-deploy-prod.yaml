@@ -62,3 +62,5 @@ jobs:
           LOG_LEVEL: INFO
           TWJD_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/prod-fp-twjd-ingress
           TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk
+          REDIS_HOST: 10.143.239.108
+          REDIS_PORT: 6379
