@@ -111,8 +111,10 @@ create a GCP Compute Engine VM
 use the VM to establish a tunnel between localhost > VM (in VPC) > redis
 Follow these steps (don't forget to clean up your VM after use!).
 
+```bash
 gcloud compute instances create SOME_VM_NAME --machine-type=f1-micro --zone=us-east1-b
 REDIS_HOST=REMOTE_HOST_IPV4 && REDIS_PORT=6379 && gcloud compute ssh SOME_VM_NAME --zone=us-east1-b -- -N -L $REDIS_PORT:$REDIS_HOST:$REDIS_PORT
+```
 
 ## Command Line interface
 This service has a CLI wrapper [`cli.py`](cli.py) that can be used to locally invoke the trajectory worker job factory service.
