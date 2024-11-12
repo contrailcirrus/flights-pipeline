@@ -442,8 +442,8 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_trajectory_worker_co
 #
 # flight-emissions-report (cron)
 #
-resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_prod_error_in_logs" {
-  display_name = "k8scronjob-flight-emissions-report-prod-error-in-logs"
+resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_cron_prod_error_in_logs" {
+  display_name = "k8scronjob-flight-emissions-report-cron-prod-error-in-logs"
   combiner     = "OR"
 
   conditions {
@@ -472,7 +472,7 @@ resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_pr
   }
 }
 
-resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_non_zero_exit" {
+resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_cron_report_non_zero_exit" {
   display_name = "k8scronjob-flight-emissions-report-non-zero-exit"
   combiner     = "OR"
 
@@ -481,7 +481,7 @@ resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_no
     condition_matched_log {
       filter = <<EOF
         log_id(cloudaudit.googleapis.com%2Factivity) resource.type=k8s_cluster
-        resource.type=k8s_cluster protoPayload.resourceName=~"core/v1/namespaces/flights-pipeline-prod/pods/flight-emissions-"
+        resource.type=k8s_cluster protoPayload.resourceName=~"core/v1/namespaces/flights-pipeline-prod/pods/flight-emissions-report-cronjob"
         (protoPayload.response.status.containerStatuses.state.terminated.exitCode:*
           -protoPayload.response.status.containerStatuses.state.terminated.exitCode=0
         )
