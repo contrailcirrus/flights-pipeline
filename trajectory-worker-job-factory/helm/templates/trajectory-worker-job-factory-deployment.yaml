@@ -20,7 +20,8 @@ spec:
       # has this much time to gracefully exit before being killed.
       terminationGracePeriodSeconds: 60
       nodeSelector:
-        cloud.google.com/compute-class: "Balanced"
+        cloud.google.com/compute-class: "Performance"
+        cloud.google.com/machine-family: "c4"
       containers:
       - name: trajectory-worker-job-factory
         image: {{ .Values.image | required ".Values.image is required" | quote }}
@@ -31,10 +32,15 @@ spec:
             value: {{ .Values.trajectoryChunkTopicId | required ".Values.trajectoryChunkTopicId is required" | quote }}
           - name: LOG_LEVEL
             value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
+          - name: REDIS_HOST
+            value: {{ .Values.redisHost | required ".Values.redisHost is required" | quote }}
+          - name: REDIS_PORT
+            value: {{ .Values.redisPort | required ".Values.redisPort is required" | quote }}
+
         resources:
           limits:
-            cpu: "1.5"
-            memory: "4Gi"
+            cpu: "1.2"
+            memory: "1Gi"
           requests:
-            cpu: "1.5"
-            memory: "4Gi"
+            cpu: "1.2"
+            memory: "1Gi"

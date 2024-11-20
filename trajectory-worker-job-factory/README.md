@@ -94,8 +94,29 @@ The following environment variables are expected for production and development 
 | LOG_LEVEL                  |                                log level for service in cloud environment                                |
 
 
-## Command Line interface
+## Resumable Work (stateful behavior)
+The trajectory worker job factory makes use of an external Redis cache to maintain a progress marker when executing a TWJD.
+The current implementation only uses resumable work logic for TWJDs that request flight trajectories be minted on a *per airline-day* basis.
+i.e. TWJDs that request flight trajectories for a single flight_id, or an icao_address-day, are not candidates for resumable work.
 
+**This cache is not used when executing any of the CLI commands**
+
+Because some TWJDs result in a sizeable unit of work (generating trajectory blobs for 3000+ flights) running over a decent period of time (30min),
+the blast radius is large for failures while these jobs is in-progress.
+
+### Redis access
+If you plan to connect to the remote redis instance from localhost, you will need to:
+
+create a GCP Compute Engine VM
+use the VM to establish a tunnel between localhost > VM (in VPC) > redis
+Follow these steps (don't forget to clean up your VM after use!).
+
+```bash
+gcloud compute instances create SOME_VM_NAME --machine-type=f1-micro --zone=us-east1-b
+REDIS_HOST=REMOTE_HOST_IPV4 && REDIS_PORT=6379 && gcloud compute ssh SOME_VM_NAME --zone=us-east1-b -- -N -L $REDIS_PORT:$REDIS_HOST:$REDIS_PORT
+```
+
+## Command Line interface
 This service has a CLI wrapper [`cli.py`](cli.py) that can be used to locally invoke the trajectory worker job factory service.
 
 The CLI's `flights submit` method will fetch ads-b data from BQ, resample/validate and package those data as a `WaypointsRecord`, and

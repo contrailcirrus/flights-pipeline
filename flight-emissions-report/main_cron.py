@@ -21,9 +21,9 @@ import environment as env
 # but we do it this way to maintain conformity with the class obj as expected
 # by argsparse in the CLI implementation
 
-if not env.TRAJECTORY_WORKER_TOPIC:
-    raise ValueError("TRAJECTORY_WORKER_TOPIC must be set in env vars.")
-JobWorkerSubmitSvc.TRAJECTORY_WORKER_TOPIC = env.TRAJECTORY_WORKER_TOPIC
+if not env.TWJD_TOPIC_ID:
+    raise ValueError("TWJD_TOPIC_ID must be set in env vars.")
+JobWorkerSubmitSvc.TWJD_TOPIC_ID = env.TWJD_TOPIC_ID
 
 
 @dataclass
@@ -37,6 +37,34 @@ class Input:
 
 
 DAILY_TARGETS = [
+    {"airline": "FR"},
+    {"airline": "CZ"},
+    {"airline": "MU"},
+    {"airline": "CA"},
+    {"airline": "TK"},
+    {"airline": "QR"},
+    {"airline": "6E"},
+    {"airline": "EK"},
+    {"airline": "OO"},
+    {"airline": "LH"},
+    {"airline": "B6"},
+    {"airline": "AC"},
+    {"airline": "SQ"},
+    {"airline": "1L"},
+    {"airline": "FX"},
+    {"airline": "QF"},
+    {"airline": "5X"},
+    {"airline": "NK"},
+    {"airline": "NH"},
+    {"airline": "KE"},
+    {"airline": "CX"},
+    {"airline": "U2"},
+    {"airline": "HU"},
+    {"airline": "F9"},
+    {"airline": "JJ"},
+    {"airline": "JL"},
+    {"airline": "ZH"},
+    {"airline": "YX"},
     {"airline": "KL"},
     {"airline": "BY"},
     {"airline": "HV"},

@@ -19,8 +19,9 @@ spec:
       # perform a single job iteration. When a SIGTERM is received, the job
       # has this much time to gracefully exit before being killed.
       terminationGracePeriodSeconds: 600
-#      nodeSelector:
-#        cloud.google.com/compute-class: "Scale-Out"
+      nodeSelector:
+        cloud.google.com/compute-class: "Performance"
+        cloud.google.com/machine-family: "c4"
       containers:
       - name: trajectory-worker-gaia
         image: {{ .Values.image | required ".Values.image is required" | quote }}
@@ -47,7 +48,7 @@ spec:
         resources:
           limits:
             cpu: "0.75"
-            memory: "2Gi"
+            memory: "1.8Gi"
           requests:
             cpu: "0.75"
-            memory: "2Gi"
+            memory: "1.8Gi"

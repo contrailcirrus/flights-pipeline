@@ -4,7 +4,6 @@ Module for configuring and managing application-wide logger.
 
 import logging
 import traceback
-import warnings
 
 import lib.environment as env
 
@@ -45,4 +44,6 @@ def log_warn(message, category, filename, lineno, file=None, line=None):
     logger.warning(message)
 
 
-warnings.showwarning = log_warn
+# we chose to ignore echo'ong warnings -> logger
+# this cuts down on noise from permissible warnings from pycontrails
+# warnings.showwarning = log_warn

@@ -8,6 +8,6 @@ Required environment variables should be imported first, followed by optional en
 import os
 
 # only used when deployed as a cronjob
-TRAJECTORY_WORKER_TOPIC = os.environ.get("TRAJECTORY_WORKER_TOPIC", None)
+TWJD_TOPIC_ID = os.environ.get("TWJD_TOPIC_ID", None)
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
