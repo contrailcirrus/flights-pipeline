@@ -1,6 +1,7 @@
 # local exports
 flights_report_summary_*
 flights_report_raw_*
+flights_report_goog_*
 *.png
 *.pdf
 
