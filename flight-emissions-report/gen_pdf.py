@@ -23,6 +23,7 @@ left_margin = 30
 vertical_spacing = 10
 container_width = page_width - left_margin * 2 + 5
 container_text_font_size = 8
+scaling_factor = 15/18
 
 
 def load_data(json_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -45,23 +46,9 @@ def load_data(json_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
 def register_fonts() -> None:
     FONT_PATH = "freehand_design_assets/fonts/"
     pdfmetrics.registerFont(
-        TTFont("Outfit", FONT_PATH + "Outfit/Outfit-VariableFont_wght.ttf")
+        TTFont("Roboto", FONT_PATH + "Roboto/Roboto-Regular.ttf")
     )
-    pdfmetrics.registerFont(
-        TTFont("Saira", FONT_PATH + "Saira/Saira-VariableFont_wdth,wght.ttf")
-    )
-    pdfmetrics.registerFont(
-        TTFont(
-            "Saira-italic", FONT_PATH + "Saira/Saira-Italic-VariableFont_wdth,wght.ttf"
-        )
-    )
-    pdfmetrics.registerFontFamily(
-        "Helvetica",
-        normal="Helvetica",
-        bold="Helvetica-Bold",
-        italic="Helvetica-Oblique",
-        boldItalic="Helvetica-BoldOblique",
-    )
+    pdfmetrics.registerFont(TTFont('Roboto-Light', FONT_PATH + 'Roboto/Roboto-Light.ttf'))
 
 
 def draw_text_block(
@@ -97,37 +84,42 @@ def draw_container(
 
 def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     """Generate the first page of the report"""
+    c.drawImage(
+        "logo_demo.png",
+        left_margin,
+        770,
+        width=60,
+        height=30,
+    )
 
-    c.setFont("Helvetica", 8)
-    c.setFillColor("#808080")  # light gray
-    c.drawString(left_margin + vertical_spacing, 50, "Page 1 of 4")
+    c.setFillColor(background_text_color)
+    c.setFont("Roboto", 12)
+    c.drawString(525, 812, "Page 1 of 4")
 
     c.setFillColor(title_color)
-    c.setFont("Helvetica", 26)
-    c.drawString(30, 750, "Airline Contrail Impact Report 2024")
+    c.setFont("Roboto", 26)
+    c.drawString(30, 750-28, "Airline Contrail Impact Report 2024")
 
     # What are Contrails? section
     draw_container(
-        c=c, x=left_margin, y=540, width=page_width - left_margin * 2 + 5, height=195
+        c=c, x=left_margin, y=540-28, width=page_width - left_margin * 2 + 5, height=195
     )
 
-    c.setFont("Helvetica", 14)
-    c.drawString(left_margin + vertical_spacing, 710, "What are Contrails?")
+    c.setFont("Roboto", 14)
+    c.drawString(left_margin + vertical_spacing, 710-28, "What are Contrails?")
 
     contrails_text = """Contrails — the thin, white lines you sometimes see behind airplanes — have a surprisingly large impact on our climate. Contrails warm the planet because contrail clouds act like a blanket on Earth and have a net heating effect. The 2022 IPCC report noted that clouds created by contrails account for roughly 35% of aviation's global warming impact — over half the impact of the world's jet fuel. Find more info about contrails and the climate on our website """
     current_y = draw_text_block(
         c=c,
         text=contrails_text,
         x=left_margin + vertical_spacing,
-        y=690,
-        font_name="Helvetica",
+        y=690-28,
+        font_name="Roboto",
         font_size=container_text_font_size,
     )
 
-    # Add the hyperlink text and annotation
     link_text = "contrails.org"
-    c.setFont("Helvetica", container_text_font_size)
-    # Set the width of the text that comes before the link
+    c.setFont("Roboto", container_text_font_size)
     after_text_width = 92
     c.setFillColor(text_color)
     c.drawString(
@@ -135,7 +127,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         current_y + (container_text_font_size * 2),
         link_text,
     )
-    link_width = c.stringWidth(link_text, "Helvetica", container_text_font_size)
+    link_width = c.stringWidth(link_text, "Roboto", container_text_font_size)
     c.linkURL(
         "https://www.contrails.org",
         (
@@ -148,7 +140,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     c.setFillColor(text_color)
 
     # GWP Section
-    c.setFont("Helvetica", 14)
+    c.setFont("Roboto", 14)
     c.setFillColor(text_color)
     c.drawString(
         left_margin + vertical_spacing,
@@ -164,21 +156,25 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         text=gwp_text,
         x=left_margin + vertical_spacing,
         y=current_y - 40,
-        font_name="Helvetica",
+        font_name="Roboto",
         font_size=container_text_font_size,
     )
 
-    # Impact Data Section
+
     draw_container(
-        c=c, x=left_margin, y=current_y - 230, width=container_width, height=200
+        c=c,
+        x=left_margin,
+        y=current_y - (467+18) * scaling_factor,
+        width=container_width,
+        height=6.25 * 72 * scaling_factor,
     )
-    c.setFont("Helvetica", 16)
+    c.setFont("Roboto", 16)
     current_y = draw_text_block(
         c=c,
         text="Impact Data",
         x=left_margin + vertical_spacing,
         y=current_y - 55,
-        font_name="Helvetica",
+        font_name="Roboto",
         font_size=16,
     )
     stats_text = """Based on our prediction model, 5.5 Million km (55,501 flight hours) or 4.4% of all [Airline] flights generate warming contrails in 2024."""
@@ -187,21 +183,81 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         text=stats_text,
         x=left_margin + vertical_spacing,
         y=current_y + vertical_spacing,
-        font_name="Helvetica",
+        font_name="Roboto",
         font_size=container_text_font_size,
     )
 
-    # ruff: noqa: F841
+
+    def format_number(n: int) -> str:
+        if n >= 1_000_000:
+            return f"{n/1_000_000:,.1f}M"
+        elif n >= 1000:
+            return f"{n/1000:,.0f}k"
+        return f"{n:,}"
+
     stats_data = {
-        "# of Flights": f"{data['count_flights']:,} flights",
-        "Flight hours": f"{data['flight_hours']['total']:,} hours",
-        "Contrails Distance": f"{data['flight_distance_km']['with_contrails']['total']:,} km",
-        "Warming Contrails": f"{data['flight_distance_km']['with_contrails']['is_warming']['total']:,} km",
+        "# of Flights": {
+            "value": f"{data['count_flights']:,}",
+            "unit": "flights"
+        },
+        "Flight hours": {
+            "value": f"{data['flight_hours']['total']:,}",
+            "unit": "hours"
+        },
+        "Contrails (GWP 50)": {
+            "value": f"{format_number(data['co2e_metric_tons']['gwp50']['total'])}",
+            "unit": "metric tons CO2e"
+        },
+        "Fuel Burn": {
+            "value": f"{format_number(data['total_co2_metric_tons'])}",
+            "unit": "metric tons CO2"
+        }
     }
 
-    # Draw stats
-    # y = 440
-    # for key, value in stats_data.items():
+    y = current_y - 50
+    x = left_margin + vertical_spacing
+    spacing_between_stats = 140
+
+    for key, stat in stats_data.items():
+        number = stat["value"]
+        unit = stat["unit"]
+
+        c.setFont("Roboto", 8)
+        c.setFillColor(background_text_color)
+        label_width = c.stringWidth(key, "Roboto", 8)
+        circle_y = y + 29
+        c.drawString(x, circle_y-3, key)
+        
+        # Draw info symbol (circle with i)
+        circle_x = x + label_width + 8
+        c.circle(circle_x, circle_y, 4, stroke=1, fill=0)
+        c.setFont("Roboto", 7)
+        i_width = c.stringWidth('i', "Roboto", 7)
+        c.drawString(circle_x - i_width/2, circle_y - 2.25, 'i')
+
+        c.setFont("Roboto", 24)
+        c.setFillColor(text_color)
+        number_width = c.stringWidth(number, "Roboto", 20)
+        c.drawString(x, y, number)
+
+        c.setFont("Roboto", 8)
+        c.drawString(x + number_width + 10, y, unit)
+
+        x += spacing_between_stats
+
+    c.setStrokeColor(background_text_color)
+    c.setLineWidth(0.5)
+    c.line(left_margin, y-32, page_width - left_margin+5, y-32)
+
+    container_bottom = y - (467+18) * scaling_factor
+    midpoint_x = (left_margin + (page_width - left_margin + 5)) / 2
+    midpoint_y = (y - 118 + container_bottom) / 2
+
+    c.line(midpoint_x, y - 32, midpoint_x, midpoint_y)
+
+    c.setStrokeColor(background_text_color)
+    c.setLineWidth(0.5)
+    c.line(left_margin, y-118, page_width - left_margin+5, y-118)
 
     return c
 
@@ -213,8 +269,8 @@ def draw_grid(c: Any, page_width: float, page_height: float) -> None:
 
     # Grid spacing (1/4 inch = 18 points since 72 points = 1 inch),
     # but the example pdf looks to have 15 points (10 big segments across?)
-    small_grid_spacing = 15
-    inch_grid_spacing = 60
+    small_grid_spacing = int(18 * scaling_factor)
+    inch_grid_spacing = int(72 * scaling_factor)
 
     # Thin lines
     c.setLineWidth(0.1)
