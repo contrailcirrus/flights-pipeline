@@ -397,7 +397,6 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     c.setFont("Roboto", 16)
     c.drawString(left_margin + horizontal_spacing, 765, "Impact Data: intra-European flights only")
 
-    # Draw the description text
     description = """Based on our prediction model, this is the impact from the DHL flights that are included in the EU's non-CO2 reporting requirements. The EU ETS area covers flights within and between countries in the European Economic Area (EEA), which consists of EU member states and Iceland, Norway, and Liechtenstein, and from the EEA to the UK and Switzerland. It also covers the EU's nine, so-called outermost regions: French Guiana, Guadeloupe, Martinique, Mayotte, Réunion Island, Saint-Martin, Azores, Madeira, and The Canary Islands."""
     current_y = draw_text_block(
         c=c,
@@ -523,7 +522,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         x=left_margin/2 + horizontal_spacing + page_width / 2 +3,
         y=current_y+vertical_spacing,
         text="""There is no single “correct” way to convert contrail warming to CO2e. This is partly because the lifetime of a single contrail (hours) is much shorter than the lifetime of CO2 in the atmosphere (hundreds to thousands of years). So when using the Global Warming Potential (GWP) metric and comparing contrail warming to the warming from CO2 over 20 years, the contrail warming will be about four times higher than if comparing to CO2 over 100 years. We use GWP20, GWP50, and GWP100 to align with the EU MRV guidelines. The middle value, GWP50, is used as the default in the report""",
-        width=page_width / 2 -65,
+        width=page_width / 2 - 65,
         font_size=container_text_font_size,
     )
 
@@ -554,6 +553,210 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     )
 
 
+def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
+    """Generate the third page of the report"""
+    
+
+    c.setFillColor(background_text_color)
+    c.setFont("Roboto", 12)
+    c.drawString(525, 812, "Page 3 of 4")
+
+    # Fuel emissions (CO2) vs contrail warming (CO2e) GWP50
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=615,
+        width=page_width - left_margin * 2 + 5,
+        height=72 * 3 * scaling_factor,
+    )
+
+    c.setFont("Roboto", container_title_font_size)
+    c.drawString(left_margin + horizontal_spacing, 765, "Fuel emissions (CO2) vs contrail warming (CO2e) GWP50")
+
+    description = """The contrail warming impact is often lower in the summer time and higher in dark months. This is because contrail clouds that persist in the dark are the most warming."""
+    current_y = draw_text_block(
+        c=c,
+        text=description,
+        x=left_margin + horizontal_spacing,
+        y=746,
+    )
+
+    # TODO: add bar plot of fuel emissions and contrail warming in tco2e
+
+    # Contrail warming - daytime vs nighttime (GWP50)
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=405,
+        width=page_width - left_margin * 2 + 5,
+        height=3.25 * 72 * scaling_factor,
+    )
+
+    current_y = draw_text_block(
+        c=c,
+        text="Contrail warming - daytime vs nighttime (GWP50)",
+        x=left_margin + horizontal_spacing,
+        y=575,
+        font_size=container_title_font_size,
+    )
+
+    draw_text_block(
+        c=c,
+        text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming""",
+        x=left_margin + horizontal_spacing,
+        y=current_y+vertical_spacing,
+        font_size=container_text_font_size,
+    )
+    # TODO: add bar plot of nighttime and daytime tco2e 
+
+    # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=90,
+        width=page_width - left_margin * 2 + 5,
+        height=5 * 72 * scaling_factor,
+    )
+
+    current_y = draw_text_block(
+        c=c,
+        text="Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)",
+        x=left_margin + horizontal_spacing,
+        y=365,
+        font_size=container_title_font_size,
+    )
+
+    draw_text_block(
+        c=c,
+        text=f"""The ten OD pairs are responsible for 63% of {data['airline_name']}'s total contrail warming.  
+        The most warming OD pairs are often very long flights where the majority of the journey takes place in the dark, when contrails are most warming""",
+        x=left_margin + horizontal_spacing,
+        y=current_y+vertical_spacing,
+        font_size=container_text_font_size,
+    )
+
+    # BEWARE hardcoded version suffix.  File name does not conform to the naming convention
+    c.drawImage(
+        f"flights_report_od_by_net_co2e_D0_1732590322.png",
+        x=left_margin*1.25,
+        y=90,
+        width=page_width - left_margin - horizontal_spacing - 30,
+        height=72 * 3.5 * scaling_factor,
+    )
+
+    return c
+
+
+
+def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
+    """Generate the fourth page of the report"""
+    
+
+    c.setFillColor(background_text_color)
+    c.setFont("Roboto", 12)
+    c.drawString(525, 812, "Page 4 of 4")
+
+    # Fuel emissions (CO2) vs contrail warming (CO2e) GWP50
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=480,
+        width=page_width - left_margin * 2 + 5,
+        height=72 * 5.25 * scaling_factor,
+    )
+
+    c.setFont("Roboto", container_title_font_size)
+    c.drawString(left_margin + horizontal_spacing, 765, "Origin-Destination pairs with the highest average total contrail warming per flown kilometer (CO2e/km) GWP50")
+
+    description = f"""The average carbon dioxide emissions per kilometer for {data['airline_name']} in September was 21 kg CO2 / km. The OD pair with the highest contrail warming per kilometer is EMA - CPH  adding 49  kg CO2e/ km - or 2.3 times the average warming from the CO2 alone. The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example the Eastern part of the US) at night, when contrails are most warming"""
+    current_y = draw_text_block(
+        c=c,
+        text=description,
+        x=left_margin + horizontal_spacing,
+        y=746,
+    )
+
+    c.drawImage(
+        f"flights_report_od_by_impact_density_D0_1732590322.png",
+        x=left_margin*1.25,
+        y=490,
+        width=page_width - left_margin - horizontal_spacing - 30,
+        height=72 * 3.75 * scaling_factor,
+    )
+
+    # Case study: predicted vs. verified contrails.
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=210,
+        width=page_width - left_margin * 2 + 5,
+        height=4.25 * 72 * scaling_factor,
+    )
+
+    current_y = draw_text_block(
+        c=c,
+        text="Contrail warming - daytime vs nighttime (GWP50)",
+        x=left_margin + horizontal_spacing,
+        y=440,
+        font_size=container_title_font_size,
+    )
+
+    draw_text_block(
+        c=c,
+        text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming""",
+        x=left_margin + horizontal_spacing,
+        y=current_y+vertical_spacing,
+        font_size=container_text_font_size,
+    )
+
+    c.drawImage(
+        f"flights_report_flight_case_study_7cafc3e0-9f3c-44cf-b151-992f47f86627_1732590214.png",
+        x=left_margin*1.25,
+        y=212,
+        width=page_width - left_margin - horizontal_spacing - 30,
+        height=72 * 3 * scaling_factor,
+    )
+    # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=10,
+        width=page_width - left_margin * 2 + 5,
+        height=3.25 * 72 * scaling_factor,
+    )
+
+
+
+    current_y = draw_text_block(
+        c=c,
+        text="""Did you know?""",
+        x=left_margin + horizontal_spacing,
+        y=180,
+        font_size=container_title_font_size,
+    )
+
+    draw_text_block(
+        c=c,
+        text="""Some flight planning software providers, like Flight keys and CAE, have implemented contrail avoidance in their flight planning tools (or are about to). 
+        
+
+        In 2023, American Airlines, Google Research, and Reviate conducted a trial in which they avoided 54% of contrail kilometers by flying under 
+        contrail-prone areas.  
+        
+
+        In 2024, an extensive study of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these 
+        flights by spending 0.11% more jet fuel to adjust some of the flight paths.
+
+        See where contrails are forming right now on this world map of contrails.
+        Read more about contrails on our websites: Reviate, Google Research.
+        """,
+        x=left_margin + horizontal_spacing,
+        y=current_y+vertical_spacing,
+        font_size=container_text_font_size,
+    )
+
+    return c
+
 def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
     register_fonts()
 
@@ -564,9 +767,16 @@ def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
     create_page_one(c, data)
     c.showPage()
 
-    # TODO: Add the other pages
     draw_grid(c, page_width, page_height)
     create_page_two(c, data)
+    c.showPage()
+
+    draw_grid(c, page_width, page_height)
+    create_page_three(c, data)
+    c.showPage()
+
+    draw_grid(c, page_width, page_height)
+    create_page_four(c, data)
     c.showPage()
 
     c.save()
