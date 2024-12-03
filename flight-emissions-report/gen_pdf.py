@@ -386,7 +386,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     c.drawString(525, 812, "Page 2 of 4")
 
     # Euro section
-    container_y = draw_container(
+    draw_container(
         c=c,
         x=left_margin,
         y=555,
@@ -395,14 +395,14 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     )
 
     c.setFont("Roboto", 16)
-    c.drawString(left_margin + horizontal_spacing, 765, "Impact Data: intra-European flights only")
+    c.drawString(left_margin + horizontal_spacing, 770, "Impact Data: intra-European flights only")
 
     description = """Based on our prediction model, this is the impact from the DHL flights that are included in the EU's non-CO2 reporting requirements. The EU ETS area covers flights within and between countries in the European Economic Area (EEA), which consists of EU member states and Iceland, Norway, and Liechtenstein, and from the EEA to the UK and Switzerland. It also covers the EU's nine, so-called outermost regions: French Guiana, Guadeloupe, Martinique, Mayotte, Réunion Island, Saint-Martin, Azores, Madeira, and The Canary Islands."""
     current_y = draw_text_block(
         c=c,
         text=description,
         x=left_margin + horizontal_spacing,
-        y=746,
+        y=750,
     )
 
     stats_data = {
@@ -628,20 +628,20 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
 
     draw_text_block(
         c=c,
-        text=f"""The ten OD pairs are responsible for 63% of {data['airline_name']}'s total contrail warming.  
+        text=f"""The ten OD pairs are responsible for 63% of {data['airline_name']}'s total contrail warming.
         The most warming OD pairs are often very long flights where the majority of the journey takes place in the dark, when contrails are most warming""",
         x=left_margin + horizontal_spacing,
-        y=current_y+vertical_spacing,
+        y=current_y + vertical_spacing,
         font_size=container_text_font_size,
     )
 
-    # BEWARE hardcoded version suffix.  File name does not conform to the naming convention
+    # TODO: fix hardcoded file name.  File name does not conform to the naming convention
     c.drawImage(
         f"flights_report_od_by_net_co2e_D0_1732590322.png",
-        x=left_margin*1.25,
+        x=left_margin*1.15,
         y=90,
-        width=page_width - left_margin - horizontal_spacing - 30,
-        height=72 * 3.5 * scaling_factor,
+        width=page_width - left_margin - horizontal_spacing - 20,
+        height=72 * 3.9 * scaling_factor,
     )
 
     return c
@@ -665,8 +665,13 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         height=72 * 5.25 * scaling_factor,
     )
 
-    c.setFont("Roboto", container_title_font_size)
-    c.drawString(left_margin + horizontal_spacing, 765, "Origin-Destination pairs with the highest average total contrail warming per flown kilometer (CO2e/km) GWP50")
+    current_y = draw_text_block(
+        c=c,
+        text="Origin-Destination pairs with the highest average total contrail warming per flown kilometer (CO2e/km) GWP50",
+        x=left_margin + horizontal_spacing,
+        y=775,
+        font_size=container_title_font_size,
+    )
 
     description = f"""The average carbon dioxide emissions per kilometer for {data['airline_name']} in September was 21 kg CO2 / km. The OD pair with the highest contrail warming per kilometer is EMA - CPH  adding 49  kg CO2e/ km - or 2.3 times the average warming from the CO2 alone. The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example the Eastern part of the US) at night, when contrails are most warming"""
     current_y = draw_text_block(
@@ -678,11 +683,13 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
 
     c.drawImage(
         f"flights_report_od_by_impact_density_D0_1732590322.png",
-        x=left_margin*1.25,
+        x=left_margin*1.15,
         y=490,
-        width=page_width - left_margin - horizontal_spacing - 30,
-        height=72 * 3.75 * scaling_factor,
+        width=page_width - left_margin - horizontal_spacing - 20,
+        height=72 * 3.9 * scaling_factor,
     )
+
+    
 
     # Case study: predicted vs. verified contrails.
     draw_container(
@@ -709,13 +716,16 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_text_font_size,
     )
 
+    # TODO: update hardcoded file name.
     c.drawImage(
         f"flights_report_flight_case_study_7cafc3e0-9f3c-44cf-b151-992f47f86627_1732590214.png",
         x=left_margin*1.25,
-        y=212,
+        y=220,
         width=page_width - left_margin - horizontal_spacing - 30,
         height=72 * 3 * scaling_factor,
     )
+    # TODO: add color legend
+
     # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
     draw_container(
         c=c,
@@ -724,7 +734,6 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         width=page_width - left_margin * 2 + 5,
         height=3.25 * 72 * scaling_factor,
     )
-
 
 
     current_y = draw_text_block(
@@ -737,17 +746,10 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
 
     draw_text_block(
         c=c,
-        text="""Some flight planning software providers, like Flight keys and CAE, have implemented contrail avoidance in their flight planning tools (or are about to). 
-        
-
-        In 2023, American Airlines, Google Research, and Reviate conducted a trial in which they avoided 54% of contrail kilometers by flying under 
-        contrail-prone areas.  
-        
-
-        In 2024, an extensive study of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these 
-        flights by spending 0.11% more jet fuel to adjust some of the flight paths.
-
-        See where contrails are forming right now on this world map of contrails.
+        text="""Some flight planning software providers, like Flight keys and CAE, have implemented contrail avoidance in their flight planning tools (or are about to).  \n\n\n
+        In 2023, American Airlines, Google Research, and Reviate conducted a trial in which they avoided 54% of contrail kilometers by flying under contrail-prone areas.   \n\n\n
+        In 2024, an extensive study of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these flights by spending 0.11% more jet fuel to adjust some of the flight paths.  \n\n\n
+        See where contrails are forming right now on this world map of contrails. \n\n\n
         Read more about contrails on our websites: Reviate, Google Research.
         """,
         x=left_margin + horizontal_spacing,
