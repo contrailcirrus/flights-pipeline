@@ -6,3 +6,5 @@ flights_report_cocip_segments_*
 
 # notebooks
 .ipynb_checkpoints
+
+out
