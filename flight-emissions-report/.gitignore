@@ -3,8 +3,6 @@ flights_report_summary_*
 flights_report_raw_*
 flights_report_goog_*
 flights_report_cocip_segments_*
-*.png
-*.pdf
 
 # notebooks
 .ipynb_checkpoints
