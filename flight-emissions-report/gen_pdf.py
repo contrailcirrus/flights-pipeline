@@ -4,7 +4,6 @@ Generate a PDF report to match the google designed flight report template.
 
 import argparse
 import re
-from datetime import datetime
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -50,7 +49,7 @@ def load_data(json_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
 
 
 def register_fonts() -> None:
-    FONT_PATH = "freehand_design_assets/fonts/"
+    FONT_PATH = "fonts/"
     pdfmetrics.registerFont(TTFont("Roboto", FONT_PATH + "Roboto/Roboto-Regular.ttf"))
     pdfmetrics.registerFont(
         TTFont("Roboto-Light", FONT_PATH + "Roboto/Roboto-Light.ttf")
@@ -105,14 +104,14 @@ def draw_text_block(
     width=520,
     height=None,
     align="left",
-    color=text_color
+    color=text_color,
 ) -> float:
     """Draw a block of text"""
     from reportlab.lib.utils import simpleSplit
 
     c.setFont(font_name, font_size)
     c.setFillColor(color)  # Set the text color
-    
+
     # Split text into paragraphs
     paragraphs = text.split("\n\n")
     current_y = y
@@ -128,7 +127,7 @@ def draw_text_block(
                 line_x = x + width - line_width
             else:  # left align (default)
                 line_x = x
-                
+
             c.drawString(line_x, current_y, line)
             current_y -= font_size * 1.2
         # Add extra space between paragraphs
@@ -181,7 +180,16 @@ def draw_stat_with_info_symbol(
 
 
 def draw_stat_for_plots(
-    c, key, number, unit, x, y, font_name="Roboto", font_size=8, number_font_size=22,text_color=background_text_color
+    c,
+    key,
+    number,
+    unit,
+    x,
+    y,
+    font_name="Roboto",
+    font_size=8,
+    number_font_size=22,
+    text_color=background_text_color,
 ) -> float:
     """Draw a statistic with the unit next to it, and the description smaller and just above it.."""
     c.setFont(font_name, font_size)
@@ -365,17 +373,21 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
 
     # Pie chart
     c.drawImage(
-        "flights_report_contrail_warming_percentage_"+ data["airline_code"] + "_" + data["unix_suffix"] + ".png",
+        "flights_report_contrail_warming_percentage_"
+        + data["airline_code"]
+        + "_"
+        + data["unix_suffix"]
+        + ".png",
         x=60,
         y=120,
-        width=72*3.6*scaling_factor,
-        height=72*3.2*scaling_factor,
+        width=72 * 3.6 * scaling_factor,
+        height=72 * 3.2 * scaling_factor,
     )
 
     draw_text_block(
         c=c,
         text=f"{data['flight_distance_km']['with_contrails']['total'] / data['flight_distance_km']['total'] * 100:.1f}%",
-        x=midpoint_x/3 + horizontal_spacing*4,
+        x=midpoint_x / 3 + horizontal_spacing * 4,
         y=230,
         font_name="Roboto",
         font_size=24,
@@ -384,13 +396,13 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     draw_text_block(
         c=c,
         text=f"of {data['airline_name']} flight distance generated warming contrails",
-        x=midpoint_x/3 + horizontal_spacing*2,
+        x=midpoint_x / 3 + horizontal_spacing * 2,
         y=220,
         font_name="Roboto",
         font_size=container_text_font_size,
-        width = 100,
+        width=100,
         color=background_text_color,
-        align="center"
+        align="center",
     )
 
     current_y = draw_text_block(
@@ -403,11 +415,15 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         width=midpoint_x - left_margin - horizontal_spacing,
     )
     c.drawImage(
-        "flights_report_contrail_distance_daytime_nighttime_"+ data["airline_code"] + "_" + data["unix_suffix"] + ".png",
+        "flights_report_contrail_distance_daytime_nighttime_"
+        + data["airline_code"]
+        + "_"
+        + data["unix_suffix"]
+        + ".png",
         x=midpoint_x + horizontal_spacing,
         y=215,
-        width=72*4*scaling_factor,
-        height=72*1*scaling_factor,
+        width=72 * 4 * scaling_factor,
+        height=72 * 1 * scaling_factor,
     )
     current_y = draw_stat_with_info_symbol(
         c,
@@ -418,13 +434,16 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         y=current_y,
     )
 
-
     c.drawImage(
-        "flights_report_contrail_distance_warming_daytime_nighttime_"+ data["airline_code"] + "_" + data["unix_suffix"] + ".png",
+        "flights_report_contrail_distance_warming_daytime_nighttime_"
+        + data["airline_code"]
+        + "_"
+        + data["unix_suffix"]
+        + ".png",
         x=midpoint_x + horizontal_spacing,
         y=130,
-        width=72*2.5*scaling_factor,
-        height=72*1*scaling_factor,
+        width=72 * 2.5 * scaling_factor,
+        height=72 * 1 * scaling_factor,
     )
     draw_stat_with_info_symbol(
         c,
@@ -436,7 +455,6 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         x=midpoint_x + horizontal_spacing,
         y=current_y - 50,
     )
-
 
     return c
 
@@ -461,10 +479,10 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         "Impact Data: intra-European flights only",
     )
     c.drawImage(
-        "google_reviate_report/Europe Map_trimmed.png",
-        x=page_width / 2 +90,
+        "static/Europe Map_trimmed.png",
+        x=page_width / 2 + 90,
         y=557,
-        width=72*2.6*scaling_factor,
+        width=72 * 2.6 * scaling_factor,
         height=72 * 2.8 * scaling_factor,
     )
 
@@ -517,8 +535,6 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         counter += 1
         x += spacing_between_stats
 
-
-
     # Observation coverage area & verification section
     draw_container(
         c=c,
@@ -547,7 +563,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
 
     c.drawImage(
         f"flights_report_trajectories_{data['filename_suffix']}.png",
-        x=left_margin*1.1,
+        x=left_margin * 1.1,
         y=4.5 * 72 * scaling_factor,
         width=page_width / 2 - left_margin - horizontal_spacing - 8,
         height=72 * 2.75 * scaling_factor,
@@ -685,7 +701,11 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=746,
     )
     c.drawImage(
-        "flights_report_fuel_emissions_vs_contrail_warming_" + data["airline_code"] + "_" + data["unix_suffix"] + ".png",
+        "flights_report_fuel_emissions_vs_contrail_warming_"
+        + data["airline_code"]
+        + "_"
+        + data["unix_suffix"]
+        + ".png",
         x=left_margin * 1.5,
         y=620,
         width=page_width - left_margin * 3 + 5,
@@ -697,7 +717,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         key="Fuel emissions (CO2)",
         number=format_number(data["total_co2_metric_tons"]),
         unit="t CO2",
-        x=left_margin*1.5 + horizontal_spacing,
+        x=left_margin * 1.5 + horizontal_spacing,
         y=current_y - vertical_spacing * 2,
         text_color="white",
     )
@@ -707,7 +727,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         key="Contrails",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
         unit="metric tons",
-        x=page_width - left_margin*6.6,
+        x=page_width - left_margin * 6.6,
         y=current_y - vertical_spacing * 2,
         text_color="white",
     )
@@ -737,7 +757,11 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.drawImage(
-        "flights_report_contrail_warming_daytime_vs_nighttime_" + data["airline_code"] + "_" + data["unix_suffix"] + ".png",
+        "flights_report_contrail_warming_daytime_vs_nighttime_"
+        + data["airline_code"]
+        + "_"
+        + data["unix_suffix"]
+        + ".png",
         x=left_margin * 1.5,
         y=current_y - vertical_spacing * 10,
         width=page_width - left_margin * 3 + 5,
@@ -749,7 +773,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         key="Nighttime",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]),
         unit="t CO2e",
-        x=left_margin*1.5 + horizontal_spacing,
+        x=left_margin * 1.5 + horizontal_spacing,
         y=current_y - vertical_spacing * 2,
         text_color="white",
     )
@@ -759,7 +783,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         key="Daytime",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]),
         unit="t CO2e",
-        x=page_width - left_margin*6,
+        x=page_width - left_margin * 6,
         y=current_y - vertical_spacing * 2,
         text_color="white",
     )
@@ -790,7 +814,11 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.drawImage(
-        "flights_report_od_by_net_co2e_" + data["airline_code"] + "_" + data["unix_suffix"] + ".png",
+        "flights_report_od_by_net_co2e_"
+        + data["airline_code"]
+        + "_"
+        + data["unix_suffix"]
+        + ".png",
         x=left_margin * 1.4,
         y=90,
         width=page_width - left_margin - horizontal_spacing - 50,
@@ -833,7 +861,11 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.drawImage(
-        "flights_report_od_by_impact_density_" + data["airline_code"] + "_" + data["unix_suffix"] + ".png",
+        "flights_report_od_by_impact_density_"
+        + data["airline_code"]
+        + "_"
+        + data["unix_suffix"]
+        + ".png",
         x=left_margin * 1.15,
         y=490,
         width=page_width - left_margin - horizontal_spacing - 20,
@@ -937,7 +969,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate a PDF report.")
     # parser.add_argument('--output', type=str, default=f"sample_report_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pdf", help='Output PDF file path')
     parser.add_argument(
-        "--output", type=str, default=f"sample_report.pdf", help="Output PDF file path"
+        "--output", type=str, default="sample_report.pdf", help="Output PDF file path"
     )
     parser.add_argument(
         "--data_file",
