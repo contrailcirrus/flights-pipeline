@@ -1,12 +1,12 @@
-name: psdb-flight-emissions-report-proxy-deploy-dev
+name: psdb-contrails-default-proxy-deploy-dev
 
 on:
   push:
     branches:
       - develop
     paths:
-      - psdb-flight-emissions-report-proxy/**
-      - .github/workflows/psdb-flight-emissions-report-proxy-deploy-dev.yaml
+      - psdb-contrails-default-proxy/**
+      - .github/workflows/psdb-contrails-default-proxy-deploy-dev.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -37,8 +37,8 @@ jobs:
         run: gcloud container clusters get-credentials contrails-gke-general --region us-east1
 
       - name: Deploy helm resources
-        working-directory: psdb-flight-emissions-report-proxy/helm
+        working-directory: psdb-contrails-default-proxy/helm
         run: make deploy
         env:
           NAMESPACE: flights-pipeline-dev
-          PSDB_CONNECTION_NAME: contrails-301217:us-east1:flight-emissions-report-dev
+          PSDB_CONNECTION_NAME: contrails-301217:us-east1:contrails-auth-dev
