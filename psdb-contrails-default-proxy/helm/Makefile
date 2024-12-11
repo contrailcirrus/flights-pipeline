@@ -1,6 +1,6 @@
 .PHONY: deploy
 deploy: --check-env
-	helm upgrade --install psdb-flight-emissions-report-proxy . \
+	helm upgrade --install psdb-contrails-default-proxy . \
 		--namespace=$(NAMESPACE) \
 		--set psdbConnectionName=$(PSDB_CONNECTION_NAME)
 

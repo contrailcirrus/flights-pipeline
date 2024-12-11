@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: psdb-flight-emissions-report-proxy
+  name: psdb-contrails-default-proxy
   labels:
-    app: psdb-flight-emissions-report-proxy
+    app: psdb-contrails-default-proxy
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: psdb-flight-emissions-report-proxy
+      app: psdb-contrails-default-proxy
   template:
     metadata:
       labels:
-        app: psdb-flight-emissions-report-proxy
+        app: psdb-contrails-default-proxy
     spec:
       serviceAccountName: flights-pipeline-default-sa
       terminationGracePeriodSeconds: 10
       containers:
-      - name: psdb-flight-emissions-report-proxy
+      - name: psdb-contrails-default-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.0
         args:
           - "--auto-iam-authn"

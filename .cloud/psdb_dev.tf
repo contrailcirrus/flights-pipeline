@@ -1,3 +1,13 @@
+# flight emissions report cache database
+resource "google_sql_database" "flights_pipeline_fer_cache_dev" {
+  name     = "flights-pipeline-fer-cache"
+  instance = "contrails-default-dev"
+}
+
+# ----
+# TODO
+# remove psdb instances; remove secrets from k8s
+
 resource "google_sql_database_instance" "flight_emissions_report_dev" {
   name             = "flight-emissions-report-dev"
   database_version = "POSTGRES_15"

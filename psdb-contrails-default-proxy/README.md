@@ -20,7 +20,7 @@ As such, we favor having this external service, which is long-lived and handles 
 
 # How To Use
 
-Any pod running in k8s can talk to this proxy, and access the `flight-emissions-report-<dev/prod>` Cloud SQL instance.
+Any pod running in k8s can talk to this proxy, and access the `contrails-default-<dev/prod>` Cloud SQL instance.
 
 This can be done by connecting to the k8s Service resource at the Cluster IP assigned to the resource.
 (see `kubectl get svc -n flights-pipeline-<dev/prod>`).
@@ -30,7 +30,7 @@ This service, then is accessed at `<service-name>.<namespace>.svc.cluster.local`
 
 As such, pods can connect to PSDB using the address:
 ```text
- postgresql://USER:PASSWORD@psdb-flight-emissions-report-proxy.flights-pipeline-<dev/prod>.svc.cluster.local/DATABASE_NAME
+ postgresql://USER:PASSWORD@psdb-contrails-default-proxy.contrails-default-<dev/prod>.svc.cluster.local/DATABASE_NAME
 ```
 
 ## Implementation

@@ -2,6 +2,13 @@
 
 This readme details setup for namespace-wide infrastructure.
 
+## Cloud SQL
+Services running inside the k8s namespace `flights-pipeline-<dev/prod>` can
+access the `contrails-default-<dev/prod>` Cloud DQL postgres instance via
+the [psdb-contrails-default-proxy](../psdb-contrails-default-proxy/README.md) service.
+
+Each service within the flights-pipeline is responsible for its own database within the instance.
+
 ## Secrets
 [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) 
 are stored in the `flights-pipeline-prod` and `flights-pipeline-dev` namespace,
@@ -10,7 +17,7 @@ manually created with [`kubectl create secret`](https://kubernetes.io/docs/refer
 For most services, we use generic (Opaque) secrets ([`kubectl create secret generic`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_secret_generic/)).
 
 Typically, secrets are accessed by mounting them as environment variables in a Kubernetes resource.
-These environment varibles are not passed in via CICD, rather mounted directly from a named secret.
+These environment variables are not passed in via CICD, rather mounted directly from a named secret.
 
 For example:
 ```yaml
@@ -88,18 +95,19 @@ kubectl create secret generic gcp-service-account-key --from-file=GCP_SVC_ACCT_K
 
 **Lastly**, permanently delete the local JSON file from your machine.
 
-### CloudSQL (PSDB) - flight emissions report database
-User credentials for accessing the flight emissions report (FER) SQL database are stored as kubernetes secrets in the `flights-pipeline-<dev>/<prod>` namespace.
+### CloudSQL (PSDB) - contrails-default-<dev/prod> database instances
+User credentials for accessing the contrails-default SQL database instances are stored 
+as kubernetes secrets in the `flights-pipeline-<dev>/<prod>` namespace.
 
 ### Setup
-Two secrets are stored for FER DB access.
+Two secrets are stored in each namespace.
 (1) password for read-only user (`internal_user_ro`)
 (2) password for read-write user (`internal_user_rw`)
 
 Each secret is minted with the following command, substituting for respective users and environments.
 
 ```bash
-PASSWORD=my_password && kubectl create secret generic fer-psdb-interal-user-<ro/rw>-pwd-secret --from-literal=PASSWORD=$(PASSWORD) -n flights-pipeline-<prod/dev>
+PASSWORD=my_password && kubectl create secret generic psdb-contrails-default-internal-user-<ro/rw>-pwd-secret --from-literal=PASSWORD=$(PASSWORD) -n flights-pipeline-<prod/dev>
 ```
 
 The secret can be accessed in a k8s manifest by injecting an env var from this secret.
@@ -109,6 +117,6 @@ e.g.
 - name: PSDB_PASS
   valueFrom:
     secretKeyRef:
-      name: fer-psdb-interal-user-ro-pwd-secret
+      name: psdb-contrails-default-internal-user-ro-pwd-secret
       key: PASSWORD
 ```

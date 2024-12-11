@@ -1,5 +1,5 @@
 apiVersion: v2
-name: psdb-flight-emissions-report-proxy
+name: psdb-contrails-default-proxy
 
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
