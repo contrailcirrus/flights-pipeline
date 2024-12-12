@@ -41,4 +41,4 @@ jobs:
         run: make deploy
         env:
           NAMESPACE: flights-pipeline-dev
-          PSDB_CONNECTION_NAME: contrails-301217:us-east1:contrails-auth-dev
+          PSDB_CONNECTION_NAME: contrails-301217:us-east1:contrails-default-dev
