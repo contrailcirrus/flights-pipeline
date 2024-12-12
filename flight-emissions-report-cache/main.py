@@ -33,7 +33,7 @@ TARGET_AIRLINES = {
     "dhl": "D0",
 }
 
-DATABASE_NAME = "flights-pipeline"
+DATABASE_NAME = "flights-pipeline-fer-cache"
 TABLE_NAME = "trajectory-cocip"
 
 

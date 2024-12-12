@@ -30,7 +30,7 @@ spec:
                 - name: PSDB_PASS
                   valueFrom:
                     secretKeyRef:
-                      name: fer-psdb-interal-user-rw-pwd-secret
+                      name: psdb-contrails-default-internal-user-rw-pwd-secret
                       key: PASSWORD
               resources:
                 requests:

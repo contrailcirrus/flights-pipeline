@@ -1,4 +1,10 @@
 # local exports
 flights_report_summary_*
 flights_report_raw_*
-*.png
+flights_report_goog_*
+flights_report_cocip_segments_*
+
+# notebooks
+.ipynb_checkpoints
+
+out

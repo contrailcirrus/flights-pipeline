@@ -13,6 +13,7 @@ pandas = "==2.2.2"
 platformdirs = "==4.2.2"
 pycontrails = "==0.53.1"
 pyproj = "==3.6.1"
+reportlab = "==4.2.5"
 timezonefinder = "==6.5.2"
 
 [dev-packages]

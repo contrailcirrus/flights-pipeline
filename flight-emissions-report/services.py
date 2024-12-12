@@ -1,5 +1,6 @@
 import json
 import uuid
+import os
 from abc import ABC, abstractmethod
 import argparse
 from datetime import datetime, UTC, timedelta, timezone
@@ -212,28 +213,33 @@ class FlightsReportFetchSvc(BaseSvc):
 
     REPORT_QUERY_FILENAME = "sql/bq_flights_report_daily.sql"
     CASE_STUDY_QUERY_FILENAME = "sql/bq_flights_report_fid_trajectory.sql"
-    EXPORT_RAW_FILENAME_TEMPLATE = (
-        "flights_report_raw_{audience}_{airline}_{day}_{unixtime}.csv"
-    )
-    EXPORT_SUMMARY_FILENAME_TEMPLATE = (
-        "flights_report_summary_{airline}_{day}_{unixtime}.json"
-    )
-    EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE = (
-        "flights_report_trajectories_{airline}_{day}_{unixtime}.png"
-    )
+
+    EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE = "out/{airline}/trajectories.png"
     EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE = (
-        "flights_report_cocip_segments_{flight_id}_{ts}.csv"
+        "out/{airline}/data_case_study_{ix}.csv"
     )
-    EXPORT_FLIGHT_CASE_STUDY_FIG_TEMPLATE = (
-        "flights_report_flight_case_study_{flight_id}_{ts}.png"
-    )
+    EXPORT_FLIGHT_CASE_STUDY_FIG_TEMPLATE = "out/{airline}/fig_case_study_{ix}.png"
     EXPORT_FLIGHTS_OD_IMPACT_DENSITY_PLOT_FILENAME_TEMPLATE = (
-        "flights_report_od_by_impact_density_{airline}_{unixtime}.png"
+        "out/{airline}/fig_od_by_impact_density.png"
     )
     EXPORT_FLIGHTS_OD_NET_CO2E_PLOT_FILENAME_TEMPLATE = (
-        "flights_report_od_by_net_co2e_{airline}_{unixtime}.png"
+        "out/{airline}/fig_od_by_net_co2e.png"
     )
-    EXPORT_GOOGLE_DATASET_FILENAME_TEMPLATE = "flights_report_goog_dataset_{ts}.csv"
+    EXPORT_FLIGHTS_FUEL_EMISSIONS_VS_CONTRAIL_WARMING_PLOT_FILENAME_TEMPLATE = (
+        "out/{airline}/fig_fuel_emissions_vs_contrail_warming.png"
+    )
+    EXPORT_FLIGHTS_CONTRAIL_WARMING_DAYTIME_VS_NIGHTTIME_PLOT_FILENAME_TEMPLATE = (
+        "out/{airline}/fig_contrail_warming_daytime_vs_nighttime.png"
+    )
+    EXPORT_FLIGHTS_CONTRAIL_WARMING_PERCENTAGE_FILENAME_TEMPLATE = (
+        "out/{airline}/fig_contrail_warming_percentage.png"
+    )
+    EXPORT_FLIGHTS_CONTRAIL_DISTANCE_DAYTIME_NIGHTTIME_FILENAME_TEMPLATE = (
+        "out/{airline}/fig_contrail_distance_daytime_nighttime.png"
+    )
+    EXPORT_FLIGHTS_CONTRAIL_DISTANCE_WARMING_DAYTIME_NIGHTTIME_FILENAME_TEMPLATE = (
+        "out/{airline}/fig_contrail_distance_warming_daytime_nighttime.png"
+    )
 
     AREA_EARTH = 5.101e14  # m^2, surface of the earth
     SECONDS_PER_YEAR = 60 * 60 * 24 * 365  # s
@@ -517,6 +523,7 @@ class FlightsReportFetchSvc(BaseSvc):
             f"🐶 fetching report for airline {self._airline} on day/day-range {self._day_str}..."
             f"case study flight_ids: {self._case_study_fids}"
         )
+        os.mkdir(f"{os.getcwd()}/out/{self._airline}")
 
         if self._met_data_src == MetSource.HRES:
             # note: we retain `2%` as a valid match for HRES
@@ -853,60 +860,39 @@ class FlightsReportFetchSvc(BaseSvc):
             # -----------------
             # export raw data, values by flight_id
             # -----------------
-            export_raw_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
-                audience="internal",
-                airline=self._airline,
-                day=self._day_str,
-                unixtime=now_unix,
-            )
-            summary_df.to_csv(export_raw_fn, index=False)
+            summary_df.to_csv(f"out/{self._airline}/data_all_internal.csv", index=False)
 
             # -----------------
             # export sanitized data, values by flight_id
             # -----------------
             df_customer = self._format_customer_df(summary_df)
-            export_customer_fn = self.EXPORT_RAW_FILENAME_TEMPLATE.format(
-                audience="external",
-                airline=self._airline,
-                day=self._day_str,
-                unixtime=now_unix,
+            df_customer.to_csv(
+                f"out/{self._airline}/data_all_external.csv", index=False
             )
-            df_customer.to_csv(export_customer_fn, index=False)
 
             # -----------------
             # export summary json
             # -----------------
-            export_summary_fn = self.EXPORT_SUMMARY_FILENAME_TEMPLATE.format(
-                airline=self._airline,
-                day=self._day_str,
-                unixtime=now_unix,
-            )
-            with open(export_summary_fn, "w") as fp:
+            with open(f"out/{self._airline}/data_summary.json", "w") as fp:
                 json.dump(summary, fp, indent=4)
-            logger.info(
-                f"📜 got {count_flights} flights. "
-                f"exported to: \n{export_raw_fn}\n{export_customer_fn}\n{export_summary_fn}."
-            )
+            logger.info(f"📜 got {count_flights} flights. " f"exported to file.")
 
             # -----------------
             # export augmented google dataset
             # -----------------
             if self._goog_handler:
                 self._goog_handler.df.to_csv(
-                    self.EXPORT_GOOGLE_DATASET_FILENAME_TEMPLATE.format(
-                        ts=now_unix,
-                    ),
+                    f"out/{self._airline}/data_all_external.csv",
                     index=False,
                 )
 
             # -----------------
             # export per-segment cocip outputs
             # -----------------
-            for seg_df in case_study_dfs:
-                fid = seg_df["flight_id"].iloc[0]
+            for ix, seg_df in enumerate(case_study_dfs):
                 seg_df_fn = self.EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE.format(
-                    flight_id=fid,
-                    ts=now_unix,
+                    airline=self._airline,
+                    ix=ix,
                 )
                 seg_df.to_csv(seg_df_fn, index=False)
 
@@ -991,12 +977,12 @@ class FlightsReportFetchSvc(BaseSvc):
                 ax.set_xlim([min_x, max_x])
                 ax.set_ylim([min_y, max_y])
 
-                fig.set_tight_layout(True)
-
+                # fig.set_tight_layout(True)
+                plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
                 plt.savefig(
                     self.EXPORT_FLIGHT_CASE_STUDY_FIG_TEMPLATE.format(
-                        flight_id=fid,
-                        ts=now_unix,
+                        airline=self._airline,
+                        ix=ix,
                     )
                 )
 
@@ -1029,11 +1015,10 @@ class FlightsReportFetchSvc(BaseSvc):
                     linewidth=0.3,
                     transform=ccrs.Geodetic(),
                 )
+            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
             plt.savefig(
                 self.EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE.format(
-                    airline=self._airline,
-                    day=self._day_str,
-                    unixtime=now_unix,
+                    airline=self._airline
                 )
             )
 
@@ -1123,7 +1108,6 @@ class FlightsReportFetchSvc(BaseSvc):
 
             # title_str = "OD Pairs"
             # ax.set_title(title_str, x=-0.05)
-
             ax = plt.gca()
             lf = ax.figure.subplotpars.left
             r = ax.figure.subplotpars.right
@@ -1133,10 +1117,10 @@ class FlightsReportFetchSvc(BaseSvc):
             figh = float(fig_h) / (t - b)
             ax.figure.set_size_inches(figw, figh)
 
+            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
             plt.savefig(
                 self.EXPORT_FLIGHTS_OD_IMPACT_DENSITY_PLOT_FILENAME_TEMPLATE.format(
                     airline=self._airline,
-                    unixtime=now_unix,
                 )
             )
 
@@ -1282,6 +1266,7 @@ class FlightsReportFetchSvc(BaseSvc):
 
             # title_str = "OD Pairs"
             # ax.set_title(title_str, x=-0.05)
+            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
 
             ax = plt.gca()
             lf = ax.figure.subplotpars.left
@@ -1298,5 +1283,308 @@ class FlightsReportFetchSvc(BaseSvc):
                     unixtime=now_unix,
                 )
             )
+
+            # -----------------
+            # Fuel emissions vs contrail warming horizontal bar chart
+            # -----------------
+
+            fig_w = 8  # inch
+            fig_h = 3  # inch
+            fig = plt.figure(figsize=(fig_w, fig_h))
+            ax = fig.add_subplot(1, 1, 1)
+
+            total = total_co2_metric_tons + total_contrails_co2e50_metric_tons
+            normalized_values = [
+                v / total
+                for v in [total_co2_metric_tons, total_contrails_co2e50_metric_tons]
+            ]
+            colors = ["#4285F4", "#D3E3FD"]
+
+            left = 0
+            for value, color in zip(normalized_values, colors):
+                ax.barh("Tons warming", value, color=color, left=left)
+                left += value
+
+            ax.xaxis.set_visible(False)
+            ax.yaxis.set_visible(False)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["left"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+
+            plt.subplots_adjust(left=0.01, right=1.04, top=0.99, bottom=0.01)
+            plt.savefig(
+                self.EXPORT_FLIGHTS_FUEL_EMISSIONS_VS_CONTRAIL_WARMING_PLOT_FILENAME_TEMPLATE.format(
+                    airline=self._airline,
+                )
+            )
+
+            # -----------------
+            # Contrail warming daytime vs nighttime horizontal bar chart
+            # -----------------
+
+            fig_w = 8
+            fig_h = 3
+            fig = plt.figure(figsize=(fig_w, fig_h))
+            ax = fig.add_subplot(1, 1, 1)
+
+            # Calculate total and normalize values
+            total = (
+                total_nighttime_contrails_co2e50_metric_tons
+                + total_daytime_contrails_co2e50_metric_tons
+            )
+            normalized_values = [
+                v / total
+                for v in [
+                    total_nighttime_contrails_co2e50_metric_tons,
+                    total_daytime_contrails_co2e50_metric_tons,
+                ]
+            ]
+            colors = ["#2C2857", "#F7CA45"]
+
+            left = 0
+            for value, color in zip(normalized_values, colors):
+                ax.barh("Tons warming", value, color=color, left=left)
+                left += value
+
+            ax.xaxis.set_visible(False)
+            ax.yaxis.set_visible(False)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["left"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+
+            plt.subplots_adjust(left=0.01, right=1.04, top=0.99, bottom=0.01)
+            plt.savefig(
+                self.EXPORT_FLIGHTS_CONTRAIL_WARMING_DAYTIME_VS_NIGHTTIME_PLOT_FILENAME_TEMPLATE.format(
+                    airline=self._airline,
+                )
+            )
+
+            # -----------------
+            # What percentage of flights create warming contrails?
+            # -----------------
+
+            percent_with_warming = round(
+                count_flights_positive_ef / count_flights * 100, 1
+            )
+            percent_without_warming = 100 - percent_with_warming
+
+            colors = ["#4285F4", "#D3E3FD"]
+            fig, ax = plt.subplots()
+            ax.pie(
+                [percent_with_warming, percent_without_warming],
+                labels=["", ""],
+                startangle=90,
+                counterclock=False,
+                colors=colors,
+                wedgeprops={"width": 0.15},
+            )
+
+            legend_colors = [
+                plt.Line2D(
+                    [0],
+                    [0],
+                    marker="o",
+                    color="w",
+                    markerfacecolor=color,
+                    markersize=15,
+                )
+                for color in colors
+            ]
+            legend_labels = [
+                "Distance (km) with warming contrails",
+                "Distance (km) without warming contrails",
+            ]
+
+            plt.legend(
+                handles=legend_colors,
+                labels=legend_labels,
+                loc="lower center",
+                bbox_to_anchor=(0.5, -0.1),
+                ncol=1,
+                frameon=False,
+                labelspacing=1.0,
+                fontsize=16,
+            )
+            ax.xaxis.set_visible(False)
+            ax.yaxis.set_visible(False)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["left"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+
+            plt.subplots_adjust(left=0.01, right=1.04, top=0.99)
+            plt.savefig(
+                self.EXPORT_FLIGHTS_CONTRAIL_WARMING_PERCENTAGE_FILENAME_TEMPLATE.format(
+                    airline=self._airline,
+                ),
+                bbox_inches="tight",
+            )
+
+        # -----------------
+        # How many flight kilometers total, by daytime and nighttime?
+        # -----------------
+
+        colors = ["#2C2857", "#F7CA45"]
+        fig, ax = plt.subplots(figsize=(8, 2))  # Increase figure size
+        left = 0
+
+        bar_height = 0.3
+        y_position = 0.5
+        # TODO: check that these values are correct.  The plot says flight kilometers for all fights, but I think it should be flight km of contrails
+        total_distance = (
+            total_nighttime_contrail_distance_km + total_daytime_contrail_distance_km
+        )
+        night_percent = round(
+            (total_nighttime_contrail_distance_km / total_distance) * 100
+        )
+        day_percent = round((total_daytime_contrail_distance_km / total_distance) * 100)
+
+        ax.barh(
+            y_position,
+            total_nighttime_contrail_distance_km,
+            height=bar_height,
+            color=colors[0],
+            left=left,
+        )
+        margin = 100
+        ax.text(
+            margin,
+            y_position,
+            f"{night_percent}%",
+            color="white",
+            ha="left",
+            va="center",
+            fontsize=20,
+        )
+        left += total_nighttime_contrail_distance_km
+
+        ax.barh(
+            y_position,
+            total_daytime_contrail_distance_km,
+            height=bar_height,
+            color=colors[1],
+            left=left,
+        )
+        ax.text(
+            left + margin,
+            y_position,
+            f"{day_percent}%",
+            color="black",
+            ha="center",
+            va="center",
+            fontsize=20,
+        )
+
+        ax.set_ylim(0, 1)
+
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+        plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.0)
+
+        plt.savefig(
+            self.EXPORT_FLIGHTS_CONTRAIL_DISTANCE_DAYTIME_NIGHTTIME_FILENAME_TEMPLATE.format(
+                airline=self._airline,
+            ),
+            bbox_inches="tight",
+        )
+
+        # -----------------
+        # How many flight kilometers of warming contrails?
+        # -----------------
+
+        colors = ["#2C2857", "#F7CA45"]
+        fig, ax = plt.subplots(figsize=(5, 2))
+        left = 0
+
+        bar_height = 0.3
+        y_position = 0.5
+
+        total_distance = (
+            total_nighttime_warming_contrail_distance_km
+            + total_daytime_warming_contrail_distance_km
+        )
+        night_percent = round(
+            (total_nighttime_warming_contrail_distance_km / total_distance) * 100
+        )
+        day_percent = round(
+            (total_daytime_warming_contrail_distance_km / total_distance) * 100
+        )
+
+        ax.barh(
+            y_position,
+            total_nighttime_warming_contrail_distance_km,
+            height=bar_height,
+            color=colors[0],
+            left=left,
+        )
+        margin = 100
+        ax.text(
+            margin,
+            y_position,
+            f"{night_percent}%",
+            color="white",
+            ha="left",
+            va="center",
+            fontsize=20,
+        )
+        left += total_nighttime_warming_contrail_distance_km
+
+        ax.barh(
+            y_position,
+            total_daytime_warming_contrail_distance_km,
+            height=bar_height,
+            color=colors[1],
+            left=left,
+        )
+        ax.text(
+            left + total_daytime_warming_contrail_distance_km + margin,
+            y_position,
+            f"{day_percent}%",
+            color="black",
+            ha="left",
+            va="center",
+            fontsize=20,
+        )
+
+        ax.set_ylim(0, 1)
+
+        legend_colors = [
+            plt.Line2D(
+                [0], [0], marker="o", color="w", markerfacecolor=color, markersize=15
+            )
+            for color in colors
+        ]
+        legend_labels = ["Nighttime", "Daytime"]
+        plt.legend(
+            handles=legend_colors,
+            labels=legend_labels,
+            loc="lower center",
+            bbox_to_anchor=(0.5, 0.0),
+            ncol=2,
+            frameon=False,
+            fontsize=16,
+        )
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        plt.subplots_adjust(left=0.01, right=0.95, top=0.99, bottom=0.2)
+
+        plt.savefig(
+            self.EXPORT_FLIGHTS_CONTRAIL_DISTANCE_WARMING_DAYTIME_NIGHTTIME_FILENAME_TEMPLATE.format(
+                airline=self._airline,
+                unixtime=now_unix,
+            ),
+            bbox_inches="tight",
+        )
 
         logger.info("🙌 DONE!")
