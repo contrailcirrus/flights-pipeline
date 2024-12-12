@@ -3,7 +3,7 @@ Generate a PDF report to match the google designed flight report template.
 """
 
 import argparse
-import re
+import os
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -18,7 +18,7 @@ page_height = 841.89
 title_color = "#111111"  # dark dark gray
 text_color = "#444444"  # dark gray
 container_color = "#ffffff"
-background_text_color = "#C4C7C5"
+background_text_color = "#999999" # This might be C4C7C5 according to the reference pdf..but it looks too light.
 left_margin = 30
 horizontal_spacing = 10
 vertical_spacing = 10
@@ -26,19 +26,14 @@ container_width = page_width - left_margin * 2 + 5
 container_text_font_size = 8.5
 container_title_font_size = 14
 scaling_factor = 15 / 18
-FLIGHT_REPORT_CASE_STUDY_FILENAME = "flights_report_flight_case_study_7cafc3e0-9f3c-44cf-b151-992f47f86627_1733540865.png"
 
 
 def load_data(json_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
     try:
         with open(json_path, "r") as f:
             data = json.load(f)
-        # Use regex to extract the airline code from the json path
-        data["airline_iata"] = re.search(r"summary_(\w{2})_20", json_path).group(1)
-        # TODO: integrate with lookup_airline_iata_to_name
-        data["airline_code"] = data["airline_iata"]
-        data["unix_suffix"] = re.search(r"_(\d+)\.json", json_path).group(1)
-        data["filename_suffix"] = re.search(r"summary_(.*).json", json_path).group(1)
+        data["data_path"] = os.path.dirname(json_path)
+
         # Validate the data structure:
         if not isinstance(data, dict):
             raise ValueError("Invalid data structure: expected a dictionary")
@@ -207,7 +202,7 @@ def draw_stat_for_plots(
 def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     """Generate the first page of the report"""
     c.drawImage(
-        "logo_demo.png",
+        "static/logo_demo.png",
         left_margin,
         770,
         width=60,
@@ -271,7 +266,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     c.setFillColor(text_color)
     c.drawString(
         left_margin + vertical_spacing,
-        current_y - vertical_spacing,
+        current_y - vertical_spacing-3,
         "What is Global Warming Potential (GWP)?",
     )
 
@@ -359,7 +354,16 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     midpoint_x = (left_margin + (page_width - left_margin + 5)) / 2
     midpoint_y = (y - 118 + container_bottom) / 2
 
-    c.line(midpoint_x, y - 30, midpoint_x, midpoint_y - 5)
+    c.line(midpoint_x, y - 55, midpoint_x, midpoint_y -33)
+    
+    # Pie chart
+    c.drawImage(
+        data["data_path"] + "/fig_contrail_warming_percentage.png",
+        x=50,
+        y=120,
+        width=72 * 3.8 * scaling_factor,
+        height=72 * 3.8*(8/9) * scaling_factor,
+    )
 
     draw_text_block(
         c=c,
@@ -371,18 +375,6 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         width=midpoint_x - left_margin - horizontal_spacing,
     )
 
-    # Pie chart
-    c.drawImage(
-        "flights_report_contrail_warming_percentage_"
-        + data["airline_code"]
-        + "_"
-        + data["unix_suffix"]
-        + ".png",
-        x=60,
-        y=120,
-        width=72 * 3.6 * scaling_factor,
-        height=72 * 3.2 * scaling_factor,
-    )
 
     draw_text_block(
         c=c,
@@ -415,11 +407,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         width=midpoint_x - left_margin - horizontal_spacing,
     )
     c.drawImage(
-        "flights_report_contrail_distance_daytime_nighttime_"
-        + data["airline_code"]
-        + "_"
-        + data["unix_suffix"]
-        + ".png",
+        data["data_path"] + "/fig_contrail_distance_daytime_nighttime.png",
         x=midpoint_x + horizontal_spacing,
         y=215,
         width=72 * 4 * scaling_factor,
@@ -435,14 +423,10 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.drawImage(
-        "flights_report_contrail_distance_warming_daytime_nighttime_"
-        + data["airline_code"]
-        + "_"
-        + data["unix_suffix"]
-        + ".png",
+        data["data_path"] + "/fig_contrail_distance_warming_daytime_nighttime.png",
         x=midpoint_x + horizontal_spacing,
         y=130,
-        width=72 * 2.5 * scaling_factor,
+        width=72 * 2.9 * scaling_factor,
         height=72 * 1 * scaling_factor,
     )
     draw_stat_with_info_symbol(
@@ -552,6 +536,15 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         width=page_width / 2 - 65,
         font_size=container_title_font_size,
     )
+    c.drawImage(
+        data["data_path"] + "/trajectories.png",
+        x=left_margin * 1.1-.5,
+        y=4.75 * 72 * scaling_factor,
+        width=page_width / 2 - left_margin - horizontal_spacing - 8,
+        height=72 * 2.75 * scaling_factor,
+    )
+    # TODO: Add color legend, being a yellow circle, and then a gray and white circle
+
     current_y = draw_text_block(
         c=c,
         text="""The yellow area shows the coverage region where our satellite imager based verification has been validated. For the rest of the world, we use our algorithm predictions""",
@@ -560,15 +553,6 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         width=page_width / 2 - 65,
         font_size=container_text_font_size,
     )
-
-    c.drawImage(
-        f"flights_report_trajectories_{data['filename_suffix']}.png",
-        x=left_margin * 1.1,
-        y=4.5 * 72 * scaling_factor,
-        width=page_width / 2 - left_margin - horizontal_spacing - 8,
-        height=72 * 2.75 * scaling_factor,
-    )
-    # TODO: Add color legend, being a yellow circle, and then a gray and white circle
 
     current_y = draw_stat_with_info_symbol(
         c=c,
@@ -632,7 +616,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     ]
 
     c.drawImage(
-        "google_reviate_report/horizontal_bar_gwp_warming.png",
+        "static/horizontal_bar_gwp_warming.png",
         x=left_margin / 2 + horizontal_spacing + page_width / 2,
         y=current_y - vertical_spacing * 1.2,
         width=bar_widths_fractions[0] * page_width / 2.45,
@@ -647,8 +631,8 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         unit="metric tons",
     )
     c.drawImage(
-        "google_reviate_report/horizontal_bar_gwp_warming.png",
-        x=left_margin / 2 + horizontal_spacing + page_width / 2,
+        "static/horizontal_bar_gwp_warming.png",
+        x=left_margin / 2 + horizontal_spacing + page_width / 2-.5,
         y=current_y - vertical_spacing * 1.2,
         width=bar_widths_fractions[1] * page_width / 2.45,
         height=72 * 0.25 * scaling_factor,
@@ -662,8 +646,8 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         unit="metric tons",
     )
     c.drawImage(
-        "google_reviate_report/horizontal_bar_gwp_warming.png",
-        x=left_margin / 2 + horizontal_spacing + page_width / 2,
+        "static/horizontal_bar_gwp_warming.png",
+        x=left_margin / 2 + horizontal_spacing + page_width / 2-2.25,
         y=current_y - vertical_spacing * 1.2,
         width=page_width / 2.45,
         height=72 * 0.25 * scaling_factor,
@@ -701,11 +685,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=746,
     )
     c.drawImage(
-        "flights_report_fuel_emissions_vs_contrail_warming_"
-        + data["airline_code"]
-        + "_"
-        + data["unix_suffix"]
-        + ".png",
+        data["data_path"] + "/fig_fuel_emissions_vs_contrail_warming.png",
         x=left_margin * 1.5,
         y=620,
         width=page_width - left_margin * 3 + 5,
@@ -757,11 +737,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.drawImage(
-        "flights_report_contrail_warming_daytime_vs_nighttime_"
-        + data["airline_code"]
-        + "_"
-        + data["unix_suffix"]
-        + ".png",
+        data["data_path"] + "/fig_contrail_warming_daytime_vs_nighttime.png",
         x=left_margin * 1.5,
         y=current_y - vertical_spacing * 10,
         width=page_width - left_margin * 3 + 5,
@@ -814,11 +790,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.drawImage(
-        "flights_report_od_by_net_co2e_"
-        + data["airline_code"]
-        + "_"
-        + data["unix_suffix"]
-        + ".png",
+        data["data_path"] + "/fig_od_by_net_co2e.png",
         x=left_margin * 1.4,
         y=90,
         width=page_width - left_margin - horizontal_spacing - 50,
@@ -861,11 +833,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.drawImage(
-        "flights_report_od_by_impact_density_"
-        + data["airline_code"]
-        + "_"
-        + data["unix_suffix"]
-        + ".png",
+        data["data_path"] + "/fig_od_by_impact_density.png",
         x=left_margin * 1.15,
         y=490,
         width=page_width - left_margin - horizontal_spacing - 20,
@@ -897,9 +865,8 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_text_font_size,
     )
 
-    # TODO: update hardcoded file name.
     c.drawImage(
-        FLIGHT_REPORT_CASE_STUDY_FILENAME,
+        data["data_path"] + "/fig_case_study_0.png",
         x=left_margin * 1.25,
         y=220,
         width=page_width - left_margin - horizontal_spacing - 30,
@@ -946,19 +913,19 @@ def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
     c = canvas.Canvas(output_path, pagesize=(page_width, page_height))
 
     # Draw grid before creating each page
-    draw_grid(c, page_width, page_height)
+    # draw_grid(c, page_width, page_height)
     create_page_one(c, data)
     c.showPage()
 
-    draw_grid(c, page_width, page_height)
+    # draw_grid(c, page_width, page_height)
     create_page_two(c, data)
     c.showPage()
 
-    draw_grid(c, page_width, page_height)
+    # draw_grid(c, page_width, page_height)
     create_page_three(c, data)
     c.showPage()
 
-    draw_grid(c, page_width, page_height)
+    # draw_grid(c, page_width, page_height)
     create_page_four(c, data)
     c.showPage()
 
@@ -967,16 +934,13 @@ def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate a PDF report.")
-    # parser.add_argument('--output', type=str, default=f"sample_report_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pdf", help='Output PDF file path')
     parser.add_argument(
-        "--output", type=str, default="sample_report.pdf", help="Output PDF file path"
-    )
-    parser.add_argument(
-        "--data_file",
+        "--data_path",
         type=str,
-        default="flights_report_summary_D0_2024-08-01_2024-08-31_1733544153.json",
-        help="Path to JSON data file",
+        default="out/D0",
+        help="Path to data folder",
     )
+    
     parser.add_argument(
         "--airline_name",
         type=str,
@@ -985,9 +949,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    data = load_data(args.data_file)
+    data = load_data(json_path=args.data_path + "/data_summary.json")
     data["airline_name"] = args.airline_name
-    generate_pdf(args.output, data)
+    generate_pdf(output_path=args.data_path + "/flights_report.pdf", data=data)
 
 
 if __name__ == "__main__":
