@@ -715,16 +715,16 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     draw_container(
         c=c,
         x=left_margin,
-        y=405,
+        y=410,
         width=page_width - left_margin * 2 + 5,
-        height=3.25 * 72 * scaling_factor,
+        height=3.25 * 72 * scaling_factor-5,
     )
 
     current_y = draw_text_block(
         c=c,
         text="Contrail warming - daytime vs nighttime (GWP50)",
         x=left_margin + horizontal_spacing,
-        y=575,
+        y=570,
         font_size=container_title_font_size,
     )
 
@@ -767,9 +767,9 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     draw_container(
         c=c,
         x=left_margin,
-        y=90,
+        y=85,
         width=page_width - left_margin * 2 + 5,
-        height=5 * 72 * scaling_factor,
+        height=5 * 72 * scaling_factor+10,
     )
 
     current_y = draw_text_block(
@@ -820,7 +820,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text="Origin-Destination pairs with the highest average total contrail warming per flown kilometer (CO2e/km) GWP50",
         x=left_margin + horizontal_spacing,
-        y=775,
+        y=770,
         font_size=container_title_font_size,
     )
 
@@ -829,15 +829,15 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text=description,
         x=left_margin + horizontal_spacing,
-        y=746,
+        y=current_y+vertical_spacing*1.5,
     )
 
     c.drawImage(
         data["data_path"] + "/fig_od_by_impact_density.png",
-        x=left_margin * 1.15,
-        y=490,
-        width=page_width - left_margin - horizontal_spacing - 20,
-        height=72 * 3.9 * scaling_factor,
+        x=left_margin * 1.25,
+        y=485,
+        width=page_width - left_margin - horizontal_spacing*4,
+        height=72 * 3.7 * scaling_factor,
     )
 
     # Case study: predicted vs. verified contrails.
@@ -880,14 +880,14 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         x=left_margin,
         y=10,
         width=page_width - left_margin * 2 + 5,
-        height=3.25 * 72 * scaling_factor,
+        height=3.1 * 72 * scaling_factor,
     )
 
     current_y = draw_text_block(
         c=c,
         text="""Did you know?""",
         x=left_margin + horizontal_spacing,
-        y=180,
+        y=170,
         font_size=container_title_font_size,
     )
 
