@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Generate a PDF report to match the google designed flight report template.
 """
@@ -18,7 +20,7 @@ page_height = 841.89
 title_color = "#111111"  # dark dark gray
 text_color = "#444444"  # dark gray
 container_color = "#ffffff"
-background_text_color = "#999999" # This might be C4C7C5 according to the reference pdf..but it looks too light.
+background_text_color = "#999999"  # This might be C4C7C5 according to the reference pdf..but it looks too light.
 left_margin = 30
 horizontal_spacing = 10
 vertical_spacing = 10
@@ -266,7 +268,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     c.setFillColor(text_color)
     c.drawString(
         left_margin + vertical_spacing,
-        current_y - vertical_spacing-3,
+        current_y - vertical_spacing - 3,
         "What is Global Warming Potential (GWP)?",
     )
 
@@ -354,15 +356,15 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     midpoint_x = (left_margin + (page_width - left_margin + 5)) / 2
     midpoint_y = (y - 118 + container_bottom) / 2
 
-    c.line(midpoint_x, y - 55, midpoint_x, midpoint_y -33)
-    
+    c.line(midpoint_x, y - 55, midpoint_x, midpoint_y - 33)
+
     # Pie chart
     c.drawImage(
         data["data_path"] + "/fig_contrail_warming_percentage.png",
         x=50,
         y=120,
         width=72 * 3.8 * scaling_factor,
-        height=72 * 3.8*(8/9) * scaling_factor,
+        height=72 * 3.8 * (8 / 9) * scaling_factor,
     )
 
     draw_text_block(
@@ -374,7 +376,6 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size - 2,
         width=midpoint_x - left_margin - horizontal_spacing,
     )
-
 
     draw_text_block(
         c=c,
@@ -538,7 +539,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     )
     c.drawImage(
         data["data_path"] + "/trajectories.png",
-        x=left_margin * 1.1-.5,
+        x=left_margin * 1.1 - 0.5,
         y=4.75 * 72 * scaling_factor,
         width=page_width / 2 - left_margin - horizontal_spacing - 8,
         height=72 * 2.75 * scaling_factor,
@@ -632,7 +633,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     )
     c.drawImage(
         "static/horizontal_bar_gwp_warming.png",
-        x=left_margin / 2 + horizontal_spacing + page_width / 2-.5,
+        x=left_margin / 2 + horizontal_spacing + page_width / 2 - 0.5,
         y=current_y - vertical_spacing * 1.2,
         width=bar_widths_fractions[1] * page_width / 2.45,
         height=72 * 0.25 * scaling_factor,
@@ -647,7 +648,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     )
     c.drawImage(
         "static/horizontal_bar_gwp_warming.png",
-        x=left_margin / 2 + horizontal_spacing + page_width / 2-2.25,
+        x=left_margin / 2 + horizontal_spacing + page_width / 2 - 2.25,
         y=current_y - vertical_spacing * 1.2,
         width=page_width / 2.45,
         height=72 * 0.25 * scaling_factor,
@@ -717,7 +718,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         x=left_margin,
         y=410,
         width=page_width - left_margin * 2 + 5,
-        height=3.25 * 72 * scaling_factor-5,
+        height=3.25 * 72 * scaling_factor - 5,
     )
 
     current_y = draw_text_block(
@@ -769,7 +770,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         x=left_margin,
         y=85,
         width=page_width - left_margin * 2 + 5,
-        height=5 * 72 * scaling_factor+10,
+        height=5 * 72 * scaling_factor + 10,
     )
 
     current_y = draw_text_block(
@@ -829,14 +830,14 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text=description,
         x=left_margin + horizontal_spacing,
-        y=current_y+vertical_spacing*1.5,
+        y=current_y + vertical_spacing * 1.5,
     )
 
     c.drawImage(
         data["data_path"] + "/fig_od_by_impact_density.png",
         x=left_margin * 1.25,
         y=485,
-        width=page_width - left_margin - horizontal_spacing*4,
+        width=page_width - left_margin - horizontal_spacing * 4,
         height=72 * 3.7 * scaling_factor,
     )
 
@@ -940,7 +941,7 @@ def main() -> None:
         default="out/D0",
         help="Path to data folder",
     )
-    
+
     parser.add_argument(
         "--airline_name",
         type=str,
