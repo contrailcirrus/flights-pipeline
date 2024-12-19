@@ -1401,7 +1401,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 handles=legend_colors,
                 labels=legend_labels,
                 loc="lower center",
-                bbox_to_anchor=(0.5, -0.1),
+                bbox_to_anchor=(0.5, -0.15),
                 ncol=1,
                 frameon=False,
                 labelspacing=1.0,
@@ -1426,13 +1426,26 @@ class FlightsReportFetchSvc(BaseSvc):
         # How many flight kilometers total, by daytime and nighttime?
         # -----------------
 
+        # Common settings for both plots
+        bar_height = 0.3
+        y_position = 0.5
+        text_fontsize = 20
         colors = ["#2C2857", "#F7CA45"]
-        fig, ax = plt.subplots(figsize=(8, 2))  # Increase figure size
+
+        # Use same subplot settings for both plots
+        plot_settings = {
+            'left': 0.01,
+            'right': 0.95,
+            'top': 0.99,
+            'bottom': 0.2  # Same bottom margin for both plots
+        }
+
+        # First plot (all contrails)
+        fig, ax = plt.subplots(figsize=(8, 2))
         left = 0
 
         bar_height = 0.3
         y_position = 0.5
-        # TODO: check that these values are correct.  The plot says flight kilometers for all fights, but I think it should be flight km of contrails
         total_distance = (
             total_nighttime_contrail_distance_km + total_daytime_contrail_distance_km
         )
@@ -1448,15 +1461,16 @@ class FlightsReportFetchSvc(BaseSvc):
             color=colors[0],
             left=left,
         )
-        margin = 100
+        margin = total_distance/20
+        y_margin = y_position*0.96
         ax.text(
             margin,
-            y_position,
+            y_margin,
             f"{night_percent}%",
             color="white",
             ha="left",
             va="center",
-            fontsize=20,
+            fontsize=text_fontsize,
         )
         left += total_nighttime_contrail_distance_km
 
@@ -1469,14 +1483,14 @@ class FlightsReportFetchSvc(BaseSvc):
         )
         ax.text(
             left + margin,
-            y_position,
+            y_margin,
             f"{day_percent}%",
             color="black",
-            ha="center",
+            ha="left",
             va="center",
-            fontsize=20,
+            fontsize=text_fontsize,
         )
-
+ 
         ax.set_ylim(0, 1)
 
         ax.xaxis.set_visible(False)
@@ -1486,7 +1500,7 @@ class FlightsReportFetchSvc(BaseSvc):
         ax.spines["left"].set_visible(False)
         ax.spines["bottom"].set_visible(False)
 
-        plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.0)
+        plt.subplots_adjust(**plot_settings)
 
         plt.savefig(
             self.EXPORT_FLIGHTS_CONTRAIL_DISTANCE_DAYTIME_NIGHTTIME_FILENAME_TEMPLATE.format(
@@ -1524,15 +1538,16 @@ class FlightsReportFetchSvc(BaseSvc):
             color=colors[0],
             left=left,
         )
-        margin = 100
+        margin = total_distance/20
+        y_margin = y_position*0.96
         ax.text(
             margin,
-            y_position,
+            y_margin,
             f"{night_percent}%",
             color="white",
             ha="left",
             va="center",
-            fontsize=20,
+            fontsize=text_fontsize,
         )
         left += total_nighttime_warming_contrail_distance_km
 
@@ -1542,15 +1557,16 @@ class FlightsReportFetchSvc(BaseSvc):
             height=bar_height,
             color=colors[1],
             left=left,
+
         )
         ax.text(
             left + total_daytime_warming_contrail_distance_km + margin,
-            y_position,
+            y_margin,
             f"{day_percent}%",
             color="black",
             ha="left",
             va="center",
-            fontsize=20,
+            fontsize=text_fontsize,
         )
 
         ax.set_ylim(0, 1)
@@ -1577,7 +1593,7 @@ class FlightsReportFetchSvc(BaseSvc):
         ax.spines["right"].set_visible(False)
         ax.spines["left"].set_visible(False)
         ax.spines["bottom"].set_visible(False)
-        plt.subplots_adjust(left=0.01, right=0.95, top=0.99, bottom=0.2)
+        plt.subplots_adjust(**plot_settings)
 
         plt.savefig(
             self.EXPORT_FLIGHTS_CONTRAIL_DISTANCE_WARMING_DAYTIME_NIGHTTIME_FILENAME_TEMPLATE.format(
