@@ -1021,6 +1021,39 @@ class FlightsReportFetchSvc(BaseSvc):
                     airline=self._airline
                 )
             )
+            # -----------------
+            # export legend for trajectories plot
+            # -----------------
+            fig = plt.figure(figsize=(6, 1))
+            ax = fig.add_subplot(1, 1, 1)
+            
+            # Create custom legend elements
+            ax.add_patch(plt.Rectangle((0.2, 0.4), 0.15, 0.2, facecolor='#F7CA45', alpha=0.5))
+            
+            # Split rectangle for algorithm predictions
+            ax.add_patch(plt.Rectangle((0.6, 0.4), 0.075, 0.2, facecolor='white'))
+            ax.add_patch(plt.Rectangle((0.675, 0.4), 0.075, 0.2, facecolor='#C4C7C5'))
+            
+            # Add flight path line
+            ax.plot([1.0, 1.15], [0.5, 0.5], color='black', linewidth=2)
+            
+            # Add text labels
+            ax.text(0.2, 0.2, 'Satellite verified region', ha='left')
+            ax.text(0.6, 0.2, 'Algorithm predictions only', ha='left')
+            ax.text(1.0, 0.2, 'Flight paths', ha='left')
+            
+            # Remove axes
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+                
+            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+            plt.savefig(
+                self.EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE.format(
+                    airline=self._airline
+                )
+            )
 
             # -----------------
             # export OD-pair histogram

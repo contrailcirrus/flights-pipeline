@@ -28,6 +28,9 @@ container_width = page_width - left_margin * 2 + 5
 container_text_font_size = 8.5
 container_title_font_size = 14
 scaling_factor = 15 / 18
+paragraph_spacing = 15
+line_spacing = 10
+text_width = 520
 
 
 def load_data(json_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -203,6 +206,7 @@ def draw_stat_for_plots(
 
 def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     """Generate the first page of the report"""
+    # TODO: Add real logo
     c.drawImage(
         "static/logo_demo.png",
         left_margin,
@@ -712,6 +716,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=current_y - vertical_spacing * 2,
         text_color="white",
     )
+
     # Contrail warming - daytime vs nighttime (GWP50)
     draw_container(
         c=c,
@@ -736,7 +741,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=current_y + vertical_spacing,
         font_size=container_text_font_size,
     )
-
+    # TODO: round the corners for this plot?
     c.drawImage(
         data["data_path"] + "/fig_contrail_warming_daytime_vs_nighttime.png",
         x=left_margin * 1.5,
@@ -825,6 +830,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size,
     )
 
+    # TODO: this is hard coded, need to make it dynamic
     description = f"""The average carbon dioxide emissions per kilometer for {data['airline_name']} in September was 21 kg CO2 / km. The OD pair with the highest contrail warming per kilometer is EMA - CPH  adding 49  kg CO2e/ km - or 2.3 times the average warming from the CO2 alone. The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example the Eastern part of the US) at night, when contrails are most warming"""
     current_y = draw_text_block(
         c=c,
@@ -892,20 +898,171 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size,
     )
 
-    draw_text_block(
-        c=c,
-        text="""Some flight planning software providers, like Flight keys and CAE, have implemented contrail avoidance in their flight planning tools (or are about to).  \n\n\n
-        In 2023, American Airlines, Google Research, and Reviate conducted a trial in which they avoided 54% of contrail kilometers by flying under contrail-prone areas.   \n\n\n
-        In 2024, an extensive study of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these flights by spending 0.11% more jet fuel to adjust some of the flight paths.  \n\n\n
-        See where contrails are forming right now on this world map of contrails. \n\n\n
-        Read more about contrails on our websites: Reviate, Google Research.
-        """,
-        x=left_margin + horizontal_spacing,
-        y=current_y + vertical_spacing,
-        font_size=container_text_font_size,
+    current_x = left_margin + horizontal_spacing
+    y = current_y + vertical_spacing
+
+    # First paragraph
+    first_text = "Some flight planning software providers, like "
+    width = add_plain_text(c, first_text, current_x, y, font_size=container_text_font_size)
+    current_x += width
+
+    width = add_text_with_link(c, "Flightkeys", "https://www.flightkeys.com", current_x, y)
+    current_x += width
+
+    width = add_plain_text(c, " and ", current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "CAE",
+        "https://www.cae.com/civil-aviation/aviation-software/flight-operations-solutions/flight-management/",
+        current_x, y
     )
+    current_x += width
+
+    remaining_text = ", have implemented contrail avoidance in their flight planning tools (or are about to)."
+    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    for i, line in enumerate(lines):
+        if i == 0:
+            add_plain_text(c, line, current_x, y)
+        else:
+            y -= line_spacing
+            add_plain_text(c, line, left_margin + horizontal_spacing, y)
+
+    # Move to next paragraph with extra spacing to prevent overlap
+    y -= paragraph_spacing + line_spacing
+
+    # Second paragraph
+    current_x = left_margin + horizontal_spacing
+    intro_text = "In 2023, American Airlines, Google Research, and Reviate conducted a "
+    width = add_plain_text(c, intro_text, current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "trial",
+        "https://www.theguardian.com/environment/2023/aug/09/ai-helps-airline-pilots-avoid-areas-that-create-polluting-contrails",
+        current_x, y
+    )
+    current_x += width
+
+    remaining_text = " in which they avoided 54% of contrail kilometers by flying under contrail-prone areas."
+    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    for i, line in enumerate(lines):
+        if i == 0:
+            add_plain_text(c, line, current_x, y)
+        else:
+            y -= line_spacing
+            add_plain_text(c, line, left_margin + horizontal_spacing, y)
+
+    y -= paragraph_spacing + line_spacing
+
+    # Third paragraph
+    current_x = left_margin + horizontal_spacing
+    intro_text = "In 2024, an "
+    width = add_plain_text(c, intro_text, current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "extensive study",
+        "https://www.researchgate.net/publication/378811848_Feasibility_of_contrail_avoidance_in_a_commercial_flight_planning_system_an_operational_analysis",
+        current_x, y
+    )
+    current_x += width
+
+    remaining_text = " of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these flights by spending 0.11% more jet fuel to adjust some of the flight paths."
+    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    for i, line in enumerate(lines):
+        if i == 0:
+            add_plain_text(c, line, current_x, y)
+        else:
+            y -= line_spacing
+            add_plain_text(c, line, left_margin + horizontal_spacing, y)
+
+    y -= paragraph_spacing + line_spacing
+
+    # Fourth paragraph
+    current_x = left_margin + horizontal_spacing
+    intro_text = "See where contrails are forming right now on this "
+    width = add_plain_text(c, intro_text, current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "world map of contrails",
+        "https://map.contrails.org",
+        current_x, y
+    )
+    current_x += width
+
+    add_plain_text(c, ".", current_x, y)
+
+    y -= paragraph_spacing + line_spacing
+
+    # Fifth paragraph
+    current_x = left_margin + horizontal_spacing
+    intro_text = "Read more about contrails on our websites: "
+    width = add_plain_text(c, intro_text, current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "Reviate",
+        "https://contrails.org",
+        current_x, y
+    )
+    current_x += width
+
+    width = add_plain_text(c, ", ", current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "Google Research",
+        "https://sites.research.google/contrails/",
+        current_x, y
+    )
+    current_x += width
+
+    add_plain_text(c, ".", current_x, y)
 
     return c
+
+
+def wrap_text(c, text, width, font="Roboto", font_size=container_text_font_size):
+    """Split text into lines that fit within given width"""
+    words = text.split()
+    lines = []
+    current_line = []
+    current_width = 0
+
+    for word in words:
+        word_width = c.stringWidth(word + " ", font, font_size)
+        if current_width + word_width <= width:
+            current_line.append(word)
+            current_width += word_width
+        else:
+            lines.append(" ".join(current_line))
+            current_line = [word]
+            current_width = word_width
+
+    if current_line:
+        lines.append(" ".join(current_line))
+    return lines
+
+
+def add_text_with_link(c, text, link_url, x, y, font="Roboto", font_size=container_text_font_size):
+    """Helper function to add text with a clickable link"""
+    c.setFont(font, font_size)
+    c.drawString(x=x, y=y, text=text)
+    text_width = c.stringWidth(text, font, font_size)
+    c.linkURL(
+        link_url,
+        (x, y - 2, x + text_width, y + 9),
+    )
+    return text_width
+
+
+def add_plain_text(c, text, x, y, font="Roboto", font_size=container_text_font_size):
+    """Helper function to add plain text and return its width"""
+    c.setFont(font, font_size)
+    c.drawString(x=x, y=y, text=text)
+    return c.stringWidth(text, font, font_size)
 
 
 def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
@@ -913,7 +1070,7 @@ def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
 
     c = canvas.Canvas(output_path, pagesize=(page_width, page_height))
 
-    # Draw grid before creating each page
+
     # draw_grid(c, page_width, page_height)
     create_page_one(c, data)
     c.showPage()
