@@ -1331,7 +1331,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 v / total
                 for v in [total_co2_metric_tons, total_contrails_co2e50_metric_tons]
             ]
-            colors = ["#4285F4", "#D3E3FD"]
+            colors = ["#4285F4", "#1967D2"]
 
             left = 0
             for value, color in zip(normalized_values, colors):
@@ -1397,14 +1397,17 @@ class FlightsReportFetchSvc(BaseSvc):
             # -----------------
             # What percentage of flights create warming contrails?
             # -----------------
-
+            fig_w = 5
+            fig_h = 5
+            fig = plt.figure(figsize=(fig_w, fig_h))
+            ax = fig.add_subplot(1, 1, 1)
             percent_with_warming = round(
                 count_flights_positive_ef / count_flights * 100, 1
             )
             percent_without_warming = 100 - percent_with_warming
 
             colors = ["#4285F4", "#D3E3FD"]
-            fig, ax = plt.subplots()
+        
             ax.pie(
                 [percent_with_warming, percent_without_warming],
                 labels=["", ""],
@@ -1615,7 +1618,7 @@ class FlightsReportFetchSvc(BaseSvc):
             handles=legend_colors,
             labels=legend_labels,
             loc="lower center",
-            bbox_to_anchor=(0.5, 0.0),
+            bbox_to_anchor=(0.5, -0.2),
             ncol=2,
             frameon=False,
             fontsize=16,
