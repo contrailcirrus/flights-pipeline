@@ -14,6 +14,8 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from matplotlib import cm
 from matplotlib.ticker import MultipleLocator
+import matplotlib.patches as patches
+import matplotlib.lines as lines
 
 from helpers import key_max_value_count
 from handlers import (
@@ -904,7 +906,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 df_plt.reset_index(inplace=True, drop=True)
                 df_plt.loc[:, "dist_cum_km"] = df_plt["chunk_len_km"].cumsum()
 
-                fig = plt.figure(figsize=(9, 3))
+                fig = plt.figure(figsize=(9, 1.75))
                 ax = fig.add_subplot(1, 1, 1)
 
                 x_v = df_plt["dist_cum_km"]
@@ -977,13 +979,33 @@ class FlightsReportFetchSvc(BaseSvc):
                 ax.set_xlim([min_x, max_x])
                 ax.set_ylim([min_y, max_y])
 
-                # fig.set_tight_layout(True)
-                plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+                # Create legend elements
+                legend_elements = [
+                    lines.Line2D([0], [0], color='black', linewidth=2.5, label='Flight path'),
+                    lines.Line2D([0], [0], marker='o', color='w', 
+                               markerfacecolor='#D3E3FD', markersize=15, 
+                               label='Predicted contrails'),
+                    lines.Line2D([0], [0], marker='o', color='w',
+                               markerfacecolor='#F7CA45', markersize=15,
+                               label='Confirmed contrails'),
+                    patches.Rectangle((0,0), 1, 1, facecolor='#F7CA45', alpha=0.4,
+                                   label='Observation region')
+                ]
+
+                # Add legend below the plot
+                ax.legend(handles=legend_elements, 
+                         loc='upper center',
+                         bbox_to_anchor=(0.5, -0.5),
+                         ncol=4,
+                         frameon=False)
+
                 plt.savefig(
                     self.EXPORT_FLIGHT_CASE_STUDY_FIG_TEMPLATE.format(
                         airline=self._airline,
                         ix=ix,
-                    )
+                    ),
+                    dpi=300,
+                    bbox_inches='tight'
                 )
 
             # -----------------
@@ -992,11 +1014,10 @@ class FlightsReportFetchSvc(BaseSvc):
             projection = ccrs.Mercator(
                 central_longitude=12, min_latitude=-56.9, max_latitude=84.0
             )
-            fig = plt.figure()
+            fig = plt.figure(figsize=(10, 7))  # Increased height slightly to accommodate legend
             ax = fig.add_subplot(1, 1, 1, projection=projection)
             ax.set_global()
             ax.add_feature(cfeature.LAND, color="#C4C7C5")
-            ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.5, alpha=0.5)
             ax.fill(
                 [c[0] for c in self.CONUS_COORDS],
                 [c[1] for c in self.CONUS_COORDS],
@@ -1015,32 +1036,20 @@ class FlightsReportFetchSvc(BaseSvc):
                     linewidth=0.3,
                     transform=ccrs.Geodetic(),
                 )
-            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
-            plt.savefig(
-                self.EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE.format(
-                    airline=self._airline
-                )
-            )
-            # -----------------
-            # export legend for trajectories plot
-            # -----------------
-            fig = plt.figure(figsize=(6, 1))
-            ax = fig.add_subplot(1, 1, 1)
             
-            # Create custom legend elements
-            ax.add_patch(plt.Rectangle((0.2, 0.4), 0.15, 0.2, facecolor='#F7CA45', alpha=0.5))
+            # Create custom legend handles
+            legend_elements = [
+                patches.Rectangle((0, 0), 1, 1, facecolor='#F7CA45', alpha=0.5, label='Satellite verified region'),
+                patches.Rectangle((0, 0), 1, 1, facecolor='#C4C7C5', label='Algorithm predictions only'),
+                lines.Line2D([0], [0], color='black', linewidth=1, label='Flight paths')
+            ]
             
-            # Split rectangle for algorithm predictions
-            ax.add_patch(plt.Rectangle((0.6, 0.4), 0.075, 0.2, facecolor='white'))
-            ax.add_patch(plt.Rectangle((0.675, 0.4), 0.075, 0.2, facecolor='#C4C7C5'))
-            
-            # Add flight path line
-            ax.plot([1.0, 1.15], [0.5, 0.5], color='black', linewidth=2)
-            
-            # Add text labels
-            ax.text(0.2, 0.2, 'Satellite verified region', ha='left')
-            ax.text(0.6, 0.2, 'Algorithm predictions only', ha='left')
-            ax.text(1.0, 0.2, 'Flight paths', ha='left')
+            # Add legend
+            ax.legend(handles=legend_elements,
+                     loc='lower center',
+                     bbox_to_anchor=(0.5, -0.1),
+                     ncol=3,
+                     frameon=False)
             
             # Remove axes
             ax.set_xticks([])
@@ -1048,13 +1057,14 @@ class FlightsReportFetchSvc(BaseSvc):
             for spine in ax.spines.values():
                 spine.set_visible(False)
                 
-            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
             plt.savefig(
                 self.EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE.format(
                     airline=self._airline
-                )
+                ),
+                bbox_inches='tight',  # This ensures the legend is not cut off
+                dpi=300
             )
-
+          
             # -----------------
             # export OD-pair histogram
             # -----------------
@@ -1150,7 +1160,6 @@ class FlightsReportFetchSvc(BaseSvc):
             figh = float(fig_h) / (t - b)
             ax.figure.set_size_inches(figw, figh)
 
-            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
             plt.savefig(
                 self.EXPORT_FLIGHTS_OD_IMPACT_DENSITY_PLOT_FILENAME_TEMPLATE.format(
                     airline=self._airline,
@@ -1299,7 +1308,6 @@ class FlightsReportFetchSvc(BaseSvc):
 
             # title_str = "OD Pairs"
             # ax.set_title(title_str, x=-0.05)
-            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
 
             ax = plt.gca()
             lf = ax.figure.subplotpars.left
@@ -1309,7 +1317,6 @@ class FlightsReportFetchSvc(BaseSvc):
             figw = float(fig_w) / (r - lf)
             figh = float(fig_h) / (t - b)
             ax.figure.set_size_inches(figw, figh)
-
             plt.savefig(
                 self.EXPORT_FLIGHTS_OD_NET_CO2E_PLOT_FILENAME_TEMPLATE.format(
                     airline=self._airline,
@@ -1331,7 +1338,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 v / total
                 for v in [total_co2_metric_tons, total_contrails_co2e50_metric_tons]
             ]
-            colors = ["#4285F4", "#1967D2"]
+            colors = ["#1967D2", "#4285F4"]
 
             left = 0
             for value, color in zip(normalized_values, colors):
@@ -1416,6 +1423,8 @@ class FlightsReportFetchSvc(BaseSvc):
                 colors=colors,
                 wedgeprops={"width": 0.15},
             )
+
+            ax.set_aspect('equal')  # Ensures the pie chart is circular
 
             legend_colors = [
                 plt.Line2D(

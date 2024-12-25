@@ -378,10 +378,10 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     # Pie chart
     c.drawImage(
         data["data_path"] + "/fig_contrail_warming_percentage.png",
-        x=50,
-        y=120,
-        width=72 * 3.8 * scaling_factor,
-        height=72 * 3.8 * (8 / 9) * scaling_factor,
+        x=60,
+        y=121,
+        width=72 * 3.5 * scaling_factor,
+        height=72 * 3.4 * scaling_factor,
     )
 
     draw_text_block(
@@ -398,7 +398,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text=f"{data['flight_distance_km']['with_contrails']['total'] / data['flight_distance_km']['total'] * 100:.1f}%",
         x=midpoint_x / 3 + 35,
-        y=235,
+        y=237,
         font_name="Roboto",
         font_size=24,
         width=midpoint_x - left_margin - horizontal_spacing,
@@ -406,7 +406,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     draw_text_block(
         c=c,
         text=f"of {data['airline_name']} flight distance generated warming contrails",
-        x=midpoint_x / 3 + 14,
+        x=midpoint_x / 3 + 15,
         y=220,
         font_name="Roboto",
         font_size=container_text_font_size,
@@ -443,9 +443,9 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     c.drawImage(
         data["data_path"] + "/fig_contrail_distance_warming_daytime_nighttime.png",
         x=midpoint_x + horizontal_spacing-3,
-        y=130,
+        y=123,
         width=72 * 2.9 * scaling_factor,
-        height=72 * 1 * scaling_factor,
+        height=72 * 1.11* scaling_factor,
     )
     draw_stat_with_info_symbol(
         c,
@@ -707,29 +707,32 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     )
     c.drawImage(
         data["data_path"] + "/fig_fuel_emissions_vs_contrail_warming.png",
-        x=left_margin * 1.5,
-        y=620,
-        width=page_width - left_margin * 3 + 5,
+        x=39,
+        y=616,
+        width=page_width - left_margin * 3 + 14,
         height=72 * 1.75 * scaling_factor,
     )
-
+    fuel_percent_of_total = 100*(data["total_co2_metric_tons"] / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"]))
+    contrail_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["total"] / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"]))
+    
+    # TODO: harden this, as the number spacing will be different as the bar values change.
     draw_stat_for_plots(
         c,
-        key="Fuel emissions (CO2)",
+        key=f"Fuel emissions (metric tons CO2)",
         number=format_number(data["total_co2_metric_tons"]),
-        unit="t CO2",
-        x=left_margin * 1.5 + horizontal_spacing,
-        y=current_y - vertical_spacing * 2,
+        unit=f"({fuel_percent_of_total:.0f}%)",
+        x=55, # TODO: harden this, as the number spacing will be different as the bar values change.
+        y=current_y - vertical_spacing * 2.2,
         text_color="white",
     )
     # Todo: fix this?
     draw_stat_for_plots(
         c,
-        key="Contrails",
+        key="Contrails (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
-        unit="metric tons",
-        x=page_width - left_margin * 6.6,
-        y=current_y - vertical_spacing * 2,
+        unit=f"({contrail_percent_of_total:.0f}%)",
+        x=449, # TODO: harden this, as the number spacing will be different as the bar values change.
+        y=current_y - vertical_spacing * 2.2,
         text_color="white",
     )
 
@@ -757,43 +760,44 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=current_y,
         font_size=container_text_font_size,
     )
-    # TODO: round the corners for this plot?
+
     c.drawImage(
         data["data_path"] + "/fig_contrail_warming_daytime_vs_nighttime.png",
-        x=left_margin * 1.5,
+        x=38,
         y=current_y - vertical_spacing * 10,
-        width=page_width - left_margin * 3 + 5,
+        width=page_width - left_margin * 5.2,
         height=72 * 1.75 * scaling_factor,
     )
-
+    nighttime_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"] / (data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]))
+    daytime_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] / (data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]))
     draw_stat_for_plots(
         c,
-        key="Nighttime",
+        key="Nighttime (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]),
-        unit="t CO2e",
-        x=left_margin * 1.5 + horizontal_spacing,
-        y=current_y - vertical_spacing * 2,
+        unit=f"({nighttime_percent_of_total:.0f}%)",
+        x=55, # TODO: harden this, as the number spacing will be different as the bar values change.
+        y=current_y - vertical_spacing * 2.4,
         text_color="white",
     )
 
     draw_stat_for_plots(
         c,
-        key="Daytime",
+        key="Daytime (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]),
-        unit="t CO2e",
-        x=page_width - left_margin * 6,
-        y=current_y - vertical_spacing * 2,
-        text_color="white",
+        unit=f"({daytime_percent_of_total:.0f}%)",
+        x=447, # TODO: harden this, as the number spacing will be different as the bar values change.
+        y=current_y - vertical_spacing * 2.4,
+        text_color=background_text_color,
     )
+    
     # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
-    draw_container(
-        c=c,
-        x=left_margin,
+    c.drawImage(
+        data["data_path"] + "/fig_od_by_net_co2e.png",
+        x=10,
         y=85,
-        width=page_width - left_margin * 2 + 5,
-        height=5 * 72 * scaling_factor + 10,
+        width=580,
+        height=250,
     )
-
     current_y = draw_text_block(
         c=c,
         text="Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)",
@@ -801,7 +805,6 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=370,
         font_size=container_title_font_size,
     )
-
     current_y = draw_text_block(
         c=c,
         text=f"""The ten OD pairs are responsible for 63% of {data['airline_name']}'s total contrail warming.  The most warming OD pairs are often very long flights where the majority of the journey takes place in the dark, when contrails are most warming""",
@@ -810,14 +813,14 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_text_font_size,
     )
 
-    c.drawImage(
-        data["data_path"] + "/fig_od_by_net_co2e.png",
-        x=left_margin * 1.4,
-        y=90,
-        width=page_width - left_margin - horizontal_spacing - 50,
-        height=72 * 3.6 * scaling_factor,
-    )
 
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=85,
+        width=page_width - left_margin * 2 + 5,
+        height=5 * 72 * scaling_factor + 10,
+    )
     return c
 
 
@@ -829,13 +832,6 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     c.drawString(525, 812, "Page 4 of 4")
 
     # Fuel emissions (CO2) vs contrail warming (CO2e) GWP50
-    draw_container(
-        c=c,
-        x=left_margin,
-        y=480,
-        width=page_width - left_margin * 2 + 5,
-        height=72 * 5.25 * scaling_factor,
-    )
 
     current_y = draw_text_block(
         c=c,
@@ -846,23 +842,37 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     # TODO: this is hard coded, need to make it dynamic
+
+    c.drawImage(
+        data["data_path"] + "/fig_od_by_impact_density.png",
+        x=10,
+        y=473,
+        width=580,
+        height=250,
+    )
     description = f"""The average carbon dioxide emissions per kilometer for {data['airline_name']} in September was 21 kg CO2 / km. The OD pair with the highest contrail warming per kilometer is EMA - CPH  adding 49  kg CO2e/ km - or 2.3 times the average warming from the CO2 alone. The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example the Eastern part of the US) at night, when contrails are most warming"""
     current_y = draw_text_block(
         c=c,
         text=description,
         x=left_margin + horizontal_spacing,
         y=current_y,
+        width=515,
     )
-
-    c.drawImage(
-        data["data_path"] + "/fig_od_by_impact_density.png",
-        x=left_margin * 1.25,
-        y=485,
-        width=page_width - left_margin - horizontal_spacing * 4,
-        height=72 * 3.7 * scaling_factor,
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=480,
+        width=page_width - left_margin * 2 + 5,
+        height=72 * 5.25 * scaling_factor,
     )
-
     # Case study: predicted vs. verified contrails.
+    c.drawImage(
+        data["data_path"] + "/fig_case_study_0.png",
+        x=40,
+        y=210,
+        width=520,
+        height=175,
+    )
     draw_container(
         c=c,
         x=left_margin,
@@ -887,13 +897,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_text_font_size,
     )
 
-    c.drawImage(
-        data["data_path"] + "/fig_case_study_0.png",
-        x=left_margin * 1.25,
-        y=220,
-        width=page_width - left_margin - horizontal_spacing - 30,
-        height=72 * 3 * scaling_factor,
-    )
+
     # TODO: add color legend
 
     # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
