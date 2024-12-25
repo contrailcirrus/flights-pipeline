@@ -1438,8 +1438,8 @@ class FlightsReportFetchSvc(BaseSvc):
                 for color in colors
             ]
             legend_labels = [
-                "Distance (km) with warming contrails",
-                "Distance (km) without warming contrails",
+                "Distance with warming contrails",
+                "Distance without warming contrails",
             ]
 
             plt.legend(
