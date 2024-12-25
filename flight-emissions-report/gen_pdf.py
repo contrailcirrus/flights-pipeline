@@ -371,6 +371,8 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     c.line(midpoint_x, y - 55, midpoint_x, midpoint_y - 33)
 
     # Pie chart
+    # TODO: Comment from Joachim: Also, the lower bar should be 10.4% of the upper bar - corresponding to the value in the circle to the left, correct?
+    # The image is currently a bit confusing because the title and plot are in reference to percent of flights, whereas the stat in the middle is about percent of flight *distance*
     c.drawImage(
         data["data_path"] + "/fig_contrail_warming_percentage.png",
         x=60,
@@ -693,6 +695,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size,
     )
 
+    # TODO: Add some text in at least for spacing?  Removed per Joachim's comment.
     # description = """The contrail warming impact is often lower in the summer time and higher in dark months. This is because contrail clouds that persist in the dark are the most warming."""
     # current_y = draw_text_block(
     #     c=c,
@@ -717,7 +720,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         number=format_number(data["total_co2_metric_tons"]),
         unit=f"({fuel_percent_of_total:.0f}%)",
         x=55, # TODO: harden this, as the number spacing will be different as the bar values change.
-        y=current_y - vertical_spacing * 2.2,
+        y=692,
         text_color="white",
     )
     # Todo: fix this?
@@ -727,7 +730,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
         unit=f"({contrail_percent_of_total:.0f}%)",
         x=449, # TODO: harden this, as the number spacing will be different as the bar values change.
-        y=current_y - vertical_spacing * 2.2,
+        y=692,
         text_color="white",
     )
 
@@ -748,6 +751,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size,
     )
 
+    # TODO: Address comment from Joachim: - [ ] This is about verification vs observation - the text is wrong?
     current_y = draw_text_block(
         c=c,
         text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming.""",

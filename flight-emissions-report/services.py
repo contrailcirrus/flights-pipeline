@@ -1579,7 +1579,7 @@ class FlightsReportFetchSvc(BaseSvc):
         ax.barh(
             y_position,
             total_nighttime_warming_contrail_distance_km,
-            height=bar_height,
+            height=bar_height * 1, # Add multiplier if we want to make it taller per Joachim's comment..
             color=colors[0],
             left=left,
         )
