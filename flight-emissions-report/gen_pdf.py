@@ -560,7 +560,6 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         width=page_width / 2 - left_margin - horizontal_spacing - 8,
         height=72 * 2.75 * scaling_factor,
     )
-    # TODO: Add color legend, being a yellow circle, and then a gray and white circle
 
     current_y = draw_text_block(
         c=c,
@@ -713,23 +712,28 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     fuel_percent_of_total = 100*(data["total_co2_metric_tons"] / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"]))
     contrail_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["total"] / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"]))
     
-    # TODO: harden this, as the number spacing will be different as the bar values change.
+    total_width = 504
+    left_margin_plot = 55
+    
+    fuel_x = left_margin_plot
+    contrail_x = left_margin_plot*1.83 + (total_width - left_margin_plot) * (fuel_percent_of_total / 100)
+    
     draw_stat_for_plots(
         c,
         key=f"Fuel emissions (metric tons CO2)",
         number=format_number(data["total_co2_metric_tons"]),
         unit=f"({fuel_percent_of_total:.0f}%)",
-        x=55, # TODO: harden this, as the number spacing will be different as the bar values change.
+        x=fuel_x,
         y=692,
         text_color="white",
     )
-    # Todo: fix this?
+    
     draw_stat_for_plots(
         c,
         key="Contrails (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
         unit=f"({contrail_percent_of_total:.0f}%)",
-        x=449, # TODO: harden this, as the number spacing will be different as the bar values change.
+        x=contrail_x,
         y=692,
         text_color="white",
     )
@@ -760,21 +764,27 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_text_font_size,
     )
 
+    image_width = page_width - left_margin * 5.6
     c.drawImage(
         data["data_path"] + "/fig_contrail_warming_daytime_vs_nighttime.png",
         x=38,
         y=current_y - vertical_spacing * 10,
-        width=page_width - left_margin * 5.2,
+        width=image_width,
         height=72 * 1.75 * scaling_factor,
     )
+
     nighttime_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"] / (data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]))
     daytime_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] / (data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]))
+    
+    nighttime_x = left_margin_plot
+    daytime_x = left_margin_plot-12 + image_width * (nighttime_percent_of_total / 100)
+    
     draw_stat_for_plots(
         c,
         key="Nighttime (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]),
         unit=f"({nighttime_percent_of_total:.0f}%)",
-        x=55, # TODO: harden this, as the number spacing will be different as the bar values change.
+        x=nighttime_x-2,
         y=current_y - vertical_spacing * 2.4,
         text_color="white",
     )
@@ -784,7 +794,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         key="Daytime (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]),
         unit=f"({daytime_percent_of_total:.0f}%)",
-        x=447, # TODO: harden this, as the number spacing will be different as the bar values change.
+        x=daytime_x,
         y=current_y - vertical_spacing * 2.4,
         text_color=background_text_color,
     )
