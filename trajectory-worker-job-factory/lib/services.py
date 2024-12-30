@@ -250,7 +250,7 @@ class TrajectoryBuilderSvc:
         flight_instances = df.groupby("flight_id", sort=True)
 
         # fetch marker, if one exists, from redis cache
-        progress_marker = 1
+        progress_marker = 0
         if self._cache_handler and twjd.airline_iata:
             # we skip cache handling if this is a twjd w/o airline_iata
             # i.e. we don't bother with cache handling for small jobs
@@ -395,6 +395,9 @@ class TrajectoryBuilderSvc:
             if twjd.export_waypoints:
                 # save waypoints to disk
                 # CLI (local) use only
+                logger.info(
+                    f"writing waypoints to file for flight id {flight_info.flight_id}"
+                )
                 resampled_df.to_csv(
                     f"{flight_info.airline_iata}_{flight_info.flight_id}.csv",
                     index=False,
