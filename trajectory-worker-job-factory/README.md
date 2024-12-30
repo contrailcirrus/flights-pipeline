@@ -160,9 +160,6 @@ If the per-segment trajectory data is exported by setting this flag to `True`,
 then both per-flight and per-segment summary data will be exported.
 The rows in the BQ table between per-seg and per-flight can be disambiguated 
 by selecting on `seg_cnt=1` (per-segment summary) vs. `seg_cnt>1` (per-flight summary).
-- `-v` this runs the CLI in verbose mode. This writes to stderr additional info such as the
-number of waypoints retrieved from bigquery for each flight (terrestrial vs. sat), 
-the number of waypoints ejected during trajectory validation, etc.
 - `-r` this runs the CLI in dry-run mode. This will go through all the steps of 
 fetching, resampling, packaging etc... of jobs,
 but will _not_ publish the jobs to the job queue.
@@ -188,4 +185,9 @@ but will _not_ publish the jobs to the job queue.
 # save CSVs for the resampled ADS-B flight trajectories to local disk
 # does NOT submit the jobs
 ./cli.py flights submit -a KL -d 2024-04-02 -s era5 -e -v -r
+```
+
+```bash
+# fetch single flight based on flight-id
+./cli.py flights submit -s era5 -d 2024-11-28 -i "3fa2f048-d289-4d32-8c7a-23feeccdd684" -r -e
 ```
