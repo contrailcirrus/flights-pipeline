@@ -168,8 +168,8 @@ but will _not_ publish the jobs to the job queue.
 
 ```bash
 # submit all flights for American Airlines that originate on Jan 12, 2024 (UTC)
-# running the trajectory model using hres met data, w/ printout verbose
-./cli.py flights submit -a AA -d 2024-01-12 -s hres -v
+# running the trajectory model using hres met data
+./cli.py flights submit -a AA -d 2024-01-12 -s hres
 ```
 
 ```bash
@@ -188,6 +188,6 @@ but will _not_ publish the jobs to the job queue.
 ```
 
 ```bash
-# fetch single flight based on flight-id
+# fetch single flight based on flight-id, saves waypoints to disk, does NOT submit to traj worker queue
 ./cli.py flights submit -s era5 -d 2024-11-28 -i "3fa2f048-d289-4d32-8c7a-23feeccdd684" -r -e
 ```
