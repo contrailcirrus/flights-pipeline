@@ -171,7 +171,7 @@ graph
     spire_flights_raw_tb --> flights_submit
     flights_submit --> traj_worker_gaia_topic
     
-    jobworker_submit --> twjf
+    jobworker_submit --> twjd_ingress_topic
     traj_worker_gaia_deadletter --> flights_reinject
     flights_reinject --> traj_worker_gaia_topic
     trajectory_cocip_tb --> report_fetch
