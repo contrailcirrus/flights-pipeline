@@ -3,7 +3,7 @@ import uuid
 import os
 from abc import ABC, abstractmethod
 import argparse
-from datetime import datetime, UTC, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Union, Tuple
 
 import numpy as np
@@ -857,7 +857,6 @@ class FlightsReportFetchSvc(BaseSvc):
         }
 
         if not self._dryrun:
-            now_unix = int(datetime.now(tz=UTC).timestamp())
 
             # -----------------
             # export raw data, values by flight_id
@@ -981,23 +980,45 @@ class FlightsReportFetchSvc(BaseSvc):
 
                 # Create legend elements
                 legend_elements = [
-                    lines.Line2D([0], [0], color='black', linewidth=2.5, label='Flight path'),
-                    lines.Line2D([0], [0], marker='o', color='w', 
-                               markerfacecolor='#D3E3FD', markersize=15, 
-                               label='Predicted contrails'),
-                    lines.Line2D([0], [0], marker='o', color='w',
-                               markerfacecolor='#F7CA45', markersize=15,
-                               label='Confirmed contrails'),
-                    patches.Rectangle((0,0), 1, 1, facecolor='#F7CA45', alpha=0.4,
-                                   label='Observation region')
+                    lines.Line2D(
+                        [0], [0], color="black", linewidth=2.5, label="Flight path"
+                    ),
+                    lines.Line2D(
+                        [0],
+                        [0],
+                        marker="o",
+                        color="w",
+                        markerfacecolor="#D3E3FD",
+                        markersize=15,
+                        label="Predicted contrails",
+                    ),
+                    lines.Line2D(
+                        [0],
+                        [0],
+                        marker="o",
+                        color="w",
+                        markerfacecolor="#F7CA45",
+                        markersize=15,
+                        label="Confirmed contrails",
+                    ),
+                    patches.Rectangle(
+                        (0, 0),
+                        1,
+                        1,
+                        facecolor="#F7CA45",
+                        alpha=0.4,
+                        label="Observation region",
+                    ),
                 ]
 
                 # Add legend below the plot
-                ax.legend(handles=legend_elements, 
-                         loc='upper center',
-                         bbox_to_anchor=(0.5, -0.5),
-                         ncol=4,
-                         frameon=False)
+                ax.legend(
+                    handles=legend_elements,
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, -0.5),
+                    ncol=4,
+                    frameon=False,
+                )
 
                 plt.savefig(
                     self.EXPORT_FLIGHT_CASE_STUDY_FIG_TEMPLATE.format(
@@ -1005,7 +1026,7 @@ class FlightsReportFetchSvc(BaseSvc):
                         ix=ix,
                     ),
                     dpi=300,
-                    bbox_inches='tight'
+                    bbox_inches="tight",
                 )
 
             # -----------------
@@ -1014,7 +1035,9 @@ class FlightsReportFetchSvc(BaseSvc):
             projection = ccrs.Mercator(
                 central_longitude=12, min_latitude=-56.9, max_latitude=84.0
             )
-            fig = plt.figure(figsize=(10, 7))  # Increased height slightly to accommodate legend
+            fig = plt.figure(
+                figsize=(10, 7)
+            )  # Increased height slightly to accommodate legend
             ax = fig.add_subplot(1, 1, 1, projection=projection)
             ax.set_global()
             ax.add_feature(cfeature.LAND, color="#C4C7C5")
@@ -1036,35 +1059,52 @@ class FlightsReportFetchSvc(BaseSvc):
                     linewidth=0.3,
                     transform=ccrs.Geodetic(),
                 )
-            
+
             # Create custom legend handles
             legend_elements = [
-                patches.Rectangle((0, 0), 1, 1, facecolor='#F7CA45', alpha=0.5, label='Satellite verified region'),
-                patches.Rectangle((0, 0), 1, 1, facecolor='#C4C7C5', label='Algorithm predictions only'),
-                lines.Line2D([0], [0], color='black', linewidth=1, label='Flight paths')
+                patches.Rectangle(
+                    (0, 0),
+                    1,
+                    1,
+                    facecolor="#F7CA45",
+                    alpha=0.5,
+                    label="Satellite verified region",
+                ),
+                patches.Rectangle(
+                    (0, 0),
+                    1,
+                    1,
+                    facecolor="#C4C7C5",
+                    label="Algorithm predictions only",
+                ),
+                lines.Line2D(
+                    [0], [0], color="black", linewidth=1, label="Flight paths"
+                ),
             ]
-            
+
             # Add legend
-            ax.legend(handles=legend_elements,
-                     loc='lower center',
-                     bbox_to_anchor=(0.5, -0.1),
-                     ncol=3,
-                     frameon=False)
-            
+            ax.legend(
+                handles=legend_elements,
+                loc="lower center",
+                bbox_to_anchor=(0.5, -0.1),
+                ncol=3,
+                frameon=False,
+            )
+
             # Remove axes
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
                 spine.set_visible(False)
-                
+
             plt.savefig(
                 self.EXPORT_FLIGHTS_TRAJ_PLOT_FILENAME_TEMPLATE.format(
                     airline=self._airline
                 ),
-                bbox_inches='tight',  # This ensures the legend is not cut off
-                dpi=300
+                bbox_inches="tight",  # This ensures the legend is not cut off
+                dpi=300,
             )
-          
+
             # -----------------
             # export OD-pair histogram
             # -----------------
@@ -1320,7 +1360,6 @@ class FlightsReportFetchSvc(BaseSvc):
             plt.savefig(
                 self.EXPORT_FLIGHTS_OD_NET_CO2E_PLOT_FILENAME_TEMPLATE.format(
                     airline=self._airline,
-                    unixtime=now_unix,
                 )
             )
 
@@ -1414,7 +1453,7 @@ class FlightsReportFetchSvc(BaseSvc):
             percent_without_warming = 100 - percent_with_warming
 
             colors = ["#4285F4", "#D3E3FD"]
-        
+
             ax.pie(
                 [percent_with_warming, percent_without_warming],
                 labels=["", ""],
@@ -1424,7 +1463,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 wedgeprops={"width": 0.15},
             )
 
-            ax.set_aspect('equal')  # Ensures the pie chart is circular
+            ax.set_aspect("equal")  # Ensures the pie chart is circular
 
             legend_colors = [
                 plt.Line2D(
@@ -1479,10 +1518,10 @@ class FlightsReportFetchSvc(BaseSvc):
 
         # Use same subplot settings for both plots
         plot_settings = {
-            'left': 0.01,
-            'right': 0.95,
-            'top': 0.99,
-            'bottom': 0.2  # Same bottom margin for both plots
+            "left": 0.01,
+            "right": 0.95,
+            "top": 0.99,
+            "bottom": 0.2,  # Same bottom margin for both plots
         }
 
         # First plot (all contrails)
@@ -1506,8 +1545,8 @@ class FlightsReportFetchSvc(BaseSvc):
             color=colors[0],
             left=left,
         )
-        margin = total_distance/20
-        y_margin = y_position*0.96
+        margin = total_distance / 20
+        y_margin = y_position * 0.96
         ax.text(
             margin,
             y_margin,
@@ -1535,7 +1574,7 @@ class FlightsReportFetchSvc(BaseSvc):
             va="center",
             fontsize=text_fontsize,
         )
- 
+
         ax.set_ylim(0, 1)
 
         ax.xaxis.set_visible(False)
@@ -1579,12 +1618,13 @@ class FlightsReportFetchSvc(BaseSvc):
         ax.barh(
             y_position,
             total_nighttime_warming_contrail_distance_km,
-            height=bar_height * 1, # Add multiplier if we want to make it taller per Joachim's comment..
+            height=bar_height
+            * 1,  # Add multiplier if we want to make it taller per Joachim's comment..
             color=colors[0],
             left=left,
         )
-        margin = total_distance/20
-        y_margin = y_position*0.96
+        margin = total_distance / 20
+        y_margin = y_position * 0.96
         ax.text(
             margin,
             y_margin,
@@ -1602,7 +1642,6 @@ class FlightsReportFetchSvc(BaseSvc):
             height=bar_height,
             color=colors[1],
             left=left,
-
         )
         ax.text(
             left + total_daytime_warming_contrail_distance_km + margin,
@@ -1643,7 +1682,6 @@ class FlightsReportFetchSvc(BaseSvc):
         plt.savefig(
             self.EXPORT_FLIGHTS_CONTRAIL_DISTANCE_WARMING_DAYTIME_NIGHTTIME_FILENAME_TEMPLATE.format(
                 airline=self._airline,
-                unixtime=now_unix,
             ),
             bbox_inches="tight",
         )
