@@ -705,8 +705,20 @@ class FlightsReportFetchSvc(BaseSvc):
             total_goog_contrails_verified_distance_km = int(
                 self._goog_handler.df.attributed_contrail_length_km.sum()
             )
+            total_goog_contrails_verified_warming_mj = (
+                int(self._goog_handler.df.eef_tj.sum()) * 1e6
+            )
+            total_goog_contrails_verified_co2e50_metric_tons = (
+                total_goog_contrails_verified_warming_mj
+                * 10**6
+                * self.ERF_RF
+                / self.AGWP50
+                / 1000
+            )
         else:
             total_goog_contrails_verified_distance_km = None
+            total_goog_contrails_verified_warming_mj = None
+            total_goog_contrails_verified_co2e50_metric_tons = None
 
         total_in_conus_contrails_distance_km = int(
             summary_df.in_conus_contrail_dist_km.sum()
@@ -854,6 +866,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 "gwp50": {
                     "total": float(total_contrails_co2e50_metric_tons),
                     "in_conus": total_in_conus_contrails_co2e50_metric_tons,
+                    "goog_sat_verified": total_goog_contrails_verified_co2e50_metric_tons,
                     "daytime": {
                         "total": total_daytime_contrails_co2e50_metric_tons,
                     },

@@ -583,19 +583,17 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         c=c,
         x=left_margin + 5,
         y=230,
-        key="Predicted contrails in observation area",
-        number=format_number(data["flight_distance_km"]["with_contrails"]["total"]),
-        unit="km",
+        key="Predicted contrail warming in observation area",
+        number=format_number(data["co2e_metric_tons"]["gwp50"]["in_conus"]),
+        unit="tonnes CO2e",
     )
     current_y = draw_stat_with_info_symbol(
         c=c,
         x=left_margin + 5,
         y=current_y - vertical_spacing * 2.2,
-        key="Verified contrails kilometers",
-        number=format_number(
-            data["flight_distance_km"]["with_contrails"]["goog_sat_verified"]
-        ),
-        unit="km",
+        key="Verified contrails warming in observation area",
+        number=format_number(data["co2e_metric_tons"]["gwp50"]["goog_sat_verified"]),
+        unit="tonnes CO2e",
     )
 
     # Contrail warming section
