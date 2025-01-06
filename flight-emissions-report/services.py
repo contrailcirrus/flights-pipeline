@@ -1091,7 +1091,6 @@ class FlightsReportFetchSvc(BaseSvc):
                 frameon=False,
             )
 
-            # Remove axes
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
