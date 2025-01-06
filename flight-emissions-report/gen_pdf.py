@@ -850,7 +850,6 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size,
     )
 
-    # TODO: this is hard coded, need to make it dynamic
 
     c.drawImage(
         data["data_path"] + "/fig_od_by_impact_density.png",
