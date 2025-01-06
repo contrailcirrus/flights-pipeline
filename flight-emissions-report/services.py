@@ -266,7 +266,7 @@ class FlightsReportFetchSvc(BaseSvc):
         (-40, -5),
         (-16, -5),
     )
-    CONUS_WKT = "POLYGON((-16 50, -22 50, -40 61, -110 61, -128 52.3, -134 50, -134 -5, -100 -5, -70 -5, -40 -5, -16 -5))"
+    CONUS_WKT = "POLYGON((-16 50, -22 50, -40 61, -110 61, -128 52.3, -134 50, -134 -5, -100 -5, -70 -5, -40 -5, -16 -5, -16 50))"
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -539,7 +539,10 @@ class FlightsReportFetchSvc(BaseSvc):
             f"🐶 fetching report for airline {self._airline} on day/day-range {self._day_str}..."
             f"case study flight_ids: {self._case_study_fids}"
         )
-        os.mkdir(f"{os.getcwd()}/out/{self._airline}")
+
+        output_asset_path = f"{os.getcwd()}/out/{self._airline}"
+        if not os.path.exists(output_asset_path):
+            os.mkdir(output_asset_path)
 
         if self._met_data_src == MetSource.HRES:
             # note: we retain `2%` as a valid match for HRES
