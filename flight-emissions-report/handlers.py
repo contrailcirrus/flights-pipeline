@@ -313,17 +313,18 @@ class GoogDatasetHandler:
     """
 
     COL_MAP = {
+        "flight_id": "goog_internal_flight_id",
         "departure_date_local": "departure_date_local",
         "timestamp_utc_start": "timestamp_utc_start",
         "timestamp_utc_end": "timestamp_utc_end",
         "origin_airport": "origin_airport_iata",
         "destination_airport": "destination_airport_iata",
+        "icao24": "icao_address",
         "carrier": "airline_iata",
         "flight_number": "flight_number",
         "tail_number": "tail_number",
-        "analyzed_flight_length_km": "analyzed_length_km",
         "attributed_contrail_km": "attributed_contrail_length_km",
-        "eef_climatology_terajoules": "eef_tj",
+        "energy_forcing_tj": "eef_tj",
     }
 
     def __init__(self, csv_fp: str):
