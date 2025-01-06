@@ -19,15 +19,18 @@ page_width = 595.27
 page_height = 841.89
 title_color = "#111111"  # dark dark gray
 text_color = "#444444"  # dark gray
-container_color = "#ffffff"
-background_text_color = "#999999"  # This might be C4C7C5 according to the reference pdf..but it looks too light.
+container_color = "#C4C7C5"
+background_text_color = "#868686"  # This might be C4C7C5 according to the reference pdf..but it looks too light.
 left_margin = 30
-horizontal_spacing = 10
+horizontal_spacing = 13
 vertical_spacing = 10
 container_width = page_width - left_margin * 2 + 5
 container_text_font_size = 8.5
 container_title_font_size = 14
 scaling_factor = 15 / 18
+paragraph_spacing = 10
+line_spacing = 10
+text_width = 520
 
 
 def load_data(json_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -51,6 +54,7 @@ def register_fonts() -> None:
     pdfmetrics.registerFont(
         TTFont("Roboto-Light", FONT_PATH + "Roboto/Roboto-Light.ttf")
     )
+    pdfmetrics.registerFont(TTFont("Roboto-Medium", FONT_PATH + "Roboto/Roboto-Medium.ttf"))
 
 
 def format_number(n: int) -> str:
@@ -137,28 +141,20 @@ def draw_container(
     c: Any, x: float, y: float, width: float, height: float, radius: float = 10
 ) -> float:
     """Helper function to draw rounded rectangle containers"""
-    c.setStrokeColor(background_text_color)
+    c.setStrokeColor(container_color)
     c.roundRect(x, y, width, height, radius, fill=0, stroke=1)
     c.setFillColor(text_color)
     return y - vertical_spacing
 
 
 def draw_stat_with_info_symbol(
-    c, key, number, unit, x, y, font_name="Roboto", font_size=8, number_font_size=24
+    c, key, number, unit, x, y, font_name="Roboto-Medium", font_size=8, number_font_size=24
 ) -> float:
     """Draw a statistic with an info symbol next to it."""
     c.setFont(font_name, font_size)
     c.setFillColor(background_text_color)
-    label_width = c.stringWidth(key, font_name, font_size)
-    circle_y = y + 3
     c.drawString(x, y, key)
 
-    # Draw info symbol (circle with i)
-    circle_x = x + label_width + horizontal_spacing
-    c.circle(circle_x, circle_y, 3.5, stroke=1, fill=0)
-    c.setFont(font_name, 7)
-    i_width = c.stringWidth("i", font_name, 7)
-    c.drawString(circle_x - i_width / 2, circle_y - 2.25, "i")
 
     c.setFont(font_name, number_font_size)
     c.setFillColor(text_color)
@@ -168,7 +164,7 @@ def draw_stat_with_info_symbol(
     c.setFont(font_name, font_size)
     c.drawString(
         x + number_width + 5,
-        y - (number_font_size - font_size) - horizontal_spacing,
+        y - 26,
         unit,
     )
 
@@ -203,6 +199,7 @@ def draw_stat_for_plots(
 
 def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     """Generate the first page of the report"""
+    # TODO: Add real logo
     c.drawImage(
         "static/logo_demo.png",
         left_margin,
@@ -212,7 +209,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.setFillColor(background_text_color)
-    c.setFont("Roboto", 12)
+    c.setFont("Roboto", 10)
     c.drawString(525, 812, "Page 1 of 4")
 
     c.setFillColor(title_color)
@@ -223,63 +220,79 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     draw_container(
         c=c,
         x=left_margin,
-        y=540 - 28,
+        y=510,
         width=page_width - left_margin * 2 + 5,
         height=195,
     )
 
     c.setFont("Roboto", container_title_font_size)
-    c.drawString(left_margin + horizontal_spacing, 710 - 28, "What are Contrails?")
+    current_y = draw_text_block(
+        c=c,
+        text="What are Contrails?",
+        x=left_margin + horizontal_spacing,
+        y=710 - 28,
+        font_name="Roboto", 
+        font_size=container_title_font_size,
+    )
 
-    contrails_text = """Contrails — the thin, white lines you sometimes see behind airplanes — have a surprisingly large impact on our climate. Contrails warm the planet because contrail clouds act like a blanket on Earth and have a net heating effect. The 2022 IPCC report noted that clouds created by contrails account for roughly 35% of aviation's global warming impact — over half the impact of the world's jet fuel. Find more info about contrails and the climate on our website """
+    contrails_text = """Contrails — the thin, white lines you sometimes see behind airplanes — have a surprisingly large impact on our climate. Contrails warm the planet because contrail clouds act like a blanket on Earth and have a net heating effect. The 2022 IPCC report noted that clouds created by contrails account for roughly 35% of aviation's global warming impact — over half the impact of the world's jet fuel. Find more info about contrails and the climate on our website"""
     current_y = draw_text_block(
         c=c,
         text=contrails_text,
         x=left_margin + horizontal_spacing,
-        y=690 - 28,
+        y=current_y,
         font_name="Roboto",
         font_size=container_text_font_size,
     )
 
-    # Highly finicky spacing here
-    link_text = "contrails.org"
+    link_text = "contrails.org."
     c.setFont("Roboto", container_text_font_size)
     after_text_width = 187
     c.setFillColor(text_color)
+    
     c.drawString(
-        x=left_margin + after_text_width,
-        y=current_y + 17.25,
+        x=left_margin + after_text_width+2,
+        y=current_y + 17,
         text=link_text,
     )
+    
     link_width = c.stringWidth(link_text, "Roboto", container_text_font_size)
+    
+    c.line(
+        left_margin + after_text_width + 2,
+        current_y + 15,
+        left_margin + after_text_width + link_width + 2,
+        current_y + 15
+    )
+    
     c.linkURL(
         "https://www.contrails.org",
         (
-            left_margin + after_text_width,
-            current_y + (9 * 2) - 2,
-            left_margin + after_text_width + link_width,
-            current_y + (9 * 2) + 9,
+            left_margin + after_text_width + 2,
+            current_y + (9 * 2) - 1,
+            left_margin + after_text_width + link_width + 2,
+            current_y + (9 * 2) + 8,
         ),
     )
     c.setFillColor(text_color)
 
-    # GWP Section
-    c.setFont("Roboto", container_title_font_size)
-    c.setFillColor(text_color)
-    c.drawString(
-        left_margin + vertical_spacing,
-        current_y - vertical_spacing - 3,
-        "What is Global Warming Potential (GWP)?",
+    current_y = draw_text_block(
+        c=c,
+        text="What is Global Warming Potential (GWP)?",
+        x=left_margin + horizontal_spacing,
+        y=current_y - vertical_spacing,
+        font_name="Roboto",
+        font_size=container_title_font_size,
     )
-
+    # Added this text per Joachim's suggestion; we need to enter the actual multipliers: "If you want to convert a GWP50 value to GWP100, multiply by 2.XX. If you want to convert a GWP50 value to GWP20, multiply by 0.XX."
     gwp_text = """GWP measures how much warming contrails cause over a number of years compared to CO2. Contrails heat the Earth quickly but for a short time, and GWP helps compare their short-term impact to the longer-lasting greenhouse gas, CO2.
 
-    In this report we initially show the contrail impact in CO2e over 20, 50 and 100 years to align with the guidelines from the EU Non-CO2 MRV report starting in 2025. Wherever we only show one value for CO2e we use the middle value, GWP50, as default."""
+    In this report we initially show the contrail impact in CO2e over 20, 50 and 100 years to align with the guidelines from the EU Non-CO2 MRV report starting in 2025. Wherever we only show one value for CO2e we use the middle value, GWP50, as default.  If you want to convert a GWP50 value to GWP100, multiply by 2.XX. If you want to convert a GWP50 value to GWP20, multiply by 0.XX."""
     current_y = draw_text_block(
         c=c,
         text=gwp_text,
         x=left_margin + horizontal_spacing,
-        y=current_y - 40,
+        y=current_y,
         font_name="Roboto",
         font_size=container_text_font_size,
     )
@@ -287,7 +300,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     draw_container(
         c=c,
         x=left_margin,
-        y=current_y - (467 + 18) * scaling_factor,
+        y=120 ,
         width=container_width,
         height=6.25 * 72 * scaling_factor,
     )
@@ -296,7 +309,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text="Impact Data",
         x=left_margin + horizontal_spacing,
-        y=current_y - 55,
+        y=472,
         font_name="Roboto",
         font_size=container_title_font_size,
     )
@@ -305,7 +318,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text=stats_text,
         x=left_margin + horizontal_spacing,
-        y=current_y + vertical_spacing,
+        y=current_y,
         font_name="Roboto",
         font_size=container_text_font_size,
     )
@@ -341,7 +354,6 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
             unit=unit,
             x=x,
             y=y,
-            font_name="Roboto",
             font_size=8,
             number_font_size=24,
         )
@@ -359,17 +371,19 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     c.line(midpoint_x, y - 55, midpoint_x, midpoint_y - 33)
 
     # Pie chart
+    # TODO: Comment from Joachim: Also, the lower bar should be 10.4% of the upper bar - corresponding to the value in the circle to the left, correct?
+    # The image is currently a bit confusing because the title and plot are in reference to percent of flights, whereas the stat in the middle is about percent of flight *distance*
     c.drawImage(
         data["data_path"] + "/fig_contrail_warming_percentage.png",
-        x=50,
-        y=120,
-        width=72 * 3.8 * scaling_factor,
-        height=72 * 3.8 * (8 / 9) * scaling_factor,
+        x=60,
+        y=121,
+        width=72 * 3.5 * scaling_factor,
+        height=72 * 3.4 * scaling_factor,
     )
 
     draw_text_block(
         c=c,
-        text=f"What percentage of {data['airline_name']} flights created warming contrails",
+        text=f"Flight distance where warming contrails were created",
         x=left_margin + horizontal_spacing,
         y=midpoint_y + 180,
         font_name="Roboto",
@@ -380,8 +394,8 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     draw_text_block(
         c=c,
         text=f"{data['flight_distance_km']['with_contrails']['total'] / data['flight_distance_km']['total'] * 100:.1f}%",
-        x=midpoint_x / 3 + horizontal_spacing * 4,
-        y=230,
+        x=midpoint_x / 3 + 35,
+        y=237,
         font_name="Roboto",
         font_size=24,
         width=midpoint_x - left_margin - horizontal_spacing,
@@ -389,7 +403,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     draw_text_block(
         c=c,
         text=f"of {data['airline_name']} flight distance generated warming contrails",
-        x=midpoint_x / 3 + horizontal_spacing * 2,
+        x=midpoint_x / 3 + 15,
         y=220,
         font_name="Roboto",
         font_size=container_text_font_size,
@@ -400,7 +414,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
 
     current_y = draw_text_block(
         c=c,
-        text="How many flight kilometers of warming contrails?",
+        text="How many flight kilometers created warming contrails?",
         x=midpoint_x + horizontal_spacing,
         y=midpoint_y + 180,
         font_name="Roboto",
@@ -409,14 +423,14 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     )
     c.drawImage(
         data["data_path"] + "/fig_contrail_distance_daytime_nighttime.png",
-        x=midpoint_x + horizontal_spacing,
+        x=midpoint_x + horizontal_spacing-3,
         y=215,
         width=72 * 4 * scaling_factor,
         height=72 * 1 * scaling_factor,
     )
     current_y = draw_stat_with_info_symbol(
         c,
-        key="Flight kilometers for all flights",
+        key="Total flight kilometers",
         number=format_number(data["flight_distance_km"]["total"]),
         unit="km",
         x=midpoint_x + horizontal_spacing,
@@ -425,10 +439,10 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
 
     c.drawImage(
         data["data_path"] + "/fig_contrail_distance_warming_daytime_nighttime.png",
-        x=midpoint_x + horizontal_spacing,
-        y=130,
+        x=midpoint_x + horizontal_spacing-3,
+        y=123,
         width=72 * 2.9 * scaling_factor,
-        height=72 * 1 * scaling_factor,
+        height=72 * 1.11* scaling_factor,
     )
     draw_stat_with_info_symbol(
         c,
@@ -445,6 +459,8 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
 
 
 def create_page_two(c: Any, data: Dict[str, Any]) -> None:
+    """Generate the second page of the report"""
+    c.setFont("Roboto", 10)
     c.setFillColor(background_text_color)
     c.drawString(525, 812, "Page 2 of 4")
 
@@ -457,18 +473,19 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         height=72 * 4 * scaling_factor,
     )
 
-    c.setFont("Roboto", 16)
-    c.drawString(
-        left_margin + horizontal_spacing,
-        770,
-        "Impact Data: intra-European flights only",
+    current_y = draw_text_block(
+        c=c,
+        text="Impact Data: intra-European flights only",
+        x=left_margin + horizontal_spacing,
+        y=770,
+        font_size=16
     )
     c.drawImage(
         "static/Europe Map_trimmed.png",
         x=page_width / 2 + 90,
-        y=557,
-        width=72 * 2.6 * scaling_factor,
-        height=72 * 2.8 * scaling_factor,
+        y=555,
+        width=72 * 2.55 * scaling_factor,
+        height=72 * 2.7 * scaling_factor,
     )
 
     description = """Based on our prediction model, this is the impact from the DHL flights that are included in the EU's non-CO2 reporting requirements. The EU ETS area covers flights within and between countries in the European Economic Area (EEA), which consists of EU member states and Iceland, Norway, and Liechtenstein, and from the EEA to the UK and Switzerland. It also covers the EU's nine, so-called outermost regions: French Guiana, Guadeloupe, Martinique, Mayotte, Réunion Island, Saint-Martin, Azores, Madeira, and The Canary Islands."""
@@ -476,7 +493,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         c=c,
         text=description,
         x=left_margin + horizontal_spacing,
-        y=750,
+        y=current_y,
     )
 
     stats_data = {
@@ -513,7 +530,6 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
             unit=unit,
             x=x,
             y=y,
-            font_name="Roboto",
             font_size=8,
             number_font_size=24,
         )
@@ -533,7 +549,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         c=c,
         text="Observation coverage area & verification",
         x=left_margin + horizontal_spacing,
-        y=510,
+        y=517,
         width=page_width / 2 - 65,
         font_size=container_title_font_size,
     )
@@ -544,11 +560,10 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         width=page_width / 2 - left_margin - horizontal_spacing - 8,
         height=72 * 2.75 * scaling_factor,
     )
-    # TODO: Add color legend, being a yellow circle, and then a gray and white circle
 
     current_y = draw_text_block(
         c=c,
-        text="""The yellow area shows the coverage region where our satellite imager based verification has been validated. For the rest of the world, we use our algorithm predictions""",
+        text="""The yellow area shows the coverage region where our satellite image based verification has been validated. For the rest of the world, we use our algorithm predictions.""",
         x=left_margin + horizontal_spacing,
         y=current_y + 5,
         width=page_width / 2 - 65,
@@ -586,7 +601,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     current_y = draw_text_block(
         c=c,
         x=left_margin / 2 + horizontal_spacing + page_width / 2 + 3,
-        y=510,
+        y=515,
         text="Contrail warming using different time horizons: GWP20, GWP50, and GWP100.",
         width=page_width / 2 - 65,
         font_size=container_title_font_size,
@@ -595,8 +610,8 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     current_y = draw_text_block(
         c=c,
         x=left_margin / 2 + horizontal_spacing + page_width / 2 + 3,
-        y=current_y + vertical_spacing,
-        text="""There is no single “correct” way to convert contrail warming to CO2e. This is partly because the lifetime of a single contrail (hours) is much shorter than the lifetime of CO2 in the atmosphere (hundreds to thousands of years). So when using the Global Warming Potential (GWP) metric and comparing contrail warming to the warming from CO2 over 20 years, the contrail warming will be about four times higher than if comparing to CO2 over 100 years. We use GWP20, GWP50, and GWP100 to align with the EU MRV guidelines. The middle value, GWP50, is used as the default in the report""",
+        y=current_y,
+        text="""There is no single “correct” way to convert contrail warming to CO2e. This is partly because the lifetime of a single contrail (hours) is much shorter than the lifetime of CO2 in the atmosphere (hundreds to thousands of years). So when using the Global Warming Potential (GWP) metric and comparing contrail warming to the warming from CO2 over 20 years, the contrail warming will be about four times higher than if comparing to CO2 over 100 years. We show GWP20, GWP50, and GWP100 to align with the EU MRV guidelines. The middle value, GWP50, is used as the default in the report.""",
         width=page_width / 2 - 65,
         font_size=container_text_font_size,
     )
@@ -659,7 +674,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     """Generate the third page of the report"""
 
     c.setFillColor(background_text_color)
-    c.setFont("Roboto", 12)
+    c.setFont("Roboto", 10)
     c.drawString(525, 812, "Page 3 of 4")
 
     # Fuel emissions (CO2) vs contrail warming (CO2e) GWP50
@@ -671,47 +686,58 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         height=72 * 3 * scaling_factor,
     )
 
-    c.setFont("Roboto", container_title_font_size)
-    c.drawString(
-        left_margin + horizontal_spacing,
-        765,
-        "Fuel emissions (CO2) vs contrail warming (CO2e) GWP50",
-    )
-
-    description = """The contrail warming impact is often lower in the summer time and higher in dark months. This is because contrail clouds that persist in the dark are the most warming."""
     current_y = draw_text_block(
         c=c,
-        text=description,
+        text="Fuel emissions (CO2) vs contrail warming (CO2e) (GWP50)",
         x=left_margin + horizontal_spacing,
-        y=746,
-    )
-    c.drawImage(
-        data["data_path"] + "/fig_fuel_emissions_vs_contrail_warming.png",
-        x=left_margin * 1.5,
-        y=620,
-        width=page_width - left_margin * 3 + 5,
-        height=72 * 1.75 * scaling_factor,
+        y=771,
+        font_size=container_title_font_size,
     )
 
+    # TODO: Add some text in at least for spacing?  Removed per Joachim's comment.
+    # description = """The contrail warming impact is often lower in the summer time and higher in dark months. This is because contrail clouds that persist in the dark are the most warming."""
+    # current_y = draw_text_block(
+    #     c=c,
+    #     text=description,
+    #     x=left_margin + horizontal_spacing,
+    #     y=current_y,
+    # )
+    c.drawImage(
+        data["data_path"] + "/fig_fuel_emissions_vs_contrail_warming.png",
+        x=39,
+        y=616,
+        width=page_width - left_margin * 3 + 14,
+        height=72 * 1.75 * scaling_factor,
+    )
+    fuel_percent_of_total = 100*(data["total_co2_metric_tons"] / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"]))
+    contrail_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["total"] / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"]))
+    
+    total_width = 504
+    left_margin_plot = 55
+    
+    fuel_x = left_margin_plot
+    contrail_x = left_margin_plot*1.83 + (total_width - left_margin_plot) * (fuel_percent_of_total / 100)
+    
     draw_stat_for_plots(
         c,
-        key="Fuel emissions (CO2)",
+        key=f"Fuel emissions (metric tons CO2)",
         number=format_number(data["total_co2_metric_tons"]),
-        unit="t CO2",
-        x=left_margin * 1.5 + horizontal_spacing,
-        y=current_y - vertical_spacing * 2,
+        unit=f"({fuel_percent_of_total:.0f}%)",
+        x=fuel_x,
+        y=692,
         text_color="white",
     )
-    # Todo: fix this?
+    
     draw_stat_for_plots(
         c,
-        key="Contrails",
+        key="Contrails (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
-        unit="metric tons",
-        x=page_width - left_margin * 6.6,
-        y=current_y - vertical_spacing * 2,
+        unit=f"({contrail_percent_of_total:.0f}%)",
+        x=contrail_x,
+        y=692,
         text_color="white",
     )
+
     # Contrail warming - daytime vs nighttime (GWP50)
     draw_container(
         c=c,
@@ -725,46 +751,78 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text="Contrail warming - daytime vs nighttime (GWP50)",
         x=left_margin + horizontal_spacing,
-        y=570,
+        y=576,
         font_size=container_title_font_size,
     )
 
+    # TODO: Address comment from Joachim: - [ ] This is about verification vs observation - the text is wrong?
     current_y = draw_text_block(
         c=c,
-        text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming""",
+        text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming.""",
         x=left_margin + horizontal_spacing,
-        y=current_y + vertical_spacing,
+        y=current_y,
         font_size=container_text_font_size,
     )
 
+    image_width = page_width - left_margin * 5.6
     c.drawImage(
         data["data_path"] + "/fig_contrail_warming_daytime_vs_nighttime.png",
-        x=left_margin * 1.5,
+        x=38,
         y=current_y - vertical_spacing * 10,
-        width=page_width - left_margin * 3 + 5,
+        width=image_width,
         height=72 * 1.75 * scaling_factor,
     )
 
+    nighttime_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"] / (data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]))
+    daytime_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] / (data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]))
+    
+    nighttime_x = left_margin_plot
+    daytime_x = left_margin_plot-12 + image_width * (nighttime_percent_of_total / 100)
+    
     draw_stat_for_plots(
         c,
-        key="Nighttime",
+        key="Nighttime (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]),
-        unit="t CO2e",
-        x=left_margin * 1.5 + horizontal_spacing,
-        y=current_y - vertical_spacing * 2,
+        unit=f"({nighttime_percent_of_total:.0f}%)",
+        x=nighttime_x-2,
+        y=current_y - vertical_spacing * 2.4,
         text_color="white",
     )
 
     draw_stat_for_plots(
         c,
-        key="Daytime",
+        key="Daytime (metric tons CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]),
-        unit="t CO2e",
-        x=page_width - left_margin * 6,
-        y=current_y - vertical_spacing * 2,
-        text_color="white",
+        unit=f"({daytime_percent_of_total:.0f}%)",
+        x=daytime_x,
+        y=current_y - vertical_spacing * 2.4,
+        text_color=background_text_color,
     )
+    
     # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
+    c.drawImage(
+        data["data_path"] + "/fig_od_by_net_co2e.png",
+        x=10,
+        y=85,
+        width=580,
+        height=250,
+    )
+    current_y = draw_text_block(
+        c=c,
+        text="Origin-Destination pairs with the highest average total contrail warming (GWP50)",
+        x=left_margin + horizontal_spacing,
+        y=370,
+        font_size=container_title_font_size,
+    )
+    current_y = draw_text_block(
+        c=c,
+        text=f"""These ten OD pairs are responsible for 63% of {data['airline_name']}'s total contrail warming.  The most warming OD pairs are often very long flights where the majority of the journey takes place in the dark, when contrails are most warming""",
+        x=left_margin + horizontal_spacing,
+        y=current_y,
+        font_size=container_text_font_size,
+    )
+
+
     draw_container(
         c=c,
         x=left_margin,
@@ -772,32 +830,6 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         width=page_width - left_margin * 2 + 5,
         height=5 * 72 * scaling_factor + 10,
     )
-
-    current_y = draw_text_block(
-        c=c,
-        text="Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)",
-        x=left_margin + horizontal_spacing,
-        y=365,
-        font_size=container_title_font_size,
-    )
-
-    draw_text_block(
-        c=c,
-        text=f"""The ten OD pairs are responsible for 63% of {data['airline_name']}'s total contrail warming.
-        The most warming OD pairs are often very long flights where the majority of the journey takes place in the dark, when contrails are most warming""",
-        x=left_margin + horizontal_spacing,
-        y=current_y + vertical_spacing,
-        font_size=container_text_font_size,
-    )
-
-    c.drawImage(
-        data["data_path"] + "/fig_od_by_net_co2e.png",
-        x=left_margin * 1.4,
-        y=90,
-        width=page_width - left_margin - horizontal_spacing - 50,
-        height=72 * 3.6 * scaling_factor,
-    )
-
     return c
 
 
@@ -805,10 +837,36 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     """Generate the fourth page of the report"""
 
     c.setFillColor(background_text_color)
-    c.setFont("Roboto", 12)
+    c.setFont("Roboto", 10)
     c.drawString(525, 812, "Page 4 of 4")
 
     # Fuel emissions (CO2) vs contrail warming (CO2e) GWP50
+
+    current_y = draw_text_block(
+        c=c,
+        text="Origin-Destination pairs with the highest average total contrail warming per flown kilometer (GWP50)",
+        x=left_margin + horizontal_spacing,
+        y=772,
+        font_size=container_title_font_size,
+    )
+
+
+    c.drawImage(
+        data["data_path"] + "/fig_od_by_impact_density.png",
+        x=10,
+        y=473,
+        width=580,
+        height=250,
+    )
+    # TODO: Make dynamic.
+    description = """The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example, the North Atlantic) at night when contrails are most warming.  The average carbon dioxide emissions for all flights were 21 kg CO2 / km.  For the OD pair with the highest contrail warming per kilometer, the CO2 emissions were 49 kg CO2e/km - or 2.3 times the average warming from the CO2 alone."""
+    current_y = draw_text_block(
+        c=c,
+        text=description,
+        x=left_margin + horizontal_spacing,
+        y=current_y,
+        width=515,
+    )
     draw_container(
         c=c,
         x=left_margin,
@@ -816,32 +874,14 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         width=page_width - left_margin * 2 + 5,
         height=72 * 5.25 * scaling_factor,
     )
-
-    current_y = draw_text_block(
-        c=c,
-        text="Origin-Destination pairs with the highest average total contrail warming per flown kilometer (CO2e/km) GWP50",
-        x=left_margin + horizontal_spacing,
-        y=770,
-        font_size=container_title_font_size,
-    )
-
-    description = f"""The average carbon dioxide emissions per kilometer for {data['airline_name']} in September was 21 kg CO2 / km. The OD pair with the highest contrail warming per kilometer is EMA - CPH  adding 49  kg CO2e/ km - or 2.3 times the average warming from the CO2 alone. The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example the Eastern part of the US) at night, when contrails are most warming"""
-    current_y = draw_text_block(
-        c=c,
-        text=description,
-        x=left_margin + horizontal_spacing,
-        y=current_y + vertical_spacing * 1.5,
-    )
-
-    c.drawImage(
-        data["data_path"] + "/fig_od_by_impact_density.png",
-        x=left_margin * 1.25,
-        y=485,
-        width=page_width - left_margin - horizontal_spacing * 4,
-        height=72 * 3.7 * scaling_factor,
-    )
-
     # Case study: predicted vs. verified contrails.
+    c.drawImage(
+        data["data_path"] + "/fig_case_study_0.png",
+        x=40,
+        y=210,
+        width=520,
+        height=175,
+    )
     draw_container(
         c=c,
         x=left_margin,
@@ -862,18 +902,10 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming""",
         x=left_margin + horizontal_spacing,
-        y=current_y + vertical_spacing,
+        y=current_y,
         font_size=container_text_font_size,
     )
 
-    c.drawImage(
-        data["data_path"] + "/fig_case_study_0.png",
-        x=left_margin * 1.25,
-        y=220,
-        width=page_width - left_margin - horizontal_spacing - 30,
-        height=72 * 3 * scaling_factor,
-    )
-    # TODO: add color legend
 
     # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
     draw_container(
@@ -892,20 +924,175 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size,
     )
 
-    draw_text_block(
-        c=c,
-        text="""Some flight planning software providers, like Flight keys and CAE, have implemented contrail avoidance in their flight planning tools (or are about to).  \n\n\n
-        In 2023, American Airlines, Google Research, and Reviate conducted a trial in which they avoided 54% of contrail kilometers by flying under contrail-prone areas.   \n\n\n
-        In 2024, an extensive study of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these flights by spending 0.11% more jet fuel to adjust some of the flight paths.  \n\n\n
-        See where contrails are forming right now on this world map of contrails. \n\n\n
-        Read more about contrails on our websites: Reviate, Google Research.
-        """,
-        x=left_margin + horizontal_spacing,
-        y=current_y + vertical_spacing,
-        font_size=container_text_font_size,
+    current_x = left_margin + horizontal_spacing
+    y = current_y
+
+    # First paragraph
+    first_text = "Some flight planning software providers, like "
+    width = add_plain_text(c, first_text, current_x, y, font_size=container_text_font_size)
+    current_x += width
+
+    width = add_text_with_link(c, "Flight Keys", "https://www.flightkeys.com", current_x, y)
+    current_x += width
+
+    width = add_plain_text(c, " and ", current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "CAE",
+        "https://www.cae.com/civil-aviation/aviation-software/flight-operations-solutions/flight-management/",
+        current_x, y
     )
+    current_x += width
+
+    remaining_text = ", have implemented contrail avoidance in their flight planning tools (or are about to)."
+    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    for i, line in enumerate(lines):
+        if i == 0:
+            add_plain_text(c, line, current_x, y)
+        else:
+            y -= line_spacing
+            add_plain_text(c, line, left_margin + horizontal_spacing, y)
+
+    # Move to next paragraph with extra spacing to prevent overlap
+    y -= paragraph_spacing + line_spacing
+
+    # Second paragraph
+    current_x = left_margin + horizontal_spacing
+    intro_text = "In 2023, American Airlines, Google Research, and Breakthrough Energy conducted a "
+    width = add_plain_text(c, intro_text, current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "trial ",
+        "https://www.theguardian.com/environment/2023/aug/09/ai-helps-airline-pilots-avoid-areas-that-create-polluting-contrails",
+        current_x, y
+    )
+    current_x += width
+
+    remaining_text = " in which they avoided 54% of contrail kilometers by flying under contrail-prone areas."
+    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    for i, line in enumerate(lines):
+        if i == 0:
+            add_plain_text(c, line, current_x, y)
+        else:
+            y -= line_spacing
+            add_plain_text(c, line, left_margin + horizontal_spacing, y)
+
+    y -= paragraph_spacing + line_spacing
+
+    # Third paragraph
+    current_x = left_margin + horizontal_spacing
+    intro_text = "In 2024, an "
+    width = add_plain_text(c, intro_text, current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "extensive study ",
+        "https://www.researchgate.net/publication/378811848_Feasibility_of_contrail_avoidance_in_a_commercial_flight_planning_system_an_operational_analysis",
+        current_x, y
+    )
+    current_x += width
+
+    remaining_text = " of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these flights by spending 0.11% more jet fuel to adjust some of the flight paths."
+    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    for i, line in enumerate(lines):
+        if i == 0:
+            add_plain_text(c, line, current_x, y)
+        else:
+            y -= line_spacing
+            add_plain_text(c, line, left_margin + horizontal_spacing, y)
+
+    y -= paragraph_spacing + line_spacing
+
+    # Fourth paragraph
+    current_x = left_margin + horizontal_spacing
+    intro_text = "See where contrails are forming right now on this "
+    width = add_plain_text(c, intro_text, current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "world map of contrails",
+        "https://map.contrails.org",
+        current_x, y
+    )
+    current_x += width
+
+    add_plain_text(c, ".  The contrail warming impact is often lower in the summer time ", current_x, y)
+    current_x = left_margin + horizontal_spacing
+    y -= line_spacing
+    add_plain_text(c, "and higher in the darker months. This is because contrail clouds that persist in the dark are the most warming.", current_x, y)
+
+
+
+    # Sixth paragraph
+    y -= paragraph_spacing + line_spacing
+    current_x = left_margin + horizontal_spacing
+    intro_text = "Read more about contrails on "
+    width = add_plain_text(c, intro_text, current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "contrails.org",
+        "https://contrails.org",
+        current_x, y
+    )
+    current_x += width
+
+    width = add_plain_text(c, ", and ", current_x, y)
+    current_x += width
+
+    width = add_text_with_link(
+        c, "sites.research.google/contrails/",
+        "https://sites.research.google/contrails/",
+        current_x, y
+    )
+    current_x += width
+
+    add_plain_text(c, ".", current_x, y)
 
     return c
+
+
+def wrap_text(c, text, width, font="Roboto", font_size=container_text_font_size):
+    """Split text into lines that fit within given width"""
+    words = text.split()
+    lines = []
+    current_line = []
+    current_width = 0
+
+    for word in words:
+        word_width = c.stringWidth(word + " ", font, font_size)
+        if current_width + word_width <= width:
+            current_line.append(word)
+            current_width += word_width
+        else:
+            lines.append(" ".join(current_line))
+            current_line = [word]
+            current_width = word_width
+
+    if current_line:
+        lines.append(" ".join(current_line))
+    return lines
+
+
+def add_text_with_link(c, text, link_url, x, y, font="Roboto", font_size=container_text_font_size):
+    """Helper function to add text with a clickable link"""
+    c.setFont(font, font_size)
+    c.drawString(x=x, y=y, text=text)
+    text_width = c.stringWidth(text, font, font_size)
+    c.linkURL(
+        link_url,
+        (x, y - 2, x + text_width, y + 9),
+    )
+    return text_width
+
+
+def add_plain_text(c, text, x, y, font="Roboto", font_size=container_text_font_size):
+    """Helper function to add plain text and return its width"""
+    c.setFont(font, font_size)
+    c.drawString(x=x, y=y, text=text)
+    return c.stringWidth(text, font, font_size)
 
 
 def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
@@ -913,20 +1100,20 @@ def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
 
     c = canvas.Canvas(output_path, pagesize=(page_width, page_height))
 
-    # Draw grid before creating each page
-    # draw_grid(c, page_width, page_height)
+
+    draw_grid(c, page_width, page_height)
     create_page_one(c, data)
     c.showPage()
 
-    # draw_grid(c, page_width, page_height)
+    draw_grid(c, page_width, page_height)
     create_page_two(c, data)
     c.showPage()
 
-    # draw_grid(c, page_width, page_height)
+    draw_grid(c, page_width, page_height)
     create_page_three(c, data)
     c.showPage()
 
-    # draw_grid(c, page_width, page_height)
+    draw_grid(c, page_width, page_height)
     create_page_four(c, data)
     c.showPage()
 
