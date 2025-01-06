@@ -1011,7 +1011,6 @@ class FlightsReportFetchSvc(BaseSvc):
                     ),
                 ]
 
-                # Add legend below the plot
                 ax.legend(
                     handles=legend_elements,
                     loc="upper center",
