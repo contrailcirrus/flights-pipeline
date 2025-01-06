@@ -1060,7 +1060,6 @@ class FlightsReportFetchSvc(BaseSvc):
                     transform=ccrs.Geodetic(),
                 )
 
-            # Create custom legend handles
             legend_elements = [
                 patches.Rectangle(
                     (0, 0),
