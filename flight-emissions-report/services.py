@@ -978,7 +978,6 @@ class FlightsReportFetchSvc(BaseSvc):
                 ax.set_xlim([min_x, max_x])
                 ax.set_ylim([min_y, max_y])
 
-                # Create legend elements
                 legend_elements = [
                     lines.Line2D(
                         [0], [0], color="black", linewidth=2.5, label="Flight path"
