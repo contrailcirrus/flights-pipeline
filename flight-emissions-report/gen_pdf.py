@@ -54,7 +54,9 @@ def register_fonts() -> None:
     pdfmetrics.registerFont(
         TTFont("Roboto-Light", FONT_PATH + "Roboto/Roboto-Light.ttf")
     )
-    pdfmetrics.registerFont(TTFont("Roboto-Medium", FONT_PATH + "Roboto/Roboto-Medium.ttf"))
+    pdfmetrics.registerFont(
+        TTFont("Roboto-Medium", FONT_PATH + "Roboto/Roboto-Medium.ttf")
+    )
 
 
 def format_number(n: int) -> str:
@@ -148,13 +150,20 @@ def draw_container(
 
 
 def draw_stat_with_info_symbol(
-    c, key, number, unit, x, y, font_name="Roboto-Medium", font_size=8, number_font_size=24
+    c,
+    key,
+    number,
+    unit,
+    x,
+    y,
+    font_name="Roboto-Medium",
+    font_size=8,
+    number_font_size=24,
 ) -> float:
     """Draw a statistic with an info symbol next to it."""
     c.setFont(font_name, font_size)
     c.setFillColor(background_text_color)
     c.drawString(x, y, key)
-
 
     c.setFont(font_name, number_font_size)
     c.setFillColor(text_color)
@@ -231,7 +240,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         text="What are Contrails?",
         x=left_margin + horizontal_spacing,
         y=710 - 28,
-        font_name="Roboto", 
+        font_name="Roboto",
         font_size=container_title_font_size,
     )
 
@@ -249,22 +258,22 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     c.setFont("Roboto", container_text_font_size)
     after_text_width = 187
     c.setFillColor(text_color)
-    
+
     c.drawString(
-        x=left_margin + after_text_width+2,
+        x=left_margin + after_text_width + 2,
         y=current_y + 17,
         text=link_text,
     )
-    
+
     link_width = c.stringWidth(link_text, "Roboto", container_text_font_size)
-    
+
     c.line(
         left_margin + after_text_width + 2,
         current_y + 15,
         left_margin + after_text_width + link_width + 2,
-        current_y + 15
+        current_y + 15,
     )
-    
+
     c.linkURL(
         "https://www.contrails.org",
         (
@@ -300,7 +309,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     draw_container(
         c=c,
         x=left_margin,
-        y=120 ,
+        y=120,
         width=container_width,
         height=6.25 * 72 * scaling_factor,
     )
@@ -331,11 +340,11 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
         },
         "Contrails (GWP 50)": {
             "value": f"{format_number(data['co2e_metric_tons']['gwp50']['total'])}",
-            "unit": "metric tons CO2e",
+            "unit": "tonnes CO2e",
         },
         "Fuel Burn": {
             "value": f"{format_number(data['total_co2_metric_tons'])}",
-            "unit": "metric tons CO2",
+            "unit": "tonnes CO2",
         },
     }
 
@@ -383,7 +392,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
 
     draw_text_block(
         c=c,
-        text=f"Flight distance where warming contrails were created",
+        text="Flight distance where warming contrails were created",
         x=left_margin + horizontal_spacing,
         y=midpoint_y + 180,
         font_name="Roboto",
@@ -423,7 +432,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
     )
     c.drawImage(
         data["data_path"] + "/fig_contrail_distance_daytime_nighttime.png",
-        x=midpoint_x + horizontal_spacing-3,
+        x=midpoint_x + horizontal_spacing - 3,
         y=215,
         width=72 * 4 * scaling_factor,
         height=72 * 1 * scaling_factor,
@@ -439,10 +448,10 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
 
     c.drawImage(
         data["data_path"] + "/fig_contrail_distance_warming_daytime_nighttime.png",
-        x=midpoint_x + horizontal_spacing-3,
+        x=midpoint_x + horizontal_spacing - 3,
         y=123,
         width=72 * 2.9 * scaling_factor,
-        height=72 * 1.11* scaling_factor,
+        height=72 * 1.11 * scaling_factor,
     )
     draw_stat_with_info_symbol(
         c,
@@ -478,7 +487,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         text="Impact Data: intra-European flights only",
         x=left_margin + horizontal_spacing,
         y=770,
-        font_size=16
+        font_size=16,
     )
     c.drawImage(
         "static/Europe Map_trimmed.png",
@@ -504,11 +513,11 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         },
         "Contrails (GWP 50)": {
             "value": f"{format_number(data['co2e_metric_tons']['gwp50']['total'])}",
-            "unit": "metric tons CO2e",
+            "unit": "tonnes CO2e",
         },
         "Fuel burn": {
             "value": f"{format_number(data['total_co2_metric_tons'])}",
-            "unit": "metric tons CO2",
+            "unit": "tonnes CO2",
         },
     }
     y = current_y - 20
@@ -622,7 +631,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         y=current_y - vertical_spacing,
         key="GWP 100",
         number=format_number(data["co2e_metric_tons"]["gwp100"]["total"]),
-        unit="metric tons",
+        unit="tonnes",
     )
     denom = data["co2e_metric_tons"]["gwp20"]["total"]
     bar_widths_fractions = [
@@ -644,7 +653,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         y=current_y - vertical_spacing * 3,
         key="GWP 50",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
-        unit="metric tons",
+        unit="tonnes",
     )
     c.drawImage(
         "static/horizontal_bar_gwp_warming.png",
@@ -659,7 +668,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         y=current_y - vertical_spacing * 3,
         key="GWP 20",
         number=format_number(data["co2e_metric_tons"]["gwp20"]["total"]),
-        unit="metric tons",
+        unit="tonnes",
     )
     c.drawImage(
         "static/horizontal_bar_gwp_warming.png",
@@ -709,28 +718,36 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         width=page_width - left_margin * 3 + 14,
         height=72 * 1.75 * scaling_factor,
     )
-    fuel_percent_of_total = 100*(data["total_co2_metric_tons"] / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"]))
-    contrail_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["total"] / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"]))
-    
+    fuel_percent_of_total = 100 * (
+        data["total_co2_metric_tons"]
+        / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"])
+    )
+    contrail_percent_of_total = 100 * (
+        data["co2e_metric_tons"]["gwp50"]["total"]
+        / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"])
+    )
+
     total_width = 504
     left_margin_plot = 55
-    
+
     fuel_x = left_margin_plot
-    contrail_x = left_margin_plot*1.83 + (total_width - left_margin_plot) * (fuel_percent_of_total / 100)
-    
+    contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * (
+        fuel_percent_of_total / 100
+    )
+
     draw_stat_for_plots(
         c,
-        key=f"Fuel emissions (metric tons CO2)",
+        key="Fuel emissions (tonnes CO2)",
         number=format_number(data["total_co2_metric_tons"]),
         unit=f"({fuel_percent_of_total:.0f}%)",
         x=fuel_x,
         y=692,
         text_color="white",
     )
-    
+
     draw_stat_for_plots(
         c,
-        key="Contrails (metric tons CO2e)",
+        key="Contrails (tonnes CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
         unit=f"({contrail_percent_of_total:.0f}%)",
         x=contrail_x,
@@ -773,32 +790,44 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         height=72 * 1.75 * scaling_factor,
     )
 
-    nighttime_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"] / (data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]))
-    daytime_percent_of_total = 100*(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] / (data["co2e_metric_tons"]["gwp50"]["daytime"]["total"] + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]))
-    
+    nighttime_percent_of_total = 100 * (
+        data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]
+        / (
+            data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]
+            + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]
+        )
+    )
+    daytime_percent_of_total = 100 * (
+        data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]
+        / (
+            data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]
+            + data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]
+        )
+    )
+
     nighttime_x = left_margin_plot
-    daytime_x = left_margin_plot-12 + image_width * (nighttime_percent_of_total / 100)
-    
+    daytime_x = left_margin_plot - 12 + image_width * (nighttime_percent_of_total / 100)
+
     draw_stat_for_plots(
         c,
-        key="Nighttime (metric tons CO2e)",
+        key="Nighttime (tonnes CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]),
         unit=f"({nighttime_percent_of_total:.0f}%)",
-        x=nighttime_x-2,
+        x=nighttime_x - 2,
         y=current_y - vertical_spacing * 2.4,
         text_color="white",
     )
 
     draw_stat_for_plots(
         c,
-        key="Daytime (metric tons CO2e)",
+        key="Daytime (tonnes CO2e)",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]),
         unit=f"({daytime_percent_of_total:.0f}%)",
         x=daytime_x,
         y=current_y - vertical_spacing * 2.4,
         text_color=background_text_color,
     )
-    
+
     # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
     c.drawImage(
         data["data_path"] + "/fig_od_by_net_co2e.png",
@@ -821,7 +850,6 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=current_y,
         font_size=container_text_font_size,
     )
-
 
     draw_container(
         c=c,
@@ -849,7 +877,6 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         y=772,
         font_size=container_title_font_size,
     )
-
 
     c.drawImage(
         data["data_path"] + "/fig_od_by_impact_density.png",
@@ -906,7 +933,6 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_text_font_size,
     )
 
-
     # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
     draw_container(
         c=c,
@@ -929,24 +955,32 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
 
     # First paragraph
     first_text = "Some flight planning software providers, like "
-    width = add_plain_text(c, first_text, current_x, y, font_size=container_text_font_size)
+    width = add_plain_text(
+        c, first_text, current_x, y, font_size=container_text_font_size
+    )
     current_x += width
 
-    width = add_text_with_link(c, "Flight Keys", "https://www.flightkeys.com", current_x, y)
+    width = add_text_with_link(
+        c, "Flight Keys", "https://www.flightkeys.com", current_x, y
+    )
     current_x += width
 
     width = add_plain_text(c, " and ", current_x, y)
     current_x += width
 
     width = add_text_with_link(
-        c, "CAE",
+        c,
+        "CAE",
         "https://www.cae.com/civil-aviation/aviation-software/flight-operations-solutions/flight-management/",
-        current_x, y
+        current_x,
+        y,
     )
     current_x += width
 
     remaining_text = ", have implemented contrail avoidance in their flight planning tools (or are about to)."
-    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    lines = wrap_text(
+        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
+    )
     for i, line in enumerate(lines):
         if i == 0:
             add_plain_text(c, line, current_x, y)
@@ -964,14 +998,18 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     current_x += width
 
     width = add_text_with_link(
-        c, "trial ",
+        c,
+        "trial ",
         "https://www.theguardian.com/environment/2023/aug/09/ai-helps-airline-pilots-avoid-areas-that-create-polluting-contrails",
-        current_x, y
+        current_x,
+        y,
     )
     current_x += width
 
     remaining_text = " in which they avoided 54% of contrail kilometers by flying under contrail-prone areas."
-    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    lines = wrap_text(
+        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
+    )
     for i, line in enumerate(lines):
         if i == 0:
             add_plain_text(c, line, current_x, y)
@@ -988,14 +1026,18 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     current_x += width
 
     width = add_text_with_link(
-        c, "extensive study ",
+        c,
+        "extensive study ",
         "https://www.researchgate.net/publication/378811848_Feasibility_of_contrail_avoidance_in_a_commercial_flight_planning_system_an_operational_analysis",
-        current_x, y
+        current_x,
+        y,
     )
     current_x += width
 
     remaining_text = " of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these flights by spending 0.11% more jet fuel to adjust some of the flight paths."
-    lines = wrap_text(c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing)))
+    lines = wrap_text(
+        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
+    )
     for i, line in enumerate(lines):
         if i == 0:
             add_plain_text(c, line, current_x, y)
@@ -1012,18 +1054,24 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     current_x += width
 
     width = add_text_with_link(
-        c, "world map of contrails",
-        "https://map.contrails.org",
-        current_x, y
+        c, "world map of contrails", "https://map.contrails.org", current_x, y
     )
     current_x += width
 
-    add_plain_text(c, ".  The contrail warming impact is often lower in the summer time ", current_x, y)
+    add_plain_text(
+        c,
+        ".  The contrail warming impact is often lower in the summer time ",
+        current_x,
+        y,
+    )
     current_x = left_margin + horizontal_spacing
     y -= line_spacing
-    add_plain_text(c, "and higher in the darker months. This is because contrail clouds that persist in the dark are the most warming.", current_x, y)
-
-
+    add_plain_text(
+        c,
+        "and higher in the darker months. This is because contrail clouds that persist in the dark are the most warming.",
+        current_x,
+        y,
+    )
 
     # Sixth paragraph
     y -= paragraph_spacing + line_spacing
@@ -1033,9 +1081,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     current_x += width
 
     width = add_text_with_link(
-        c, "contrails.org",
-        "https://contrails.org",
-        current_x, y
+        c, "contrails.org", "https://contrails.org", current_x, y
     )
     current_x += width
 
@@ -1043,9 +1089,11 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     current_x += width
 
     width = add_text_with_link(
-        c, "sites.research.google/contrails/",
+        c,
+        "sites.research.google/contrails/",
         "https://sites.research.google/contrails/",
-        current_x, y
+        current_x,
+        y,
     )
     current_x += width
 
@@ -1076,7 +1124,9 @@ def wrap_text(c, text, width, font="Roboto", font_size=container_text_font_size)
     return lines
 
 
-def add_text_with_link(c, text, link_url, x, y, font="Roboto", font_size=container_text_font_size):
+def add_text_with_link(
+    c, text, link_url, x, y, font="Roboto", font_size=container_text_font_size
+):
     """Helper function to add text with a clickable link"""
     c.setFont(font, font_size)
     c.drawString(x=x, y=y, text=text)
@@ -1099,7 +1149,6 @@ def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
     register_fonts()
 
     c = canvas.Canvas(output_path, pagesize=(page_width, page_height))
-
 
     draw_grid(c, page_width, page_height)
     create_page_one(c, data)
