@@ -1143,24 +1143,28 @@ def add_plain_text(c, text, x, y, font="Roboto", font_size=container_text_font_s
     return c.stringWidth(text, font, font_size)
 
 
-def generate_pdf(output_path: str, data: Dict[str, Any]) -> None:
+def generate_pdf(output_path: str, data: Dict[str, Any], is_gridded: False) -> None:
     register_fonts()
 
     c = canvas.Canvas(output_path, pagesize=(page_width, page_height))
 
-    draw_grid(c, page_width, page_height)
+    if is_gridded:
+        draw_grid(c, page_width, page_height)
     create_page_one(c, data)
     c.showPage()
 
-    draw_grid(c, page_width, page_height)
+    if is_gridded:
+        draw_grid(c, page_width, page_height)
     create_page_two(c, data)
     c.showPage()
 
-    draw_grid(c, page_width, page_height)
+    if is_gridded:
+        draw_grid(c, page_width, page_height)
     create_page_three(c, data)
     c.showPage()
 
-    draw_grid(c, page_width, page_height)
+    if is_gridded:
+        draw_grid(c, page_width, page_height)
     create_page_four(c, data)
     c.showPage()
 
@@ -1182,11 +1186,19 @@ def main() -> None:
         default="American Airlines",
         help="Airline name",
     )
+
+    parser.add_argument(
+        "--grid", type=bool, default=False, help="add grid to pdf overlay (True/False)"
+    )
     args = parser.parse_args()
 
     data = load_data(json_path=args.data_path + "/data_summary.json")
     data["airline_name"] = args.airline_name
-    generate_pdf(output_path=args.data_path + "/flights_report.pdf", data=data)
+    generate_pdf(
+        output_path=args.data_path + "/flights_report.pdf",
+        data=data,
+        is_gridded=args.grid,
+    )
 
 
 if __name__ == "__main__":
