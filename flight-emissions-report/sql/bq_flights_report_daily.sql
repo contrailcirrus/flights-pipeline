@@ -18,6 +18,8 @@ WITH base_tb AS (SELECT *
                  ((-3 * 60 <= time_start_sunrise_offset_mins) AND (0 <= time_start_sunset_offset_mins)) AS is_nighttime,
                  ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start),
                                ST_GEOGFROMTEXT(@conus_wkt))                                             AS in_conus,
+                 ST_INTERSECTS(ST_GEOGPOINT(lon_start, lat_start),
+                               ST_GEOGFROMTEXT(@eu_wkt))                                                AS in_eu,
           FROM base_tb
           WHERE seg_cnt = 1),
      summary_segments_tb
@@ -96,8 +98,42 @@ WITH base_tb AS (SELECT *
                                            contrail_dist_km         AS out_conus_contrail_dist_km,
                                            warming_contrail_dist_km AS out_conus_warming_contrail_dist_km
                                     FROM in_conus_agg_tb
-                                    WHERE in_conus IS FALSE) out_tb ON in_tb.flight_id = out_tb.flight_id)
+                                    WHERE in_conus IS FALSE) out_tb ON in_tb.flight_id = out_tb.flight_id),
+     in_eu_agg_tb AS (SELECT flight_id,
+                             in_eu,
+                             SUM(chunk_len_km)                               AS dist_km,
+                             SUM(sum_ef_mj)                                  AS sum_ef_mj,
+                             SUM(total_persistent_contrail_length_km)        AS contrail_dist_km,
+                             SUM(total_pos_ef_persistent_contrail_length_km) AS warming_contrail_dist_km
+                      FROM summary_segments_tb
+                      GROUP BY flight_id, in_eu
+                      ORDER BY flight_id),
+     flat_in_eu_agg_tb AS (SELECT COALESCE(in_tb.flight_id, out_tb.flight_id) AS flight_id,
+                                  in_eu_dist_km,
+                                  in_eu_sum_ef_mj,
+                                  in_eu_contrail_dist_km,
+                                  in_eu_warming_contrail_dist_km,
+                                  out_eu_dist_km,
+                                  out_eu_sum_ef_mj,
+                                  out_eu_contrail_dist_km,
+                                  out_eu_warming_contrail_dist_km,
+                           FROM (SELECT flight_id,
+                                        dist_km                  AS in_eu_dist_km,
+                                        sum_ef_mj                AS in_eu_sum_ef_mj,
+                                        contrail_dist_km         AS in_eu_contrail_dist_km,
+                                        warming_contrail_dist_km AS in_eu_warming_contrail_dist_km
+                                 FROM in_eu_agg_tb
+                                 WHERE in_eu IS TRUE) in_tb
+                                    FULL OUTER JOIN
+                                (SELECT flight_id,
+                                        dist_km                  AS out_eu_dist_km,
+                                        sum_ef_mj                AS out_eu_sum_ef_mj,
+                                        contrail_dist_km         AS out_eu_contrail_dist_km,
+                                        warming_contrail_dist_km AS out_eu_warming_contrail_dist_km
+                                 FROM in_eu_agg_tb
+                                 WHERE in_eu IS FALSE) out_tb ON in_tb.flight_id = out_tb.flight_id)
 SELECT *
 FROM summary_flights_tb sf_tb
          LEFT JOIN flat_nighttime_agg_tb fna_tb ON sf_tb.flight_id = fna_tb.flight_id
          LEFT JOIN flat_in_conus_agg_tb fica_tb ON sf_tb.flight_id = fica_tb.flight_id
+         LEFT JOIN flat_in_eu_agg_tb fieua_tb ON sf_tb.flight_id = fieua_tb.flight_id
