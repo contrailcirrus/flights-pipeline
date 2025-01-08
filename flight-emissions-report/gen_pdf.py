@@ -299,7 +299,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     # Added this text per Joachim's suggestion; we need to enter the actual multipliers: "If you want to convert a GWP50 value to GWP100, multiply by 2.XX. If you want to convert a GWP50 value to GWP20, multiply by 0.XX."
     gwp_text = """GWP measures how much warming contrails cause over a number of years compared to CO2. Contrails heat the Earth quickly but for a short time, and GWP helps compare their short-term impact to the longer-lasting greenhouse gas, CO2.
 
-    In this report we initially show the contrail impact in CO2e over 20, 50 and 100 years to align with the guidelines from the EU Non-CO2 MRV report starting in 2025. Wherever we only show one value for CO2e we use the middle value, GWP50, as default.  If you want to convert a GWP50 value to GWP100, multiply by 2.XX. If you want to convert a GWP50 value to GWP20, multiply by 0.XX."""
+    In this report we initially show the contrail impact in CO2e over 20, 50 and 100 years to align with the guidelines from the EU Non-CO2 MRV report starting in 2025. Wherever we only show one value for CO2e we use the middle value, GWP50, as default.  If you want to convert a GWP50 value to GWP100, multiply by 1.85. If you want to convert a GWP50 value to GWP20, multiply by 0.48."""
     current_y = draw_text_block(
         c=c,
         text=gwp_text,
