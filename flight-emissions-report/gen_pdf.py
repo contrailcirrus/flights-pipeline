@@ -6,6 +6,8 @@ Generate a PDF report to match the google designed flight report template.
 
 import argparse
 import os
+
+from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -220,7 +222,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
 
     c.setFillColor(background_text_color)
     c.setFont("Roboto", 10)
-    c.drawString(525, 812, "Page 1 of 4")
+    c.drawString(525, 812, "Page 1 of 5")
 
     c.setFillColor(title_color)
     c.setFont("Roboto", 26)
@@ -283,7 +285,7 @@ def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
             left_margin + after_text_width + link_width + 2,
             current_y + (9 * 2) + 8,
         ),
-        color=hyperlink_text_color,
+        color=colors.HexColor(hyperlink_text_color),
     )
     c.setFillColor(text_color)
 
@@ -473,7 +475,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     """Generate the second page of the report"""
     c.setFont("Roboto", 10)
     c.setFillColor(background_text_color)
-    c.drawString(525, 812, "Page 2 of 4")
+    c.drawString(525, 812, "Page 2 of 5")
 
     # Euro section
     draw_container(
@@ -684,7 +686,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
 
     c.setFillColor(background_text_color)
     c.setFont("Roboto", 10)
-    c.drawString(525, 812, "Page 3 of 4")
+    c.drawString(525, 812, "Page 3 of 5")
 
     # Fuel emissions (CO2) vs contrail warming (CO2e) GWP50
     draw_container(
@@ -866,7 +868,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
 
     c.setFillColor(background_text_color)
     c.setFont("Roboto", 10)
-    c.drawString(525, 812, "Page 4 of 4")
+    c.drawString(525, 812, "Page 4 of 5")
 
     # Fuel emissions (CO2) vs contrail warming (CO2e) GWP50
 
@@ -1107,27 +1109,27 @@ def create_page_five(c: Any, data: Dict[str, Any]) -> Any:
 
     c.setFillColor(background_text_color)
     c.setFont("Roboto", 10)
-    c.drawString(525, 812, "Page 4 of 4")
+    c.drawString(525, 812, "Page 5 of 5")
 
     # Fuel emissions (CO2) vs contrail warming (CO2e) GWP50
 
     current_y = draw_text_block(
         c=c,
-        text="Origin-Destination pairs with the highest average total contrail warming per flown kilometer (GWP50)",
+        text="How do we validate our results?",
         x=left_margin + horizontal_spacing,
         y=772,
         font_size=container_title_font_size,
     )
 
     c.drawImage(
-        data["data_path"] + "/fig_od_by_impact_density.png",
-        x=10,
-        y=473,
-        width=580,
-        height=250,
+        "static/google_goes_frame.png",
+        x=left_margin + horizontal_spacing,
+        y=300,
+        width=490,
+        height=345,
     )
     # TODO: Make dynamic.
-    description = """The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example, the North Atlantic) at night when contrails are most warming.  The average carbon dioxide emissions for all flights were 21 kg CO2 / km.  For the OD pair with the highest contrail warming per kilometer, the CO2 emissions were 49 kg CO2e/km - or 2.3 times the average warming from the CO2 alone."""
+    description = """Satellite observations of contrails can validate our results. We use machine learning to identify contrails in satellite images and match them to flight tracks. Once we know how many kilometers of contrails have formed we multiply this by a warming per kilometer obtained by averaging many pycontrails simulations. In the image below the blue lines represent detected contrails and the orange line is where we expect contrails to form for a target flight. \n\n\n\n In 2024 our reporting is based on the GOES satellites which cover the Americas, but starting in 2025 the Meteosat Third Generation satellite will enable European coverage."""
     current_y = draw_text_block(
         c=c,
         text=description,
@@ -1135,210 +1137,14 @@ def create_page_five(c: Any, data: Dict[str, Any]) -> Any:
         y=current_y,
         width=515,
     )
+
     draw_container(
         c=c,
         x=left_margin,
-        y=480,
+        y=290,
         width=page_width - left_margin * 2 + 5,
-        height=72 * 5.25 * scaling_factor,
+        height=8.4 * 72 * scaling_factor,
     )
-    # Case study: predicted vs. verified contrails.
-    c.drawImage(
-        data["data_path"] + "/fig_case_study_0.png",
-        x=40,
-        y=210,
-        width=520,
-        height=175,
-    )
-    draw_container(
-        c=c,
-        x=left_margin,
-        y=210,
-        width=page_width - left_margin * 2 + 5,
-        height=4.25 * 72 * scaling_factor,
-    )
-
-    current_y = draw_text_block(
-        c=c,
-        text="Contrail warming - daytime vs nighttime (GWP50)",
-        x=left_margin + horizontal_spacing,
-        y=440,
-        font_size=container_title_font_size,
-    )
-
-    draw_text_block(
-        c=c,
-        text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming""",
-        x=left_margin + horizontal_spacing,
-        y=current_y,
-        font_size=container_text_font_size,
-    )
-
-    # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
-    draw_container(
-        c=c,
-        x=left_margin,
-        y=10,
-        width=page_width - left_margin * 2 + 5,
-        height=3.1 * 72 * scaling_factor,
-    )
-
-    current_y = draw_text_block(
-        c=c,
-        text="""Did you know?""",
-        x=left_margin + horizontal_spacing,
-        y=170,
-        font_size=container_title_font_size,
-    )
-
-    current_x = left_margin + horizontal_spacing
-    y = current_y
-
-    # First paragraph
-    first_text = "Some flight planning software providers, like "
-    width = add_plain_text(
-        c, first_text, current_x, y, font_size=container_text_font_size
-    )
-    current_x += width
-
-    width = add_text_with_link(
-        c, "Flight Keys", "https://www.flightkeys.com", current_x, y
-    )
-    current_x += width
-
-    width = add_plain_text(c, " and ", current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c,
-        "CAE",
-        "https://www.cae.com/civil-aviation/aviation-software/flight-operations-solutions/flight-management/",
-        current_x,
-        y,
-    )
-    current_x += width
-
-    remaining_text = ", have implemented contrail avoidance in their flight planning tools (or are about to)."
-    lines = wrap_text(
-        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
-    )
-    for i, line in enumerate(lines):
-        if i == 0:
-            add_plain_text(c, line, current_x, y)
-        else:
-            y -= line_spacing
-            add_plain_text(c, line, left_margin + horizontal_spacing, y)
-
-    # Move to next paragraph with extra spacing to prevent overlap
-    y -= paragraph_spacing + line_spacing
-
-    # Second paragraph
-    current_x = left_margin + horizontal_spacing
-    intro_text = "In 2023, American Airlines, Google Research, and Breakthrough Energy conducted a "
-    width = add_plain_text(c, intro_text, current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c,
-        "trial ",
-        "https://www.theguardian.com/environment/2023/aug/09/ai-helps-airline-pilots-avoid-areas-that-create-polluting-contrails",
-        current_x,
-        y,
-    )
-    current_x += width
-
-    remaining_text = " in which they avoided 54% of contrail kilometers by flying under contrail-prone areas."
-    lines = wrap_text(
-        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
-    )
-    for i, line in enumerate(lines):
-        if i == 0:
-            add_plain_text(c, line, current_x, y)
-        else:
-            y -= line_spacing
-            add_plain_text(c, line, left_margin + horizontal_spacing, y)
-
-    y -= paragraph_spacing + line_spacing
-
-    # Third paragraph
-    current_x = left_margin + horizontal_spacing
-    intro_text = "In 2024, an "
-    width = add_plain_text(c, intro_text, current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c,
-        "extensive study ",
-        "https://www.researchgate.net/publication/378811848_Feasibility_of_contrail_avoidance_in_a_commercial_flight_planning_system_an_operational_analysis",
-        current_x,
-        y,
-    )
-    current_x += width
-
-    remaining_text = " of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these flights by spending 0.11% more jet fuel to adjust some of the flight paths."
-    lines = wrap_text(
-        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
-    )
-    for i, line in enumerate(lines):
-        if i == 0:
-            add_plain_text(c, line, current_x, y)
-        else:
-            y -= line_spacing
-            add_plain_text(c, line, left_margin + horizontal_spacing, y)
-
-    y -= paragraph_spacing + line_spacing
-
-    # Fourth paragraph
-    current_x = left_margin + horizontal_spacing
-    intro_text = "See where contrails are forming right now on this "
-    width = add_plain_text(c, intro_text, current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c, "world map of contrails", "https://map.contrails.org", current_x, y
-    )
-    current_x += width
-
-    add_plain_text(
-        c,
-        ".  The contrail warming impact is often lower in the summer time ",
-        current_x,
-        y,
-    )
-    current_x = left_margin + horizontal_spacing
-    y -= line_spacing
-    add_plain_text(
-        c,
-        "and higher in the darker months. This is because contrail clouds that persist in the dark are the most warming.",
-        current_x,
-        y,
-    )
-
-    # Sixth paragraph
-    y -= paragraph_spacing + line_spacing
-    current_x = left_margin + horizontal_spacing
-    intro_text = "Read more about contrails on "
-    width = add_plain_text(c, intro_text, current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c, "contrails.org", "https://contrails.org", current_x, y
-    )
-    current_x += width
-
-    width = add_plain_text(c, ", and ", current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c,
-        "sites.research.google/contrails/",
-        "https://sites.research.google/contrails/",
-        current_x,
-        y,
-    )
-    current_x += width
-
-    add_plain_text(c, ".", current_x, y)
 
     return c
 
@@ -1375,7 +1181,7 @@ def add_text_with_link(
     c.linkURL(
         link_url,
         (x, y - 2, x + text_width, y + 9),
-        color=hyperlink_text_color,
+        color=colors.HexColor(hyperlink_text_color),
     )
     return text_width
 
