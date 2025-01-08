@@ -324,7 +324,7 @@ class GoogDatasetHandler:
         "flight_number": "flight_number",
         "tail_number": "tail_number",
         "attributed_contrail_km": "attributed_contrail_length_km",
-        "energy_forcing_tj": "eef_tj",
+        "climatology_ef": "eef_tj",
     }
 
     def __init__(self, csv_fp: str):

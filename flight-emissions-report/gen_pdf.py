@@ -209,15 +209,14 @@ def draw_stat_for_plots(
     return current_y
 
 
-def create_page_one(c: Any, data: Dict[str, Any]) -> Any:
+def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     """Generate the first page of the report"""
-    # TODO: Add real logo
     c.drawImage(
-        "static/logo_demo.png",
+        f"static/logos/{airline_name}_logo.png",
         left_margin,
-        770,
+        750,
         width=60,
-        height=30,
+        height=60,
     )
 
     c.setFillColor(background_text_color)
@@ -478,13 +477,6 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     c.drawString(525, 812, "Page 2 of 5")
 
     # Euro section
-    draw_container(
-        c=c,
-        x=left_margin,
-        y=555,
-        width=page_width - left_margin * 2 + 5,
-        height=72 * 4 * scaling_factor,
-    )
 
     current_y = draw_text_block(
         c=c,
@@ -499,6 +491,14 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         y=555,
         width=72 * 2.55 * scaling_factor,
         height=72 * 2.7 * scaling_factor,
+    )
+
+    draw_container(
+        c=c,
+        x=left_margin,
+        y=555,
+        width=page_width - left_margin * 2 + 5,
+        height=72 * 4 * scaling_factor,
     )
 
     description = """Based on our prediction model, this is the impact from the DHL flights that are included in the EU's non-CO2 reporting requirements. The EU ETS area covers flights within and between countries in the European Economic Area (EEA), which consists of EU member states and Iceland, Norway, and Liechtenstein, and from the EEA to the UK and Switzerland. It also covers the EU's nine, so-called outermost regions: French Guiana, Guadeloupe, Martinique, Mayotte, Réunion Island, Saint-Martin, Azores, Madeira, and The Canary Islands."""
@@ -1200,7 +1200,7 @@ def generate_pdf(output_path: str, data: Dict[str, Any], is_gridded: False) -> N
 
     if is_gridded:
         draw_grid(c, page_width, page_height)
-    create_page_one(c, data)
+    create_page_one(c, data, airline_name=data["airline_name"])
     c.showPage()
 
     if is_gridded:
