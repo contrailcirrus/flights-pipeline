@@ -570,6 +570,11 @@ class FlightsReportFetchSvc(BaseSvc):
                     "STRING",
                     self.CONUS_WKT,
                 ),
+                bigquery.ScalarQueryParameter(
+                    "eu_wkt",
+                    "STRING",
+                    self.EU_WKT,
+                ),
             ]
         )
         summary_df: pd.DataFrame = self._bq_handler.query(summary_query, cfg)
