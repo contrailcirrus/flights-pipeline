@@ -442,7 +442,11 @@ class FlightsReportFetchSvc(BaseSvc):
         df["in_conus_co2e50_kg"] = (
             df["in_conus_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         )
-        df["in_eu_co2e50_kg"] = df["in_eu_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
+        if "in_eu_sum_ef_mj" in df.keys():
+            # we only augment the all-flights dataset w/ this, not the single trajectory dataset
+            df["in_eu_co2e50_kg"] = (
+                df["in_eu_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
+            )
         df["daytime_co2e50_kg"] = (
             df["daytime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         )

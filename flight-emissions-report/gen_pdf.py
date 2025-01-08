@@ -526,7 +526,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
             "unit": "tonnes CO2e",
         },
         "Fuel burn": {
-            "value": f"{format_number(data['total_co2_metric_tons'])}",
+            "value": f"{format_number(data['co2_metric_tons']['total_co2_metric_tons'])}",
             "unit": "tonnes CO2",
         },
     }
@@ -727,12 +727,18 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         height=72 * 1.75 * scaling_factor,
     )
     fuel_percent_of_total = 100 * (
-        data["total_co2_metric_tons"]
-        / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"])
+        data["co2_metric_tons"]["total_co2_metric_tons"]
+        / (
+            data["co2_metric_tons"]["total_co2_metric_tons"]
+            + data["co2e_metric_tons"]["gwp50"]["total"]
+        )
     )
     contrail_percent_of_total = 100 * (
         data["co2e_metric_tons"]["gwp50"]["total"]
-        / (data["total_co2_metric_tons"] + data["co2e_metric_tons"]["gwp50"]["total"])
+        / (
+            data["co2_metric_tons"]["total_co2_metric_tons"]
+            + data["co2e_metric_tons"]["gwp50"]["total"]
+        )
     )
 
     total_width = 504
@@ -746,7 +752,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     draw_stat_for_plots(
         c,
         key="Fuel emissions (tonnes CO2)",
-        number=format_number(data["total_co2_metric_tons"]),
+        number=format_number(data["co2_metric_tons"]["total_co2_metric_tons"]),
         unit=f"({fuel_percent_of_total:.0f}%)",
         x=fuel_x,
         y=692,
