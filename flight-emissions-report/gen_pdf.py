@@ -336,7 +336,10 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     )
 
     stats_data = {
-        "# of Flights": {"value": f"{data['count_flights']:,}", "unit": "flights"},
+        "# of Flights": {
+            "value": f"{data['count_flights']['total']:,}",
+            "unit": "flights",
+        },
         "Flight hours": {
             "value": f"{data['flight_hours']['total']:,}",
             "unit": "hours",
@@ -346,7 +349,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
             "unit": "tonnes CO2e",
         },
         "Fuel Burn": {
-            "value": f"{format_number(data['total_co2_metric_tons'])}",
+            "value": f"{format_number(data['co2_metric_tons']['total_co2_metric_tons'])}",
             "unit": "tonnes CO2",
         },
     }
@@ -510,13 +513,16 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     )
 
     stats_data = {
-        "# of Flights": {"value": f"{data   ['count_flights']:,}", "unit": "flights"},
-        "Flight hours": {
-            "value": f"{data['flight_hours']['total']:,}",
-            "unit": "hours",
+        "# of Flights": {
+            "value": f"{data['count_flights']['in_eu']:,}",
+            "unit": "flights",
+        },
+        "Flight distance": {
+            "value": f"{data['flight_distance_km']['in_eu']:,}",
+            "unit": "km",
         },
         "Contrails (GWP 50)": {
-            "value": f"{format_number(data['co2e_metric_tons']['gwp50']['total'])}",
+            "value": f"{format_number(data['co2e_metric_tons']['gwp50']['in_eu'])}",
             "unit": "tonnes CO2e",
         },
         "Fuel burn": {

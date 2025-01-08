@@ -442,6 +442,7 @@ class FlightsReportFetchSvc(BaseSvc):
         df["in_conus_co2e50_kg"] = (
             df["in_conus_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         )
+        df["in_eu_co2e50_kg"] = df["in_eu_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         df["daytime_co2e50_kg"] = (
             df["daytime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         )
@@ -662,12 +663,16 @@ class FlightsReportFetchSvc(BaseSvc):
         # -----------------
         count_aircrafts = summary_df.icao_address.nunique()
         count_flights = summary_df.flight_id.nunique()
+        count_flights_in_eu = summary_df.flight_id[
+            ~summary_df.in_eu_dist_km.isna()
+        ].nunique()
         count_flights_positive_ef = len(summary_df[summary_df.sum_ef_mj > 0])
         total_flight_hours = summary_df.seg_cnt.sum() // 60
         total_contrails_flight_hours = summary_df.seg_ef_cnt.sum() // 60
 
         total_flight_distance_km = int(summary_df.chunk_len_km.sum())
         total_in_conus_flight_distance_km = int(summary_df.in_conus_dist_km.sum())
+        total_in_eu_flight_distance_km = int(summary_df.in_eu_dist_km.sum())
         total_contrails_distance_km = int(
             summary_df.total_persistent_contrail_length_km.sum()
         )
@@ -734,6 +739,9 @@ class FlightsReportFetchSvc(BaseSvc):
             summary_df.total_fuel_burn_kg.sum() / 1000.0, 2
         )
         total_co2_metric_tons = round(summary_df.total_co2_kg.sum() / 1000.0, 2)
+        total_co2_in_eu_metric_tons = round(
+            summary_df.in_eu_total_co2_kg.sum() / 1000.0, 2
+        )
         total_nox_metric_tons = round(summary_df.total_nox_kg.sum() / 1000.0, 3)
         total_so2_metric_tons = round(summary_df.total_so2_kg.sum() / 1000.0, 3)
 
@@ -746,6 +754,10 @@ class FlightsReportFetchSvc(BaseSvc):
         total_in_conus_contrails_co2e50 = summary_df.in_conus_co2e50_kg.sum()
         total_in_conus_contrails_co2e50_metric_tons = round(
             total_in_conus_contrails_co2e50 / 1000.0, 3
+        )
+        total_in_eu_contrails_co2e50 = summary_df.in_eu_co2e50_kg.sum()
+        total_in_eu_contrails_co2e50_metric_tons = round(
+            total_in_eu_contrails_co2e50 / 1000.0, 3
         )
         total_daytime_contrails_co2e50 = summary_df.daytime_co2e50_kg.sum()
         total_daytime_contrails_co2e50_metric_tons = round(
@@ -827,7 +839,10 @@ class FlightsReportFetchSvc(BaseSvc):
         # -----------------
         summary = {
             "count_aircrafts": int(count_aircrafts),
-            "count_flights": int(count_flights),
+            "count_flights": {
+                "total": int(count_flights),
+                "in_eu": int(count_flights_in_eu),
+            },
             "count_flights_positive_ef": int(count_flights_positive_ef),
             "flight_hours": {
                 "total": int(total_flight_hours),
@@ -836,6 +851,7 @@ class FlightsReportFetchSvc(BaseSvc):
             "flight_distance_km": {
                 "total": total_flight_distance_km,
                 "in_conus": total_in_conus_flight_distance_km,
+                "in_eu": total_in_eu_flight_distance_km,
                 "daytime": total_daytime_flight_distance_km,
                 "nighttime": total_nighttime_flight_distance_km,
                 "with_contrails": {
@@ -872,6 +888,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 "gwp50": {
                     "total": float(total_contrails_co2e50_metric_tons),
                     "in_conus": total_in_conus_contrails_co2e50_metric_tons,
+                    "in_eu": total_in_eu_contrails_co2e50_metric_tons,
                     "goog_sat_verified": total_goog_contrails_verified_co2e50_metric_tons,
                     "daytime": {
                         "total": total_daytime_contrails_co2e50_metric_tons,
@@ -883,7 +900,10 @@ class FlightsReportFetchSvc(BaseSvc):
                 "gwp100": {"total": float(total_contrails_co2e100_metric_tons)},
             },
             "total_fuel_burn_metric_tons": float(total_fuel_burn_metric_tons),
-            "total_co2_metric_tons": float(total_co2_metric_tons),
+            "co2_metric_tons": {
+                "total_co2_metric_tons": float(total_co2_metric_tons),
+                "in_eu_total_co2_metric_tons": float(total_co2_in_eu_metric_tons),
+            },
             "total_nox_metric_tons": float(total_nox_metric_tons),
             "total_so2_metric_tons": float(total_so2_metric_tons),
             "takeoff_time_local_co2e50_metric_tons_warming": co2e_warming_by_takeoff_hr,
