@@ -325,7 +325,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         font_name="Roboto",
         font_size=container_title_font_size,
     )
-    stats_text = """Based on our prediction model, 5.5 Million km (55,501 flight hours) or 4.4% of all [Airline] flights generate warming contrails in 2024."""
+    stats_text = f"""Based on our prediction model, 5.5 Million km (55,501 flight hours) or 4.4% of all {airline_name} flights generate warming contrails in 2024."""
     current_y = draw_text_block(
         c=c,
         text=stats_text,
