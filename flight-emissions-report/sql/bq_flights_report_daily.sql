@@ -125,7 +125,7 @@ WITH base_tb AS (SELECT *
                                         sum_ef_mj                AS in_eu_sum_ef_mj,
                                         contrail_dist_km         AS in_eu_contrail_dist_km,
                                         warming_contrail_dist_km AS in_eu_warming_contrail_dist_km,
-                                        total_c02_kg             AS in_eu_total_co2_kg
+                                        total_co2_kg             AS in_eu_total_co2_kg
                                  FROM in_eu_agg_tb
                                  WHERE in_eu IS TRUE) in_tb
                                     FULL OUTER JOIN
@@ -134,7 +134,7 @@ WITH base_tb AS (SELECT *
                                         sum_ef_mj                AS out_eu_sum_ef_mj,
                                         contrail_dist_km         AS out_eu_contrail_dist_km,
                                         warming_contrail_dist_km AS out_eu_warming_contrail_dist_km,
-                                        total_c02_kg             AS out_eu_total_c02_kg
+                                        total_co2_kg             AS out_eu_total_co2_kg
                                  FROM in_eu_agg_tb
                                  WHERE in_eu IS FALSE) out_tb ON in_tb.flight_id = out_tb.flight_id)
 SELECT *
