@@ -159,7 +159,7 @@ def draw_stat_with_info_symbol(
     unit,
     x,
     y,
-    font_name="Roboto-Regular",
+    font_name="Roboto",
     font_size=8,
     number_font_size=24,
 ) -> float:
