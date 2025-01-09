@@ -37,6 +37,7 @@ hyperlink_text_color = "#0000EE"
 left_margin = 30
 horizontal_spacing = 13
 vertical_spacing = 10
+header_offset = 10
 container_width = page_width - left_margin * 2 + 5
 container_text_font_size = 8.5
 container_title_font_size = 14
@@ -96,7 +97,7 @@ def _gen_pie_fig(summary_json_fp: str, out_path: str):
         ncol=1,
         frameon=False,
         labelspacing=1.0,
-        fontsize=fig_legend_text_size,
+        fontsize=16,
     )
     ax.xaxis.set_visible(False)
     ax.yaxis.set_visible(False)
@@ -119,7 +120,6 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
         # Common settings for both plots
         bar_height = 0.3
         y_position = 0.5
-        text_fontsize = 16
         colors = ["#2C2857", "#F7CA45"]
 
         plot_settings = {
@@ -166,7 +166,7 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             color="white",
             ha="left",
             va="center",
-            fontsize=text_fontsize,
+            fontsize=11,
         )
         left += summary_json["flight_distance_km"]["nighttime"]
 
@@ -184,7 +184,7 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             color="black",
             ha="left",
             va="center",
-            fontsize=text_fontsize,
+            fontsize=11,
         )
 
         ax.set_ylim(0, 1)
@@ -250,7 +250,7 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             color="white",
             ha="left",
             va="center",
-            fontsize=text_fontsize,
+            fontsize=11,
         )
         left += summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
             "nighttime"
@@ -276,7 +276,7 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             color="black",
             ha="left",
             va="center",
-            fontsize=text_fontsize,
+            fontsize=11,
         )
 
         ax.set_ylim(0, 1)
@@ -292,10 +292,10 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             handles=legend_colors,
             labels=legend_labels,
             loc="lower left",
-            bbox_to_anchor=(-0.2, -0.2),
+            bbox_to_anchor=(0, -0.2),
             ncol=2,
             frameon=False,
-            fontsize=fig_legend_text_size,
+            fontsize=11,
         )
         ax.xaxis.set_visible(False)
         ax.yaxis.set_visible(False)
@@ -315,7 +315,9 @@ def _gen_map_fig(data_all_internal_fp: str, out_path: str):
     projection = ccrs.Mercator(
         central_longitude=12, min_latitude=-56.9, max_latitude=84.0
     )
-    fig = plt.figure(figsize=(10, 7))  # Increased height slightly to accommodate legend
+    fig = plt.figure(
+        figsize=(10, 10)
+    )  # Increased height slightly to accommodate legend
     ax = fig.add_subplot(1, 1, 1, projection=projection)
     ax.set_global()
     ax.add_feature(cfeature.LAND, color="#C4C7C5")
@@ -354,17 +356,17 @@ def _gen_map_fig(data_all_internal_fp: str, out_path: str):
             facecolor="#C4C7C5",
             label="Algorithm predictions only",
         ),
-        lines.Line2D([0], [0], color="black", linewidth=1, label="Flight paths"),
+        #  lines.Line2D([0], [0], color="black", linewidth=1, label="Flight paths"),
     ]
 
     # Add legend
     ax.legend(
         handles=legend_elements,
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.1),
-        ncol=3,
+        bbox_to_anchor=(0.5, -0.3),
+        ncol=1,
         frameon=False,
-        fontsize=fig_legend_text_size,
+        fontsize=21.5,
     )
 
     ax.set_xticks([])
@@ -375,7 +377,6 @@ def _gen_map_fig(data_all_internal_fp: str, out_path: str):
     plt.savefig(
         f"{out_path}/map.png",
         bbox_inches="tight",  # This ensures the legend is not cut off
-        dpi=300,
     )
 
 
@@ -1054,7 +1055,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         c=c,
         text=contrails_text,
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
         font_name="Roboto",
         font_size=container_text_font_size,
     )
@@ -1106,7 +1107,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         c=c,
         text=gwp_text,
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
         font_name="Roboto",
         font_size=container_text_font_size,
     )
@@ -1132,7 +1133,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         c=c,
         text=stats_text,
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
         font_name="Roboto",
         font_size=container_text_font_size,
     )
@@ -1185,7 +1186,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     midpoint_x = (left_margin + (page_width - left_margin + 5)) / 2
     midpoint_y = (y - 118 + container_bottom) / 2
 
-    c.line(midpoint_x, y - 55, midpoint_x, midpoint_y - 33)
+    c.line(midpoint_x, y - 55, midpoint_x, y - 297)
 
     # Pie chart
     # TODO: Comment from Joachim: Also, the lower bar should be 10.4% of the upper bar - corresponding to the value in the circle to the left, correct?
@@ -1258,8 +1259,8 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         data["data_path"] + "/figs/fig_contrail_distance_warming_daytime_nighttime.png",
         x=midpoint_x + horizontal_spacing - 3,
         y=123,
-        width=72 * 2.9 * scaling_factor,
-        height=72 * 1.04 * scaling_factor,
+        width=335 * 0.61,
+        height=107 * 0.61,
     )
     draw_stat_with_info_symbol(
         c,
@@ -1311,7 +1312,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         c=c,
         text=description,
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
     )
 
     stats_data = {
@@ -1377,16 +1378,16 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     c.drawImage(
         data["data_path"] + "/figs/map.png",
         x=left_margin * 1.1 - 0.5,
-        y=4.75 * 72 * scaling_factor,
-        width=page_width / 2 - left_margin - horizontal_spacing - 8,
-        height=72 * 2.75 * scaling_factor,
+        y=4.25 * 72 * scaling_factor,
+        width=794 * 0.3,
+        height=667 * 0.3,
     )
 
     current_y = draw_text_block(
         c=c,
         text="""The yellow area shows the coverage region where our satellite image based verification has been validated. For the rest of the world, we use our algorithm predictions.""",
         x=left_margin + horizontal_spacing,
-        y=current_y + 5,
+        y=current_y + header_offset,
         width=page_width / 2 - 65,
         font_size=container_text_font_size,
     )
@@ -1429,7 +1430,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     current_y = draw_text_block(
         c=c,
         x=left_margin / 2 + horizontal_spacing + page_width / 2 + 3,
-        y=current_y,
+        y=current_y + header_offset,
         text="""There is no single “correct” way to convert contrail warming to CO2e. This is partly because the lifetime of a single contrail (hours) is much shorter than the lifetime of CO2 in the atmosphere (hundreds to thousands of years). So when using the Global Warming Potential (GWP) metric and comparing contrail warming to the warming from CO2 over 20 years, the contrail warming will be about four times higher than if comparing to CO2 over 100 years. We show GWP20, GWP50, and GWP100 to align with the EU MRV guidelines. The middle value, GWP50, is used as the default in the report.""",
         width=page_width / 2 - 65,
         font_size=container_text_font_size,
@@ -1441,7 +1442,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         y=current_y - vertical_spacing,
         key="GWP 100",
         number=format_number(data["co2e_metric_tons"]["gwp100"]["total"]),
-        unit="tonnes",
+        unit="tonnes CO2e",
     )
     denom = data["co2e_metric_tons"]["gwp20"]["total"]
     bar_widths_fractions = [
@@ -1463,7 +1464,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         y=current_y - vertical_spacing * 3,
         key="GWP 50",
         number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
-        unit="tonnes",
+        unit="tonnes CO2e",
     )
     c.drawImage(
         "static/horizontal_bar_gwp_warming.png",
@@ -1478,7 +1479,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         y=current_y - vertical_spacing * 3,
         key="GWP 20",
         number=format_number(data["co2e_metric_tons"]["gwp20"]["total"]),
-        unit="tonnes",
+        unit="tonnes CO2e",
     )
     c.drawImage(
         "static/horizontal_bar_gwp_warming.png",
