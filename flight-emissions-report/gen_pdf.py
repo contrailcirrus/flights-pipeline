@@ -469,6 +469,153 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
             continue
         od_pruned.append(itm)
 
+        # ----------------------------------
+        # BY NET CO2e
+        # ----------------------------------
+        od_pruned.sort(key=lambda itm: itm["co2e50_metric_tons"], reverse=True)
+
+        top_ods_by_net_co2e = od_pruned[:10]
+
+        fig_w = 9  # inch
+        fig_h = 4  # inch
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+
+        night_co2e_grp = [
+            int(
+                itm["co2e50_metric_tons"]
+                * min(itm["percentage_nighttime_co2e"], 100)
+                / 100
+            )
+            for itm in top_ods_by_net_co2e
+        ]
+        day_co2e_grp = [
+            int(
+                itm["co2e50_metric_tons"]
+                * (100 - min(itm["percentage_nighttime_co2e"], 100))
+                / 100
+            )
+            for itm in top_ods_by_net_co2e
+        ]
+        impact_kgco2e_per_km = [
+            int(itm["impact_density_co2e_metric_tons_per_dist_km"] * 1000)
+            for itm in top_ods_by_net_co2e
+        ]
+        flight_count = [itm["flight_count"] for itm in top_ods_by_net_co2e]
+        flight_dist_km = [
+            round(int(itm["tot_dist_km"]), -2) for itm in top_ods_by_net_co2e
+        ]
+        grp_names = [
+            itm["airport_iata_od"].replace("_", " - ") for itm in top_ods_by_net_co2e
+        ]
+
+        night_co2e_grp.reverse()
+        day_co2e_grp.reverse()
+        impact_kgco2e_per_km.reverse()
+        flight_count.reverse()
+        grp_names.reverse()
+
+        # Plot the stacked bars
+        night_bar = ax.barh(grp_names, night_co2e_grp, color="#2C2857", zorder=2)
+        day_bar = ax.barh(
+            grp_names, day_co2e_grp, left=night_co2e_grp, color="#F7CA45", zorder=2
+        )
+
+        max_co2e = max([int(itm["co2e50_metric_tons"]) for itm in top_ods_by_net_co2e])
+        x_range = list(np.arange(0, max_co2e + 5000, 5000))
+        x_range_labels = [f"{i:,}t CO2e" for i in x_range]
+        ax.set_xticks(x_range, labels=x_range_labels)
+
+        ax.xaxis.set_minor_locator(MultipleLocator(1000))
+        ax.grid(
+            axis="x",
+            which="minor",
+            linewidth=1.5,
+            linestyle="dotted",
+            color="#C4C7C5",
+            zorder=0,
+        )
+        ax.grid(
+            axis="x",
+            which="major",
+            linewidth=1.5,
+            linestyle="dotted",
+            color="#C4C7C5",
+            zorder=0,
+        )
+
+        # set flight count inline text
+        for ix, bar in enumerate(night_bar):
+            label_text = f"{flight_count[ix]} Flights"
+            ax.text(
+                25,
+                bar.get_y() + bar.get_height() / 2,
+                label_text,
+                ha="left",
+                va="center",
+                color="white",
+            )
+
+        # set flight distance km inline text
+        for ix, bar in enumerate(night_bar):
+            label_text = f"{flight_dist_km[ix]:,} km"
+            ax.text(
+                3600,
+                bar.get_y() + bar.get_height() / 2,
+                label_text,
+                ha="left",
+                va="center",
+                color="white",
+            )
+
+        # set total co2e inline text
+        for ix, bars in enumerate(zip(night_bar, day_bar)):
+            total_co2e = int(night_co2e_grp[ix] + day_co2e_grp[ix])
+            label_text = f"{total_co2e/1000:.0f}kt CO2e"
+            ax.text(
+                bars[0].get_width() + bars[1].get_width() + 40,
+                bars[0].get_y() + bars[0].get_height() / 2,
+                label_text,
+                ha="left",
+                va="center",
+                color="black",
+            )
+
+        # set impact density on RHS of axes
+        # ax_offset = 4030
+        # cmap = plt.get_cmap("hot")
+        # c_min = min(impact_kgco2e_per_km)
+        # c_max = max(impact_kgco2e_per_km)
+        # c_offset = (c_max - c_min) / 2
+        # norm = plt.Normalize(c_min, c_max + 3 * c_offset)
+        # colors = cmap(norm(impact_kgco2e_per_km))
+        # for ix, bar in enumerate(night_bar):
+        #    label_text = f"{impact_kgco2e_per_km[ix]}kg CO2e/km"
+        #    ax.text(
+        #        ax_offset,
+        #        bar.get_y() + bar.get_height() / 2,
+        #        label_text,
+        #        ha="left",
+        #        va="center",
+        #        color=colors[ix],
+        #    )
+
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_color("#C4C7C5")
+        ax.spines["bottom"].set_linewidth(5)
+
+        ax = plt.gca()
+        lf = ax.figure.subplotpars.left
+        r = ax.figure.subplotpars.right
+        t = ax.figure.subplotpars.top
+        b = ax.figure.subplotpars.bottom
+        figw = float(fig_w) / (r - lf)
+        figh = float(fig_h) / (t - b)
+        ax.figure.set_size_inches(figw, figh)
+        plt.savefig(f"{out_path}/fig_od_by_net_co2e.png")
+
     # ----------------------------------
     # BY IMPACT DENSITY
     # ----------------------------------
@@ -548,149 +695,6 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
     ax.figure.set_size_inches(figw, figh)
 
     plt.savefig(f"{out_path}/fig_od_by_impact_density.png")
-
-    # ----------------------------------
-    # BY NET CO2e
-    # ----------------------------------
-    od_pruned.sort(key=lambda itm: itm["co2e50_metric_tons"], reverse=True)
-
-    top_ods_by_net_co2e = od_pruned[:10]
-
-    fig_w = 9  # inch
-    fig_h = 4  # inch
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-
-    night_co2e_grp = [
-        int(
-            itm["co2e50_metric_tons"] * min(itm["percentage_nighttime_co2e"], 100) / 100
-        )
-        for itm in top_ods_by_net_co2e
-    ]
-    day_co2e_grp = [
-        int(
-            itm["co2e50_metric_tons"]
-            * (100 - min(itm["percentage_nighttime_co2e"], 100))
-            / 100
-        )
-        for itm in top_ods_by_net_co2e
-    ]
-    impact_kgco2e_per_km = [
-        int(itm["impact_density_co2e_metric_tons_per_dist_km"] * 1000)
-        for itm in top_ods_by_net_co2e
-    ]
-    flight_count = [itm["flight_count"] for itm in top_ods_by_net_co2e]
-    flight_dist_km = [round(int(itm["tot_dist_km"]), -2) for itm in top_ods_by_net_co2e]
-    grp_names = [
-        itm["airport_iata_od"].replace("_", " - ") for itm in top_ods_by_net_co2e
-    ]
-
-    night_co2e_grp.reverse()
-    day_co2e_grp.reverse()
-    impact_kgco2e_per_km.reverse()
-    flight_count.reverse()
-    grp_names.reverse()
-
-    # Plot the stacked bars
-    night_bar = ax.barh(grp_names, night_co2e_grp, color="#2C2857", zorder=2)
-    day_bar = ax.barh(
-        grp_names, day_co2e_grp, left=night_co2e_grp, color="#F7CA45", zorder=2
-    )
-
-    max_co2e = max([int(itm["co2e50_metric_tons"]) for itm in top_ods_by_net_co2e])
-    x_range = list(np.arange(0, max_co2e + 1000, 1000))
-    x_range_labels = [f"{i:,}t CO2e" for i in x_range]
-    ax.set_xticks(x_range, labels=x_range_labels)
-
-    ax.xaxis.set_minor_locator(MultipleLocator(200))
-    ax.grid(
-        axis="x",
-        which="minor",
-        linewidth=1.5,
-        linestyle="dotted",
-        color="#C4C7C5",
-        zorder=0,
-    )
-    ax.grid(
-        axis="x",
-        which="major",
-        linewidth=1.5,
-        linestyle="dotted",
-        color="#C4C7C5",
-        zorder=0,
-    )
-
-    # set flight count inline text
-    for ix, bar in enumerate(night_bar):
-        label_text = f"{flight_count[ix]} Flights"
-        ax.text(
-            25,
-            bar.get_y() + bar.get_height() / 2,
-            label_text,
-            ha="left",
-            va="center",
-            color="white",
-        )
-
-    # set flight distance km inline text
-    for ix, bar in enumerate(night_bar):
-        label_text = f"{flight_dist_km[ix]:,} km"
-        ax.text(
-            400,
-            bar.get_y() + bar.get_height() / 2,
-            label_text,
-            ha="left",
-            va="center",
-            color="white",
-        )
-
-    # set total co2e inline text
-    for ix, bars in enumerate(zip(night_bar, day_bar)):
-        total_co2e = int(night_co2e_grp[ix] + day_co2e_grp[ix])
-        label_text = f"{total_co2e:,}t CO2e"
-        ax.text(
-            bars[0].get_width() + bars[1].get_width() + 40,
-            bars[0].get_y() + bars[0].get_height() / 2,
-            label_text,
-            ha="left",
-            va="center",
-            color="black",
-        )
-
-    # set impact density on RHS of axes
-    ax_offset = 4030
-    cmap = plt.get_cmap("hot")
-    c_min = min(impact_kgco2e_per_km)
-    c_max = max(impact_kgco2e_per_km)
-    c_offset = (c_max - c_min) / 2
-    norm = plt.Normalize(c_min, c_max + 3 * c_offset)
-    colors = cmap(norm(impact_kgco2e_per_km))
-    for ix, bar in enumerate(night_bar):
-        label_text = f"{impact_kgco2e_per_km[ix]}kg CO2e/km"
-        ax.text(
-            ax_offset,
-            bar.get_y() + bar.get_height() / 2,
-            label_text,
-            ha="left",
-            va="center",
-            color=colors[ix],
-        )
-
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_visible(False)
-    ax.spines["bottom"].set_color("#C4C7C5")
-    ax.spines["bottom"].set_linewidth(5)
-
-    ax = plt.gca()
-    lf = ax.figure.subplotpars.left
-    r = ax.figure.subplotpars.right
-    t = ax.figure.subplotpars.top
-    b = ax.figure.subplotpars.bottom
-    figw = float(fig_w) / (r - lf)
-    figh = float(fig_h) / (t - b)
-    ax.figure.set_size_inches(figw, figh)
-    plt.savefig(f"{out_path}/fig_od_by_net_co2e.png")
 
 
 def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
