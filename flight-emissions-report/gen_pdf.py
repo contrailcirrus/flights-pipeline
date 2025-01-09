@@ -7,12 +7,22 @@ Generate a PDF report to match the google designed flight report template.
 import argparse
 import os
 
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+import matplotlib.lines as lines
+import matplotlib.patches as patches
+from matplotlib.ticker import MultipleLocator
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 import json
 from typing import Optional, Dict, Any
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+
+from services import FlightsReportFetchSvc
 
 # A4 size in points (595.27 x 841.89)
 # 1 point = 1/72 inch
@@ -22,7 +32,7 @@ page_height = 841.89
 title_color = "#111111"  # dark dark gray
 text_color = "#444444"  # dark gray
 container_color = "#C4C7C5"
-background_text_color = "#1F1F1F"  # This might be C4C7C5 according to the reference pdf..but it looks too light.
+background_text_color = "#1F1F1F"
 hyperlink_text_color = "#0000EE"
 left_margin = 30
 horizontal_spacing = 13
@@ -34,6 +44,799 @@ scaling_factor = 15 / 18
 paragraph_spacing = 10
 line_spacing = 10
 text_width = 520
+
+fig_legend_text_size = 16
+
+
+def _gen_pie_fig(summary_json_fp: str, out_path: str):
+    with open(summary_json_fp, "r") as fp:
+        summary_json = json.load(fp)
+
+    fig = plt.figure(figsize=(5, 5))
+    ax = fig.add_subplot(1, 1, 1)
+    percent_with_warming = round(
+        summary_json["percentages"]["flight_distance_with_warming_contrails"], 1
+    )
+    percent_without_warming = 100 - percent_with_warming
+
+    colors = ["#4285F4", "#D3E3FD"]
+
+    ax.pie(
+        [percent_with_warming, percent_without_warming],
+        labels=["", ""],
+        startangle=90,
+        counterclock=False,
+        colors=colors,
+        wedgeprops={"width": 0.15},
+    )
+
+    ax.set_aspect("equal")  # Ensures the pie chart is circular
+
+    legend_colors = [
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=color,
+            markersize=15,
+        )
+        for color in colors
+    ]
+    legend_labels = [
+        "Distance with warming contrails",
+        "Distance without warming contrails",
+    ]
+
+    plt.legend(
+        handles=legend_colors,
+        labels=legend_labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.15),
+        ncol=1,
+        frameon=False,
+        labelspacing=1.0,
+        fontsize=fig_legend_text_size,
+    )
+    ax.xaxis.set_visible(False)
+    ax.yaxis.set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+
+    plt.subplots_adjust(left=0.01, right=1.04, top=0.99)
+    plt.savefig(
+        f"{out_path}/fig_contrail_warming_percentage.png",
+        bbox_inches="tight",
+    )
+
+
+def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str):
+    with open(summary_json_fp, "r") as fp:
+        summary_json = json.load(fp)
+
+        # Common settings for both plots
+        bar_height = 0.3
+        y_position = 0.5
+        text_fontsize = 16
+        colors = ["#2C2857", "#F7CA45"]
+
+        plot_settings = {
+            "left": 0.01,
+            "right": 0.95,
+            "top": 0.99,
+            "bottom": 0.2,
+        }
+
+        # -----------------
+        # TOP PLOT
+        # -----------------
+        fig, ax = plt.subplots(figsize=(4, 1))
+        left = 0
+        total_warming_flight_distance = summary_json["flight_distance_km"]["total"]
+        night_percent = round(
+            (
+                summary_json["flight_distance_km"]["nighttime"]
+                / total_warming_flight_distance
+            )
+            * 100
+        )
+        day_percent = round(
+            (
+                summary_json["flight_distance_km"]["daytime"]
+                / total_warming_flight_distance
+            )
+            * 100
+        )
+
+        ax.barh(
+            y_position,
+            summary_json["flight_distance_km"]["nighttime"],
+            height=bar_height,
+            color=colors[0],
+            left=left,
+        )
+        margin = total_warming_flight_distance / 20
+        y_margin = y_position * 0.96
+        ax.text(
+            margin,
+            y_margin,
+            f"{night_percent}%",
+            color="white",
+            ha="left",
+            va="center",
+            fontsize=text_fontsize,
+        )
+        left += summary_json["flight_distance_km"]["nighttime"]
+
+        ax.barh(
+            y_position,
+            summary_json["flight_distance_km"]["daytime"],
+            height=bar_height,
+            color=colors[1],
+            left=left,
+        )
+        ax.text(
+            left + margin,
+            y_margin,
+            f"{day_percent}%",
+            color="black",
+            ha="left",
+            va="center",
+            fontsize=text_fontsize,
+        )
+
+        ax.set_ylim(0, 1)
+
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+        plt.subplots_adjust(**plot_settings)
+        plt.savefig(
+            f"{out_path}/fig_distance_daytime_nighttime.png",
+            bbox_inches="tight",
+        )
+
+        # -----------------
+        # BOTTOM FIG
+        # -----------------
+
+        colors = ["#2C2857", "#F7CA45"]
+        fig, ax = plt.subplots(figsize=(3, 1))
+        left = 0
+
+        total_warming_flight_distance = summary_json["flight_distance_km"][
+            "with_contrails"
+        ]["is_warming"]["total"]
+        night_percent = round(
+            (
+                summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
+                    "nighttime"
+                ]
+                / total_warming_flight_distance
+            )
+            * 100
+        )
+        day_percent = round(
+            (
+                summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
+                    "daytime"
+                ]
+                / total_warming_flight_distance
+            )
+            * 100
+        )
+
+        ax.barh(
+            y_position,
+            summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
+                "nighttime"
+            ],
+            height=bar_height,
+            color=colors[0],
+            left=left,
+        )
+        margin = total_warming_flight_distance / 20
+        y_margin = y_position * 0.96
+        ax.text(
+            margin,
+            y_margin,
+            f"{night_percent}%",
+            color="white",
+            ha="left",
+            va="center",
+            fontsize=text_fontsize,
+        )
+        left += summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
+            "nighttime"
+        ]
+
+        ax.barh(
+            y_position,
+            summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
+                "daytime"
+            ],
+            height=bar_height,
+            color=colors[1],
+            left=left,
+        )
+        ax.text(
+            left
+            + summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
+                "daytime"
+            ]
+            + margin,
+            y_margin,
+            f"{day_percent}%",
+            color="black",
+            ha="left",
+            va="center",
+            fontsize=text_fontsize,
+        )
+
+        ax.set_ylim(0, 1)
+
+        legend_colors = [
+            plt.Line2D(
+                [0], [0], marker="o", color="w", markerfacecolor=color, markersize=10
+            )
+            for color in colors
+        ]
+        legend_labels = ["Nighttime", "Daytime"]
+        plt.legend(
+            handles=legend_colors,
+            labels=legend_labels,
+            loc="lower left",
+            bbox_to_anchor=(-0.2, -0.2),
+            ncol=2,
+            frameon=False,
+            fontsize=fig_legend_text_size,
+        )
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        plt.subplots_adjust(**plot_settings)
+        plt.savefig(
+            f"{out_path}/fig_contrail_distance_warming_daytime_nighttime.png",
+            bbox_inches="tight",
+        )
+
+
+def _gen_map_fig(data_all_internal_fp: str, out_path: str):
+    summary_df = pd.read_csv(data_all_internal_fp)
+    projection = ccrs.Mercator(
+        central_longitude=12, min_latitude=-56.9, max_latitude=84.0
+    )
+    fig = plt.figure(figsize=(10, 7))  # Increased height slightly to accommodate legend
+    ax = fig.add_subplot(1, 1, 1, projection=projection)
+    ax.set_global()
+    ax.add_feature(cfeature.LAND, color="#C4C7C5")
+    ax.fill(
+        [c[0] for c in FlightsReportFetchSvc.CONUS_COORDS],
+        [c[1] for c in FlightsReportFetchSvc.CONUS_COORDS],
+        facecolor="#F7CA45",
+        edgecolor="#F7CA45",
+        linewidth=1.0,
+        alpha=0.5,
+        transform=ccrs.Geodetic(),
+    )
+    for ix, row in summary_df.iterrows():
+        plt.plot(
+            [row.lon_start, row.lon_end],
+            [row.lat_start, row.lat_end],
+            color="black",
+            alpha=0.3,
+            linewidth=0.3,
+            transform=ccrs.Geodetic(),
+        )
+
+    legend_elements = [
+        patches.Rectangle(
+            (0, 0),
+            1,
+            1,
+            facecolor="#F7CA45",
+            alpha=0.5,
+            label="Satellite verified region",
+        ),
+        patches.Rectangle(
+            (0, 0),
+            1,
+            1,
+            facecolor="#C4C7C5",
+            label="Algorithm predictions only",
+        ),
+        lines.Line2D([0], [0], color="black", linewidth=1, label="Flight paths"),
+    ]
+
+    # Add legend
+    ax.legend(
+        handles=legend_elements,
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.1),
+        ncol=3,
+        frameon=False,
+        fontsize=fig_legend_text_size,
+    )
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    plt.savefig(
+        f"{out_path}/map.png",
+        bbox_inches="tight",  # This ensures the legend is not cut off
+        dpi=300,
+    )
+
+
+def _gen_fuel_vs_contrail_co2_bar_fig(summary_json_fp: str, out_path: str):
+    with open(summary_json_fp, "r") as fp:
+        summary_json = json.load(fp)
+
+    fig = plt.figure(figsize=(8, 3))
+    ax = fig.add_subplot(1, 1, 1)
+
+    total = (
+        summary_json["co2_metric_tons"]["total"]
+        + summary_json["co2e_metric_tons"]["gwp50"]["total"]
+    )
+    normalized_values = [
+        v / total
+        for v in [
+            summary_json["co2_metric_tons"]["total"],
+            summary_json["co2e_metric_tons"]["gwp50"]["total"],
+        ]
+    ]
+    colors = ["#1967D2", "#4285F4"]
+
+    left = 0
+    for value, color in zip(normalized_values, colors):
+        ax.barh("Tons warming", value, color=color, left=left)
+        left += value
+
+    ax.xaxis.set_visible(False)
+    ax.yaxis.set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+
+    plt.subplots_adjust(left=0.01, right=1.04, top=0.99, bottom=0.01)
+    plt.savefig(f"{out_path}/fuel_vs_contrail_co2.png")
+
+
+def _gen_daytime_nighttime_bar_fig(summary_json_fp: str, out_path: str):
+    """Generate horizontal bar with daytime warming vs. nighttime warming."""
+    with open(summary_json_fp, "r") as fp:
+        summary_json = json.load(fp)
+
+    fig = plt.figure(figsize=(8, 3))
+    ax = fig.add_subplot(1, 1, 1)
+
+    # Calculate total and normalize values
+    total = (
+        summary_json["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]
+        + summary_json["co2e_metric_tons"]["gwp50"]["daytime"]["total"]
+    )
+    normalized_values = [
+        v / total
+        for v in [
+            summary_json["co2e_metric_tons"]["gwp50"]["nighttime"]["total"],
+            summary_json["co2e_metric_tons"]["gwp50"]["daytime"]["total"],
+        ]
+    ]
+    colors = ["#2C2857", "#F7CA45"]
+
+    left = 0
+    for value, color in zip(normalized_values, colors):
+        ax.barh("Tons warming", value, color=color, left=left)
+        left += value
+
+    ax.xaxis.set_visible(False)
+    ax.yaxis.set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+
+    plt.subplots_adjust(left=0.01, right=1.04, top=0.99, bottom=0.01)
+    plt.savefig(f"{out_path}/fig_contrail_warming_daytime_vs_nighttime.png")
+
+
+def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
+    with open(summary_json_fp, "r") as fp:
+        summary_json = json.load(fp)
+
+    # remove None-None OD-pair from consideration
+    # (case where origin/destination airport code not reported in Spire)
+    od_pruned = []
+    for itm in summary_json["od_pairs"]:
+        od = itm["airport_iata_od"]
+        o = od.split("_")[0]
+        d = od.split("_")[0]
+        if o == "None" or d == "None":
+            continue
+        od_pruned.append(itm)
+
+    # ----------------------------------
+    # BY IMPACT DENSITY
+    # ----------------------------------
+    od_pruned.sort(
+        key=lambda i: i["impact_density_co2e_metric_tons_per_dist_km"],
+        reverse=True,
+    )
+    top_ods_by_impact_density = od_pruned[:10]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+
+    impact_kgco2e_per_km = [
+        int(itm["impact_density_co2e_metric_tons_per_dist_km"] * 1000)
+        for itm in top_ods_by_impact_density
+    ]
+    grp_names = [
+        itm["airport_iata_od"].replace("_", " - ") for itm in top_ods_by_impact_density
+    ]
+
+    impact_kgco2e_per_km.reverse()
+    grp_names.reverse()
+    # Plot the stacked bars
+    bar = ax.barh(grp_names, impact_kgco2e_per_km, color="#2C2857", zorder=2)
+
+    max_x = max([int(itm) for itm in impact_kgco2e_per_km])
+    x_range = list(np.arange(0, max_x + 20, 10))
+    x_range_labels = [f"{i:,}kg CO2e/km" for i in x_range]
+    ax.set_xticks(x_range, labels=x_range_labels)
+
+    ax.xaxis.set_minor_locator(MultipleLocator(2))
+    ax.grid(
+        axis="x",
+        which="minor",
+        linewidth=1.5,
+        linestyle="dotted",
+        color="#C4C7C5",
+        zorder=0,
+    )
+    ax.grid(
+        axis="x",
+        which="major",
+        linewidth=1.5,
+        linestyle="dotted",
+        color="#C4C7C5",
+        zorder=0,
+    )
+
+    for ix, bar in enumerate(bar):
+        label_text = f"{impact_kgco2e_per_km[ix]}kg CO2e/km"
+        ax.text(
+            bar.get_width() + 1,
+            bar.get_y() + bar.get_height() / 2,
+            label_text,
+            ha="left",
+            va="center",
+            color="black",
+        )
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_color("#C4C7C5")
+    ax.spines["bottom"].set_linewidth(5)
+
+    # title_str = "OD Pairs"
+    # ax.set_title(title_str, x=-0.05)
+    ax = plt.gca()
+    lf = ax.figure.subplotpars.left
+    r = ax.figure.subplotpars.right
+    t = ax.figure.subplotpars.top
+    b = ax.figure.subplotpars.bottom
+    fig_w = 9  # inch
+    fig_h = 4  # inch
+    figw = float(fig_w) / (r - lf)
+    figh = float(fig_h) / (t - b)
+    ax.figure.set_size_inches(figw, figh)
+
+    plt.savefig(f"{out_path}/fig_od_by_impact_density.png")
+
+    # ----------------------------------
+    # BY NET CO2e
+    # ----------------------------------
+    od_pruned.sort(key=lambda itm: itm["co2e50_metric_tons"], reverse=True)
+
+    top_ods_by_net_co2e = od_pruned[:10]
+
+    fig_w = 9  # inch
+    fig_h = 4  # inch
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+
+    night_co2e_grp = [
+        int(
+            itm["co2e50_metric_tons"] * min(itm["percentage_nighttime_co2e"], 100) / 100
+        )
+        for itm in top_ods_by_net_co2e
+    ]
+    day_co2e_grp = [
+        int(
+            itm["co2e50_metric_tons"]
+            * (100 - min(itm["percentage_nighttime_co2e"], 100))
+            / 100
+        )
+        for itm in top_ods_by_net_co2e
+    ]
+    impact_kgco2e_per_km = [
+        int(itm["impact_density_co2e_metric_tons_per_dist_km"] * 1000)
+        for itm in top_ods_by_net_co2e
+    ]
+    flight_count = [itm["flight_count"] for itm in top_ods_by_net_co2e]
+    flight_dist_km = [round(int(itm["tot_dist_km"]), -2) for itm in top_ods_by_net_co2e]
+    grp_names = [
+        itm["airport_iata_od"].replace("_", " - ") for itm in top_ods_by_net_co2e
+    ]
+
+    night_co2e_grp.reverse()
+    day_co2e_grp.reverse()
+    impact_kgco2e_per_km.reverse()
+    flight_count.reverse()
+    grp_names.reverse()
+
+    # Plot the stacked bars
+    night_bar = ax.barh(grp_names, night_co2e_grp, color="#2C2857", zorder=2)
+    day_bar = ax.barh(
+        grp_names, day_co2e_grp, left=night_co2e_grp, color="#F7CA45", zorder=2
+    )
+
+    max_co2e = max([int(itm["co2e50_metric_tons"]) for itm in top_ods_by_net_co2e])
+    x_range = list(np.arange(0, max_co2e + 1000, 1000))
+    x_range_labels = [f"{i:,}t CO2e" for i in x_range]
+    ax.set_xticks(x_range, labels=x_range_labels)
+
+    ax.xaxis.set_minor_locator(MultipleLocator(200))
+    ax.grid(
+        axis="x",
+        which="minor",
+        linewidth=1.5,
+        linestyle="dotted",
+        color="#C4C7C5",
+        zorder=0,
+    )
+    ax.grid(
+        axis="x",
+        which="major",
+        linewidth=1.5,
+        linestyle="dotted",
+        color="#C4C7C5",
+        zorder=0,
+    )
+
+    # set flight count inline text
+    for ix, bar in enumerate(night_bar):
+        label_text = f"{flight_count[ix]} Flights"
+        ax.text(
+            25,
+            bar.get_y() + bar.get_height() / 2,
+            label_text,
+            ha="left",
+            va="center",
+            color="white",
+        )
+
+    # set flight distance km inline text
+    for ix, bar in enumerate(night_bar):
+        label_text = f"{flight_dist_km[ix]:,} km"
+        ax.text(
+            400,
+            bar.get_y() + bar.get_height() / 2,
+            label_text,
+            ha="left",
+            va="center",
+            color="white",
+        )
+
+    # set total co2e inline text
+    for ix, bars in enumerate(zip(night_bar, day_bar)):
+        total_co2e = int(night_co2e_grp[ix] + day_co2e_grp[ix])
+        label_text = f"{total_co2e:,}t CO2e"
+        ax.text(
+            bars[0].get_width() + bars[1].get_width() + 40,
+            bars[0].get_y() + bars[0].get_height() / 2,
+            label_text,
+            ha="left",
+            va="center",
+            color="black",
+        )
+
+    # set impact density on RHS of axes
+    ax_offset = 4030
+    cmap = plt.get_cmap("hot")
+    c_min = min(impact_kgco2e_per_km)
+    c_max = max(impact_kgco2e_per_km)
+    c_offset = (c_max - c_min) / 2
+    norm = plt.Normalize(c_min, c_max + 3 * c_offset)
+    colors = cmap(norm(impact_kgco2e_per_km))
+    for ix, bar in enumerate(night_bar):
+        label_text = f"{impact_kgco2e_per_km[ix]}kg CO2e/km"
+        ax.text(
+            ax_offset,
+            bar.get_y() + bar.get_height() / 2,
+            label_text,
+            ha="left",
+            va="center",
+            color=colors[ix],
+        )
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_color("#C4C7C5")
+    ax.spines["bottom"].set_linewidth(5)
+
+    ax = plt.gca()
+    lf = ax.figure.subplotpars.left
+    r = ax.figure.subplotpars.right
+    t = ax.figure.subplotpars.top
+    b = ax.figure.subplotpars.bottom
+    figw = float(fig_w) / (r - lf)
+    figh = float(fig_h) / (t - b)
+    ax.figure.set_size_inches(figw, figh)
+    plt.savefig(f"{out_path}/fig_od_by_net_co2e.png")
+
+
+def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
+    """
+    Generate case study plots.
+
+    Parameters
+    ----------
+    data_case_study_fp
+        Fully qualified path to a csv file containing a single flights per-segment data.
+    out_path
+        Directory path for exporting the rendered fig.
+    """
+
+    seg_df = pd.read_csv(data_case_study_fp)
+
+    # -----------------
+    # export case study plots
+    # -----------------
+    seg_df.sort_values(["time_start"], inplace=True)
+    seg_df.reset_index(inplace=True, drop=True)
+    seg_df.loc[:, "dist_cum_km"] = seg_df["chunk_len_km"].cumsum()
+
+    fig = plt.figure(figsize=(7, 2))
+    ax = fig.add_subplot(1, 1, 1)
+
+    x_v = seg_df["dist_cum_km"]
+    y_v = seg_df["median_altitude_ft"] / 100.0
+
+    min_x = -100
+    max_x = seg_df["dist_cum_km"].max() + 100
+    min_y = y_v.min() - 10
+    max_y = y_v.max() + 45
+
+    x_contrails_pred = x_v[seg_df["sum_ef_mj"] != 0]
+    y_contrails_pred = y_v[seg_df["sum_ef_mj"] != 0]
+
+    x_contrails_attr = x_v[seg_df["goog_is_attributed"] != 0]
+    y_contrails_attr = y_v[seg_df["goog_is_attributed"] != 0]
+
+    x_conus_min = seg_df[seg_df["in_conus"]]["dist_cum_km"].min()
+    x_conus_max = seg_df[seg_df["in_conus"]]["dist_cum_km"].max()
+
+    conus_patch = plt.Rectangle(
+        (x_conus_min, min_y),
+        x_conus_max - x_conus_min,
+        max_y - min_y,
+        alpha=0.4,
+        facecolor="#F7CA45",
+    )
+    ax.add_patch(conus_patch)
+
+    ax.scatter(
+        x_contrails_pred,
+        y_contrails_pred,
+        color="#D3E3FD",
+        s=1000,
+    )
+    ax.scatter(
+        x_contrails_attr,
+        y_contrails_attr,
+        color="#F7CA45",
+        s=400,
+    )
+    ax.plot(
+        x_v,
+        y_v,
+        color="black",
+        linewidth=2.5,
+    )
+
+    title_str = "{origin}-{dest} {date}".format(
+        origin=seg_df.iloc[0]["departure_airport_iata"],
+        dest=seg_df.iloc[0]["arrival_airport_iata"],
+        date=pd.to_datetime(seg_df.iloc[0]["time_start_local_date"]).strftime(
+            "%B %d, %Y"
+        ),
+    )
+    ax.set_title(title_str, loc="left")
+    ax.grid(axis="y", linewidth=1.5, linestyle="dotted", color="#C4C7C5")
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_color("#C4C7C5")
+    ax.spines["bottom"].set_linewidth(5)
+
+    x_range = list(np.arange(0, 20000, 1000))
+    x_range_labels = [f"{i:,}km" for i in x_range]
+    ax.set_xticks(x_range, labels=x_range_labels, rotation=90)
+
+    y_range = list(np.arange(100, 500, 50))
+    y_range_labels = [f"FL{i}" for i in y_range]
+    ax.set_yticks(y_range, labels=y_range_labels)
+
+    ax.set_xlim([min_x, max_x])
+    ax.set_ylim([min_y, max_y])
+
+    legend_elements = [
+        lines.Line2D(
+            [0],
+            [0],
+            color="black",
+            linewidth=2.5,
+            label="Flight path",
+        ),
+        lines.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="#D3E3FD",
+            markersize=15,
+            label="Predicted contrails",
+        ),
+        lines.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="#F7CA45",
+            markersize=15,
+            label="Confirmed contrails",
+        ),
+        patches.Rectangle(
+            (0, 0),
+            1,
+            1,
+            facecolor="#F7CA45",
+            alpha=0.4,
+            label="Observation region",
+        ),
+    ]
+
+    ax.legend(
+        handles=legend_elements,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.5),
+        ncol=4,
+        frameon=False,
+    )
+
+    plt.savefig(
+        f"{out_path}/fig_case_study.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
 
 
 def load_data(json_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -296,7 +1099,6 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         font_name="Roboto",
         font_size=container_title_font_size,
     )
-    # Added this text per Joachim's suggestion; we need to enter the actual multipliers: "If you want to convert a GWP50 value to GWP100, multiply by 2.XX. If you want to convert a GWP50 value to GWP20, multiply by 0.XX."
     gwp_text = """GWP measures how much warming contrails cause over a number of years compared to CO2. Contrails heat the Earth quickly but for a short time, and GWP helps compare their short-term impact to the longer-lasting greenhouse gas, CO2.
 
     In this report we initially show the contrail impact in CO2e over 20, 50 and 100 years to align with the guidelines from the EU Non-CO2 MRV report starting in 2025. Wherever we only show one value for CO2e we use the middle value, GWP50, as default.  If you want to convert a GWP50 value to GWP100, multiply by 1.85. If you want to convert a GWP50 value to GWP20, multiply by 0.48."""
@@ -349,7 +1151,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
             "unit": "tonnes CO2e",
         },
         "Fuel Burn": {
-            "value": f"{format_number(data['co2_metric_tons']['total_co2_metric_tons'])}",
+            "value": f"{format_number(data['co2_metric_tons']['total'])}",
             "unit": "tonnes CO2",
         },
     }
@@ -389,7 +1191,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     # TODO: Comment from Joachim: Also, the lower bar should be 10.4% of the upper bar - corresponding to the value in the circle to the left, correct?
     # The image is currently a bit confusing because the title and plot are in reference to percent of flights, whereas the stat in the middle is about percent of flight *distance*
     c.drawImage(
-        data["data_path"] + "/fig_contrail_warming_percentage.png",
+        data["data_path"] + "/figs/fig_contrail_warming_percentage.png",
         x=60,
         y=121,
         width=495 * 0.42,
@@ -437,11 +1239,11 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         width=midpoint_x - left_margin - horizontal_spacing,
     )
     c.drawImage(
-        data["data_path"] + "/fig_contrail_distance_daytime_nighttime.png",
+        data["data_path"] + "/figs/fig_distance_daytime_nighttime.png",
         x=midpoint_x + horizontal_spacing - 3,
         y=215,
-        width=72 * 4 * scaling_factor,
-        height=72 * 0.92 * scaling_factor,
+        width=396 * 0.61,
+        height=99 * 0.61,
     )
     current_y = draw_stat_with_info_symbol(
         c,
@@ -453,7 +1255,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     )
 
     c.drawImage(
-        data["data_path"] + "/fig_contrail_distance_warming_daytime_nighttime.png",
+        data["data_path"] + "/figs/fig_contrail_distance_warming_daytime_nighttime.png",
         x=midpoint_x + horizontal_spacing - 3,
         y=123,
         width=72 * 2.9 * scaling_factor,
@@ -526,7 +1328,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
             "unit": "tonnes CO2e",
         },
         "Fuel burn": {
-            "value": f"{format_number(data['co2_metric_tons']['total_co2_metric_tons'])}",
+            "value": f"{format_number(data['co2_metric_tons']['total'])}",
             "unit": "tonnes CO2",
         },
     }
@@ -573,7 +1375,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         font_size=container_title_font_size,
     )
     c.drawImage(
-        data["data_path"] + "/trajectories.png",
+        data["data_path"] + "/figs/map.png",
         x=left_margin * 1.1 - 0.5,
         y=4.75 * 72 * scaling_factor,
         width=page_width / 2 - left_margin - horizontal_spacing - 8,
@@ -711,32 +1513,31 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size,
     )
 
-    # TODO: Add some text in at least for spacing?  Removed per Joachim's comment.
-    # description = """The contrail warming impact is often lower in the summer time and higher in dark months. This is because contrail clouds that persist in the dark are the most warming."""
-    # current_y = draw_text_block(
-    #     c=c,
-    #     text=description,
-    #     x=left_margin + horizontal_spacing,
-    #     y=current_y,
-    # )
+    description = "CO2 emissions from fuel were []% and CO2e from Contrails was []%."
+    current_y = draw_text_block(
+        c=c,
+        text=description,
+        x=left_margin + horizontal_spacing,
+        y=current_y,
+    )
     c.drawImage(
-        data["data_path"] + "/fig_fuel_emissions_vs_contrail_warming.png",
+        data["data_path"] + "/figs/fuel_vs_contrail_co2.png",
         x=39,
         y=616,
         width=page_width - left_margin * 3 + 14,
         height=72 * 1.75 * scaling_factor,
     )
     fuel_percent_of_total = 100 * (
-        data["co2_metric_tons"]["total_co2_metric_tons"]
+        data["co2_metric_tons"]["total"]
         / (
-            data["co2_metric_tons"]["total_co2_metric_tons"]
+            data["co2_metric_tons"]["total"]
             + data["co2e_metric_tons"]["gwp50"]["total"]
         )
     )
     contrail_percent_of_total = 100 * (
         data["co2e_metric_tons"]["gwp50"]["total"]
         / (
-            data["co2_metric_tons"]["total_co2_metric_tons"]
+            data["co2_metric_tons"]["total"]
             + data["co2e_metric_tons"]["gwp50"]["total"]
         )
     )
@@ -752,7 +1553,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     draw_stat_for_plots(
         c,
         key="Fuel emissions (tonnes CO2)",
-        number=format_number(data["co2_metric_tons"]["total_co2_metric_tons"]),
+        number=format_number(data["co2_metric_tons"]["total"]),
         unit=f"({fuel_percent_of_total:.0f}%)",
         x=fuel_x,
         y=692,
@@ -797,7 +1598,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
 
     image_width = page_width - left_margin * 5.6
     c.drawImage(
-        data["data_path"] + "/fig_contrail_warming_daytime_vs_nighttime.png",
+        data["data_path"] + "/figs/fig_contrail_warming_daytime_vs_nighttime.png",
         x=38,
         y=current_y - vertical_spacing * 10,
         width=image_width,
@@ -844,7 +1645,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
 
     # Origin-Destination pairs with the highest average total contrail warming (GWP50 CO2e)
     c.drawImage(
-        data["data_path"] + "/fig_od_by_net_co2e.png",
+        data["data_path"] + "/figs/fig_od_by_net_co2e.png",
         x=10,
         y=85,
         width=580,
@@ -893,7 +1694,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     )
 
     c.drawImage(
-        data["data_path"] + "/fig_od_by_impact_density.png",
+        data["data_path"] + "/figs/fig_od_by_impact_density.png",
         x=10,
         y=473,
         width=580,
@@ -917,7 +1718,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     )
     # Case study: predicted vs. verified contrails.
     c.drawImage(
-        data["data_path"] + "/fig_case_study_0.png",
+        data["data_path"] + "/figs/fig_case_study.png",
         x=40,
         y=210,
         width=520,
@@ -1205,6 +2006,37 @@ def add_plain_text(c, text, x, y, font="Roboto", font_size=container_text_font_s
     return c.stringWidth(text, font, font_size)
 
 
+def generate_figs(data_path: str):
+    """
+    Generate the ensemble of figs needed for the pdf.
+
+    Parameters
+    ----------
+    data_path
+        fully qualified path to data files for a given airline.
+    """
+    fig_output_path = f"{data_path}/figs"
+    summary_json_fp = f"{data_path}/data_summary.json"
+    data_all_internal_fp = f"{data_path}/data_all_internal.csv"
+    data_case_study_fp = f"{data_path}/data_case_study_0.csv"
+
+    if not os.path.exists(fig_output_path):
+        os.mkdir(fig_output_path)
+
+    # pg1
+    _gen_pie_fig(summary_json_fp, fig_output_path)
+    _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp, fig_output_path)
+
+    # pg2
+    _gen_map_fig(data_all_internal_fp, fig_output_path)
+
+    # pg3/4
+    _gen_fuel_vs_contrail_co2_bar_fig(summary_json_fp, fig_output_path)
+    _gen_daytime_nighttime_bar_fig(summary_json_fp, fig_output_path)
+    _gen_od_bar_figs(summary_json_fp, fig_output_path)
+    _gen_case_study_fig(data_case_study_fp, fig_output_path)
+
+
 def generate_pdf(output_path: str, data: Dict[str, Any], is_gridded: False) -> None:
     register_fonts()
 
@@ -1259,6 +2091,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # generate figures
+    generate_figs(args.data_path)
+
+    # generate pdf
     data = load_data(json_path=args.data_path + "/data_summary.json")
     data["airline_name"] = args.airline_name
     generate_pdf(
