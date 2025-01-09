@@ -762,14 +762,15 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
         linewidth=2.5,
     )
 
-    title_str = "{origin}-{dest} {date}".format(
-        origin=seg_df.iloc[0]["departure_airport_iata"],
-        dest=seg_df.iloc[0]["arrival_airport_iata"],
-        date=pd.to_datetime(seg_df.iloc[0]["time_start_local_date"]).strftime(
-            "%B %d, %Y"
-        ),
-    )
-    ax.set_title(title_str, loc="left")
+    #  title_str = "{origin}-{dest} {date}".format(
+    #      origin=seg_df.iloc[0]["departure_airport_iata"],
+    #      dest=seg_df.iloc[0]["arrival_airport_iata"],
+    #      date=pd.to_datetime(seg_df.iloc[0]["time_start_local_date"]).strftime(
+    #          "%B %d, %Y"
+    #      ),
+    #  )
+    #  TODO: place this as a text element with pdfreport instead, to keep fonts consistent
+    #  ax.set_title(title_str, loc="left")
     ax.grid(axis="y", linewidth=1.5, linestyle="dotted", color="#C4C7C5")
 
     ax.spines["top"].set_visible(False)
@@ -779,7 +780,7 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
     ax.spines["bottom"].set_linewidth(5)
 
     x_range = list(np.arange(0, 20000, 1000))
-    x_range_labels = [f"{i:,}km" for i in x_range]
+    x_range_labels = [f"{i/1000:.0f}k km" for i in x_range]
     ax.set_xticks(x_range, labels=x_range_labels, rotation=90)
 
     y_range = list(np.arange(100, 500, 50))
@@ -803,7 +804,7 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
             marker="o",
             color="w",
             markerfacecolor="#D3E3FD",
-            markersize=15,
+            markersize=10,
             label="Predicted contrails",
         ),
         lines.Line2D(
@@ -812,7 +813,7 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
             marker="o",
             color="w",
             markerfacecolor="#F7CA45",
-            markersize=15,
+            markersize=10,
             label="Confirmed contrails",
         ),
         patches.Rectangle(
@@ -831,11 +832,11 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
         bbox_to_anchor=(0.5, -0.5),
         ncol=4,
         frameon=False,
+        fontsize=9.3,
     )
 
     plt.savefig(
         f"{out_path}/fig_case_study.png",
-        dpi=300,
         bbox_inches="tight",
     )
 
@@ -1513,14 +1514,6 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=771,
         font_size=container_title_font_size,
     )
-
-    description = "CO2 emissions from fuel were []% and CO2e from Contrails was []%."
-    current_y = draw_text_block(
-        c=c,
-        text=description,
-        x=left_margin + horizontal_spacing,
-        y=current_y,
-    )
     c.drawImage(
         data["data_path"] + "/figs/fuel_vs_contrail_co2.png",
         x=39,
@@ -1571,6 +1564,17 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         text_color="white",
     )
 
+    description = (
+        f"Fuel burn contributed {fuel_percent_of_total:.0f}% to total CO2(e). "
+        f"Contrails contributed {contrail_percent_of_total:.0f}% to total CO2(e)"
+    )
+    _ = draw_text_block(
+        c=c,
+        text=description,
+        x=left_margin + horizontal_spacing,
+        y=current_y + header_offset,
+    )
+
     # Contrail warming - daytime vs nighttime (GWP50)
     draw_container(
         c=c,
@@ -1593,7 +1597,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming.""",
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
         font_size=container_text_font_size,
     )
 
@@ -1663,7 +1667,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text=f"""These ten OD pairs are responsible for 63% of {data['airline_name']}'s total contrail warming.  The most warming OD pairs are often very long flights where the majority of the journey takes place in the dark, when contrails are most warming""",
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
         font_size=container_text_font_size,
     )
 
@@ -1698,8 +1702,8 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         data["data_path"] + "/figs/fig_od_by_impact_density.png",
         x=10,
         y=473,
-        width=580,
-        height=259,
+        width=1161 * 0.5,
+        height=519 * 0.5,
     )
     # TODO: Make dynamic.
     description = """The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example, the North Atlantic) at night when contrails are most warming.  The average carbon dioxide emissions for all flights were 21 kg CO2 / km.  For the OD pair with the highest contrail warming per kilometer, the CO2 emissions were 49 kg CO2e/km - or 2.3 times the average warming from the CO2 alone."""
@@ -1707,7 +1711,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text=description,
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
         width=515,
     )
     draw_container(
@@ -1722,8 +1726,8 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         data["data_path"] + "/figs/fig_case_study.png",
         x=40,
         y=210,
-        width=520,
-        height=183,
+        width=693 * 0.65,
+        height=281 * 0.65,
     )
     draw_container(
         c=c,
@@ -1745,7 +1749,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         c=c,
         text="""In the daytime, contrails sometimes have a cooling effect when reflecting some of the sun's heat back into space. But at all times, contrails have a warming effect by acting like a blanket on Earth. This is evident at night when there is no sunlight to reflect, and all contrails are warming""",
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
         font_size=container_text_font_size,
     )
 
@@ -1772,16 +1776,16 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     # First paragraph
     first_text = "Some flight planning software providers, like "
     width = add_plain_text(
-        c, first_text, current_x, y, font_size=container_text_font_size
+        c, first_text, current_x, y + header_offset, font_size=container_text_font_size
     )
     current_x += width
 
     width = add_text_with_link(
-        c, "Flight Keys", "https://www.flightkeys.com", current_x, y
+        c, "Flight Keys", "https://www.flightkeys.com", current_x, y + header_offset
     )
     current_x += width
 
-    width = add_plain_text(c, " and ", current_x, y)
+    width = add_plain_text(c, " and ", current_x, y + header_offset)
     current_x += width
 
     width = add_text_with_link(
@@ -1789,7 +1793,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         "CAE",
         "https://www.cae.com/civil-aviation/aviation-software/flight-operations-solutions/flight-management/",
         current_x,
-        y,
+        y + header_offset,
     )
     current_x += width
 
@@ -1799,13 +1803,13 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     )
     for i, line in enumerate(lines):
         if i == 0:
-            add_plain_text(c, line, current_x, y)
+            add_plain_text(c, line, current_x, y + header_offset)
         else:
-            y -= line_spacing
+            y -= line_spacing - header_offset
             add_plain_text(c, line, left_margin + horizontal_spacing, y)
 
     # Move to next paragraph with extra spacing to prevent overlap
-    y -= paragraph_spacing + line_spacing
+    y -= paragraph_spacing + line_spacing - header_offset
 
     # Second paragraph
     current_x = left_margin + horizontal_spacing
@@ -1938,17 +1942,17 @@ def create_page_five(c: Any, data: Dict[str, Any]) -> Any:
     c.drawImage(
         "static/google_goes_frame.png",
         x=left_margin + horizontal_spacing,
-        y=300,
+        y=310,
         width=490,
         height=345,
     )
     # TODO: Make dynamic.
     description = """Satellite observations of contrails can validate our results. We use machine learning to identify contrails in satellite images and match them to flight tracks. Once we know how many kilometers of contrails have formed we multiply this by a warming per kilometer obtained by averaging many pycontrails simulations. In the image below the blue lines represent detected contrails and the orange line is where we expect contrails to form for a target flight. \n\n\n\n In 2024 our reporting is based on the GOES satellites which cover the Americas, but starting in 2025 the Meteosat Third Generation satellite will enable European coverage."""
-    current_y = draw_text_block(
+    _ = draw_text_block(
         c=c,
         text=description,
         x=left_margin + horizontal_spacing,
-        y=current_y,
+        y=current_y + header_offset,
         width=515,
     )
 
