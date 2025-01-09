@@ -22,7 +22,7 @@ page_height = 841.89
 title_color = "#111111"  # dark dark gray
 text_color = "#444444"  # dark gray
 container_color = "#C4C7C5"
-background_text_color = "#868686"  # This might be C4C7C5 according to the reference pdf..but it looks too light.
+background_text_color = "#1F1F1F"  # This might be C4C7C5 according to the reference pdf..but it looks too light.
 hyperlink_text_color = "#0000EE"
 left_margin = 30
 horizontal_spacing = 13
@@ -848,7 +848,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         x=10,
         y=85,
         width=580,
-        height=250,
+        height=259,
     )
     current_y = draw_text_block(
         c=c,
@@ -897,7 +897,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         x=10,
         y=473,
         width=580,
-        height=250,
+        height=259,
     )
     # TODO: Make dynamic.
     description = """The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example, the North Atlantic) at night when contrails are most warming.  The average carbon dioxide emissions for all flights were 21 kg CO2 / km.  For the OD pair with the highest contrail warming per kilometer, the CO2 emissions were 49 kg CO2e/km - or 2.3 times the average warming from the CO2 alone."""
@@ -921,7 +921,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         x=40,
         y=210,
         width=520,
-        height=175,
+        height=183,
     )
     draw_container(
         c=c,
