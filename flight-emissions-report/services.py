@@ -964,7 +964,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 df_plt.reset_index(inplace=True, drop=True)
                 df_plt.loc[:, "dist_cum_km"] = df_plt["chunk_len_km"].cumsum()
 
-                fig = plt.figure(figsize=(9, 1.75))
+                fig = plt.figure(figsize=(7, 2))
                 ax = fig.add_subplot(1, 1, 1)
 
                 x_v = df_plt["dist_cum_km"]
@@ -1017,7 +1017,7 @@ class FlightsReportFetchSvc(BaseSvc):
                     dest=df_plt.iloc[0]["arrival_airport_iata"],
                     date=df_plt.iloc[0]["time_start_local_date"].strftime("%B %d, %Y"),
                 )
-                ax.set_title(title_str, loc="left")
+                ax.set_title(title_str, loc="left", fontname="Roboto")
                 ax.grid(axis="y", linewidth=1.5, linestyle="dotted", color="#C4C7C5")
 
                 ax.spines["top"].set_visible(False)
@@ -1145,7 +1145,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 bbox_to_anchor=(0.5, -0.1),
                 ncol=3,
                 frameon=False,
-                fontsize=16,
+                fontsize=14,
             )
 
             ax.set_xticks([])
@@ -1499,9 +1499,7 @@ class FlightsReportFetchSvc(BaseSvc):
             # -----------------
             # What percentage of flights create warming contrails?
             # -----------------
-            fig_w = 5
-            fig_h = 5
-            fig = plt.figure(figsize=(fig_w, fig_h))
+            fig = plt.figure(figsize=(5, 5))
             ax = fig.add_subplot(1, 1, 1)
             percent_with_warming = round(percentage_flight_dist_w_warming_contrails, 1)
             percent_without_warming = 100 - percent_with_warming
@@ -1567,7 +1565,7 @@ class FlightsReportFetchSvc(BaseSvc):
         # Common settings for both plots
         bar_height = 0.3
         y_position = 0.5
-        text_fontsize = 20
+        text_fontsize = 16
         colors = ["#2C2857", "#F7CA45"]
 
         # Use same subplot settings for both plots
@@ -1579,7 +1577,7 @@ class FlightsReportFetchSvc(BaseSvc):
         }
 
         # First plot (all contrails)
-        fig, ax = plt.subplots(figsize=(8, 2))
+        fig, ax = plt.subplots(figsize=(4, 1))
         left = 0
 
         bar_height = 0.3
@@ -1652,7 +1650,7 @@ class FlightsReportFetchSvc(BaseSvc):
         # -----------------
 
         colors = ["#2C2857", "#F7CA45"]
-        fig, ax = plt.subplots(figsize=(5, 2))
+        fig, ax = plt.subplots(figsize=(3, 1))
         left = 0
 
         bar_height = 0.3
@@ -1711,7 +1709,7 @@ class FlightsReportFetchSvc(BaseSvc):
 
         legend_colors = [
             plt.Line2D(
-                [0], [0], marker="o", color="w", markerfacecolor=color, markersize=15
+                [0], [0], marker="o", color="w", markerfacecolor=color, markersize=10
             )
             for color in colors
         ]
@@ -1720,7 +1718,7 @@ class FlightsReportFetchSvc(BaseSvc):
             handles=legend_colors,
             labels=legend_labels,
             loc="lower left",
-            bbox_to_anchor=(0.5, -0.2),
+            bbox_to_anchor=(0, -0.2),
             ncol=2,
             frameon=False,
             fontsize=16,

@@ -392,8 +392,8 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         data["data_path"] + "/fig_contrail_warming_percentage.png",
         x=60,
         y=121,
-        width=72 * 3.5 * scaling_factor,
-        height=72 * 3.63 * scaling_factor,
+        width=495 * 0.42,
+        height=514 * 0.42,
     )
 
     draw_text_block(
