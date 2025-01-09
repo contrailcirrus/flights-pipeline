@@ -1145,6 +1145,7 @@ class FlightsReportFetchSvc(BaseSvc):
                 bbox_to_anchor=(0.5, -0.1),
                 ncol=3,
                 frameon=False,
+                fontsize=16,
             )
 
             ax.set_xticks([])
@@ -1718,7 +1719,7 @@ class FlightsReportFetchSvc(BaseSvc):
         plt.legend(
             handles=legend_colors,
             labels=legend_labels,
-            loc="lower center",
+            loc="lower left",
             bbox_to_anchor=(0.5, -0.2),
             ncol=2,
             frameon=False,

@@ -393,7 +393,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         x=60,
         y=121,
         width=72 * 3.5 * scaling_factor,
-        height=72 * 3.4 * scaling_factor,
+        height=72 * 3.63 * scaling_factor,
     )
 
     draw_text_block(
@@ -441,7 +441,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         x=midpoint_x + horizontal_spacing - 3,
         y=215,
         width=72 * 4 * scaling_factor,
-        height=72 * 1 * scaling_factor,
+        height=72 * 0.92 * scaling_factor,
     )
     current_y = draw_stat_with_info_symbol(
         c,
@@ -457,7 +457,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         x=midpoint_x + horizontal_spacing - 3,
         y=123,
         width=72 * 2.9 * scaling_factor,
-        height=72 * 1.11 * scaling_factor,
+        height=72 * 1.04 * scaling_factor,
     )
     draw_stat_with_info_symbol(
         c,
