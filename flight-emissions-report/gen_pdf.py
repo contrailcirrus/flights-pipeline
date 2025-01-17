@@ -133,22 +133,23 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
         # TOP PLOT
         # -----------------
         fig, ax = plt.subplots(figsize=(4, 1))
-        total_warming_flight_distance = summary_json["flight_distance_km"]["total"]
+        total_flight_distance = summary_json["flight_distance_km"]["total"]
         night_percent = round(
-            (
-                summary_json["flight_distance_km"]["nighttime"]
-                / total_warming_flight_distance
-            )
+            (summary_json["flight_distance_km"]["nighttime"] / total_flight_distance)
             * 100
         )
         day_percent = round(
-            (
-                summary_json["flight_distance_km"]["daytime"]
-                / total_warming_flight_distance
-            )
+            (summary_json["flight_distance_km"]["daytime"] / total_flight_distance)
             * 100
         )
 
+        # determine text placement/coords
+        inlay_nighttime_text_margin = total_flight_distance * 0.05
+        inlay_daytime_text_margin = total_flight_distance * 0.85
+        y_margin = y_position * 0.96
+
+        # nighttime
+        # ------
         ax.barh(
             y_position,
             summary_json["flight_distance_km"]["nighttime"],
@@ -156,10 +157,8 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             color=colors[0],
             left=0,
         )
-        inlay_text_margin = total_warming_flight_distance / 20
-        y_margin = y_position * 0.96
         ax.text(
-            inlay_text_margin,
+            inlay_nighttime_text_margin,
             y_margin,
             f"{night_percent}%",
             color="white",
@@ -168,10 +167,8 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             fontsize=11,
         )
 
-        inlay_daytime_text_margin = (
-            summary_json["flight_distance_km"]["nighttime"] + inlay_text_margin
-        )
-
+        # daytime
+        # ------
         ax.barh(
             y_position,
             summary_json["flight_distance_km"]["daytime"],
@@ -207,9 +204,7 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
         # -----------------
         # BOTTOM FIG
         # -----------------
-
-        colors = ["#2C2857", "#F7CA45"]
-        fig, ax = plt.subplots(figsize=(3, 1))
+        fig, ax = plt.subplots(figsize=(4, 1))
 
         total_warming_flight_distance = summary_json["flight_distance_km"][
             "with_contrails"
@@ -233,6 +228,13 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             * 100
         )
 
+        # determine text placement/coords
+        inlay_nighttime_text_margin = total_warming_flight_distance * 0.05
+        inlay_daytime_text_margin = total_warming_flight_distance * 0.85
+        y_margin = y_position * 0.96
+
+        # nighttime
+        # ------
         ax.barh(
             y_position,
             summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
@@ -244,7 +246,7 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
         )
 
         ax.text(
-            inlay_text_margin,
+            inlay_nighttime_text_margin,
             y_margin,
             f"{night_percent}%",
             color="white",
@@ -253,6 +255,8 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             fontsize=11,
         )
 
+        # daytime
+        # ------
         ax.barh(
             y_position,
             summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
@@ -1105,7 +1109,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     )
     gwp_text = """GWP measures how much warming contrails cause over a number of years compared to CO2. Contrails heat the Earth quickly but for a short time, and GWP helps compare their short-term impact to the longer-lasting greenhouse gas, CO2.
 
-    In this report we initially show the contrail impact in CO2e over 20, 50 and 100 years to align with the guidelines from the EU Non-CO2 MRV report starting in 2025. Wherever we only show one value for CO2e we use the middle value, GWP50, as default.  If you want to convert a GWP50 value to GWP100, multiply by 1.85. If you want to convert a GWP50 value to GWP20, multiply by 0.48."""
+    In this report we initially show the contrail impact in CO2e over 20, 50 and 100 years to align with the guidelines from the EU Non-CO2 MRV reporting that is mandatory from 2025. Wherever we only show one value for CO2e we use the middle value, GWP50, as default.  If you want to convert a GWP50 value to GWP100, multiply by 0.57. If you want to convert a GWP50 value to GWP20, multiply by 2.10."""
     current_y = draw_text_block(
         c=c,
         text=gwp_text,
@@ -1131,7 +1135,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         font_name="Roboto",
         font_size=container_title_font_size,
     )
-    stats_text = f"""Based on our prediction model, 5.5 Million km (55,501 flight hours) or 4.4% of all {airline_name} flights generate warming contrails in 2024."""
+    stats_text = f"""Based on our prediction model, 5.5 Million km (55,501 flight hours) or 4.4% of all {airline_name} flights generated warming contrails in 2024."""
     current_y = draw_text_block(
         c=c,
         text=stats_text,
@@ -1262,7 +1266,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         data["data_path"] + "/figs/fig_contrail_distance_warming_daytime_nighttime.png",
         x=midpoint_x + horizontal_spacing - 3,
         y=123,
-        width=335 * 0.61,
+        width=396 * 0.61,
         height=107 * 0.61,
     )
     draw_stat_with_info_symbol(
