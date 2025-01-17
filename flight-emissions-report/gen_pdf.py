@@ -133,7 +133,6 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
         # TOP PLOT
         # -----------------
         fig, ax = plt.subplots(figsize=(4, 1))
-        left = 0
         total_warming_flight_distance = summary_json["flight_distance_km"]["total"]
         night_percent = round(
             (
@@ -155,12 +154,12 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             summary_json["flight_distance_km"]["nighttime"],
             height=bar_height,
             color=colors[0],
-            left=left,
+            left=0,
         )
-        margin = total_warming_flight_distance / 20
+        inlay_text_margin = total_warming_flight_distance / 20
         y_margin = y_position * 0.96
         ax.text(
-            margin,
+            inlay_text_margin,
             y_margin,
             f"{night_percent}%",
             color="white",
@@ -168,17 +167,20 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             va="center",
             fontsize=11,
         )
-        left += summary_json["flight_distance_km"]["nighttime"]
+
+        inlay_daytime_text_margin = (
+            summary_json["flight_distance_km"]["nighttime"] + inlay_text_margin
+        )
 
         ax.barh(
             y_position,
             summary_json["flight_distance_km"]["daytime"],
             height=bar_height,
             color=colors[1],
-            left=left,
+            left=summary_json["flight_distance_km"]["nighttime"],
         )
         ax.text(
-            left + margin,
+            inlay_daytime_text_margin,
             y_margin,
             f"{day_percent}%",
             color="black",
@@ -208,7 +210,6 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
 
         colors = ["#2C2857", "#F7CA45"]
         fig, ax = plt.subplots(figsize=(3, 1))
-        left = 0
 
         total_warming_flight_distance = summary_json["flight_distance_km"][
             "with_contrails"
@@ -239,12 +240,11 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             ],
             height=bar_height,
             color=colors[0],
-            left=left,
+            left=0,
         )
-        margin = total_warming_flight_distance / 20
-        y_margin = y_position * 0.96
+
         ax.text(
-            margin,
+            inlay_text_margin,
             y_margin,
             f"{night_percent}%",
             color="white",
@@ -252,9 +252,6 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             va="center",
             fontsize=11,
         )
-        left += summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
-            "nighttime"
-        ]
 
         ax.barh(
             y_position,
@@ -263,14 +260,12 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             ],
             height=bar_height,
             color=colors[1],
-            left=left,
+            left=summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
+                "nighttime"
+            ],
         )
         ax.text(
-            left
-            + summary_json["flight_distance_km"]["with_contrails"]["is_warming"][
-                "daytime"
-            ]
-            + margin,
+            inlay_daytime_text_margin,
             y_margin,
             f"{day_percent}%",
             color="black",
@@ -968,21 +963,24 @@ def draw_stat_with_info_symbol(
     unit,
     x,
     y,
-    font_name="Roboto",
     font_size=8,
     number_font_size=24,
 ) -> float:
     """Draw a statistic with an info symbol next to it."""
-    c.setFont(font_name, font_size)
-    c.setFillColor(background_text_color)
+    # draw stat label (e.g. # of flights)
+    c.setFont("Roboto-Medium", font_size)
+    c.setFillColor("#868686")
     c.drawString(x, y, key)
 
-    c.setFont(font_name, number_font_size)
+    # draw number value
+    c.setFont("Roboto", number_font_size)
     c.setFillColor(text_color)
-    number_width = c.stringWidth(number, font_name, number_font_size)
+    number_width = c.stringWidth(number, "Roboto", number_font_size)
     c.drawString(x, y - (number_font_size - font_size) - 10, number)
 
-    c.setFont(font_name, font_size)
+    # draw units
+    c.setFont("Roboto-Medium", font_size)
+    c.setFillColor(text_color)
     c.drawString(
         x + number_width + 5,
         y - 26,
@@ -1183,7 +1181,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
 
         x += spacing_between_stats
 
-    c.setStrokeColor(background_text_color)
+    c.setStrokeColor(container_color)
     c.setLineWidth(0.5)
     c.line(left_margin, y - 55, page_width - left_margin + 5, y - 55)
 
