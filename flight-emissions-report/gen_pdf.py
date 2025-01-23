@@ -1697,7 +1697,9 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     )
     current_y = draw_text_block(
         c=c,
-        text=f"""These ten OD pairs are responsible for 63% of {data['airline_name']}'s total contrail warming.  The most warming OD pairs are often very long flights where the majority of the journey takes place in the dark, when contrails are most warming.""",
+        text=f"These ten OD pairs are responsible for 63% of {data['airline_name']}'s "
+        f"total contrail warming. The most warming OD pairs are often very long flights "
+        f"where the majority of the journey takes place in the dark, when contrails are most warming.",
         x=left_margin + horizontal_spacing,
         y=current_y + header_offset,
         font_size=container_text_font_size,
@@ -1789,10 +1791,10 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
 
     draw_text_block(
         c=c,
-        text=f"""The light yellow color shows the observation area, and dark yellow indicates 
-        verified contrail formation from satellite imagery within the observation area. 
-        The light blue areas indicate where contrails are predicted to appear. 
-        \n \n This is from flight {case_study_title_str}.""",
+        text=f"The light yellow color shows the observation area, and dark yellow indicates "
+        f"verified contrail formation from satellite imagery within the observation area. "
+        f"The light blue areas indicate where contrails are predicted to appear. "
+        f"This is from flight {case_study_title_str}.",
         x=left_margin + horizontal_spacing,
         y=current_y + header_offset,
         font_size=container_text_font_size,
@@ -1816,16 +1818,42 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         font_size=container_title_font_size,
     )
 
-    current_x = left_margin + horizontal_spacing
-    y = current_y
+    # current_x = left_margin + horizontal_spacing
+    # y = current_y
 
     # First paragraph
-    first_text = "Some flight planning software providers, like "
+    first_text = (
+        "Some flight planning software providers, like Flightkeys and CAE, "
+        "have implemented contrail avoidance in their flight planning tools "
+        "(or are about to). \n\n\n\n In 2023, American Airlines, Google Research, "
+        "and Breakthrough Energy conducted a trial in which they avoided 54% of contrail "
+        "kilometers by flying under the contrail prone areas. \n\n\n\n In 2024, an extensive "
+        "study of over 84,000 flights showed that, theoretically, it was possible to "
+        "eliminate 73% of the contrail warming from these flights by spending "
+        "0.11% more jet fuel to adjust some of the flight paths. \n\n\n\n "
+        "See where contrails are forming right now on the world map of contrails (https://map.contrails.org). "
+        "The warming impact is often lower in the summer time and higher in the darker months. "
+        "This is because contrail clouds that persist in the dark are the most warming. "
+        "\n\n\n\n Explore the map and read more about contrails at https://contrails.org and https://sites.research/google/contrails/"
+    )
+
+    current_y = draw_text_block(
+        c=c,
+        text=first_text,
+        x=left_margin + horizontal_spacing,
+        y=current_y + header_offset,
+        width=515,
+    )
+
+    """
+    
+    # contrails.org
+    # https://sites.research.google/contrails/
+    
     width = add_plain_text(
         c, first_text, current_x, y + header_offset, font_size=container_text_font_size
     )
     current_x += width
-
     width = add_text_with_link(
         c, "Flight Keys", "https://www.flightkeys.com", current_x, y + header_offset
     )
@@ -1964,7 +1992,7 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
     current_x += width
 
     add_plain_text(c, ".", current_x, y)
-
+"""
     return c
 
 
