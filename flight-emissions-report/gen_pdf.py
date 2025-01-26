@@ -1826,15 +1826,17 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         "Some flight planning software providers, like Flightkeys and CAE, "
         "have implemented contrail avoidance in their flight planning tools "
         "(or are about to). \n\n\n\n In 2023, American Airlines, Google Research, "
-        "and Breakthrough Energy conducted a trial in which they avoided 54% of contrail "
+        "and Breakthrough Energy conducted a trial (https://pub.contrails.org/guardian2023) "
+        "in which they avoided 54% of contrail "
         "kilometers by flying under the contrail prone areas. \n\n\n\n In 2024, an extensive "
-        "study of over 84,000 flights showed that, theoretically, it was possible to "
+        "study (https://pub.contrails.org/frias032024rg) of over 84,000 flights showed that, "
+        "theoretically, it was possible to "
         "eliminate 73% of the contrail warming from these flights by spending "
         "0.11% more jet fuel to adjust some of the flight paths. \n\n\n\n "
         "See where contrails are forming right now on the world map of contrails (https://map.contrails.org). "
         "The warming impact is often lower in the summer time and higher in the darker months. "
         "This is because contrail clouds that persist in the dark are the most warming. "
-        "\n\n\n\n Explore the map and read more about contrails at https://contrails.org and https://sites.research/google/contrails/"
+        "\n\n\n\n Explore the map and read more about contrails at https://contrails.org and https://sites.research.google/contrails/"
     )
 
     current_y = draw_text_block(
@@ -2020,8 +2022,19 @@ def create_page_five(c: Any, data: Dict[str, Any]) -> Any:
         width=490,
         height=345,
     )
-    # TODO: Make dynamic.
-    description = """Satellite observations of contrails can validate our results. We use machine learning to identify contrails in satellite images and match them to flight tracks. Once we know how many kilometers of contrails have formed we multiply this by a warming per kilometer obtained by averaging many pycontrails simulations. In the image below the blue lines represent detected contrails and the orange line is where we expect contrails to form for a target flight. \n\n\n\n In 2024 our reporting is based on the GOES satellites which cover the Americas, but starting in 2025 the Meteosat Third Generation satellite will enable European coverage."""
+    description = (
+        "Satellite observations of contrails can validate our results. "
+        "We use machine learning to identify contrails in satellite images "
+        "(https://pub.contrails.org/ng2024ieee) and match them to flight tracks "
+        "(https://pub.contrails.org/geraedts012024er). Once we know how many kilometers "
+        "of contrails have formed we multiply this by a warming per kilometer obtained "
+        "by averaging many pycontrails simulations (https://pub.contrails.org/platt092024er). "
+        "In the image below the blue lines represent detected contrails and the orange "
+        "line is where we expect contrails to form for a target flight. \n\n\n\n "
+        "In 2024 our reporting is based on the GOES satellites which cover the Americas, "
+        "but starting in 2025 the Meteosat Third Generation satellite will "
+        "enable European coverage."
+    )
     _ = draw_text_block(
         c=c,
         text=description,
