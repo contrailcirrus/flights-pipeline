@@ -12,6 +12,6 @@ NAT_TRACK_API_URL = os.environ.get(
 )  # e.g. https://api.contrails.org/internal/nat/track
 BQ_TABLE_ID = os.environ.get(
     "BQ_TABLE_ID"
-)  # e.g. contrails-301217.flights_pipeline_dev.nat_tracks_dev
+)  # e.g. contrails-301217.flights_pipeline_prod.nat_tracks_prod
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
