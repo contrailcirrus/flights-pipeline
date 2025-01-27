@@ -7,4 +7,6 @@ Required environment variables should be imported first, followed by optional en
 
 import os
 
+NAT_TRACK_API_URL = os.environ.get("NAT_TRACK_API_URL")
+
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
