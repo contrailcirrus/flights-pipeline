@@ -1,0 +1,20 @@
+[
+  {
+    "name": "waypoint_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "identifier provided to NAT track waypoints"
+  },
+    {
+    "name": "updated_at",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "NOTAMS reported update time"
+  },
+  {
+    "name": "nat",
+    "type": "GEOGRAPHY",
+    "mode": "REQUIRED",
+    "description": "NAT track geo object for the given reporting time (either waypoint or track linestring"
+  }
+]

@@ -13,6 +13,10 @@ graph
 
     %% services/processes
     spire_api(Spire API)
+    
+    contrails_api(Contrails API)
+    get_internal_nat_track[internal.nat.track]:::operationStyle
+    
     subgraph k8s_1[Kubernetes]
         spire_ingest_api_scraper(cron: spire-ingest-api-scraper)
     end
@@ -42,6 +46,10 @@ graph
         psdb_proxy_svc(svc: psdb-flight-emissions-report-proxy)
     end
     style k8s_7 fill:#C88908
+    subgraph k8s_8[Kubernetes]
+        nat_track_cacher(cron: nat-track-cacher)
+    end
+    style k8s_8 fill:#C88908
     subgraph redis1[Redis]
         resample_worker_cache(resample-worker-cache)
         twjf_cache(trajectory-worker-job-factory-cache)
@@ -101,6 +109,10 @@ graph
         trajectory_cocip_tb(table: trajectory-cocip)
     end
     style bigquery3 fill:#f030d9
+    subgraph bigquery4[BigQuery]
+        nat_tracks_db(table: nat-tracks)
+    end
+    style bigquery4 fill:#f030d9
     subgraph fer_cli[CLI: Flight Emissions Report]
         jobworker_submit(cli: jobworker submit)
         flights_reinject(cli: flights reinject)
@@ -182,4 +194,7 @@ graph
     trajectory_cocip_tb --> fer_cache_cron
     fer_cache_cron --> psdb_proxy_svc
     
+    contrails_api -.- get_internal_nat_track
+    get_internal_nat_track -.- nat_track_cacher
+    nat_track_cacher --> nat_tracks_db
 ```
