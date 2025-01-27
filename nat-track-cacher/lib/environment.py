@@ -7,6 +7,11 @@ Required environment variables should be imported first, followed by optional en
 
 import os
 
-NAT_TRACK_API_URL = os.environ.get("NAT_TRACK_API_URL")
+NAT_TRACK_API_URL = os.environ.get(
+    "NAT_TRACK_API_URL"
+)  # e.g. https://api.contrails.org/internal/nat/track
+BQ_TABLE_ID = os.environ.get(
+    "BQ_TABLE_ID"
+)  # e.g. contrails-301217.flights_pipeline_dev.nat_tracks_dev
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")

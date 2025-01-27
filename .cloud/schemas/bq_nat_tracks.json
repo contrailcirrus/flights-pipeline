@@ -1,4 +1,10 @@
 [
+  {
+    "name": "waypoint_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "identifier provided to NAT track waypoints"
+  },
     {
     "name": "updated_at",
     "type": "TIMESTAMP",
