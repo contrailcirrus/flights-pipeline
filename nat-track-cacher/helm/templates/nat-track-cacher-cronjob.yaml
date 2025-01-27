@@ -26,7 +26,7 @@ spec:
                 - name: NAT_TRACK_API_URL
                   value: {{ .Values.natTrackApiUrl | required ".Values.natTrackApiUrl is required" | quote }}
                 - name: BQ_TABLE_ID
-                  value: { { .Values.bqTableId | required ".Values.bqTableId is required" | quote } }
+                  value: {{ .Values.bqTableId | required ".Values.bqTableId is required" | quote }}
               resources:
                 requests:
                   cpu: "0.5"
