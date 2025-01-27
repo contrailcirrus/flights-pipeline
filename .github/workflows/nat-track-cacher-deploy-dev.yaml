@@ -3,7 +3,7 @@ name: nat-track-cacher-deploy-dev
 on:
   push:
     branches:
-      - main
+      - develop
     paths:
       - nat-track-cacher/**
       - .github/workflows/nat-track-cacher-deploy-dev.yaml
