@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: nat-track-cacher
 spec:
-  schedule: "*/5 * * * *"
+  schedule: "0 */6 * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 60
   suspend: {{ .Values.suspendCronjob | required ".Values.suspendCronjob is required" }}
