@@ -552,8 +552,11 @@ class FlightsReportFetchSvc(BaseSvc):
             ]
         )
         summary_df: pd.DataFrame = self._bq_handler.query(summary_query, cfg)
+        logger.info("📨 received summary data from BigQuery. Augmenting dataset...")
         summary_df = self.augment_summary_df(summary_df)
+        logger.info("🙌 finished augmenting dataset.")
         if self._goog_handler:
+            logger.info("🎨 ...merging with Google dataset.")
             summary_df = pd.merge(
                 summary_df,
                 self._goog_handler.df_summary,
@@ -597,6 +600,7 @@ class FlightsReportFetchSvc(BaseSvc):
                     ),
                 ]
             )
+            logger.info("🐶  fetching case study flight data.")
             case_studies_df: pd.DataFrame = self._bq_handler.query(  # noqa: F841
                 case_studies_query, cfg
             )
@@ -629,6 +633,7 @@ class FlightsReportFetchSvc(BaseSvc):
                                 df["time_end"] <= period_end_utc
                             )
                             df.loc[slice, "goog_is_attributed"] = True
+                logger.info("✅ finished processing case study flight data.")
                 case_study_dfs.append(df)
 
         # -----------------
