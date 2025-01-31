@@ -9,7 +9,7 @@ import pandas as pd
 import warnings
 from typing import Any, Callable, List
 
-from helpers import lookup_airport_iata_to_icao
+from helpers import airport_iata_to_icao_lookup
 from log import logger, format_traceback
 
 warnings.filterwarnings("ignore", module="google.auth")
@@ -327,14 +327,15 @@ class GoogDatasetHandler:
         "climatology_ef": "eef_tj",
     }
 
-    def __init__(self, csv_fp: str):
+    def __init__(self, parquet_fp: str):
         """
         Parameters
         ----------
-        csv_fp
-            The filepath for a csv containing the Google dataset.
+        parquet_fp
+            The filepath for a parquet file containing the Google dataset for the given airline.
         """
-        self._goog_df = pd.read_csv(csv_fp)
+        self._goog_df = pd.read_parquet(parquet_fp)
+        logger.info("Google dataset loaded from file. 💆 massaging data...")
         self._goog_df.rename(columns=self.COL_MAP, inplace=True)
         self._goog_df["departure_date_local"] = pd.to_datetime(
             self._goog_df["departure_date_local"]
@@ -349,15 +350,18 @@ class GoogDatasetHandler:
             unit="s",
             utc=True,
         )
-        self._goog_df = self.add_airport_icao(self._goog_df)
+        self.add_airport_icao(self._goog_df)
 
-        # add composite ID to join into our dataset
+        # add airport iata based composite ID to join into our dataset
         self._goog_df["google_flight_id"] = self._goog_df.apply(
             lambda row: f"{int(row['departure_date_local'].timestamp())}_"
             f"{row['origin_airport_icao']}_"
             f"{row['destination_airport_icao']}_"
             f"{row['flight_number']}",
             axis=1,
+        )
+        logger.info(
+            "♨️ done massaging Google data. creating google summary/agg dataset."
         )
 
         # add summary_df (summary per-flight basis)
@@ -368,29 +372,26 @@ class GoogDatasetHandler:
             ["attributed_contrail_length_km", "eef_tj"]
         ].sum()
         self._goog_df_summary.reset_index(inplace=True)
+        logger.info("📊 done creating google summary/agg dataset.")
 
     @staticmethod
-    def add_airport_icao(df: pd.DataFrame) -> pd.DataFrame:
+    def add_airport_icao(df: pd.DataFrame):
         """
         Given a pandas dataframe with columns:
          - origin_airport_iata
          - destination_airport_iata
 
-         Return a dataframe, matching the input dataframe, but with additional columns:
+         Add additional columns:
          - origin_airport_icao
          - destination_airport_icao
         """
 
-        df_cp = df.copy(deep=True)
-        df_cp.loc[:, "origin_airport_icao"] = df_cp.apply(
-            lambda row: lookup_airport_iata_to_icao(row["origin_airport_iata"]),
-            axis=1,
+        df.loc[:, "origin_airport_icao"] = df["origin_airport_iata"].apply(
+            lambda k: airport_iata_to_icao_lookup.get(k),
         )
-        df_cp.loc[:, "destination_airport_icao"] = df_cp.apply(
-            lambda row: lookup_airport_iata_to_icao(row["destination_airport_iata"]),
-            axis=1,
+        df.loc[:, "destination_airport_icao"] = df["origin_airport_iata"].apply(
+            lambda k: airport_iata_to_icao_lookup.get(k),
         )
-        return df_cp
 
     @property
     def df(self) -> pd.DataFrame:

@@ -23,7 +23,7 @@ from schemas import (
     TrajectoryWorkerJobDescriptor,
 )
 from log import logger
-from helpers import lookup_airport_icao_to_iata
+from helpers import airport_icao_to_iata_lookup
 
 
 class BaseSvc(ABC):
@@ -460,10 +460,10 @@ class FlightsReportFetchSvc(BaseSvc):
         df.loc[:, "time_start_local_date"] = pd.to_datetime(df["time_start_local_date"])
 
         df.loc[:, "departure_airport_iata"] = df.departure_airport_icao.apply(
-            lambda airport_icao: lookup_airport_icao_to_iata(airport_icao)
+            lambda airport_icao: airport_icao_to_iata_lookup.get(airport_icao)
         )
         df.loc[:, "arrival_airport_iata"] = df.arrival_airport_icao.apply(
-            lambda airport_icao: lookup_airport_icao_to_iata(airport_icao)
+            lambda airport_icao: airport_icao_to_iata_lookup.get(airport_icao)
         )
 
         df.loc[:, "airport_icao_od"] = df.apply(
@@ -912,7 +912,7 @@ class FlightsReportFetchSvc(BaseSvc):
             # -----------------
             if self._goog_handler:
                 self._goog_handler.df.to_csv(
-                    f"out/{self._airline}/data_all_external.csv",
+                    f"out/{self._airline}/google_dataset.csv",
                     index=False,
                 )
 
