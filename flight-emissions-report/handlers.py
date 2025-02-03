@@ -389,7 +389,7 @@ class GoogDatasetHandler:
         df.loc[:, "origin_airport_icao"] = df["origin_airport_iata"].apply(
             lambda k: airport_iata_to_icao_lookup.get(k),
         )
-        df.loc[:, "destination_airport_icao"] = df["origin_airport_iata"].apply(
+        df.loc[:, "destination_airport_icao"] = df["destination_airport_iata"].apply(
             lambda k: airport_iata_to_icao_lookup.get(k),
         )
 
