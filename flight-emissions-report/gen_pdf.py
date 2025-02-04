@@ -1228,8 +1228,6 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     c.line(midpoint_x, y - 55, midpoint_x, y - 297)
 
     # Pie chart
-    # TODO: Comment from Joachim: Also, the lower bar should be 10.4% of the upper bar - corresponding to the value in the circle to the left, correct?
-    # The image is currently a bit confusing because the title and plot are in reference to percent of flights, whereas the stat in the middle is about percent of flight *distance*
     c.drawImage(
         data["data_path"] + "/figs/fig_contrail_warming_percentage.png",
         x=60,
