@@ -487,6 +487,10 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
 
+    biggest_bar = top_ods_by_net_co2e[0]["co2e50_metric_tons"]
+    x_label_spacing = round(biggest_bar // 5, -2)
+    x_minor_tick_spacing = biggest_bar // 15
+
     night_co2e_grp = [
         int(
             itm["co2e50_metric_tons"] * min(itm["percentage_nighttime_co2e"], 100) / 100
@@ -519,11 +523,12 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
     )
 
     max_co2e = max([int(itm["co2e50_metric_tons"]) for itm in top_ods_by_net_co2e])
-    x_range = list(np.arange(0, max_co2e + 5000, 5000))
-    x_range_labels = [f"{i:,}t CO2e" for i in x_range]
+    x_range = list(np.arange(0, max_co2e + 1.2 * x_minor_tick_spacing, x_label_spacing))
+    x_range_labels = [f"{i:,.0f}t CO2e" for i in x_range]
     ax.set_xticks(x_range, labels=x_range_labels)
+    ax.set_xlim(min(x_range), max(x_range))
 
-    ax.xaxis.set_minor_locator(MultipleLocator(1000))
+    ax.xaxis.set_minor_locator(MultipleLocator(x_minor_tick_spacing))
     ax.grid(
         axis="x",
         which="minor",
@@ -631,6 +636,10 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
 
+    biggest_bar = top_ods_by_impact_density[0]["co2e50_metric_tons"]
+    x_label_spacing = biggest_bar // 5
+    x_minor_tick_spacing = biggest_bar // 15
+
     impact_kgco2e_per_km = [
         int(itm["impact_density_co2e_metric_tons_per_dist_km"] * 1000)
         for itm in top_ods_by_impact_density
@@ -651,11 +660,12 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
     bars = ax.barh(grp_names, impact_kgco2e_per_km, color="#2C2857", zorder=2)
 
     max_x = max([int(itm) for itm in impact_kgco2e_per_km])
-    x_range = list(np.arange(0, max_x + 20, 10))
-    x_range_labels = [f"{i:,}kg CO2e/km" for i in x_range]
+    x_range = list(np.arange(0, max_x + 1.2 * x_minor_tick_spacing, x_label_spacing))
+    x_range_labels = [f"{i:,.0f}kg CO2e/km" for i in x_range]
     ax.set_xticks(x_range, labels=x_range_labels)
+    ax.set_xlim(min(x_range), max(x_range))
 
-    ax.xaxis.set_minor_locator(MultipleLocator(2))
+    ax.xaxis.set_minor_locator(MultipleLocator(x_minor_tick_spacing))
     ax.grid(
         axis="x",
         which="minor",
@@ -902,11 +912,52 @@ def register_fonts() -> None:
     )
 
 
-def format_number(n: int) -> str:
-    if n >= 1_000_000:
-        return f"{n/1_000_000:,.1f}M"
+def format_number(n: int, thsds=None, short: bool = False) -> str:
+    """
+    String format with logic for thousands place suffixes.
+
+    If thsds is provided, then use as the indicator for the formatting.
+    If not, then infer based on size of n.
+
+    Parameters
+    ----------
+    n
+        value to format
+    thsds
+        thousands place to use in formatting.
+        1 ... thousands place
+        2 ... millions place
+        3 ... billions place
+    short
+        If true, then don't return decimal places
+    """
+    place = None
+    if thsds == 1:
+        place = "thousand"
+    elif thsds == 2:
+        place = "million"
+    elif thsds == 3:
+        place = "billion"
+    elif n >= 1_000_000_000:
+        place = "billion"
+    elif n >= 1_000_000:
+        place = "million"
     elif n >= 1000:
-        return f"{n/1000:,.0f}k"
+        place = "thousand"
+
+    if place == "billion":
+        if short:
+            return f"{n / 1_000_000_000:,.0f}M"
+        return f"{n/1_000_000_000:,.1f}M"
+    elif place == "million":
+        if short:
+            return f"{n / 1_000_000:,.0f}M"
+        return f"{n/1_000_000:,.1f}M"
+    elif place == "thousand":
+        if short:
+            return f"{n/1000:,.0f}k"
+        return f"{n / 1000:,.1f}k"
+
     return f"{n:,}"
 
 
@@ -1167,7 +1218,7 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         font_name="Roboto",
         font_size=container_title_font_size,
     )
-    stats_text = f"""Based on our prediction model, {round(data['flight_distance_km']['with_contrails']['is_warming']['total'], -3):,} km or {data['percentages']['flight_distance_with_warming_contrails']}% of all {airline_name} flights generated warming contrails in 2024."""
+    stats_text = f"""Based on our prediction model, {format_number(data['flight_distance_km']['with_contrails']['is_warming']['total'])} km or {data['percentages']['flight_distance_with_warming_contrails']}% of all {airline_name} flights generated warming contrails in 2024."""
     current_y = draw_text_block(
         c=c,
         text=stats_text,
@@ -1179,19 +1230,21 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
 
     stats_data = {
         "# of Flights": {
-            "value": f"{data['count_flights']['total']:,}",
+            "value": format_number(data["count_flights"]["total"]),
             "unit": "flights",
         },
         "Flight hours": {
-            "value": f"{data['flight_hours']['total']:,}",
+            "value": format_number(data["flight_hours"]["total"]),
             "unit": "hours",
         },
         "Contrails (GWP 50)": {
-            "value": f"{format_number(data['co2e_metric_tons']['gwp50']['total'])}",
+            "value": format_number(
+                data["co2e_metric_tons"]["gwp50"]["total"], short=True
+            ),
             "unit": "tonnes CO2e",
         },
         "Fuel Burn": {
-            "value": f"{format_number(data['co2_metric_tons']['total'])}",
+            "value": format_number(data["co2_metric_tons"]["total"], short=True),
             "unit": "tonnes CO2",
         },
     }
@@ -1358,15 +1411,17 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
             "unit": "flights",
         },
         "Flight distance": {
-            "value": f"{data['flight_distance_km']['in_eu']:,}",
+            "value": format_number(data["flight_distance_km"]["in_eu"]),
             "unit": "km",
         },
         "Contrails (GWP 50)": {
-            "value": f"{format_number(data['co2e_metric_tons']['gwp50']['in_eu'])}",
+            "value": format_number(
+                data["co2e_metric_tons"]["gwp50"]["in_eu"], short=True
+            ),
             "unit": "tonnes CO2e",
         },
         "Fuel burn": {
-            "value": f"{format_number(data['co2_metric_tons']['total'])}",
+            "value": format_number(data["co2_metric_tons"]["total"]),
             "unit": "tonnes CO2",
         },
     }
@@ -1583,7 +1638,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     draw_stat_for_plots(
         c,
         key="Fuel emissions (tonnes CO2)",
-        number=format_number(data["co2_metric_tons"]["total"]),
+        number=format_number(data["co2_metric_tons"]["total"], short=True),
         unit=f"({fuel_percent_of_total:.0f}%)",
         x=fuel_x,
         y=700,
@@ -1593,7 +1648,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     draw_stat_for_plots(
         c,
         key="Contrails (tonnes CO2e)",
-        number=format_number(data["co2e_metric_tons"]["gwp50"]["total"]),
+        number=format_number(data["co2e_metric_tons"]["gwp50"]["total"], short=True),
         unit=f"({contrail_percent_of_total:.0f}%)",
         x=contrail_x,
         y=700,
@@ -1664,7 +1719,9 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     draw_stat_for_plots(
         c,
         key="Nighttime (tonnes CO2e)",
-        number=format_number(data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]),
+        number=format_number(
+            data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"], short=True
+        ),
         unit=f"({nighttime_percent_of_total:.0f}%)",
         x=nighttime_x - 2,
         y=current_y - vertical_spacing * 2.4,
@@ -1674,7 +1731,9 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     draw_stat_for_plots(
         c,
         key="Daytime (tonnes CO2e)",
-        number=format_number(data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]),
+        number=format_number(
+            data["co2e_metric_tons"]["gwp50"]["daytime"]["total"], short=True
+        ),
         unit=f"({daytime_percent_of_total:.0f}%)",
         x=daytime_x,
         y=current_y - vertical_spacing * 2.4,
