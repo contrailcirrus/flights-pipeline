@@ -308,13 +308,13 @@ class TrajectoryBuilderSvc:
                 self._traj_heal_handler.unset()
             except BadTrajectoryException as e:
                 logger.warning(
-                    f"airline_iata: {twjd.airline_iata}. "
+                    f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                     f"skipping {flight_id}. failed to process in healing step: {e}"
                 )
                 continue
             except Exception as e:
                 logger.error(
-                    f"airline_iata: {twjd.airline_iata}. "
+                    f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                     f"skipping {flight_id}. failed to process in healing step: {e}"
                 )
                 continue
@@ -377,7 +377,7 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
-                    f"airline_iata: {twjd.airline_iata}. "
+                    f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                     f"skipping {flight_id}. failed to resample flight instance. error: {e}"
                 )
                 continue
@@ -414,13 +414,13 @@ class TrajectoryBuilderSvc:
                 self._traj_heal_handler.unset()
             except BadTrajectoryException as e:
                 logger.warning(
-                    f"airline_iata: {twjd.airline_iata}. "
+                    f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                     f"skipping {flight_id}. bad trajectory post resampling. error: {e}"
                 )
                 continue
             except Exception as e:
                 logger.error(
-                    f"airline_iata: {twjd.airline_iata}. "
+                    f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                     f"skipping {flight_id}. failed to run heal handler post resampling. error: {e}"
                 )
                 continue
@@ -446,14 +446,14 @@ class TrajectoryBuilderSvc:
                 )
                 if violations and len(violations) > 0:
                     logger.warning(
-                        f"airline_iata: {twjd.airline_iata}. "
+                        f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                         f"skipping {flight_id}. invalid flight instance. "
                         f" violations: {violations}"
                     )
                     continue
             except BadTrajectoryException as e:
                 logger.warning(
-                    f"airline_iata: {twjd.airline_iata}. "
+                    f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                     f"skipping {flight_id}. "
                     f"received bad trajectory in trajectory validation handler. "
                     f" {e}"
@@ -461,7 +461,7 @@ class TrajectoryBuilderSvc:
                 continue
             except Exception as e:
                 logger.error(
-                    f"airline_iata: {twjd.airline_iata}. "
+                    f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                     f"skipping {flight_id}. failed to run trajectory validation handler. "
                     f" {e}"
                 )
@@ -499,7 +499,7 @@ class TrajectoryBuilderSvc:
                         )
             except Exception as e:
                 logger.error(
-                    f"airline_iata: {twjd.airline_iata}. "
+                    f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
                     f"skipping {flight_id}. failed to build and submit job for flight instance. "
                     f"error: {e}"
                 )
