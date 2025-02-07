@@ -575,7 +575,7 @@ resource "google_monitoring_alert_policy" "k8scron_nat_track_cacher_prod_error_i
         resource.type="k8s_container"
         resource.labels.cluster_name="contrails-gke-general"
         resource.labels.namespace_name="flights-pipeline-prod"
-        labels.k8s-pod/app="nat-track-cacher"
+        labels.k8s-pod/job-name:"nat-track-cacher"
         severity>=ERROR
         EOF
     }

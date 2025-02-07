@@ -16,6 +16,8 @@ if __name__ == "__main__":
 
         # fetch geoJSON blob from API
         resp = requests.get(env.NAT_TRACK_API_URL)
+        if resp.status_code != 200:
+            raise Exception("failed to fetch from NAT track contrails API.")
         geojson_blob = resp.json()
 
         # write features to BigQuery

@@ -60,6 +60,6 @@ jobs:
           NAMESPACE: flights-pipeline-prod
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/nat-track-cacher-prod:${{ github.sha }}
           LOG_LEVEL: INFO
-          NAT_TRACK_API_URL: "https://api.contrails.org/internal/nat/track"
+          NAT_TRACK_API_URL: "https://api.contrails.org/v1/nat/track"
           BQ_TABLE_ID: "contrails-301217.flights_pipeline_prod.nat_tracks_prod"
           SUSPEND_CRONJOB: false
