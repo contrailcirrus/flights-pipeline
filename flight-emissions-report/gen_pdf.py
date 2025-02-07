@@ -6,6 +6,7 @@ Generate a PDF report to match the google designed flight report template.
 
 import argparse
 import os
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -49,6 +50,16 @@ line_spacing = 10
 text_width = 520
 
 fig_legend_text_size = 16
+
+
+@dataclass
+class FigureData:
+    # metric tons of CO2e (gwp50) for the OD pairs chosen in the net CO2e OD pair plot
+    net_od_pair_co2e: float
+    # metric tons of CO2e (gwp50) for the OD pairs chosen in the impact density CO2e OD pair plot
+    impact_density_od_pair_co2e: float
+    # kilometers flown across the impact density OD pair flights
+    impact_density_od_pair_km: float
 
 
 def _gen_pie_fig(summary_json_fp: str, out_path: str):
@@ -460,7 +471,22 @@ def _gen_daytime_nighttime_bar_fig(summary_json_fp: str, out_path: str):
     plt.savefig(f"{out_path}/fig_contrail_warming_daytime_vs_nighttime.png")
 
 
-def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
+def _gen_od_bar_figs(
+    summary_json_fp: str, out_path: str, min_flight_count: int = 52
+) -> tuple[float, float, float]:
+    """
+    Generate OD pair plots.
+
+    (1) highest net CO2e for a given OD pair
+    (2) highest CO2e per km flown for a given OD pair
+
+    Returns
+    -------
+    (float, float, float)
+        First value is the total CO2e gwp 50 metric tons, for the top OD pairs in the first plot
+        Second value is the same, for the second plot
+        Third value is the sum of km flown for the impact density OD pair flights
+    """
     with open(summary_json_fp, "r") as fp:
         summary_json = json.load(fp)
 
@@ -473,6 +499,8 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
         d = od.split("_")[0]
         if o == "None" or d == "None":
             continue
+        if itm["flight_count"] < min_flight_count:
+            continue
         od_pruned.append(itm)
 
     # ----------------------------------
@@ -481,7 +509,9 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
     od_pruned.sort(key=lambda itm: itm["co2e50_metric_tons"], reverse=True)
 
     top_ods_by_net_co2e = od_pruned[:10]
-
+    net_ods_total_co2e_gwp50_metric_tons = sum(
+        [od["co2e50_metric_tons"] for od in top_ods_by_net_co2e]
+    )
     fig_w = 9  # inch
     fig_h = 4  # inch
     fig = plt.figure()
@@ -632,13 +662,14 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
         reverse=True,
     )
     top_ods_by_impact_density = od_pruned[:10]
+    print(top_ods_by_impact_density)
 
+    density_ods_total_co2e_gwp50_metric_tons = sum(
+        [od["co2e50_metric_tons"] for od in top_ods_by_impact_density]
+    )
+    density_ods_total_km = sum([od["tot_dist_km"] for od in top_ods_by_impact_density])
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
-
-    biggest_bar = top_ods_by_impact_density[0]["co2e50_metric_tons"]
-    x_label_spacing = biggest_bar // 5
-    x_minor_tick_spacing = biggest_bar // 15
 
     impact_kgco2e_per_km = [
         int(itm["impact_density_co2e_metric_tons_per_dist_km"] * 1000)
@@ -656,10 +687,14 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
     flight_count.reverse()
     flight_dist_km.reverse()
     grp_names.reverse()
+
     # Plot the stacked bars
     bars = ax.barh(grp_names, impact_kgco2e_per_km, color="#2C2857", zorder=2)
 
     max_x = max([int(itm) for itm in impact_kgco2e_per_km])
+    x_label_spacing = max_x // 5
+    x_minor_tick_spacing = max_x // 15
+
     x_range = list(np.arange(0, max_x + 1.2 * x_minor_tick_spacing, x_label_spacing))
     x_range_labels = [f"{i:,.0f}kg CO2e/km" for i in x_range]
     ax.set_xticks(x_range, labels=x_range_labels)
@@ -745,6 +780,12 @@ def _gen_od_bar_figs(summary_json_fp: str, out_path: str):
     ax.figure.set_size_inches(figw, figh)
 
     plt.savefig(f"{out_path}/fig_od_by_impact_density.png")
+
+    return (
+        net_ods_total_co2e_gwp50_metric_tons,
+        density_ods_total_co2e_gwp50_metric_tons,
+        density_ods_total_km,
+    )
 
 
 def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
@@ -1582,7 +1623,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
     )
 
 
-def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
+def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any:
     """Generate the third page of the report"""
 
     c.setFillColor(background_text_color)
@@ -1745,8 +1786,8 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         data["data_path"] + "/figs/fig_od_by_net_co2e.png",
         x=10,
         y=85,
-        width=580,
-        height=259,
+        width=580 * 0.96,
+        height=259 * 0.96,
     )
     current_y = draw_text_block(
         c=c,
@@ -1755,11 +1796,17 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
         y=370,
         font_size=container_title_font_size,
     )
+
+    co2e_metric_tons_net_ods = fig_data.net_od_pair_co2e
+    net_ods_co2e_percentage = (
+        co2e_metric_tons_net_ods / data["co2e_metric_tons"]["gwp50"]["total"] * 100
+    )
     current_y = draw_text_block(
         c=c,
-        text=f"These ten OD pairs are responsible for 63% of {data['airline_name']}'s "
-        f"total contrail warming. The most warming OD pairs are often very long flights "
-        f"where the majority of the journey takes place in the dark, when contrails are most warming.",
+        text=f"These ten OD pairs are responsible for {net_ods_co2e_percentage:.1f}% of {data['airline_name']}'s "
+        f"total contrail warming. The most warming OD pairs for an airline are often very long flights "
+        f"where most of the journey takes place in the dark when contrails are most warming, "
+        f"and/or longer OD pairs that an airline services several times daily.",
         x=left_margin + horizontal_spacing,
         y=current_y + header_offset,
         font_size=container_text_font_size,
@@ -1775,7 +1822,7 @@ def create_page_three(c: Any, data: Dict[str, Any]) -> Any:
     return c
 
 
-def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
+def create_page_four(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any:
     """Generate the fourth page of the report"""
 
     c.setFillColor(background_text_color)
@@ -1796,10 +1843,17 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         data["data_path"] + "/figs/fig_od_by_impact_density.png",
         x=10,
         y=473,
-        width=1161 * 0.5,
-        height=519 * 0.5,
+        width=580 * 0.96,
+        height=259 * 0.96,
     )
-    description = """The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example, the North Atlantic) at night when contrails are most warming.  The average carbon dioxide emissions for all flights were 21 kg CO2 / km.  For the OD pair with the highest contrail warming per kilometer, the CO2 emissions were 49 kg CO2e/km - or 2.3 times the average warming from the CO2 alone."""
+
+    all_flights_fuel_co2_kg_per_km = (
+        data["co2_metric_tons"]["total"] / data["flight_distance_km"]["total"] * 1000
+    )
+    impact_co2e_kg_per_km_ods = (
+        fig_data.impact_density_od_pair_co2e / fig_data.impact_density_od_pair_km * 1000
+    )
+    description = f"""The most warming OD pairs per flown kilometer are often flights that fly through contrail-prone zones (for example, the North Atlantic) at night when contrails are most warming.  The average carbon dioxide emissions (fuel burn) per kilometer for all flights was {all_flights_fuel_co2_kg_per_km:,.1f} kg CO2 / km.  For the top ten OD pairs with the highest contrail warming per kilometer, the CO2e GWP50 emissions per kilometer averaged {impact_co2e_kg_per_km_ods:,.1f} kg CO2e/km - or {(impact_co2e_kg_per_km_ods/all_flights_fuel_co2_kg_per_km):.1f} times the average warming from the CO2 alone."""
     current_y = draw_text_block(
         c=c,
         text=description,
@@ -1907,154 +1961,6 @@ def create_page_four(c: Any, data: Dict[str, Any]) -> Any:
         width=515,
     )
 
-    """
-    
-    # contrails.org
-    # https://sites.research.google/contrails/
-    
-    width = add_plain_text(
-        c, first_text, current_x, y + header_offset, font_size=container_text_font_size
-    )
-    current_x += width
-    width = add_text_with_link(
-        c, "Flight Keys", "https://www.flightkeys.com", current_x, y + header_offset
-    )
-    current_x += width
-
-    width = add_plain_text(c, " and ", current_x, y + header_offset)
-    current_x += width
-
-    width = add_text_with_link(
-        c,
-        "CAE",
-        "https://www.cae.com/civil-aviation/aviation-software/flight-operations-solutions/flight-management/",
-        current_x,
-        y + header_offset,
-    )
-    current_x += width
-
-    remaining_text = ", have implemented contrail avoidance in their flight planning tools (or are about to)."
-    lines = wrap_text(
-        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
-    )
-    for i, line in enumerate(lines):
-        if i == 0:
-            add_plain_text(c, line, current_x, y + header_offset)
-        else:
-            y -= line_spacing - header_offset
-            add_plain_text(c, line, left_margin + horizontal_spacing, y)
-
-    # Move to next paragraph with extra spacing to prevent overlap
-    y -= paragraph_spacing + line_spacing - header_offset
-
-    # Second paragraph
-    current_x = left_margin + horizontal_spacing
-    intro_text = "In 2023, American Airlines, Google Research, and Breakthrough Energy conducted a "
-    width = add_plain_text(c, intro_text, current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c,
-        "trial ",
-        "https://www.theguardian.com/environment/2023/aug/09/ai-helps-airline-pilots-avoid-areas-that-create-polluting-contrails",
-        current_x,
-        y,
-    )
-    current_x += width
-
-    remaining_text = " in which they avoided 54% of contrail kilometers by flying under contrail-prone areas."
-    lines = wrap_text(
-        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
-    )
-    for i, line in enumerate(lines):
-        if i == 0:
-            add_plain_text(c, line, current_x, y)
-        else:
-            y -= line_spacing
-            add_plain_text(c, line, left_margin + horizontal_spacing, y)
-
-    y -= paragraph_spacing + line_spacing
-
-    # Third paragraph
-    current_x = left_margin + horizontal_spacing
-    intro_text = "In 2024, an "
-    width = add_plain_text(c, intro_text, current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c,
-        "extensive study ",
-        "https://www.researchgate.net/publication/378811848_Feasibility_of_contrail_avoidance_in_a_commercial_flight_planning_system_an_operational_analysis",
-        current_x,
-        y,
-    )
-    current_x += width
-
-    remaining_text = " of over 84,000 flights showed that, theoretically, it was possible to eliminate 73% of the contrail warming from these flights by spending 0.11% more jet fuel to adjust some of the flight paths."
-    lines = wrap_text(
-        c, remaining_text, text_width - (current_x - (left_margin + horizontal_spacing))
-    )
-    for i, line in enumerate(lines):
-        if i == 0:
-            add_plain_text(c, line, current_x, y)
-        else:
-            y -= line_spacing
-            add_plain_text(c, line, left_margin + horizontal_spacing, y)
-
-    y -= paragraph_spacing + line_spacing
-
-    # Fourth paragraph
-    current_x = left_margin + horizontal_spacing
-    intro_text = "See where contrails are forming right now on this "
-    width = add_plain_text(c, intro_text, current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c, "world map of contrails", "https://map.contrails.org", current_x, y
-    )
-    current_x += width
-
-    add_plain_text(
-        c,
-        ".  The contrail warming impact is often lower in the summer time ",
-        current_x,
-        y,
-    )
-    current_x = left_margin + horizontal_spacing
-    y -= line_spacing
-    add_plain_text(
-        c,
-        "and higher in the darker months. This is because contrail clouds that persist in the dark are the most warming.",
-        current_x,
-        y,
-    )
-
-    # Sixth paragraph
-    y -= paragraph_spacing + line_spacing
-    current_x = left_margin + horizontal_spacing
-    intro_text = "Read more about contrails on "
-    width = add_plain_text(c, intro_text, current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c, "contrails.org", "https://contrails.org", current_x, y
-    )
-    current_x += width
-
-    width = add_plain_text(c, ", and ", current_x, y)
-    current_x += width
-
-    width = add_text_with_link(
-        c,
-        "sites.research.google/contrails/",
-        "https://sites.research.google/contrails/",
-        current_x,
-        y,
-    )
-    current_x += width
-
-    add_plain_text(c, ".", current_x, y)
-"""
     return c
 
 
@@ -2158,7 +2064,7 @@ def add_plain_text(c, text, x, y, font="Roboto", font_size=container_text_font_s
     return c.stringWidth(text, font, font_size)
 
 
-def generate_figs(data_path: str):
+def generate_figs(data_path: str) -> FigureData:
     """
     Generate the ensemble of figs needed for the pdf.
 
@@ -2166,6 +2072,11 @@ def generate_figs(data_path: str):
     ----------
     data_path
         fully qualified path to data files for a given airline.
+
+    Returns
+    ---------
+    FigureData
+        additional data generated during the figure gen.
     """
     fig_output_path = f"{data_path}/figs"
     summary_json_fp = f"{data_path}/data_summary.json"
@@ -2191,12 +2102,22 @@ def generate_figs(data_path: str):
     logger.info("pg3/4. generating CO2e nighttime/daytime bar.")
     _gen_daytime_nighttime_bar_fig(summary_json_fp, fig_output_path)
     logger.info("pg3/4. generating OD figs.")
-    _gen_od_bar_figs(summary_json_fp, fig_output_path)
+    sum_co2e_net_plot, sum_co2e_impact_plot, sum_km_impact_density = _gen_od_bar_figs(
+        summary_json_fp, fig_output_path
+    )
     logger.info("pg3/4. generating case study fig.")
     _gen_case_study_fig(data_case_study_fp, fig_output_path)
 
+    return FigureData(
+        net_od_pair_co2e=sum_co2e_net_plot,
+        impact_density_od_pair_co2e=sum_co2e_impact_plot,
+        impact_density_od_pair_km=sum_km_impact_density,
+    )
 
-def generate_pdf(output_path: str, data: Dict[str, Any], is_gridded: False) -> None:
+
+def generate_pdf(
+    output_path: str, data: Dict[str, Any], fig_data: FigureData, is_gridded: False
+) -> None:
     register_fonts()
 
     c = canvas.Canvas(output_path, pagesize=(page_width, page_height))
@@ -2216,13 +2137,13 @@ def generate_pdf(output_path: str, data: Dict[str, Any], is_gridded: False) -> N
     logger.info("generating pg3")
     if is_gridded:
         draw_grid(c, page_width, page_height)
-    create_page_three(c, data)
+    create_page_three(c, data, fig_data)
     c.showPage()
 
     logger.info("generating pg4")
     if is_gridded:
         draw_grid(c, page_width, page_height)
-    create_page_four(c, data)
+    create_page_four(c, data, fig_data)
     c.showPage()
 
     logger.info("generating pg5")
@@ -2254,7 +2175,8 @@ def main() -> None:
     args = parser.parse_args()
 
     # generate figures
-    generate_figs(args.data_path)
+    fig_data: FigureData
+    fig_data = generate_figs(args.data_path)
 
     # generate pdf
     data = load_data(json_path=args.data_path + "/data_summary.json")
@@ -2262,6 +2184,7 @@ def main() -> None:
     generate_pdf(
         output_path=args.data_path + "/flights_report.pdf",
         data=data,
+        fig_data=fig_data,
         is_gridded=args.grid,
     )
 
