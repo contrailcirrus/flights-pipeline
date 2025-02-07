@@ -28,6 +28,7 @@ resource "google_project_iam_custom_role" "flights_pipeline_role" {
     "storage.objects.list",
     "storage.objects.get",
     "bigquery.jobs.create",
+    "bigquery.tables.updateData",
   ]
   project = "contrails-301217"
   role_id = "flights_pipeline"

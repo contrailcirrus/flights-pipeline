@@ -2,11 +2,21 @@
 Helper funcs.
 """
 
-import pandas as pd
-
 from pycontrails.core import airports
 
 airport_df = airports.global_airport_database()
+
+# pull lookups into a hashmap for more efficient lookup
+# note: there are many airports with icao code, but no iata code
+airport_code_map = airport_df[["iata_code", "icao_code"]]
+airport_code_map = airport_code_map.dropna()
+airport_iata_to_icao_lookup = airport_code_map.set_index("iata_code")[
+    "icao_code"
+].to_dict()
+airport_icao_to_iata_lookup = airport_code_map.set_index("icao_code")[
+    "iata_code"
+].to_dict()
+del airport_code_map
 
 
 def key_max_value_count(dfx, column_name):
@@ -17,35 +27,3 @@ def key_max_value_count(dfx, column_name):
     keys = list(dfx[column_name].value_counts().sort_values(ascending=False).keys())
     val = keys[0] if keys else None
     return val
-
-
-def lookup_airport_iata_to_icao(iata: str) -> str | None:
-    """
-    Given an airport's iata code, find the airport's icao code.
-    """
-    match = airport_df[airport_df["iata_code"] == iata]
-    if len(match) == 0:
-        return
-    if len(match) > 1:
-        raise ValueError(f"found multiple airport matches for iata code: {iata}")
-
-    icao = match.iloc[0]["icao_code"]
-    if pd.isnull(icao):
-        return
-    return icao
-
-
-def lookup_airport_icao_to_iata(icao: str) -> str | None:
-    """
-    Given an airport's icao code, find the airport's iata code.
-    """
-    match = airport_df[airport_df["icao_code"] == icao]
-    if len(match) == 0:
-        return
-    if len(match) > 1:
-        raise ValueError(f"found multiple airport matches for icao code: {icao}")
-
-    iata = match.iloc[0]["iata_code"]
-    if pd.isnull(iata):
-        return
-    return iata

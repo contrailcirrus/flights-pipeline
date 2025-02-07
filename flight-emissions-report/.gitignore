@@ -9,3 +9,5 @@ flights_report_cocip_segments_*
 
 out/*
 !out/.gitkeep
+
+*.pq

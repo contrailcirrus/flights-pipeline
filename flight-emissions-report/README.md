@@ -46,21 +46,21 @@ per flight summary data only (`"flightsreport"`).
 ```bash
 # submit all flights for American Airlines that originate on Jan 12, 2024 (UTC)
 # running the trajectory model using hres met data
-./cli.py flights submit -a AA -d 2024-01-12 -s hres 
+./cli.py jobworker submit -a AA -d 2024-01-12 -s hres 
 ```
 
 ```bash
 # submit all flights for aircraft w/ icao 3C6565 that originate on Jun 06, 2024 (UTC)
 # running the trajectory model using era5 met data,
 # telling trajectory worker to write-off both per-flight summaries, as well as per-flight-segment values
-./cli.py flights submit -c 3C6565 -d 2024-06-01 -s era5 -t
+./cli.py jobworker submit -c 3C6565 -d 2024-06-01 -s era5 -t
 ```
 
 ```bash
 # fetch all flights for KLM that originate on Apr 02, 2024, 
 # # running the trajectory model using era5 met data
 
-./cli.py flights submit -a KL -d 2024-04-02 -s era5
+./cli.py jobworker submit -a KL -d 2024-04-02 -s era5
 ```
 
 ### Job Re-injection (`flights reinject`)

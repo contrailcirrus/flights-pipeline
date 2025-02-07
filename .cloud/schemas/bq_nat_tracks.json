@@ -1,0 +1,38 @@
+[
+  {
+    "name": "nat_identifier",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "name of the nat track (if geog line) or id of the waypoint (if geog point)"
+  },
+    {
+    "name": "updated_at",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "NOTAMS reported update time"
+  },
+  {
+    "name": "nat",
+    "type": "GEOGRAPHY",
+    "mode": "REQUIRED",
+    "description": "NAT track geo object for the given reporting time (either waypoint or track linestring)"
+  },
+  {
+    "name": "flight_levels_west",
+    "type": "INTEGER",
+    "mode": "REPEATED",
+    "description": "list of integers for westbound flight levels for NAT track linestring"
+  },
+    {
+    "name": "flight_levels_east",
+    "type": "INTEGER",
+    "mode": "REPEATED",
+    "description": "list of integers for eastbound flight levels for NAT track linestring"
+  },
+    {
+    "name": "valid_dates",
+    "type": "TIMESTAMP",
+    "mode": "REPEATED",
+    "description": "list of datetimes indicating valid range for NAT track linestring"
+  }
+]
