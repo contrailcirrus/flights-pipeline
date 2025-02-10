@@ -782,7 +782,7 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
     min_x = -100
     max_x = seg_df["dist_cum_km"].max() + 100
     min_y = y_v.min() - 10
-    max_y = y_v.max() + 45
+    max_y = y_v.max() + 65
 
     x_contrails_pred = x_v[seg_df["sum_ef_mj"] != 0]
     y_contrails_pred = y_v[seg_df["sum_ef_mj"] != 0]
