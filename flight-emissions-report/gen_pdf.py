@@ -787,8 +787,9 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
     x_contrails_pred = x_v[seg_df["sum_ef_mj"] != 0]
     y_contrails_pred = y_v[seg_df["sum_ef_mj"] != 0]
 
-    x_contrails_attr = x_v[seg_df["goog_is_attributed"] != 0]
-    y_contrails_attr = y_v[seg_df["goog_is_attributed"] != 0]
+    # TODO: reimplement
+    #    x_contrails_attr = x_v[seg_df["goog_is_attributed"] != 0]
+    #    y_contrails_attr = y_v[seg_df["goog_is_attributed"] != 0]
 
     x_conus_min = seg_df[seg_df["in_conus"]]["dist_cum_km"].min()
     x_conus_max = seg_df[seg_df["in_conus"]]["dist_cum_km"].max()
@@ -808,12 +809,13 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
         color="#D3E3FD",
         s=1000,
     )
-    ax.scatter(
-        x_contrails_attr,
-        y_contrails_attr,
-        color="#F7CA45",
-        s=400,
-    )
+    # TODO: reimplement
+    # ax.scatter(
+    #     x_contrails_attr,
+    #     y_contrails_attr,
+    #     color="#F7CA45",
+    #     s=400,
+    # )
     ax.plot(
         x_v,
         y_v,
@@ -857,16 +859,15 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
             markersize=10,
             label="Predicted contrails",
         ),
-        # TODO: reimplement
-        # lines.Line2D(
-        #    [0],
-        #    [0],
-        #    marker="o",
-        #    color="w",
-        #    markerfacecolor="#F7CA45",
-        #    markersize=10,
-        #    label="Confirmed contrails",
-        # ),
+        lines.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="#F7CA45",
+            markersize=10,
+            label="Confirmed contrails",
+        ),
         patches.Rectangle(
             (0, 0),
             1,
@@ -1899,7 +1900,7 @@ def create_page_four(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any:
     # TODO: remove coming soon
     c.drawImage(
         "static/coming_soon_pg4.png",
-        x=475,
+        x=480,
         y=260,
         width=88,
         height=136,
