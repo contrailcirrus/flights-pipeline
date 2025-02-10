@@ -552,6 +552,15 @@ class FlightsReportFetchSvc(BaseSvc):
             ]
         )
         summary_df: pd.DataFrame = self._bq_handler.query(summary_query, cfg)
+
+        # HACK
+        # ----------
+        # TODO: architect edge case heuristics properly
+        if summary_df.iloc[0]["airline_iata"] == "D0":
+            dhl_flights = summary_df["tail_number"].apply(lambda v: "G-" in v)
+            summary_df = summary_df[dhl_flights]
+        # ----------
+
         logger.info("📨 received summary data from BigQuery. Augmenting dataset...")
         summary_df = self.augment_summary_df(summary_df)
         logger.info("🙌 finished augmenting dataset.")

@@ -13,7 +13,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import matplotlib.lines as lines
 import matplotlib.patches as patches
-from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import AutoMinorLocator, FixedLocator
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -189,15 +189,16 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
             color=colors[1],
             left=summary_json["flight_distance_km"]["nighttime"],
         )
-        ax.text(
-            inlay_daytime_text_margin,
-            y_margin,
-            f"{day_percent}%",
-            color="black",
-            ha="left",
-            va="center",
-            fontsize=11,
-        )
+        if day_percent > 15:
+            ax.text(
+                inlay_daytime_text_margin,
+                y_margin,
+                f"{day_percent}%",
+                color="black",
+                ha="left",
+                va="center",
+                fontsize=11,
+            )
 
         ax.set_ylim(0, 1)
 
@@ -281,15 +282,16 @@ def _gen_daytime_nighttime_detailed_bar_fig(summary_json_fp: str, out_path: str)
                 "nighttime"
             ],
         )
-        ax.text(
-            inlay_daytime_text_margin,
-            y_margin,
-            f"{day_percent}%",
-            color="black",
-            ha="left",
-            va="center",
-            fontsize=11,
-        )
+        if day_percent > 15:
+            ax.text(
+                inlay_daytime_text_margin,
+                y_margin,
+                f"{day_percent}%",
+                color="black",
+                ha="left",
+                va="center",
+                fontsize=11,
+            )
 
         ax.set_ylim(0, 1)
 
@@ -517,10 +519,6 @@ def _gen_od_bar_figs(
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
 
-    biggest_bar = top_ods_by_net_co2e[0]["co2e50_metric_tons"]
-    x_label_spacing = round(biggest_bar // 5, -2)
-    x_minor_tick_spacing = biggest_bar // 15
-
     night_co2e_grp = [
         int(
             itm["co2e50_metric_tons"] * min(itm["percentage_nighttime_co2e"], 100) / 100
@@ -552,24 +550,19 @@ def _gen_od_bar_figs(
         grp_names, day_co2e_grp, left=night_co2e_grp, color="#F7CA45", zorder=2
     )
 
-    max_co2e = max([int(itm["co2e50_metric_tons"]) for itm in top_ods_by_net_co2e])
-    x_range = list(np.arange(0, max_co2e + 1.2 * x_minor_tick_spacing, x_label_spacing))
+    max_x = max([int(itm["co2e50_metric_tons"]) for itm in top_ods_by_net_co2e])
+    x_label_count = 5
+    x_range = list(np.linspace(0, max_x, x_label_count))
     x_range_labels = [f"{i:,.0f}t CO2e" for i in x_range]
     ax.set_xticks(x_range, labels=x_range_labels)
     ax.set_xlim(min(x_range), max(x_range))
 
-    ax.xaxis.set_minor_locator(MultipleLocator(x_minor_tick_spacing))
+    ax.xaxis.set_major_locator(FixedLocator(x_range))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(5))
+
     ax.grid(
         axis="x",
-        which="minor",
-        linewidth=1.5,
-        linestyle="dotted",
-        color="#C4C7C5",
-        zorder=0,
-    )
-    ax.grid(
-        axis="x",
-        which="major",
+        which="both",
         linewidth=1.5,
         linestyle="dotted",
         color="#C4C7C5",
@@ -619,25 +612,6 @@ def _gen_od_bar_figs(
             color="black",
         )
 
-    # set impact density on RHS of axes
-    # ax_offset = 4030
-    # cmap = plt.get_cmap("hot")
-    # c_min = min(impact_kgco2e_per_km)
-    # c_max = max(impact_kgco2e_per_km)
-    # c_offset = (c_max - c_min) / 2
-    # norm = plt.Normalize(c_min, c_max + 3 * c_offset)
-    # colors = cmap(norm(impact_kgco2e_per_km))
-    # for ix, bar in enumerate(night_bar):
-    #    label_text = f"{impact_kgco2e_per_km[ix]}kg CO2e/km"
-    #    ax.text(
-    #        ax_offset,
-    #        bar.get_y() + bar.get_height() / 2,
-    #        label_text,
-    #        ha="left",
-    #        va="center",
-    #        color=colors[ix],
-    #    )
-
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(False)
@@ -662,7 +636,6 @@ def _gen_od_bar_figs(
         reverse=True,
     )
     top_ods_by_impact_density = od_pruned[:10]
-    print(top_ods_by_impact_density)
 
     density_ods_total_co2e_gwp50_metric_tons = sum(
         [od["co2e50_metric_tons"] for od in top_ods_by_impact_density]
@@ -692,26 +665,18 @@ def _gen_od_bar_figs(
     bars = ax.barh(grp_names, impact_kgco2e_per_km, color="#2C2857", zorder=2)
 
     max_x = max([int(itm) for itm in impact_kgco2e_per_km])
-    x_label_spacing = max_x // 5
-    x_minor_tick_spacing = max_x // 15
-
-    x_range = list(np.arange(0, max_x + 1.2 * x_minor_tick_spacing, x_label_spacing))
+    x_label_count = 5
+    x_range = list(np.linspace(0, max_x, x_label_count))
     x_range_labels = [f"{i:,.0f}kg CO2e/km" for i in x_range]
     ax.set_xticks(x_range, labels=x_range_labels)
     ax.set_xlim(min(x_range), max(x_range))
 
-    ax.xaxis.set_minor_locator(MultipleLocator(x_minor_tick_spacing))
+    ax.xaxis.set_major_locator(FixedLocator(x_range))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(5))
+
     ax.grid(
         axis="x",
-        which="minor",
-        linewidth=1.5,
-        linestyle="dotted",
-        color="#C4C7C5",
-        zorder=0,
-    )
-    ax.grid(
-        axis="x",
-        which="major",
+        which="both",
         linewidth=1.5,
         linestyle="dotted",
         color="#C4C7C5",
@@ -721,8 +686,7 @@ def _gen_od_bar_figs(
     # set margins
     min_bar_width = bars[0].get_width()
     inline_flights_margin = min_bar_width * 0.05
-    inline_km_margin = min_bar_width * 0.3
-    inline_co2e_per_kg_padding = min_bar_width * 0.01
+    inline_km_margin = min_bar_width * 0.5
 
     # set flight count inline text
     for ix, bar in enumerate(bars):
@@ -752,7 +716,7 @@ def _gen_od_bar_figs(
     for ix, bar in enumerate(bars):
         label_text = f"{impact_kgco2e_per_km[ix]}kg CO2e/km"
         ax.text(
-            bar.get_width() + inline_co2e_per_kg_padding,
+            1.01 * bar.get_width(),
             bar.get_y() + bar.get_height() / 2,
             label_text,
             ha="left",
@@ -893,15 +857,16 @@ def _gen_case_study_fig(data_case_study_fp: str, out_path: str):
             markersize=10,
             label="Predicted contrails",
         ),
-        lines.Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            markerfacecolor="#F7CA45",
-            markersize=10,
-            label="Confirmed contrails",
-        ),
+        # TODO: reimplement
+        # lines.Line2D(
+        #    [0],
+        #    [0],
+        #    marker="o",
+        #    color="w",
+        #    markerfacecolor="#F7CA45",
+        #    markersize=10,
+        #    label="Confirmed contrails",
+        # ),
         patches.Rectangle(
             (0, 0),
             1,
@@ -999,7 +964,7 @@ def format_number(n: int, thsds=None, short: bool = False) -> str:
             return f"{n/1000:,.0f}k"
         return f"{n / 1000:,.1f}k"
 
-    return f"{n:,}"
+    return f"{n:,.1f}"
 
 
 def draw_grid(c: Any, page_width: float, page_height: float) -> None:
@@ -1146,8 +1111,11 @@ def draw_stat_for_plots(
 
 def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
     """Generate the first page of the report"""
+    path = f"static/logos/{airline_name}_logo.png"
+    if os.path.basename(path) not in os.listdir("static/logos/"):
+        path = "static/logos/logo_demo.png"
     c.drawImage(
-        f"static/logos/{airline_name}_logo.png",
+        path,
         left_margin,
         750,
         width=60,
@@ -1462,7 +1430,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
             "unit": "tonnes CO2e",
         },
         "Fuel burn": {
-            "value": format_number(data["co2_metric_tons"]["total"]),
+            "value": format_number(data["co2_metric_tons"]["in_eu"]),
             "unit": "tonnes CO2",
         },
     }
@@ -1533,13 +1501,24 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         number=format_number(data["co2e_metric_tons"]["gwp50"]["in_conus"]),
         unit="tonnes CO2e",
     )
+
+    verified_co2e_gwp50 = data["co2e_metric_tons"]["gwp50"]["goog_sat_verified"]
     current_y = draw_stat_with_info_symbol(
         c=c,
         x=left_margin + horizontal_spacing,
         y=current_y - vertical_spacing * 2.2,
         key="Verified contrails warming in observation area",
-        number=format_number(data["co2e_metric_tons"]["gwp50"]["goog_sat_verified"]),
+        number=format_number(verified_co2e_gwp50 if verified_co2e_gwp50 else 0),
         unit="tonnes CO2e",
+    )
+
+    # TODO: remove coming soon
+    c.drawImage(
+        "static/coming_soon_pg2.png",
+        x=40,
+        y=136,
+        width=173,
+        height=31,
     )
 
     # Contrail warming section
@@ -1686,15 +1665,18 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         text_color="white",
     )
 
-    draw_stat_for_plots(
-        c,
-        key="Contrails (tonnes CO2e)",
-        number=format_number(data["co2e_metric_tons"]["gwp50"]["total"], short=True),
-        unit=f"({contrail_percent_of_total:.0f}%)",
-        x=contrail_x,
-        y=700,
-        text_color="white",
-    )
+    if contrail_percent_of_total > 20:
+        draw_stat_for_plots(
+            c,
+            key="Contrails (tonnes CO2e)",
+            number=format_number(
+                data["co2e_metric_tons"]["gwp50"]["total"], short=True
+            ),
+            unit=f"({contrail_percent_of_total:.0f}%)",
+            x=contrail_x,
+            y=700,
+            text_color="white",
+        )
 
     description = (
         "The impact of contrail warming measured in CO2e (GWP 50) in relation to the impact of the CO2 emissions from fuel burn can vary from day to day, "
@@ -1912,6 +1894,15 @@ def create_page_four(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any:
         x=left_margin + horizontal_spacing,
         y=current_y + header_offset,
         font_size=container_text_font_size,
+    )
+
+    # TODO: remove coming soon
+    c.drawImage(
+        "static/coming_soon_pg4.png",
+        x=475,
+        y=260,
+        width=88,
+        height=136,
     )
 
     # Did You Know?
