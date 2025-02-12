@@ -6,6 +6,7 @@ and submitting that trajectory as a "job" (WaypointsRecord) to the trajectory wo
 """
 
 import os
+from pycontrails.datalib.spire import ValidateTrajectoryHandler
 
 os.environ["TWJD_SUBSCRIPTION_ID"] = "foobar"
 os.environ["TRAJECTORY_CHUNK_TOPIC_ID"] = (
@@ -18,7 +19,6 @@ from lib.handlers import (  # noqa:E402
     HealTrajectoryHandler,
     ResampleHandler,
     PubSubPublishHandler,
-    ValidateTrajectoryHandler,
 )
 from lib.schemas import TrajectoryWorkerJobDescriptor  # noqa:E402
 import argparse  # noqa:E402

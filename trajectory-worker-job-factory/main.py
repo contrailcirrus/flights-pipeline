@@ -3,13 +3,14 @@
 import sys
 import hashlib
 
+from pycontrails.datalib.spire import ValidateTrajectoryHandler
+
 from lib.handlers import (
     PubSubSubscriptionHandler,
     PubSubPublishHandler,
     BigQueryHandler,
     HealTrajectoryHandler,
     ResampleHandler,
-    ValidateTrajectoryHandler,
     RedisHandler,
 )
 from lib.schemas import (

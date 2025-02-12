@@ -15,7 +15,6 @@ from lib.handlers import (
     BigQueryHandler,
     HealTrajectoryHandler,
     ResampleHandler,
-    ValidateTrajectoryHandler,
     RedisHandler,
 )
 from lib.exceptions import (
@@ -24,6 +23,7 @@ from lib.exceptions import (
     RocdError,
     BadTrajectoryException,
 )
+from pycontrails.datalib.spire import ValidateTrajectoryHandler
 from lib.utils import sigterm_manager
 
 from google.cloud import bigquery
