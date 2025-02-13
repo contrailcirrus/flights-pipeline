@@ -1626,13 +1626,6 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         y=771,
         font_size=container_title_font_size,
     )
-    c.drawImage(
-        data["data_path"] + "/figs/fuel_vs_contrail_co2.png",
-        x=39,
-        y=627,
-        width=page_width - left_margin * 3 + 14,
-        height=72 * 1.75 * scaling_factor,
-    )
     fuel_percent_of_total = 100 * (
         data["co2_metric_tons"]["total"]
         / (
@@ -1652,10 +1645,35 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
     left_margin_plot = 55
 
     fuel_x = left_margin_plot
-    contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * (
-        fuel_percent_of_total / 100
-    )
 
+    if contrail_percent_of_total > 20:
+        # plot wide bar with text, overlay
+        # if there is enough room to overlay text completely within each respective section
+        bar_width = page_width - left_margin * 3 + 14
+        contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * (
+            fuel_percent_of_total / 100
+        )
+        contrail_text = "white"
+    else:
+        bar_width = 415
+        contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * 0.8
+        contrail_text = "black"
+    c.drawImage(
+        data["data_path"] + "/figs/fuel_vs_contrail_co2.png",
+        x=39,
+        y=627,
+        width=bar_width,
+        height=72 * 1.75 * scaling_factor,
+    )
+    draw_stat_for_plots(
+        c,
+        key="Contrails (tonnes CO2e)",
+        number=format_number(data["co2e_metric_tons"]["gwp50"]["total"], short=True),
+        unit=f"({contrail_percent_of_total:.0f}%)",
+        x=contrail_x,
+        y=700,
+        text_color=contrail_text,
+    )
     draw_stat_for_plots(
         c,
         key="Fuel emissions (tonnes CO2)",
@@ -1665,19 +1683,6 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         y=700,
         text_color="white",
     )
-
-    if contrail_percent_of_total > 20:
-        draw_stat_for_plots(
-            c,
-            key="Contrails (tonnes CO2e)",
-            number=format_number(
-                data["co2e_metric_tons"]["gwp50"]["total"], short=True
-            ),
-            unit=f"({contrail_percent_of_total:.0f}%)",
-            x=contrail_x,
-            y=700,
-            text_color="white",
-        )
 
     description = (
         "The impact of contrail warming measured in CO2e (GWP 50) in relation to the impact of the CO2 emissions from fuel burn can vary from day to day, "
