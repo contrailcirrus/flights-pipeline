@@ -15,7 +15,6 @@ from lib.handlers import (
     BigQueryHandler,
     HealTrajectoryHandler,
     ResampleHandler,
-    ValidateTrajectoryHandler,
     RedisHandler,
 )
 from lib.exceptions import (
@@ -24,6 +23,7 @@ from lib.exceptions import (
     RocdError,
     BadTrajectoryException,
 )
+from pycontrails.datalib.spire import ValidateTrajectoryHandler
 from lib.utils import sigterm_manager
 
 from google.cloud import bigquery
@@ -438,12 +438,25 @@ class TrajectoryBuilderSvc:
                 )
                 self._validate_traj_handler.unset()
 
+                # log instances of accepted violations
+                accepted_violations = (
+                    [v for v in violations if type(v) in permitted_violation_types]
+                    if violations
+                    else None
+                )
                 # pop permitted violations
                 violations = (
                     [v for v in violations if type(v) not in permitted_violation_types]
                     if violations
                     else None
                 )
+                if accepted_violations and len(accepted_violations) > 0:
+                    logger.warning(
+                        f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
+                        f"keeping {flight_id}. acceptable violation(s). "
+                        f" violations: {accepted_violations}"
+                    )
+
                 if violations and len(violations) > 0:
                     logger.warning(
                         f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
