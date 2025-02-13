@@ -55,6 +55,7 @@ class JobWorkerSubmitSvc(BaseSvc):
             - icao_address
             - met_data_src
             - full_traj
+            - dry_run
         """
         self._airline = input.airline
         self._day = input.day
@@ -62,6 +63,7 @@ class JobWorkerSubmitSvc(BaseSvc):
         self._icao_address = input.icao_address
         self._met_data_src = input.met_data_src
         self._full_traj = input.full_traj
+        self._dry_run = input.dry_run
         self._publish_handler = PubSubPublishHandler(
             self.TWJD_TOPIC_ID,
             ordered_queue=False,
@@ -111,7 +113,7 @@ class JobWorkerSubmitSvc(BaseSvc):
             airline_iata=self._airline,
             flight_id=self._flight_id,
             icao_address=self._icao_address,
-            dry_run=False,
+            dry_run=self._dry_run,
             export_waypoints=False,
         )
 
@@ -552,6 +554,15 @@ class FlightsReportFetchSvc(BaseSvc):
             ]
         )
         summary_df: pd.DataFrame = self._bq_handler.query(summary_query, cfg)
+
+        # HACK
+        # ----------
+        # TODO: architect edge case heuristics properly
+        if summary_df.iloc[0]["airline_iata"] == "D0":
+            dhl_flights = summary_df["tail_number"].apply(lambda v: "G-" in v)
+            summary_df = summary_df[dhl_flights]
+        # ----------
+
         logger.info("📨 received summary data from BigQuery. Augmenting dataset...")
         summary_df = self.augment_summary_df(summary_df)
         logger.info("🙌 finished augmenting dataset.")
