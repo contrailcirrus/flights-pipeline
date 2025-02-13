@@ -62,6 +62,13 @@ jobworker_submit_parser.add_argument(
     help="write the per-segment values to BQ",
     dest="full_traj",
 )
+jobworker_submit_parser.add_argument(
+    "-r",
+    "--dry_run",
+    action="store_false",
+    help="run trajectory worker in dry-run mode",
+    dest="dry_run",
+)
 jobworker_submit_parser.set_defaults(func=JobWorkerSubmitSvc)
 
 # --------------
