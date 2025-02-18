@@ -919,7 +919,7 @@ def register_fonts() -> None:
     )
 
 
-def format_number(n: int, thsds=None, short: bool = False) -> str:
+def format_number(n: int, thsds: int = None, width: int = None) -> str:
     """
     String format with logic for thousands place suffixes.
 
@@ -935,9 +935,40 @@ def format_number(n: int, thsds=None, short: bool = False) -> str:
         1 ... thousands place
         2 ... millions place
         3 ... billions place
-    short
-        If true, then don't return decimal places
+    width
+        If specified, then returns a fixed width (decimal place, included) matching <width> chars
     """
+
+    def get_decimal_place(input_number: float) -> int:
+        """
+        Given a float and a fixed width, return the number of decimal places in order
+        to get a fixed character width in formatting.
+        """
+        tens = [
+            (10_000, 5),
+            (1_000, 4),
+            (100, 3),
+            (10, 2),
+            (1, 1),
+        ]
+
+        if input_number > 99_999:
+            raise ValueError(
+                f"unsupported input {input_number}. greater than max value: 99,999"
+            )
+
+        for k, v in tens:
+            if input_number >= k:
+                if width < v:
+                    raise ValueError(
+                        f"cannot format input {input_number} with fixed width {width}"
+                    )
+                if width == v or width == (v + 1):
+                    return 0
+                else:
+                    return width - v - 1
+        return width - 2  # assume 0.xxx float formatting
+
     place = None
     if thsds == 1:
         place = "thousand"
@@ -953,17 +984,23 @@ def format_number(n: int, thsds=None, short: bool = False) -> str:
         place = "thousand"
 
     if place == "billion":
-        if short:
-            return f"{n / 1_000_000_000:,.0f}M"
-        return f"{n/1_000_000_000:,.1f}M"
+        val = n / 1_000_000_000.0
+        if width:
+            dec_places = get_decimal_place(val)
+            return f"{val:,.{dec_places}f}B"
+        return f"{val:,.1f}B"
     elif place == "million":
-        if short:
-            return f"{n / 1_000_000:,.0f}M"
-        return f"{n/1_000_000:,.1f}M"
+        val = n / 1_000_000.0
+        if width:
+            dec_places = get_decimal_place(val)
+            return f"{val:,.{dec_places}f}M"
+        return f"{val:,.1f}M"
     elif place == "thousand":
-        if short:
-            return f"{n/1000:,.0f}k"
-        return f"{n / 1000:,.1f}k"
+        val = n / 1000.0
+        if width:
+            dec_places = get_decimal_place(val)
+            return f"{val:,.{dec_places}f}k"
+        return f"{val:,.1f}k"
 
     return f"{n:,.1f}"
 
@@ -1249,12 +1286,13 @@ def create_page_one(c: Any, data: Dict[str, Any], airline_name: str) -> Any:
         },
         "Contrails (GWP 50)": {
             "value": format_number(
-                data["co2e_metric_tons"]["gwp50"]["total"], short=True
+                data["co2e_metric_tons"]["gwp50"]["total"],
+                width=3,
             ),
             "unit": "tonnes CO2e",
         },
         "Fuel Burn": {
-            "value": format_number(data["co2_metric_tons"]["total"], short=True),
+            "value": format_number(data["co2_metric_tons"]["total"], width=3),
             "unit": "tonnes CO2",
         },
     }
@@ -1426,12 +1464,13 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
         },
         "Contrails (GWP 50)": {
             "value": format_number(
-                data["co2e_metric_tons"]["gwp50"]["in_eu"], short=True
+                data["co2e_metric_tons"]["gwp50"]["in_eu"],
+                width=3,
             ),
             "unit": "tonnes CO2e",
         },
         "Fuel burn": {
-            "value": format_number(data["co2_metric_tons"]["in_eu"]),
+            "value": format_number(data["co2_metric_tons"]["in_eu"], width=3),
             "unit": "tonnes CO2",
         },
     }
@@ -1487,7 +1526,7 @@ def create_page_two(c: Any, data: Dict[str, Any]) -> None:
 
     current_y = draw_text_block(
         c=c,
-        text="""The yellow area shows the coverage region where our satellite image based verification has been validated. For the rest of the world, we use our algorithm predictions.""",
+        text="""Yellow areas show the region where satellite data is used to confirm the presence of contrails.""",
         x=left_margin + horizontal_spacing,
         y=current_y + header_offset,
         width=page_width / 2 - 65,
@@ -1626,13 +1665,6 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         y=771,
         font_size=container_title_font_size,
     )
-    c.drawImage(
-        data["data_path"] + "/figs/fuel_vs_contrail_co2.png",
-        x=39,
-        y=627,
-        width=page_width - left_margin * 3 + 14,
-        height=72 * 1.75 * scaling_factor,
-    )
     fuel_percent_of_total = 100 * (
         data["co2_metric_tons"]["total"]
         / (
@@ -1652,32 +1684,46 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
     left_margin_plot = 55
 
     fuel_x = left_margin_plot
-    contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * (
-        fuel_percent_of_total / 100
+
+    if contrail_percent_of_total > 23:
+        # plot wide bar with text, overlay
+        # if there is enough room to overlay text completely within each respective section
+        bar_width = page_width - left_margin * 3 + 14
+        contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * (
+            fuel_percent_of_total / 100
+        )
+        contrail_text = "white"
+    else:
+        bar_width = 415
+        contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * 0.79
+        contrail_text = "black"
+
+    c.drawImage(
+        data["data_path"] + "/figs/fuel_vs_contrail_co2.png",
+        x=39,
+        y=627,
+        width=bar_width,
+        height=72 * 1.75 * scaling_factor,
     )
 
     draw_stat_for_plots(
         c,
+        key="Contrails (tonnes CO2e)",
+        number=format_number(data["co2e_metric_tons"]["gwp50"]["total"], width=3),
+        unit=f"({contrail_percent_of_total:.0f}%)",
+        x=contrail_x,
+        y=700,
+        text_color=contrail_text,
+    )
+    draw_stat_for_plots(
+        c,
         key="Fuel emissions (tonnes CO2)",
-        number=format_number(data["co2_metric_tons"]["total"], short=True),
+        number=format_number(data["co2_metric_tons"]["total"], width=3),
         unit=f"({fuel_percent_of_total:.0f}%)",
         x=fuel_x,
         y=700,
         text_color="white",
     )
-
-    if contrail_percent_of_total > 20:
-        draw_stat_for_plots(
-            c,
-            key="Contrails (tonnes CO2e)",
-            number=format_number(
-                data["co2e_metric_tons"]["gwp50"]["total"], short=True
-            ),
-            unit=f"({contrail_percent_of_total:.0f}%)",
-            x=contrail_x,
-            y=700,
-            text_color="white",
-        )
 
     description = (
         "The impact of contrail warming measured in CO2e (GWP 50) in relation to the impact of the CO2 emissions from fuel burn can vary from day to day, "
@@ -1713,12 +1759,11 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         font_size=container_text_font_size,
     )
 
-    image_width = page_width - left_margin * 5.6
     c.drawImage(
         data["data_path"] + "/figs/fig_contrail_warming_daytime_vs_nighttime.png",
         x=38,
         y=current_y - vertical_spacing * 10,
-        width=image_width,
+        width=415,
         height=72 * 1.75 * scaling_factor,
     )
 
@@ -1738,13 +1783,13 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
     )
 
     nighttime_x = left_margin_plot
-    daytime_x = left_margin_plot - 12 + image_width * (nighttime_percent_of_total / 100)
 
     draw_stat_for_plots(
         c,
         key="Nighttime (tonnes CO2e)",
         number=format_number(
-            data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"], short=True
+            data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"],
+            width=3,
         ),
         unit=f"({nighttime_percent_of_total:.0f}%)",
         x=nighttime_x - 2,
@@ -1756,10 +1801,11 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         c,
         key="Daytime (tonnes CO2e)",
         number=format_number(
-            data["co2e_metric_tons"]["gwp50"]["daytime"]["total"], short=True
+            data["co2e_metric_tons"]["gwp50"]["daytime"]["total"],
+            width=3,
         ),
         unit=f"({daytime_percent_of_total:.0f}%)",
-        x=daytime_x,
+        x=left_margin_plot * 1.83 + (total_width - left_margin_plot) * 0.79,
         y=current_y - vertical_spacing * 2.4,
         text_color=background_text_color,
     )
@@ -2174,7 +2220,8 @@ def main() -> None:
     data = load_data(json_path=args.data_path + "/data_summary.json")
     data["airline_name"] = args.airline_name
     generate_pdf(
-        output_path=args.data_path + "/flights_report.pdf",
+        output_path=args.data_path
+        + f"/{os.path.basename(args.data_path)}_flights_report.pdf",
         data=data,
         fig_data=fig_data,
         is_gridded=args.grid,
