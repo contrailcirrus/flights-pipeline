@@ -1685,7 +1685,7 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
 
     fuel_x = left_margin_plot
 
-    if contrail_percent_of_total > 20:
+    if contrail_percent_of_total > 23:
         # plot wide bar with text, overlay
         # if there is enough room to overlay text completely within each respective section
         bar_width = page_width - left_margin * 3 + 14
@@ -1695,8 +1695,9 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         contrail_text = "white"
     else:
         bar_width = 415
-        contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * 0.8
+        contrail_x = left_margin_plot * 1.83 + (total_width - left_margin_plot) * 0.79
         contrail_text = "black"
+
     c.drawImage(
         data["data_path"] + "/figs/fuel_vs_contrail_co2.png",
         x=39,
@@ -1704,6 +1705,7 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         width=bar_width,
         height=72 * 1.75 * scaling_factor,
     )
+
     draw_stat_for_plots(
         c,
         key="Contrails (tonnes CO2e)",
@@ -1757,12 +1759,11 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
         font_size=container_text_font_size,
     )
 
-    image_width = page_width - left_margin * 5.6
     c.drawImage(
         data["data_path"] + "/figs/fig_contrail_warming_daytime_vs_nighttime.png",
         x=38,
         y=current_y - vertical_spacing * 10,
-        width=image_width,
+        width=415,
         height=72 * 1.75 * scaling_factor,
     )
 
@@ -1782,7 +1783,6 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
     )
 
     nighttime_x = left_margin_plot
-    daytime_x = left_margin_plot - 12 + image_width * (nighttime_percent_of_total / 100)
 
     draw_stat_for_plots(
         c,
@@ -1805,7 +1805,7 @@ def create_page_three(c: Any, data: Dict[str, Any], fig_data: FigureData) -> Any
             width=3,
         ),
         unit=f"({daytime_percent_of_total:.0f}%)",
-        x=daytime_x,
+        x=left_margin_plot * 1.83 + (total_width - left_margin_plot) * 0.79,
         y=current_y - vertical_spacing * 2.4,
         text_color=background_text_color,
     )
