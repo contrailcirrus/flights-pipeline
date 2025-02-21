@@ -8,7 +8,6 @@ deploy: --check-env
 		--set firestoreStateDocId=$(FIRESTORE_STATE_DOC_ID) \
 		--set logLevel=$(LOG_LEVEL) \
 		--set spireRawWaypointsBigQueryTopicId=$(SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID) \
-		--set pubSubEgressTopicId=$(PUBSUB_EGRESS_TOPIC_ID) \
 		--set suspendCronjob=$(SUSPEND_CRONJOB)
 
 .PHONY: --check-env
@@ -19,6 +18,5 @@ deploy: --check-env
 	@test $${FIRESTORE_STATE_COLLECTION?environment variable is required}
 	@test $${FIRESTORE_STATE_DOC_ID?environment variable is required}
 	@test $${LOG_LEVEL?environment variable is required}
-	@test $${PUBSUB_EGRESS_TOPIC_ID?environment variable is required}
 	@test $${SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID?environment variable is required}
 	@test $${SUSPEND_CRONJOB?environment variable is required}

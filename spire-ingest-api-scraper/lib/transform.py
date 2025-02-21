@@ -4,6 +4,10 @@ from lib.log import logger
 
 pd.set_option("future.no_silent_downcasting", True)
 
+# Spire reported that the following icao_address values are not unique to a specific
+# aircraft. We drop related records to avoid downstream inconsistencies.
+IGNORE_ICAO_ADDRESS = {"000000", "00000a", "0000BA"}
+
 
 def _downsample_icao_address_minutes_first_last(df: pd.DataFrame) -> pd.DataFrame:
     """Retains only the first and last rows for each [icao_address, minute].
@@ -42,7 +46,8 @@ def filter_ingest_rules(spire_df: pd.DataFrame) -> pd.DataFrame:
 
     1. remove rows where position is on_ground
     2. remove rows where altitude_baro is null
-    3. remove rows which are not the first or last record per-minute per-icao_address
+    3. remove rows with icao_address in our keep-out list
+    4. remove rows which are not the first or last record per-minute per-icao_address
 
     Parameters
     ----------
@@ -57,28 +62,46 @@ def filter_ingest_rules(spire_df: pd.DataFrame) -> pd.DataFrame:
     """
     # Retain records when aircraft is not on ground. on_ground is a nullable boolean
     # type which may be nan if unknown.
+    logger.info("Dropping on_ground records.")
     is_on_ground = spire_df["on_ground"].fillna(False).astype(bool)
     drop_count_on_ground = is_on_ground.sum()
     if drop_count_on_ground > 0:
-        logger.info(f"Drop {drop_count_on_ground} records on ground")
+        logger.info(f"Dropped {drop_count_on_ground} records on ground")
     is_flying = ~is_on_ground
     spire_df = spire_df.loc[is_flying, :]
 
     # Drop any records missing altitude data.
+    logger.info("Dropping records with no altitude_baro.")
     is_missing_altitude = spire_df["altitude_baro"].isna()
     drop_count_missing_altitude = is_missing_altitude.sum()
     if drop_count_missing_altitude > 0:
         logger.info(
-            f"Drop {drop_count_missing_altitude} records where altitude_baro is "
+            f"Dropped {drop_count_missing_altitude} records where altitude_baro is "
             + "null but on_ground is false or null."
         )
     has_altitude = ~is_missing_altitude
     spire_df = spire_df.loc[has_altitude, :]
 
+    # drop records with an icao address in our keep-out list
+    logger.info("Dropping records with icao_address in keep-out list.")
+    is_ignored_icao_address = spire_df["icao_address"].isin(IGNORE_ICAO_ADDRESS)
+    spire_df = spire_df.loc[~is_ignored_icao_address, :]
+
+    drop_count_ignored_icao_address = is_ignored_icao_address.sum()
+    if drop_count_ignored_icao_address > 0:
+        logger.info(
+            f"Drop {drop_count_ignored_icao_address} records with "
+            f"icao_address in: {IGNORE_ICAO_ADDRESS}"
+        )
+
     # Reduce size of egress data by dropping records that have no use downstream.
-    # The first and last record for each minute provide the relevant position data
+    # The first and last record for each minute (observation time, not ingest time)
+    # provide the relevant position data
     # to interpolate values for :00 second of each minute but drop records between
     # the first and last which do not influence interpolation downstream.
+    logger.info(
+        "Resampling to first/last record on a per icao_address, timestamp minute basis."
+    )
     spire_df = _downsample_icao_address_minutes_first_last(spire_df)
 
     return spire_df
