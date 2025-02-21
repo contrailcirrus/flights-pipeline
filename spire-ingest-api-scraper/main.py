@@ -16,9 +16,6 @@ from lib.log import format_traceback, logger
 # SYNC_DELAY enforces we do not fetch data ingested by Spire after: now - SYNC_DELAY
 SYNC_DELAY = timedelta(minutes=5)
 
-EGRESS_ORDERING_KEY_SRC_ID = "spire"
-EGRESS_ORDERING_KEY_TEMPLATE = EGRESS_ORDERING_KEY_SRC_ID + ":{icao_address}"
-
 
 def _to_str_or_none(x: Any) -> str | None:
     """Cast to string if truthy, otherwise return None."""
@@ -60,7 +57,6 @@ def _log_invariant_violations(df: pd.DataFrame) -> None:
 
 async def main(
     triggered_at: datetime,
-    egress_queue_client: queue.QueueClient,
     bq_queue_client: queue.QueueClient,
     sigterm_handler: utils.SigtermHandler,
     spire_client: spire.SpireAPIClient,
@@ -86,6 +82,7 @@ async def main(
         )
         return
 
+    # handle work sequentially in uniform batches of `step` width
     for batch_start_at, batch_end_at in utils.time_windows(start_at, end_at, step):
         if sigterm_handler.should_exit:
             sys.exit(0)
@@ -94,49 +91,37 @@ async def main(
         logger.info(
             f"Fetching: [{batch_start_at.isoformat()}, {batch_end_at.isoformat()})"
         )
-        spire_df, tardy_df = await spire_client.get_data_between(
-            batch_start_at, batch_end_at
-        )
-        logger.info(
-            f"Fetched {len(spire_df)} target records, and {len(tardy_df)} tardy records."
-        )
+        spire_df = await spire_client.get_data_between(batch_start_at, batch_end_at)
 
         spire_df = transform.filter_ingest_rules(spire_df)
-        tardy_df = transform.filter_ingest_rules(tardy_df)
 
-        logger.info(
-            f"Publishing {len(spire_df)} target records and {len(tardy_df)} tardy records."
-        )
+        logger.info(f"Publishing {len(spire_df)} records to BQ.")
 
         # ----------------
-        # publish tardy records
+        # publish records
         # ---------------
-        tardy_df = tardy_df.sort_values(["icao_address", "timestamp"])
-        for icao_address, rows in tardy_df.groupby("icao_address"):
-            _log_invariant_violations(rows)
-
-            first_row = rows.iloc[0]
+        spire_df = spire_df.sort_values(["icao_address", "timestamp"])
+        for ix, row in spire_df.groupby("icao_address"):
+            # _log_invariant_violations(rows)
 
             dto = schemas.SpireWaypointsRecord(
                 flight_info=schemas.SpireFlightInfo(
-                    icao_address=str(first_row["icao_address"]),
-                    flight_id=_to_str_or_none(first_row["flight_id"]),
-                    callsign=_to_str_or_none(first_row["callsign"]),
-                    tail_number=_to_str_or_none(first_row["tail_number"]),
-                    flight_number=_to_str_or_none(first_row["flight_number"]),
-                    aircraft_type_icao=_to_str_or_none(first_row["aircraft_type_icao"]),
-                    airline_iata=_to_str_or_none(first_row["airline_iata"]),
+                    icao_address=str(row["icao_address"]),
+                    flight_id=_to_str_or_none(row["flight_id"]),
+                    callsign=_to_str_or_none(row["callsign"]),
+                    tail_number=_to_str_or_none(row["tail_number"]),
+                    flight_number=_to_str_or_none(row["flight_number"]),
+                    aircraft_type_icao=_to_str_or_none(row["aircraft_type_icao"]),
+                    airline_iata=_to_str_or_none(row["airline_iata"]),
                     departure_airport_icao=_to_str_or_none(
-                        first_row["departure_airport_icao"]
+                        row["departure_airport_icao"]
                     ),
                     departure_scheduled_time=_to_str_or_none(
-                        first_row["departure_scheduled_time"]
+                        row["departure_scheduled_time"]
                     ),
-                    arrival_airport_icao=_to_str_or_none(
-                        first_row["arrival_airport_icao"]
-                    ),
+                    arrival_airport_icao=_to_str_or_none(row["arrival_airport_icao"]),
                     arrival_scheduled_time=_to_str_or_none(
-                        first_row["arrival_scheduled_time"]
+                        row["arrival_scheduled_time"]
                     ),
                 ),
                 records=[
@@ -150,89 +135,25 @@ async def main(
                         imputed=False,
                         flight_level=None,
                     )
-                    for _, row in rows.iterrows()
                 ],
             )
             for raw_bq_json_ln in dto.to_bq_flatmap(
-                source_id=EGRESS_ORDERING_KEY_SRC_ID,
+                source_id="spire",
             ):
                 bq_queue_client.publish_async(
                     data=raw_bq_json_ln,
                     timeout_seconds=110,
                     log_context=dict(
                         client_name="bq_queue_client",
-                        icao_address=icao_address,
+                        icao_address=dto.flight_info.icao_address,
                         batch_first_ts=dto.records[0].timestamp,
                     ),
                 )
 
-        # ----------------
-        # publish on-time records
-        # ----------------
-        spire_df = spire_df.sort_values(["icao_address", "timestamp"])
-        for icao_address, rows in spire_df.groupby("icao_address"):
-            _log_invariant_violations(rows)
-
-            first_row = rows.iloc[0]
-
-            dto = schemas.SpireWaypointsRecord(
-                flight_info=schemas.SpireFlightInfo(
-                    icao_address=str(first_row["icao_address"]),
-                    flight_id=_to_str_or_none(first_row["flight_id"]),
-                    callsign=_to_str_or_none(first_row["callsign"]),
-                    tail_number=_to_str_or_none(first_row["tail_number"]),
-                    flight_number=_to_str_or_none(first_row["flight_number"]),
-                    aircraft_type_icao=_to_str_or_none(first_row["aircraft_type_icao"]),
-                    airline_iata=_to_str_or_none(first_row["airline_iata"]),
-                    departure_airport_icao=_to_str_or_none(
-                        first_row["departure_airport_icao"]
-                    ),
-                    departure_scheduled_time=_to_str_or_none(
-                        first_row["departure_scheduled_time"]
-                    ),
-                    arrival_airport_icao=_to_str_or_none(
-                        first_row["arrival_airport_icao"]
-                    ),
-                    arrival_scheduled_time=_to_str_or_none(
-                        first_row["arrival_scheduled_time"]
-                    ),
-                ),
-                records=[
-                    schemas.SpireWaypointPositional(
-                        ingestion_time=str(row["ingestion_time"]),
-                        timestamp=str(row["timestamp"]),
-                        latitude=float(row["latitude"]),
-                        longitude=float(row["longitude"]),
-                        collection_type=str(row["collection_type"]),
-                        altitude_baro=int(row["altitude_baro"]),
-                        imputed=False,
-                        flight_level=None,
-                    )
-                    for _, row in rows.iterrows()
-                ],
-            )
-
-            data = dto.as_utf8_json()
-            ordering_key = EGRESS_ORDERING_KEY_TEMPLATE.format(
-                icao_address=icao_address
-            )
-            egress_queue_client.publish_async(
-                data=data,
-                ordering_key=ordering_key,
-                timeout_seconds=110,
-                log_context=dict(
-                    client_name="egress_queue_client",
-                    icao_address=icao_address,
-                    batch_first_ts=dto.records[0].timestamp,
-                ),
-            )
-
         bq_queue_client.wait_for_publish(timeout_seconds=120)
-        egress_queue_client.wait_for_publish(timeout_seconds=120)
-        logger.info(f"Published records successfully: {len(spire_df)}")
+        logger.info(f"Published {len(spire_df)} records successfully.")
 
         state_client.set_last_sync_end_at(batch_end_at)
-        last_sync_end_at = batch_end_at
 
         time_end = time.time()
         elapsed_seconds = time_end - time_start
@@ -247,10 +168,6 @@ if __name__ == "__main__":
 
         triggered_at = datetime.now(tz=timezone.utc)
 
-        egress_queue_client = queue.QueueClient(
-            topic_id=environment.PUBSUB_EGRESS_TOPIC_ID,
-            ordered_queue=True,
-        )
         bq_queue_client = queue.QueueClient(
             topic_id=environment.SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID,
             ordered_queue=False,
@@ -266,7 +183,6 @@ if __name__ == "__main__":
         asyncio.run(
             main(
                 triggered_at=triggered_at,
-                egress_queue_client=egress_queue_client,
                 bq_queue_client=bq_queue_client,
                 sigterm_handler=sigterm_handler,
                 spire_client=spire_client,
