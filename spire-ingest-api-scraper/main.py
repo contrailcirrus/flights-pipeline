@@ -100,10 +100,8 @@ async def main(
         # ----------------
         # publish records
         # ---------------
-        spire_df = spire_df.sort_values(["icao_address", "timestamp"])
-        for ix, row in spire_df.groupby("icao_address"):
+        for ix, row in spire_df.iterrows():
             # _log_invariant_violations(rows)
-
             dto = schemas.SpireWaypointsRecord(
                 flight_info=schemas.SpireFlightInfo(
                     icao_address=str(row["icao_address"]),
