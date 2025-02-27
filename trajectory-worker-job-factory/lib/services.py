@@ -20,10 +20,10 @@ from lib.handlers import (
 from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
-    RocdError,
     BadTrajectoryException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
+from pycontrails.datalib.spire.exceptions import ROCDError
 from lib.utils import sigterm_manager
 
 from google.cloud import bigquery
@@ -429,7 +429,7 @@ class TrajectoryBuilderSvc:
             # confirm that trajectory meets acceptance criteria
             # ---------------
             permitted_violation_types = [
-                RocdError,
+                ROCDError,
             ]
             try:
                 self._validate_traj_handler.set(resampled_df)
