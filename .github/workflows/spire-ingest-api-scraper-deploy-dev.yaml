@@ -64,4 +64,4 @@ jobs:
           FIRESTORE_STATE_DOC_ID: spire-ingest-api-scraper
           LOG_LEVEL: INFO
           SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/dev-fp-spire-ingest-raw-bigquery
-          SUSPEND_CRONJOB: false
+          SUSPEND_CRONJOB: true
