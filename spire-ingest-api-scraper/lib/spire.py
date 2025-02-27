@@ -10,16 +10,6 @@ import pandas as pd
 from lib import utils
 from lib.log import format_traceback, logger
 
-# Requesting data [start_at, end_at) will fetch [start_at, end_at + INGEST_LAG_TIME]
-# from Spire's API to load data observations that occurred during [start_at, end_at)
-# but were ingested after end_at. Records with observation timestamps outside of
-# [start_at, end_at) are dropped before data leaves this module.
-INGEST_LAG_TIME = timedelta(minutes=2)
-
-# Spire reported that the following icao_address values are not unique to a specific
-# aircraft. We drop related records to avoid downstream inconsistencies.
-IGNORE_ICAO_ADDRESS = {"000000", "00000a", "0000BA"}
-
 
 class SpireAPIClient:
     def __init__(
@@ -34,7 +24,7 @@ class SpireAPIClient:
         self,
         start_at: datetime,
         end_at: datetime,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> pd.DataFrame:
         """Fetch global aircraft position records within time window.
 
         Parameters
@@ -46,9 +36,8 @@ class SpireAPIClient:
 
         Returns
         -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            first element is records with observation time in target window.
-            second element is records with tardy timestamps.
+        pd.DataFrame
+            Dataframe with records whose spire ingestion_time is within target window.
             aircraft position rows with timestamp in [start_at, end_at) with columns:
             {
                 "ingestion_time": "2024-03-04T23:24:01.900Z",
@@ -93,14 +82,8 @@ class SpireAPIClient:
         start_at = start_at.astimezone(timezone.utc)
         end_at = end_at.astimezone(timezone.utc)
 
-        end_at_plus_lag = end_at + INGEST_LAG_TIME
-        if end_at_plus_lag > datetime.now(timezone.utc):
-            raise ValueError(
-                f"end_at must be at least {INGEST_LAG_TIME} before present"
-            )
-
         # Decompose job into multiple windows that can be fetched concurrently.
-        windows = utils.time_windows(start_at, end_at_plus_lag, timedelta(minutes=1))
+        windows = utils.time_windows(start_at, end_at, timedelta(minutes=1))
 
         coroutines = [
             self._fetch_target_records_with_retry(*window) for window in windows
@@ -109,63 +92,27 @@ class SpireAPIClient:
 
         # Flatten nested list of records.
         records = [record for result in results for record in result]
-        df = pd.DataFrame(records)
+        df: pd.DataFrame = pd.DataFrame(records)
         logger.info(f"Fetched {len(df)} total records from Spire.")
 
-        # Spire API may return icao_address values that are not unique to a specific
-        # aircraft. Drop values known to be duplicated across aircraft.
-        is_ignored_icao_address = df["icao_address"].isin(IGNORE_ICAO_ADDRESS)
-        is_unique_icao_address = ~is_ignored_icao_address
-        df = df.loc[is_unique_icao_address, :]
-
-        drop_count_ignored_icao_address = is_ignored_icao_address.sum()
-        if drop_count_ignored_icao_address > 0:
-            logger.info(
-                f"Drop {drop_count_ignored_icao_address} records with non-unique "
-                f"icao_address in: {IGNORE_ICAO_ADDRESS}"
-            )
-
-        # Drop records with ingestion timestamps outside of [start_at, end_at_plus_lag).
+        # Drop records with ingestion timestamps outside of [start_at, end_at).
         # Spire API's start_at and end_at query params reference ingestion_time.
         # Sometimes the SPIRE API will return records with ingestion_time outside of
         # [start_at, end_at_plus_lag).
-        timestamp = pd.to_datetime(df["timestamp"])
-        ingestion_time = pd.to_datetime(df["ingestion_time"])
+        ingestion_time: pd.Series = pd.to_datetime(df["ingestion_time"])
         ingest_at_or_after_start = ingestion_time >= pd.to_datetime(start_at)
-        ingest_before_end_w_buffer = ingestion_time < pd.to_datetime(end_at_plus_lag)
-        in_range_filter = ingest_at_or_after_start & ingest_before_end_w_buffer
-        df = df.loc[in_range_filter, :]
-
-        drop_count = (~in_range_filter).sum()
-        if drop_count > 0:
-            logger.info(
-                f"Drop {drop_count} records with "
-                f"ingestion time outside window: [{start_at}, {end_at_plus_lag})"
-            )
-
-        # Identify tardy records; target records which were ingested by Spire after the
-        # allowable INGEST_LAG_TIME has elapsed.
-        timestamp = pd.to_datetime(df["timestamp"])
-        ingestion_time = pd.to_datetime(df["ingestion_time"])
-        is_tardy = (ingestion_time - timestamp) > INGEST_LAG_TIME
         ingest_before_end = ingestion_time < pd.to_datetime(end_at)
-        df_tardy = df.loc[is_tardy & ingest_before_end, :]
-
-        # Drop records with observation timestamps outside of [start_at, end_at), to
-        # guarantee ordering-in-time between subsequent invocations.
-        is_at_or_after_start = timestamp >= pd.to_datetime(start_at)
-        is_before_end = timestamp < pd.to_datetime(end_at)
-        in_range_filter = is_at_or_after_start & is_before_end
+        in_range_filter = ingest_at_or_after_start & ingest_before_end
         df = df.loc[in_range_filter, :]
 
         drop_count = (~in_range_filter).sum()
         if drop_count > 0:
             logger.info(
                 f"Drop {drop_count} records with "
-                f"observation time outside window: [{start_at}, {end_at})"
+                f"ingestion time outside window: [{start_at}, {end_at})"
             )
 
-        return df, df_tardy
+        return df
 
     async def _fetch_target_records_with_retry(
         self,
