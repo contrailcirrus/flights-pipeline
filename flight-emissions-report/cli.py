@@ -65,7 +65,7 @@ jobworker_submit_parser.add_argument(
 jobworker_submit_parser.add_argument(
     "-r",
     "--dry_run",
-    action="store_false",
+    action="store_true",
     help="run trajectory worker in dry-run mode",
     dest="dry_run",
 )
