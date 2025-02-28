@@ -62,7 +62,7 @@ jobs:
           FIRESTORE_STATE_DB: flights-pipeline-prod
           FIRESTORE_STATE_COLLECTION: state
           FIRESTORE_STATE_DOC_ID: spire-ingest-api-scraper
-          LOG_LEVEL: WARNING
+          LOG_LEVEL: INFO
           PUBSUB_EGRESS_TOPIC_ID: projects/contrails-301217/topics/prod-fp-api-scraper-egress
           SPIRE_RAW_WAYPOINTS_BIGQUERY_TOPIC_ID: projects/contrails-301217/topics/prod-fp-spire-ingest-raw-bigquery
           SUSPEND_CRONJOB: false

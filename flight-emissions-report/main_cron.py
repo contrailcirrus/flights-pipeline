@@ -34,6 +34,7 @@ class Input:
     icao_address: str | None = None
     met_data_src: str | None = None
     full_traj: bool = False
+    dry_run: bool = False
 
 
 DAILY_TARGETS = [
