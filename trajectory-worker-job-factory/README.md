@@ -146,6 +146,7 @@ for `<airline_iata>` originating on day (utc) of `<day>`, using met data source 
 Originating means the first waypoint in the trajectory falls on `<day>`, using met data source `<met_data_src>`.
 - `-c <icao_addr> -s -d <day> <met_data_src>` this submits multiple jobs representing all flights for 
 a single aircraft (`<icao_addr>`) originating on day (utc) of `<day>`, using met data source `<met_data_src>`.
+Multiple icao addresses can be submitted as a comma-delimited string.
 - `-i <flight_id> -d <day> -s <met_data_src>` this submits a single job representing a single 
 flight instance (`<flight_id>`) which has origination on day (utc) of `<day>`, using met data source `<met_data_src>`.
 
