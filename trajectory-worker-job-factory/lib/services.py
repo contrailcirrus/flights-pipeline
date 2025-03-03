@@ -182,9 +182,15 @@ class TrajectoryBuilderSvc:
 
         query = self._bq_handler.import_query(self.ICAO_ADDRESS_QUERY_FILENAME)
 
+        # icao_address can be a single icao address,
+        # or a comma delimited string of multiple icao addresses
+        icao_address_lst = icao_address.split(",")
+
         cfg = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("icao_address", "STRING", icao_address),
+                bigquery.ArrayQueryParameter(
+                    "icao_address", "STRING", icao_address_lst
+                ),
                 bigquery.ScalarQueryParameter("target_day", "STRING", day),
                 bigquery.ScalarQueryParameter(
                     "target_day_before", "STRING", previous_day
