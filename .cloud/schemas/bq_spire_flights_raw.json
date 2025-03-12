@@ -45,7 +45,13 @@
     "name": "altitude_baro",
     "type": "INT64",
     "mode": "REQUIRED",
-    "description": "altitude in feet MSL for the waypoint"
+    "description": "barometric altitude in feet MSL for the waypoint"
+  },
+  {
+    "name": "altitude_gnss",
+    "type": "INT64",
+    "mode": "NULLABLE",
+    "description": "geometric altitude in feet MSL for the waypoint"
   },
   {
     "name": "icao_address",
