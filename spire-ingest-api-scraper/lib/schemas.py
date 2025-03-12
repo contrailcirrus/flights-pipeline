@@ -23,6 +23,7 @@ class SpireWaypointPositional:
     # source: str  # e.g. ADSB
     collection_type: str | None  # e.g. terrestrial
     altitude_baro: int  # e.g. 26550 (MSL)
+    altitude_gnss: int | None  # e.g. 26000 (MSL)
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
     flight_level: int | None = None  # 390 (imputed) altitude_baro//100 mapped -> list
@@ -173,6 +174,7 @@ class SpireWaypointsRecord:
                 "longitude": record.longitude,
                 "collection_type": record.collection_type,
                 "altitude_baro": record.altitude_baro,
+                "altitude_gnss": record.altitude_gnss,
                 "flight_level": record.flight_level,
                 "imputed": record.imputed,
                 "icao_address": self.flight_info.icao_address,

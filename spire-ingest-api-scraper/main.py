@@ -24,6 +24,13 @@ def _to_str_or_none(x: Any) -> str | None:
     return None
 
 
+def _to_int_or_none(x: Any) -> int | None:
+    """Cast to int if truthy, otherwise return None."""
+    if x and not pd.isnull(x):
+        return int(x)
+    return None
+
+
 def _floor_1min(x: datetime) -> datetime:
     """Truncate seconds and microseconds from datetime object."""
     return x - timedelta(seconds=x.second, microseconds=x.microsecond)
@@ -130,6 +137,7 @@ async def main(
                         longitude=float(row["longitude"]),
                         collection_type=str(row["collection_type"]),
                         altitude_baro=int(row["altitude_baro"]),
+                        altitude_gnss=_to_int_or_none(row["altitude_gnss"]),
                         imputed=False,
                         flight_level=None,
                     )
