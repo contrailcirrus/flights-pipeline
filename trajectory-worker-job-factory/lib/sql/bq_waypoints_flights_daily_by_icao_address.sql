@@ -1,6 +1,6 @@
 WITH candidate_waypoints_tb AS (SELECT *
                                 FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
-                                WHERE icao_address = @icao_address
+                                WHERE icao_address IN UNNEST(@icao_address)
                                   AND TIMESTAMP_TRUNC(timestamp, DAY) IN
                                       (@target_day_before, @target_day, @target_day_after)),
      candidate_fid_tb AS

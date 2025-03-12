@@ -153,15 +153,18 @@ class TrajectoryBuilderSvc:
         self, day: str, icao_address: str
     ) -> (pd.DataFrame, pd.DataFrame):
         """
-        Fetch ads-b data for all flights originating on a single day, belonging to a single
+        Fetch ads-b data for all flights originating on a single day, belonging to one or more
         icao address.
+
 
         Parameters
         ----------
         day
             The target UTC day (flight instance origination) for flights; fmt "%Y-%m-%d"
         icao_address
-            The target icao_address for which to fetch all flight instances
+            The target icao_address for which to fetch all flight instances.
+            If a single aircraft, then a single icao_address.
+            If multiple aircraft, then a comma delimited string of icao_address values.
 
         Returns
         ---------
@@ -179,9 +182,15 @@ class TrajectoryBuilderSvc:
 
         query = self._bq_handler.import_query(self.ICAO_ADDRESS_QUERY_FILENAME)
 
+        # icao_address can be a single icao address,
+        # or a comma delimited string of multiple icao addresses
+        icao_address_lst = icao_address.split(",")
+
         cfg = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("icao_address", "STRING", icao_address),
+                bigquery.ArrayQueryParameter(
+                    "icao_address", "STRING", icao_address_lst
+                ),
                 bigquery.ScalarQueryParameter("target_day", "STRING", day),
                 bigquery.ScalarQueryParameter(
                     "target_day_before", "STRING", previous_day
