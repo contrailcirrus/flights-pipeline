@@ -109,6 +109,12 @@ async def main(
         # ---------------
         for ix, row in spire_df.iterrows():
             # _log_invariant_violations(rows)
+
+            # spire response schema is not static;
+            # altitude gnss is sometimes missing from the response schema
+            altitude_gnss = row.get("altitude_gnss")
+            if not altitude_gnss:
+                logger.warning("altitude gnss not reported in Spire API response.")
             dto = schemas.SpireWaypointsRecord(
                 flight_info=schemas.SpireFlightInfo(
                     icao_address=str(row["icao_address"]),
@@ -137,7 +143,7 @@ async def main(
                         longitude=float(row["longitude"]),
                         collection_type=str(row["collection_type"]),
                         altitude_baro=int(row["altitude_baro"]),
-                        altitude_gnss=_to_int_or_none(row["altitude_gnss"]),
+                        altitude_gnss=_to_int_or_none(altitude_gnss),
                         imputed=False,
                         flight_level=None,
                     )
