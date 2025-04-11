@@ -520,16 +520,26 @@ def _gen_od_bar_figs(
     ax = fig.add_subplot(1, 1, 1)
 
     night_co2e_grp = [
-        int(
-            itm["co2e50_metric_tons"] * min(itm["percentage_nighttime_co2e"], 100) / 100
+        (
+            int(
+                itm["co2e50_metric_tons"]
+                * min(itm["percentage_nighttime_co2e"], 100)
+                / 100
+            )
+            if itm["percentage_nighttime_co2e"]
+            else 0.0
         )
         for itm in top_ods_by_net_co2e
     ]
     day_co2e_grp = [
-        int(
-            itm["co2e50_metric_tons"]
-            * (100 - min(itm["percentage_nighttime_co2e"], 100))
-            / 100
+        (
+            int(
+                itm["co2e50_metric_tons"]
+                * (100 - min(itm["percentage_nighttime_co2e"], 100))
+                / 100
+            )
+            if itm["percentage_nighttime_co2e"]
+            else 0.0
         )
         for itm in top_ods_by_net_co2e
     ]
