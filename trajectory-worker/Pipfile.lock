@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "d18eec4b393464e16bbf8267677e4df22f9d8661de55400befd2d9488584cf7c"
+            "sha256": "416551776c2587eb18c018378b4a78b400084af402a81baaf336dd0d80e17b1b"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -1164,7 +1164,7 @@
                 "sha256:f486038e44caa08dbd97275a9a35a283a8f1d2f0ee60ac260a1790e76660833c",
                 "sha256:f7de08cbe5551911886d1ab60de58448c6df0f67d9feb7d1fb21e9875ef95e91"
             ],
-            "markers": "python_version >= '3.10'",
+            "markers": "python_version >= '3.9'",
             "version": "==2.2.4"
         },
         "oauthlib": {
@@ -1497,7 +1497,7 @@
         },
         "pycontrails-bada": {
             "git": "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git",
-            "ref": "d4f1a7b72325bacfa6d009bff16bd77729f19067"
+            "ref": "c75331078ca6eb64768109fa741dc7bd5ad03e30"
         },
         "pycparser": {
             "hashes": [

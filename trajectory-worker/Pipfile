@@ -10,7 +10,7 @@ gcsfs = "==2024.6.1"
 google-cloud-pubsub = "==2.19.7"
 matplotlib = "==3.9.1"
 pycontrails = "==0.54.8"
-pycontrails-bada = {ref = "v0.5.3", git = "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git"}
+pycontrails-bada = {ref = "v0.7.3", git = "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git"}
 timezonefinder = "==6.5.2"
 zarr = "==2.18.3"
 
