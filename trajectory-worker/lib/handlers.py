@@ -650,7 +650,7 @@ class CocipTrajectoryHandler:
             )
             met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
             variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables
+                v[1] if isinstance(v, tuple) else v for v in Cocip.met_variables
             )
             met.standardize_variables(variables)
 
@@ -663,7 +663,7 @@ class CocipTrajectoryHandler:
             )
             rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
             variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables
+                v[1] if isinstance(v, tuple) else v for v in Cocip.rad_variables
             )
             rad.standardize_variables(variables)
 
