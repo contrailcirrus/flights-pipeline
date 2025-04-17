@@ -708,7 +708,7 @@ class CocipTrajectoryHandler:
                 "Unrecognized met source specified in trajectory worker job."
             )
 
-    def run(self) -> Flight:
+    def run(self) -> list[Flight]:
         """
         Run the cocip trajectory model.
         """
@@ -738,7 +738,7 @@ class CocipTrajectoryHandler:
                 preprocess_lowmem=True,
             )
         logger.debug("evaluating cocip model.")
-        result: Flight = model.eval(self._flight)
+        result: list[Flight] = model.eval([self._flight])
         logger.debug("finished evaluating cocip model.")
         return result
 

@@ -86,12 +86,13 @@ def run(
         else:
             raise ValueError("traj worker job met source not recognized")
 
+        # TODO: iterate over results once we have multiple flights grouped per run
         output = schemas.CocipTrajectoryChunk.from_cocip_result(
             source_id=message.ordering_key.split(":")[0],
             git_sha=env.GIT_SHA,
             input_chunk=job,
             zarr_uri=fq_zarr_uri,
-            result=cocip_result,
+            result=cocip_result[0],
         )
 
         trajectory_cocip_bq_publisher.publish_async(
