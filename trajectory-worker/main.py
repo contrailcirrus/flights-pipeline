@@ -110,6 +110,7 @@ def run(
         # ===================
         # if enabled, publish all trajectory segments to BQ
         # ===================
+        # TODO: iterate over results once we have multiple flights grouped per run
         if job.export_cocip_trajectory:
             logger.debug("exporting per-segment cocip outputs to BQ.")
             seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
@@ -117,7 +118,7 @@ def run(
                 git_sha=env.GIT_SHA,
                 input_chunk=job,
                 zarr_uri=fq_zarr_uri,
-                result=cocip_result,
+                result=cocip_result[0],
             )
             for seg in seg_outputs:
                 trajectory_cocip_bq_publisher.publish_async(
