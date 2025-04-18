@@ -904,7 +904,7 @@ class CocipTrajectoryChunk:
                 total_contrail_length_sac_km=tot_sac_len,
                 max_contrail_lifetime_h=max_contrail_age_hr,
                 median_contrail_lifetime_h=median_contrail_age_hr,
-                pycontrails_ver=attrs["pycontrails_version"],
+                pycontrails_ver=pycontrails.__version__,
                 perf_model_id=attrs["aircraft_performance_model"],
                 nvpm_data_source=attrs["nvpm_data_source"],
                 source_id=source_id,
