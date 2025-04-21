@@ -382,14 +382,85 @@ class PubSubPublishHandler:
         return _exit_on_error
 
 
+class TrajectoryWorkerAP(AircraftPerformance):
+    """
+    Wrapper class to modulate which aircraft performance model we use with CoCiP.
+    """
+
+    NAME = "trajectory_worker_ap"
+    LONG_NAME = "Trajectory Worker Aircraft Performance"
+    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
+    BADA3_DATASET_FP = "bada3"
+
+    met_variables = BADAFlight.met_variables
+
+    @classmethod
+    def perf_lookup(cls, aircraft_type_icao: str) -> tuple[AircraftPerformance, str]:
+        """
+        Look up performance model and engine type for a job's aircraft type.
+
+        We provide a static, manually maintained lookup that maps one-to-one,
+        between an aircraft type (icao identifier), and
+        1. an aircraft performance model,
+        2. an engine identifier (icao uid)
+
+        At present, we have only implemented the PSFlight performance model.
+        The BADA model may or may not be supported in the future.
+
+        Futhermore, please note that the engine_uid is not used in running the PS perf model
+        (it is for BADA). However, we still return a single, default engine_uid for aircraft
+        associated with the PS model, since the engine_uid is used in setting emission indexes
+        for emissions calculations (emission calculations being separate from the perf model output)
+        """
+
+        with open(cls.PERF_MODEL_LOOKUP_FP, "r") as fp:
+            lookup = json.load(fp)
+
+        target: dict[str, str] | None = lookup.get(aircraft_type_icao)
+
+        if not target:
+            raise AircraftTypeUnrecognizedError(
+                f"aircraft of type {aircraft_type_icao} " f"not in performance lookup."
+            )
+
+        engine_uid: str = target["engine_uid"]
+
+        perf_model: AircraftPerformance
+        match target["perf_model_id"]:
+            case "PS":
+                perf_model = PSFlight(
+                    fill_low_altitude_with_isa_temperature=True,
+                    fill_low_altitude_with_zero_wind=True,
+                )
+            case "BADA3":
+                perf_model = BADAFlight(
+                    bada3_path=cls.BADA3_DATASET_FP,
+                    fill_low_altitude_with_isa_temperature=True,
+                    fill_low_altitude_with_zero_wind=True,
+                )
+            case _:
+                raise PerfModelUnsupportedError(
+                    f"perf model lookup returned an unsupported "
+                    f"perf_model_id of {target['perf_model_id']} "
+                    f"for aircraft_type_icao of {aircraft_type_icao}"
+                )
+        return perf_model, engine_uid
+
+    def eval_flight(self, fl: Flight):
+        aircraft_type_icao = fl.attrs.get("aircraft_type")
+        _perf_model, _ = self.perf_lookup(aircraft_type_icao)
+        return _perf_model.eval_flight(fl)
+
+    def calculate_aircraft_performance(*args, **kwargs):
+        raise
+
+
 class CocipTrajectoryHandler:
     """
     Manages the execution of the CoCip trajectory model on a flight trajectory chunk.
     """
 
     MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
-    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
-    BADA3_DATASET_FP = "bada3"
     LOW_MEM_WAYPOINT_COUNT = (
         300  # use low-mem cocip trajectory if traj length is above this val
     )
@@ -434,7 +505,11 @@ class CocipTrajectoryHandler:
         self._rad_dataset: MetDataset | None = None
 
         self._verify_altitude(self._job)
-        self._perf_model, self._engine_uid = self._perf_lookup(self._job)
+        self._perf_model_handler = TrajectoryWorkerAP()
+        # TODO: refactor to avoid circular encapsulation
+        _, self._engine_uid = self._perf_model_handler.perf_lookup(
+            self._job.flight_info.aircraft_type_icao
+        )
         self._flight: pycontrails.Flight = self._create_flight(
             self._job, self._engine_uid
         )
@@ -450,59 +525,6 @@ class CocipTrajectoryHandler:
                 f"no waypoints in trajectory above alt threshold "
                 f"of {cls.MET_MIN_ALTITUDE_FT} feet."
             )
-
-    @classmethod
-    def _perf_lookup(cls, job: WaypointsRecord) -> tuple[AircraftPerformance, str]:
-        """
-        Look up performance model and engine type for a job's aircraft type.
-
-        We provide a static, manually maintained lookup that maps one-to-one,
-        between an aircraft type (icao identifier), and
-        1. an aircraft performance model,
-        2. an engine identifier (icao uid)
-
-        At present, we have only implemented the PSFlight performance model.
-        The BADA model may or may not be supported in the future.
-
-        Futhermore, please note that the engine_uid is not used in running the PS perf model
-        (it is for BADA). However, we still return a single, default engine_uid for aircraft
-        associated with the PS model, since the engine_uid is used in setting emission indexes
-        for emissions calculations (emission calculations being separate from the perf model output)
-        """
-
-        with open(cls.PERF_MODEL_LOOKUP_FP, "r") as fp:
-            lookup = json.load(fp)
-
-        target: dict[str, str] | None = lookup.get(job.flight_info.aircraft_type_icao)
-
-        if not target:
-            raise AircraftTypeUnrecognizedError(
-                f"aircraft of type {job.flight_info.aircraft_type_icao} "
-                f"not in performance lookup."
-            )
-
-        engine_uid: str = target["engine_uid"]
-
-        perf_model: AircraftPerformance
-        match target["perf_model_id"]:
-            case "PS":
-                perf_model = PSFlight(
-                    fill_low_altitude_with_isa_temperature=True,
-                    fill_low_altitude_with_zero_wind=True,
-                )
-            case "BADA3":
-                perf_model = BADAFlight(
-                    bada3_path=cls.BADA3_DATASET_FP,
-                    fill_low_altitude_with_isa_temperature=True,
-                    fill_low_altitude_with_zero_wind=True,
-                )
-            case _:
-                raise PerfModelUnsupportedError(
-                    f"perf model lookup returned an unsupported "
-                    f"perf_model_id of {target['perf_model_id']} "
-                    f"for aircraft_type_icao of {job.flight_info.aircraft_type_icao}"
-                )
-        return perf_model, engine_uid
 
     @staticmethod
     def _create_flight(job: WaypointsRecord, engine_uid: str) -> Flight:
