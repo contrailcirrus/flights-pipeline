@@ -48,7 +48,7 @@ class TrajectoryBuilderSvc:
     # the traj worker (pubsub) makes a best-effort to cluster flights with the same day
     # into a fleet, and runs CoCiP on those flights at the same time
     # flight_start_date fmt : %Y-%m-%d
-    ORDERING_KEY_TEMPLATE = "flightsreport:{flight_start_date}"
+    ORDERING_KEY_TEMPLATE = "flightsreport:{flight_start_datehour}"
 
     def __init__(
         self,
@@ -506,9 +506,9 @@ class TrajectoryBuilderSvc:
                 )
 
                 first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
-                first_waypoint_date = first_waypoint_ts.strftime("%Y-%m-%d")
+                first_waypoint_datehour = first_waypoint_ts.strftime("%Y-%m-%dT%H")
                 ordering_key = self.ORDERING_KEY_TEMPLATE.format(
-                    flight_start_date=first_waypoint_date,
+                    flight_start_datehour=first_waypoint_datehour,
                 )
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
