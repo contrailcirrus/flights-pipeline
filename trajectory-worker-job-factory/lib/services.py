@@ -43,7 +43,12 @@ class TrajectoryBuilderSvc:
     ICAO_ADDRESS_QUERY_FILENAME = (
         "lib/sql/bq_waypoints_flights_daily_by_icao_address.sql"
     )
-    ORDERING_KEY_TEMPLATE = "flightsreport:{}"
+
+    # ordering key includes the start_date of the flight
+    # the traj worker (pubsub) makes a best-effort to cluster flights with the same day
+    # into a fleet, and runs CoCiP on those flights at the same time
+    # flight_start_date fmt : %Y-%m-%d
+    ORDERING_KEY_TEMPLATE = "flightsreport:{flight_start_date}"
 
     def __init__(
         self,
@@ -380,9 +385,9 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.set(records)
                 self._resample_handler.interpolate()
 
-                waypoints_resampled: list[SpireWaypointPositional] = (
-                    self._resample_handler.waypoints_resampled
-                )
+                waypoints_resampled: list[
+                    SpireWaypointPositional
+                ] = self._resample_handler.waypoints_resampled
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
@@ -442,9 +447,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(resampled_df)
-                violations: None | list[Exception] = (
-                    self._validate_traj_handler.evaluate()
-                )
+                violations: None | list[
+                    Exception
+                ] = self._validate_traj_handler.evaluate()
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
@@ -500,8 +505,10 @@ class TrajectoryBuilderSvc:
                     export_cocip_trajectory=twjd.full_traj,
                 )
 
+                first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
+                first_waypoint_date = first_waypoint_ts.strftime("%Y-%m-%d")
                 ordering_key = self.ORDERING_KEY_TEMPLATE.format(
-                    job.flight_info.flight_id
+                    flight_start_date=first_waypoint_date,
                 )
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
