@@ -15,7 +15,7 @@ spec:
     kind: Deployment
     name: trajectory-worker-gaia
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 20
   metrics:
     - type: External
       external:
@@ -26,4 +26,4 @@ spec:
               resource.labels.subscription_id: {{ .Values.trajectoryChunkGaiaSubscriptionId | required ".Values.trajectoryChunkGaiaSubscriptionId is required" | splitList "/" | last | quote }}
         target:
           type: Value
-          value: 100
+          value: 20
