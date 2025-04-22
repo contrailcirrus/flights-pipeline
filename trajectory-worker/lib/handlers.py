@@ -392,8 +392,6 @@ class TrajectoryWorkerAP(AircraftPerformance):
     PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
     BADA3_DATASET_FP = "bada3"
 
-    met_variables = BADAFlight.met_variables
-
     @classmethod
     def perf_lookup(cls, aircraft_type_icao: str) -> tuple[AircraftPerformance, str]:
         """
