@@ -8,14 +8,12 @@ import os
 import sys
 import threading
 from collections.abc import Iterator
-from dataclasses import dataclass
 from typing import Any, Callable
 
 import google.api_core.exceptions
 import google.api_core.retry
 import numpy as np
 import pandas as pd  # type: ignore
-import pycontrails
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
@@ -29,20 +27,13 @@ from pycontrails_bada.bada_model import BADAFlight
 
 from lib.exceptions import (
     AircraftTypeUnrecognizedError,
-    FlightTooLowError,
     PerfModelUnsupportedError,
+    FlightTooLowError,
 )
 from lib.log import format_traceback, logger
-from lib.schemas import WaypointsRecord, MetSource
+from lib.schemas import WaypointsRecord, MetSource, WaypointsRecordBatch, PubSubMessage
 import lib.environment as env
 from lib.utils import sigterm_manager
-
-
-@dataclass(frozen=True)
-class Message:
-    data: bytes
-    ack_id: str
-    ordering_key: str
 
 
 class PubSubSubscriptionHandler:
@@ -55,6 +46,7 @@ class PubSubSubscriptionHandler:
         subscription: str,
         ack_extension_sec: float = 30,
         pull_timeout_sec: float = 60.0,
+        max_msgs: int = 1,
     ):
         """
         Parameters
@@ -67,16 +59,18 @@ class PubSubSubscriptionHandler:
             deadline for outstanding messages.
         pull_timeout_sec
             Seconds the subscriber client will block for messages before retrying.
+        max_msgs
+            Maximum number of messages that the subscriber should attempt to dequeue.
         """
         self.subscription = subscription
         self.pull_timeout_sec = pull_timeout_sec
         self.ack_extension_sec = ack_extension_sec
-
+        self._max_msgs = max_msgs
         self._client = pubsub_v1.SubscriberClient()
 
-        self._outstanding_messages: set[Message] = set()
+        self._outstanding_messages: set[PubSubMessage] = set()
 
-    def _fetch(self) -> Message:
+    def _fetch(self) -> list[PubSubMessage]:
         """Fetch a message from the subscription queue.
 
         This method will hang and wait until a message is available. If an exception is
@@ -84,7 +78,7 @@ class PubSubSubscriptionHandler:
 
         Returns
         -------
-        Message
+        PubSubMessage
             The dequeued message from the pubsub subscription.
         """
         while True:
@@ -93,7 +87,10 @@ class PubSubSubscriptionHandler:
             logger.debug(f"fetching message from {self.subscription}")
 
             resp = self._client.pull(
-                request={"subscription": self.subscription, "max_messages": 1},
+                request={
+                    "subscription": self.subscription,
+                    "max_messages": self._max_msgs,
+                },
                 timeout=self.pull_timeout_sec,  # default: 60
                 retry=google.api_core.retry.Retry(
                     initial=0.1,  # default: 0.1
@@ -118,21 +115,20 @@ class PubSubSubscriptionHandler:
                 logger.info("zero messages received.")
                 continue
 
-            pubsub_msg = resp.received_messages[0]
+            pubsub_msgs: list[PubSubMessage] = []
+            for msg in resp.received_messages:
+                message = PubSubMessage(
+                    data=msg.message.data,
+                    ack_id=msg.ack_id,
+                    ordering_key=msg.message.ordering_key,
+                )
+                pubsub_msgs.append(message)
             logger.debug(
-                f"received 1 message from {self.subscription}. "
-                f"published_time: {pubsub_msg.message.publish_time}, "
-                f"message_id: {pubsub_msg.message.message_id}"
+                f"received {len(pubsub_msgs)} message from {self.subscription}."
             )
+            return pubsub_msgs
 
-            message = Message(
-                data=pubsub_msg.message.data,
-                ack_id=pubsub_msg.ack_id,
-                ordering_key=pubsub_msg.message.ordering_key,
-            )
-            return message
-
-    def subscribe(self) -> Iterator[Message]:
+    def subscribe(self) -> Iterator[list[PubSubMessage]]:
         """Yields messages from the subscription.
 
         This method returns an iterator to loop over messages in the subscription. While
@@ -151,13 +147,15 @@ class PubSubSubscriptionHandler:
 
         try:
             while True:
-                message = self._fetch()
-                self._outstanding_messages.add(message)
-                yield message
+                messages = self._fetch()
+                for msg in messages:
+                    self._outstanding_messages.add(msg)
+                yield messages
                 # Guard against user failing to call ack() or nack()
-                if message in self._outstanding_messages:
-                    logger.warning(f"message was never ack'ed or nack'ed: {message}")
-                    self._outstanding_messages.discard(message)
+                for msg in messages:
+                    if msg in self._outstanding_messages:
+                        logger.warning(f"message was never ack'ed or nack'ed: {msg}")
+                        self._outstanding_messages.discard(msg)
         except GeneratorExit:
             pass
 
@@ -166,7 +164,7 @@ class PubSubSubscriptionHandler:
         # Block until lease manager thread exits
         lease_manager.join()
 
-    def ack(self, message: Message):
+    def ack(self, message: PubSubMessage):
         """Acknowledge the message to remove from the queue."""
         # Stop extending lease before server-side ack. This avoids cases where the lease
         # management worker fails to extend the ack deadline for an already ack'ed
@@ -193,7 +191,7 @@ class PubSubSubscriptionHandler:
         )
         logger.debug("successfully ack'ed message.")
 
-    def nack(self, message: Message):
+    def nack(self, message: PubSubMessage):
         """Not-acknowledge the message to stop extending ack deadline.
 
         Does not nack the message server-side, so the message will be retried based on
@@ -482,12 +480,22 @@ class CocipTrajectoryHandler:
         max_age=np.timedelta64(12, "h"),
     )
 
-    def __init__(self, job: WaypointsRecord, hres_src: str, era5_src: str):
+    def __init__(self, messages: list[PubSubMessage], hres_src: str, era5_src: str):
         """
+        Create a CoCiP handler for the flights encapsulated in pubsub messages.
+
+        On instantiation, an object of this class will process the messages
+        into pycontrails flights, segregating those needing ERA5 met data from
+        those needing HRES met data.
+
+        Any messages that cannot be processed into one of the two above lists
+        will be flagged.
+
         Parameters
         ----------
-        job
-            A list of flight waypoints, sampled at contiguous, 1min intervals.
+        messages
+            A list messages from the job queue.
+            Each message object is a flight instance.
         hres_src
             Fully-qualified uri for the source path the hres zarr store.
             e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
@@ -497,21 +505,79 @@ class CocipTrajectoryHandler:
         """
         self._hres_src = hres_src
         self._era5_src = era5_src
-        self._job = job
-        self._zarr_src_fn: str | list[str] | None = None
-        self._met_dataset: MetDataset | None = None
-        self._rad_dataset: MetDataset | None = None
 
-        self._verify_altitude(self._job)
-        self._perf_model_handler = TrajectoryWorkerAP()
-        # TODO: refactor to avoid circular encapsulation
-        _, self._engine_uid = self._perf_model_handler.perf_lookup(
-            self._job.flight_info.aircraft_type_icao
+        self._hres_jobs: WaypointsRecordBatch = WaypointsRecordBatch(
+            met_src=MetSource.HRES, flights=[]
         )
-        self._flight: pycontrails.Flight = self._create_flight(
-            self._job, self._engine_uid
+        self._era5_jobs: WaypointsRecordBatch = WaypointsRecordBatch(
+            met_src=MetSource.ERA5, flights=[]
         )
+
+        self._unprocessable_messages: list[PubSubMessage] = []
+        self._perf_model_handler: TrajectoryWorkerAP = TrajectoryWorkerAP()
+
+        # source uris and pycontrails met datasets for HRES met
+        self._hres_zarr_src_fns: str | list[str] | None = None
+        self._hres_met_dataset: MetDataset | None = None
+        self._hres_rad_dataset: MetDataset | None = None
+
+        # source uris and pycontrails met datasets for ERA5 met
+        self._era5_zarr_src_fns: str | list[str] | None = None
+        self._era5_met_dataset: MetDataset | None = None
+        self._era5_rad_dataset: MetDataset | None = None
+
+        # package messages into a batch of jobs (WaypointsRecordBatch)
+        # segregate between those that need era5 met and hres met
+        # skip any that cannot be processed and flag as unprocessable
+        for ix, msg in enumerate(messages):
+            job = WaypointsRecord.from_utf8_json(msg.data)
+            job.pubsub_message = msg
+            logger.info(
+                f"airline_iata: {job.flight_info.airline_iata}"
+                f"flight_id: {job.flight_info.flight_id}. "
+                f"job {ix} of {len(messages)}"
+                f"got job with {len(job.records)} records."
+            )
+            try:
+                self._verify_altitude(job)
+            except FlightTooLowError as e:
+                logger.warning(
+                    f"airline_iata: {job.flight_info.airline_iata}. "
+                    f"skipping {job.flight_info.flight_id}. "
+                    f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}. "
+                    f"could not run cocip. "
+                    f"{e}"
+                )
+                self._unprocessable_messages.append(msg)
+                continue
+            try:
+                pycontrail_flight = self._create_flight(job, self._perf_model_handler)
+            except AircraftTypeUnrecognizedError as e:
+                logger.warning(
+                    f"airline_iata: {job.flight_info.airline_iata}. "
+                    f"skipping {job.flight_info.flight_id}. "
+                    f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}. "
+                    f"could not run cocip. "
+                    f"{e}"
+                )
+                self._unprocessable_messages.append(msg)
+                continue
+            job.pycontrail_flight = pycontrail_flight
+
+            if job.met_source == MetSource.HRES:
+                self._hres_jobs.flights.append(job)
+            elif job.met_source == MetSource.ERA5:
+                self._era5_jobs.flights.append(job)
+            else:
+                raise ValueError(f"unrecognized met source: {job.met_source}.")
         logger.debug("instantiated cocip handler.")
+
+    @property
+    def unprocessable_messages(self) -> list[PubSubMessage]:
+        """
+        Return those pubsub messages that could not be processed/handled.
+        """
+        return self._unprocessable_messages
 
     @classmethod
     def _verify_altitude(cls, job: WaypointsRecord):
@@ -525,11 +591,14 @@ class CocipTrajectoryHandler:
             )
 
     @staticmethod
-    def _create_flight(job: WaypointsRecord, engine_uid: str) -> Flight:
+    def _create_flight(
+        job: WaypointsRecord, perf_handler: TrajectoryWorkerAP
+    ) -> Flight:
         """Create Flight from job waypoints.
 
         Aircraft and engine type are associated with the flight here.
         """
+        engine_uid = perf_handler.perf_lookup(job.flight_info.aircraft_type_icao)
         return Flight(
             longitude=[w.longitude for w in job.records],
             latitude=[w.latitude for w in job.records],
@@ -655,41 +724,84 @@ class CocipTrajectoryHandler:
 
     def load(self):
         """
-        Open met data zarr stores.
+        Open met data zarr stores and build pycontrails Metdataset objects for HRES and ERA5 stores.
 
-        HRES: Will choose the most recent _usable_ forecast.
-        ERA5: Will choose store(s) that overlap entire flight traj + contrail evolution time.
+        HRES: Will choose the most recent _usable_ forecast for jobs needing HRES.
+              If multiple zarr stores are needed, they will be concatenated.
+              If zarr stores overlap, then that with the lower model reference time will be used.
+
+        ERA5: Will choose and concat those store(s)
+              that overlap entire flight traj + contrail evolution time.
         """
-        if self._job.met_source == MetSource.HRES:
-            self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
-            zarr_path = f"{self._hres_src}/{self._zarr_src_fn}"
-            logger.debug(f"opening HRES PL zarr store at: {zarr_path}")
-            pl = xr.open_zarr(
-                f"{zarr_path}/pl.zarr",
-                storage_options={"token": env.GCP_SVC_ACCT_KEY},
+        if self._hres_jobs.flights:
+            # build HRES met data
+            # -------------------
+            self._hres_zarr_src_fns = list(
+                {
+                    self._find_nearest_hres_zarr_store(job)
+                    for job in self._hres_jobs.flights
+                }
             )
-            met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
+            # order hres zarr filenames by time descending
+            self._hres_zarr_src_fns.sort(
+                key=lambda fn: pd.to_datetime(fn, format="%Y%m%d%H"),
+                reverse=True,
+            )
+
+            pl_agg: xr.Dataset | None = None
+            sl_agg: xr.Dataset | None = None
+            for hres_fn in self._hres_zarr_src_fns:
+                zarr_path = f"{self._hres_src}/{hres_fn}"
+                logger.debug(f"opening HRES PL zarr store at: {zarr_path}")
+                pl = xr.open_zarr(
+                    f"{zarr_path}/pl.zarr",
+                    storage_options={"token": env.GCP_SVC_ACCT_KEY},
+                )
+                if pl_agg:
+                    # we join the new dataset with the existing one
+                    # only adding in values that don't already exist (time dimension)
+                    # aka. left outer join on time
+                    pl_agg.combine_first(pl)
+                else:
+                    pl_agg = pl
+
+                logger.debug(f"opening HRES SL zarr store at: {zarr_path}")
+                sl = xr.open_zarr(
+                    f"{zarr_path}/sl.zarr",
+                    storage_options={
+                        "token": env.GCP_SVC_ACCT_KEY,
+                    },
+                )
+
+                if sl_agg:
+                    # ditto
+                    sl_agg.combine_first(sl)
+                else:
+                    sl_agg = sl
+
+            met = MetDataset(
+                pl_agg, provider="ECMWF", dataset="HRES", product="forecast"
+            )
             variables = Cocip.ecmwf_met_variables()
             met = met.standardize_variables(variables)
+            self._hres_met_dataset = met
 
-            logger.debug(f"opening HRES SL zarr store at: {zarr_path}")
-            sl = xr.open_zarr(
-                f"{zarr_path}/sl.zarr",
-                storage_options={
-                    "token": env.GCP_SVC_ACCT_KEY,
-                },
+            rad = MetDataset(
+                sl_agg, provider="ECMWF", dataset="HRES", product="forecast"
             )
-            rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
             variables = Cocip.ecmwf_rad_variables()
             rad = rad.standardize_variables(variables)
+            self._hres_rad_dataset = rad
 
-            self._met_dataset = met
-            self._rad_dataset = rad
-        elif self._job.met_source == MetSource.ERA5:
-            self._zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
+        if self._era5_jobs.flights:
+            # build ERA5 met data
+            # -------------------
+            self._era5_zarr_src_fns: list[str] = list(
+                {self._find_era5_zarr_stores(job) for job in self._era5_jobs.flights}
+            )
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []
-            for src_fn in self._zarr_src_fn:
+            for src_fn in self._era5_zarr_src_fns:
                 zarr_path = f"{self._era5_src}/{src_fn}"
                 logger.debug(f"opening ERA5 PL zarr store at: {zarr_path}")
                 pl = xr.open_zarr(
@@ -720,52 +832,81 @@ class CocipTrajectoryHandler:
             variables = Cocip.ecmwf_rad_variables()
             rad = rad.standardize_variables(variables)
 
-            self._met_dataset = met
-            self._rad_dataset = rad
+            self._era5_met_dataset = met
+            self._era5_rad_dataset = rad
 
         else:
             raise ValueError(
                 "Unrecognized met source specified in trajectory worker job."
             )
 
-    def run(self) -> list[Flight]:
+    def run(self):
         """
         Run the cocip trajectory model.
-        """
-        logger.debug("running cocip model.")
-        if not self._met_dataset or not self._rad_dataset:
-            raise ValueError(
-                "met dataset or rad dataset have not been loaded. Run load()."
-            )
 
-        if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
+        Package the cocip result in each respective Job object.
+        """
+        # first run HRES jobs
+        # ------------------
+        if self._hres_jobs.flights:
+            # determine if we need low mem mode
+            largest_flight_n = max([len(fl.records) for fl in self._hres_jobs.flights])
             model = Cocip(
-                met=self._met_dataset,
-                rad=self._rad_dataset,
-                aircraft_performance=self._perf_model,
+                met=self._hres_met_dataset,
+                rad=self._hres_rad_dataset,
+                aircraft_performance=self._perf_model_handler,
                 **self.STATIC_PARAMS,
+                preprocess_lowmem=(
+                    True if largest_flight_n >= self.LOW_MEM_WAYPOINT_COUNT else False
+                ),
             )
-        else:
-            logger.info(
-                f"using low-mem cocip implementation for flight "
-                f"w/ {len(self._job.records)} waypoints"
+            results: list[Flight] = model.eval(
+                [fl.pycontrail_flight for fl in self._hres_jobs.flights]
             )
+            # package results in the list of jobs
+            for job, res in zip(self._hres_jobs.flights, results):
+                job.pycontrail_cocip_result = res
+
+        # second run ERA5 jobs
+        # ------------------
+        if self._era5_jobs.flights:
+            # determine if we need low mem mode
+            largest_flight_n = max([len(fl.records) for fl in self._era5_jobs.flights])
             model = Cocip(
-                met=self._met_dataset,
-                rad=self._rad_dataset,
-                aircraft_performance=self._perf_model,
+                met=self._era5_met_dataset,
+                rad=self._era5_rad_dataset,
+                aircraft_performance=self._perf_model_handler,
                 **self.STATIC_PARAMS,
-                preprocess_lowmem=True,
+                preprocess_lowmem=(
+                    True if largest_flight_n >= self.LOW_MEM_WAYPOINT_COUNT else False
+                ),
             )
-        logger.debug("evaluating cocip model.")
-        result: list[Flight] = model.eval([self._flight])
-        logger.debug("finished evaluating cocip model.")
-        return result
+            results: list[Flight] = model.eval(
+                [fl.pycontrail_flight for fl in self._era5_jobs.flights]
+            )
+            # package results in the list of jobs
+            for job, res in zip(self._era5_jobs.flights, results):
+                job.pycontrail_cocip_result = res
 
     @property
-    def zarr_uri(self):
+    def hres_zarr_uris(self):
         """
         Returns the subdirectory that houses the hres zarr data
         and uniquely identifies the store based on the model_run_at time.
         """
-        return self._zarr_src_fn
+        return self._hres_zarr_src_fns
+
+    @property
+    def era5_zarr_uris(self):
+        """
+        Returns the subdirectory that houses the era5 zarr data
+        and uniquely identifies the store based on the model_run_at time.
+        """
+        return self._era5_zarr_src_fns
+
+    @property
+    def all_jobs(self) -> list[WaypointsRecord]:
+        """
+        Return a list of all WaypointsRecord jobs stored in the handler.
+        """
+        return self._hres_jobs.flights + self._hres_jobs.flights

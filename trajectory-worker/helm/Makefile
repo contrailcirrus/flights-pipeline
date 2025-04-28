@@ -8,7 +8,8 @@ deploy: --check-env
 		--set hresSourcePath=$(HRES_SOURCE_PATH) \
 		--set era5SourcePath=$(ERA5_SOURCE_PATH) \
 		--set gitSha=$(GIT_SHA) \
-		--set trajectoryCocipBqTopicId=$(TRAJECTORY_COCIP_BQ_TOPIC_ID)
+		--set trajectoryCocipBqTopicId=$(TRAJECTORY_COCIP_BQ_TOPIC_ID) \
+		--set nJobs=$(N_JOBS)
 
 .PHONY: --check-env
 --check-env:
@@ -20,3 +21,4 @@ deploy: --check-env
 	@test $${ERA5_SOURCE_PATH?environment variable is required}
 	@test $${GIT_SHA?environment variable is required}
 	@test $${TRAJECTORY_COCIP_BQ_TOPIC_ID?environment variable is required}
+	@test $${N_JOBS?environment variable is required}
