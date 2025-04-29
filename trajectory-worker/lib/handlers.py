@@ -863,6 +863,7 @@ class CocipTrajectoryHandler:
             results: list[Flight] = model.eval(
                 [fl.pycontrail_flight for fl in self._hres_jobs.flights]
             )
+            del model
             # package results in the list of jobs
             for job, res in zip(self._hres_jobs.flights, results):
                 job.pycontrail_cocip_result = res
@@ -884,6 +885,7 @@ class CocipTrajectoryHandler:
             results: list[Flight] = model.eval(
                 [fl.pycontrail_flight for fl in self._era5_jobs.flights]
             )
+            del model
             # package results in the list of jobs
             for job, res in zip(self._era5_jobs.flights, results):
                 job.pycontrail_cocip_result = res
