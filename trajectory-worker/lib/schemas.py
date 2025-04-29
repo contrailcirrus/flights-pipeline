@@ -16,6 +16,7 @@ import numpy as np
 import pycontrails.core
 
 from lib.log import logger
+from lib.schemas import PubSubMessage
 
 tf = TimezoneFinder()
 
@@ -344,6 +345,15 @@ class WaypointsRecord:
     records: list[SpireWaypointPositional]
     met_source: MetSource = MetSource.ERA5
     export_cocip_trajectory: bool = False
+    pubsub_message: PubSubMessage | None = (
+        None  # the raw message as received from pubsub
+    )
+    pycontrail_flight: pycontrails.Flight | None = (
+        None  # pycontrails representation of the records
+    )
+    pycontrail_cocip_result: pycontrails.Flight | None = (
+        None  # pycontrails result from running cocip
+    )
 
     def as_utf8_json(self) -> bytes:
         """
@@ -363,6 +373,16 @@ class WaypointsRecord:
             met_source=MetSource(json.loads(blob)["met_source"]),
             export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
+
+
+@dataclass
+class WaypointsRecordBatch:
+    """
+    A wrapper batching a collection of WaypointRecord objects.
+    """
+
+    met_src: MetSource  # shared met source among collection WaypointsRecord
+    flights: list[WaypointsRecord]
 
 
 @dataclass
@@ -1054,3 +1074,10 @@ class CocipTrajectoryChunk:
             "arrival_scheduled_time": iso_to_microseconds(self.arrival_scheduled_time),
         }
         return json.dumps(blob).encode("utf-8")
+
+
+@dataclass(frozen=True)
+class PubSubMessage:
+    data: bytes
+    ack_id: str
+    ordering_key: str

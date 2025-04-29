@@ -53,5 +53,6 @@ The following environment variables are expected for production and development 
 | LOG_LEVEL                        |                          log level for service in cloud environment                          |
 | GIT_SHA                          | git hash for the trajectory worker; injected into the big query outputs for lineage tracking |
 | TRAJECTORY_COCIP_BQ_TOPIC_ID     |          fully-qualified uri for trajectory chunk cocip outputs, flows to BigQuery           |
-| CHUNKS_PER_JOB                   |                  (not implemented) max number of chunks ot process per job                   |
+| GCP_SVC_ACCT_KEY                 |            JSON service account key for the flights-pipeline GCP service account             |
+| N_JOBS                           |       max number of messages (flights) to dequeue and process per invocation of CoCiP        |
 
