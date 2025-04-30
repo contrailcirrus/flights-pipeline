@@ -797,9 +797,11 @@ class CocipTrajectoryHandler:
         if self._era5_jobs.flights:
             # build ERA5 met data
             # -------------------
-            self._era5_zarr_src_fns: list[str] = list(
-                {self._find_era5_zarr_stores(job) for job in self._era5_jobs.flights}
-            )
+            era5_zarr_store_fns = []
+            for job in self._era5_jobs.flights:
+                era5_zarr_store_fns.extend(self._find_era5_zarr_stores(job))
+            distinct_era5_zarr_store_fns = set(era5_zarr_store_fns)
+            self._era5_zarr_src_fns: list[str] = list(distinct_era5_zarr_store_fns)
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []
             for src_fn in self._era5_zarr_src_fns:
