@@ -392,8 +392,7 @@ class TrajectoryWorkerAP(AircraftPerformance):
     PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
     BADA3_DATASET_FP = "bada3"
 
-    @classmethod
-    def perf_lookup(cls, aircraft_type_icao: str) -> tuple[AircraftPerformance, str]:
+    def perf_lookup(self, aircraft_type_icao: str) -> tuple[AircraftPerformance, str]:
         """
         Look up performance model and engine type for a job's aircraft type.
 
@@ -411,7 +410,7 @@ class TrajectoryWorkerAP(AircraftPerformance):
         for emissions calculations (emission calculations being separate from the perf model output)
         """
 
-        with open(cls.PERF_MODEL_LOOKUP_FP, "r") as fp:
+        with open(self.PERF_MODEL_LOOKUP_FP, "r") as fp:
             lookup = json.load(fp)
 
         target: dict[str, str] | None = lookup.get(aircraft_type_icao)
@@ -426,15 +425,11 @@ class TrajectoryWorkerAP(AircraftPerformance):
         perf_model: AircraftPerformance
         match target["perf_model_id"]:
             case "PS":
-                perf_model = PSFlight(
-                    fill_low_altitude_with_isa_temperature=True,
-                    fill_low_altitude_with_zero_wind=True,
-                )
+                perf_model = PSFlight(params=self.params)
             case "BADA3":
                 perf_model = BADAFlight(
-                    bada3_path=cls.BADA3_DATASET_FP,
-                    fill_low_altitude_with_isa_temperature=True,
-                    fill_low_altitude_with_zero_wind=True,
+                    params=self.params,
+                    bada3_path=self.BADA3_DATASET_FP,
                 )
             case _:
                 raise PerfModelUnsupportedError(
@@ -523,7 +518,10 @@ class CocipTrajectoryHandler:
         )
 
         self._unprocessable_messages: list[PubSubMessage] = []
-        self._perf_model_handler: TrajectoryWorkerAP = TrajectoryWorkerAP()
+        self._perf_model_handler: TrajectoryWorkerAP = TrajectoryWorkerAP(
+            fill_low_altitude_with_isa_temperature=True,
+            fill_low_altitude_with_zero_wind=True,
+        )
 
         # source uris and pycontrails met datasets for HRES met
         self._hres_zarr_src_fns: str | list[str] | None = None
