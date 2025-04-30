@@ -3,6 +3,7 @@ Application handlers.
 """
 
 import concurrent.futures
+import hashlib
 import json
 import os
 import sys
@@ -504,6 +505,13 @@ class CocipTrajectoryHandler:
             Fully-qualified uri for the source path the era5 zarr store.
             e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
         """
+        # aggregate and hash the ids for all messages received by the handler
+        # on instantiation.
+        # this serves as a unique identifier of the unit of work handled by
+        # the handler instance.
+        ids = "".join([msg.ack_id for msg in messages])
+        self.message_batch_id = hashlib.sha1(ids.encode("utf-8")).hexdigest()
+
         self._hres_src = hres_src
         self._era5_src = era5_src
 
@@ -530,13 +538,15 @@ class CocipTrajectoryHandler:
         # package messages into a batch of jobs (WaypointsRecordBatch)
         # segregate between those that need era5 met and hres met
         # skip any that cannot be processed and flag as unprocessable
+
         for ix, msg in enumerate(messages):
             job = WaypointsRecord.from_utf8_json(msg.data)
             job.pubsub_message = msg
             logger.info(
-                f"airline_iata: {job.flight_info.airline_iata}"
+                f"airline_iata: {job.flight_info.airline_iata}. "
                 f"flight_id: {job.flight_info.flight_id}. "
-                f"job {ix} of {len(messages)}"
+                f"job batch id (pubsub msg batch): {self.message_batch_id}. "
+                f"job {ix+1} of {len(messages)}. "
                 f"got job with {len(job.records)} records."
             )
             try:
