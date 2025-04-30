@@ -385,8 +385,9 @@ class TrajectoryWorkerAP(AircraftPerformance):
     Wrapper class to modulate which aircraft performance model we use with CoCiP.
     """
 
-    NAME = "trajectory_worker_ap"
-    LONG_NAME = "Trajectory Worker Aircraft Performance"
+    name = "trajectory_worker_ap"
+    long_name = "Trajectory Worker Aircraft Performance"
+
     PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
     BADA3_DATASET_FP = "bada3"
 
