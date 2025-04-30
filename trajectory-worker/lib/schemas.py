@@ -16,9 +16,15 @@ import numpy as np
 import pycontrails.core
 
 from lib.log import logger
-from lib.schemas import PubSubMessage
 
 tf = TimezoneFinder()
+
+
+@dataclass(frozen=True)
+class PubSubMessage:
+    data: bytes
+    ack_id: str
+    ordering_key: str
 
 
 @dataclass
@@ -1074,10 +1080,3 @@ class CocipTrajectoryChunk:
             "arrival_scheduled_time": iso_to_microseconds(self.arrival_scheduled_time),
         }
         return json.dumps(blob).encode("utf-8")
-
-
-@dataclass(frozen=True)
-class PubSubMessage:
-    data: bytes
-    ack_id: str
-    ordering_key: str
