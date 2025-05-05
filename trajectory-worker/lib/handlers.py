@@ -20,9 +20,7 @@ from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
 from pycontrails.core.aircraft_performance import (
     AircraftPerformance,
-    AircraftPerformanceParams,
 )
-from pycontrails.core.met_var import AirTemperature
 from pycontrails.models.cocip import Cocip
 from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
@@ -392,8 +390,6 @@ class TrajectoryWorkerAP(AircraftPerformance):
 
     name = "trajectory_worker_ap"
     long_name = "Trajectory Worker Aircraft Performance"
-    default_params = AircraftPerformanceParams
-    met_variables = (AirTemperature,)
 
     PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
     BADA3_DATASET_FP = "bada3"
