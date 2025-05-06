@@ -609,7 +609,7 @@ class CocipTrajectoryHandler:
 
         Aircraft and engine type are associated with the flight here.
         """
-        engine_uid = perf_handler.perf_lookup(job.flight_info.aircraft_type_icao)
+        _, engine_uid = perf_handler.perf_lookup(job.flight_info.aircraft_type_icao)
         return Flight(
             longitude=[w.longitude for w in job.records],
             latitude=[w.latitude for w in job.records],
