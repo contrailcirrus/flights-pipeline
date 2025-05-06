@@ -924,4 +924,4 @@ class CocipTrajectoryHandler:
         """
         Return a list of all WaypointsRecord jobs stored in the handler.
         """
-        return self._hres_jobs.flights + self._hres_jobs.flights
+        return self._hres_jobs.flights + self._era5_jobs.flights
