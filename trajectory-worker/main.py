@@ -39,6 +39,9 @@ def run(
             # remove messages from queue that we know cannot be processed
             job_handler.ack(unprocessable_msg)
 
+        if len(trajectory_cocip_handler.all_jobs) == 0:
+            logger.warning("no flights to process. proceeding to next batch...")
+
         try:
             trajectory_cocip_handler.load()
             trajectory_cocip_handler.run()
