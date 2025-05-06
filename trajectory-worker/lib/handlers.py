@@ -803,8 +803,7 @@ class CocipTrajectoryHandler:
             variables = Cocip.ecmwf_rad_variables()
             rad = rad.standardize_variables(variables)
             self._hres_rad_dataset = rad
-
-        if self._era5_jobs.flights:
+        elif self._era5_jobs.flights:
             # build ERA5 met data
             # -------------------
             era5_zarr_store_fns = []
@@ -847,10 +846,9 @@ class CocipTrajectoryHandler:
 
             self._era5_met_dataset = met
             self._era5_rad_dataset = rad
-
         else:
             raise ValueError(
-                "Unrecognized met source specified in trajectory worker job."
+                "unrecognized met source specified in trajectory worker job."
             )
 
     def run(self):
