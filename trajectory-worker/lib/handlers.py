@@ -167,18 +167,22 @@ class PubSubSubscriptionHandler:
         # Block until lease manager thread exits
         lease_manager.join()
 
-    def ack(self, message: PubSubMessage):
+    def ack(self, messages: list[PubSubMessage]):
         """Acknowledge the message to remove from the queue."""
         # Stop extending lease before server-side ack. This avoids cases where the lease
         # management worker fails to extend the ack deadline for an already ack'ed
         # message, at the cost of a small probability of redelivery.
-        try:
-            self._outstanding_messages.remove(message)
-        except KeyError:
-            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
+        for msg in messages:
+            try:
+                self._outstanding_messages.remove(msg)
+            except KeyError:
+                logger.warning(f"message ack'ed or nack'ed multiple times: {msg}")
 
         self._client.acknowledge(
-            request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
+            request={
+                "subscription": self.subscription,
+                "ack_ids": [msg.ack_id for msg in messages],
+            },
             timeout=30.0,  # default: 60
             retry=google.api_core.retry.Retry(
                 initial=0.1,  # default: 0.1
@@ -192,7 +196,7 @@ class PubSubSubscriptionHandler:
                 ),
             ),
         )
-        logger.debug("successfully ack'ed message.")
+        logger.debug("successfully ack'ed messages.")
 
     def nack(self, message: PubSubMessage):
         """Not-acknowledge the message to stop extending ack deadline.
