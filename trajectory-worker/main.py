@@ -35,9 +35,9 @@ def run(
         trajectory_cocip_handler = CocipTrajectoryHandler(
             messages, env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
         )
-        for unprocessable_msg in trajectory_cocip_handler.unprocessable_messages:
-            # remove messages from queue that we know cannot be processed
-            job_handler.ack(unprocessable_msg)
+
+        # remove messages from queue that we know cannot be processed
+        job_handler.ack(trajectory_cocip_handler.unprocessable_messages)
 
         if len(trajectory_cocip_handler.all_jobs) == 0:
             logger.warning("no flights to process. proceeding to next batch...")
@@ -117,8 +117,9 @@ def run(
                     )
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
 
-        for job in trajectory_cocip_handler.all_jobs:
-            job_handler.ack(job.pubsub_message)
+        job_handler.ack(
+            [job.pubsub_message for job in trajectory_cocip_handler.all_jobs]
+        )
 
 
 if __name__ == "__main__":
