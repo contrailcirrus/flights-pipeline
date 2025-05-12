@@ -135,6 +135,8 @@ if __name__ == "__main__":
         job_handler = PubSubSubscriptionHandler(
             env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID,
             max_msgs=env.N_JOBS,
+            pull_timeout_sec=20,
+            ack_extension_sec=60,
         )
         run(
             trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
