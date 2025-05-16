@@ -135,7 +135,6 @@ if __name__ == "__main__":
         job_handler = PubSubSubscriptionHandler(
             env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID,
             max_msgs=env.N_JOBS,
-            pull_timeout_sec=5,
             ack_extension_sec=30,
         )
         run(
