@@ -89,28 +89,32 @@ class PubSubSubscriptionHandler:
                 sys.exit(0)
             logger.debug(f"fetching message from {self.subscription}")
 
-            resp = self._client.pull(
-                request={
-                    "subscription": self.subscription,
-                    "max_messages": self._max_msgs,
-                },
-                timeout=self.pull_timeout_sec,  # default: 60
-                retry=google.api_core.retry.Retry(
-                    initial=0.1,  # default: 0.1
-                    maximum=60.0,  # default: 60
-                    multiplier=1.3,  # default: 1.3
-                    predicate=google.api_core.retry.if_exception_type(
-                        # Non-default exceptions:
-                        google.api_core.exceptions.DeadlineExceeded,
-                        # Default exceptions:
-                        google.api_core.exceptions.Aborted,
-                        google.api_core.exceptions.InternalServerError,
-                        google.api_core.exceptions.ServiceUnavailable,
-                        google.api_core.exceptions.Unknown,
+            try:
+                resp = self._client.pull(
+                    request={
+                        "subscription": self.subscription,
+                        "max_messages": self._max_msgs,
+                    },
+                    timeout=self.pull_timeout_sec,  # default: 60
+                    retry=google.api_core.retry.Retry(
+                        initial=0.1,  # default: 0.1
+                        maximum=60.0,  # default: 60
+                        multiplier=1.3,  # default: 1.3
+                        predicate=google.api_core.retry.if_exception_type(
+                            # Non-default exceptions:
+                            google.api_core.exceptions.DeadlineExceeded,
+                            # Default exceptions:
+                            google.api_core.exceptions.Aborted,
+                            google.api_core.exceptions.InternalServerError,
+                            google.api_core.exceptions.ServiceUnavailable,
+                            google.api_core.exceptions.Unknown,
+                        ),
+                        deadline=60.0,  # default: 60
                     ),
-                    deadline=60.0,  # default: 60
-                ),
-            )
+                )
+            except Exception as e:
+                logger.warning(f"failed to pull messages from subscription: {e}")
+                continue
 
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
@@ -224,7 +228,11 @@ class PubSubSubscriptionHandler:
             messages = self._outstanding_messages.copy()
             for message in messages:
                 ack_id = message.ack_id
-                logger.info(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
+                # compress and tumble ack_id w/ md5
+                logger.info(
+                    f"extending ack deadline on ack_id: "
+                    f"{hashlib.md5(ack_id.encode('utf-8')).hexdigest()}..."
+                )
                 try:
                     self._client.modify_ack_deadline(
                         request={
