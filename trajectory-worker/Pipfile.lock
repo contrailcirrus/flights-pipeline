@@ -438,7 +438,7 @@
                 "sha256:758819cb5d94cdedf4e836988b74de396ceacb8e2794d21f82d131fd9ee77237",
                 "sha256:b4f37c3ac52d8a445af3a66bce57b33b5e90b97c696b7b984f530cf8f0ded09c"
             ],
-            "markers": "sys_platform != 'emscripten'",
+            "markers": "python_version >= '3.6'",
             "version": "==0.19"
         },
         "fonttools": {
@@ -1089,9 +1089,6 @@
             "version": "==6.4.4"
         },
         "numcodecs": {
-            "extras": [
-                "crc32c"
-            ],
             "hashes": [
                 "sha256:0f5203b86e57bc6d0dad8f0719f10404fcadeabb5f112205d4e926075a4e1388",
                 "sha256:271d07bfa230e02dec7ba93d5776b5032aecf1d4c20d52a93858e957d44ae722",
@@ -1527,7 +1524,7 @@
                 "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3",
                 "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2'",
             "version": "==2.9.0.post0"
         },
         "pytz": {
@@ -1685,7 +1682,7 @@
                 "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
                 "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2'",
             "version": "==1.17.0"
         },
         "timezonefinder": {
