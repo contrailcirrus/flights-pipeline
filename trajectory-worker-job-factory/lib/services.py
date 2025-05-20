@@ -1,3 +1,5 @@
+import secrets
+
 import dataclasses
 import sys
 
@@ -44,13 +46,10 @@ class TrajectoryBuilderSvc:
         "lib/sql/bq_waypoints_flights_daily_by_icao_address.sql"
     )
 
-    # ordering key includes the start_date of the flight
-    # the traj worker (pubsub) makes a best-effort to cluster flights with the same day
-    # into a fleet, and runs CoCiP on those flights at the same time
-    # flight_start_date fmt : %Y-%m-%d
-    ORDERING_KEY_TEMPLATE = (
-        "flightsreport:{flight_start_datehour}:{met_src}:{airline_iata}"
-    )
+    # message ordering is not behaviorally necessary
+    # however, we retain ordered queues as a placeholder
+    # for possible reimplementation of batched flight processing
+    ORDERING_KEY_TEMPLATE = "flightsreport:{hash}"
 
     def __init__(
         self,
@@ -507,12 +506,8 @@ class TrajectoryBuilderSvc:
                     export_cocip_trajectory=twjd.full_traj,
                 )
 
-                first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
-                first_waypoint_datehour = first_waypoint_ts.strftime("%Y-%m-%dT%H")
                 ordering_key = self.ORDERING_KEY_TEMPLATE.format(
-                    flight_start_datehour=first_waypoint_datehour,
-                    met_src=job.met_source.name,
-                    airline_iata=job.flight_info.airline_iata,
+                    hash=secrets.token_hex(36),
                 )
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
