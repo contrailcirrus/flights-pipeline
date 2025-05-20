@@ -9,6 +9,7 @@ dask = "==2024.9.0"
 gcsfs = "==2024.6.1"
 google-cloud-pubsub = "==2.19.7"
 matplotlib = "==3.9.1"
+numcodecs = "==0.13.0"
 pycontrails = "==0.54.9"
 pycontrails-bada = {ref = "v0.7.5", git = "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git"}
 timezonefinder = "==6.5.2"
