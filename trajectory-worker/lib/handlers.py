@@ -681,10 +681,8 @@ class CocipTrajectoryHandler:
                 storage_options={"token": env.GCP_SVC_ACCT_KEY},
             )
             met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
-            variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables
-            )
-            met.standardize_variables(variables)
+            variables = Cocip.ecmwf_met_variables()
+            met = met.standardize_variables(variables)
 
             logger.debug(f"opening HRES SL zarr store at: {zarr_path}")
             sl = xr.open_zarr(
@@ -694,10 +692,8 @@ class CocipTrajectoryHandler:
                 },
             )
             rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
-            variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables
-            )
-            rad.standardize_variables(variables)
+            variables = Cocip.ecmwf_rad_variables()
+            rad = rad.standardize_variables(variables)
             self._met_dataset = met
             self._rad_dataset = rad
 
@@ -728,18 +724,14 @@ class CocipTrajectoryHandler:
             met = MetDataset(
                 pl_ds_agg, provider="ECMWF", dataset="ERA5", product="reanalysis"
             )
-            variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables
-            )
-            met.standardize_variables(variables)
+            variables = Cocip.ecmwf_met_variables()
+            met = met.standardize_variables(variables)
 
             rad = MetDataset(
                 sl_ds_agg, provider="ECMWF", dataset="ERA5", product="reanalysis"
             )
-            variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables
-            )
-            rad.standardize_variables(variables)
+            variables = Cocip.ecmwf_rad_variables()
+            rad = rad.standardize_variables(variables)
 
             self._met_dataset = met
             self._rad_dataset = rad
