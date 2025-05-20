@@ -48,7 +48,9 @@ class TrajectoryBuilderSvc:
     # the traj worker (pubsub) makes a best-effort to cluster flights with the same day
     # into a fleet, and runs CoCiP on those flights at the same time
     # flight_start_date fmt : %Y-%m-%d
-    ORDERING_KEY_TEMPLATE = "flightsreport:{flight_start_datehour}"
+    ORDERING_KEY_TEMPLATE = (
+        "flightsreport:{flight_start_datehour}:{met_src}:{airline_iata}"
+    )
 
     def __init__(
         self,
@@ -385,9 +387,9 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.set(records)
                 self._resample_handler.interpolate()
 
-                waypoints_resampled: list[
-                    SpireWaypointPositional
-                ] = self._resample_handler.waypoints_resampled
+                waypoints_resampled: list[SpireWaypointPositional] = (
+                    self._resample_handler.waypoints_resampled
+                )
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
@@ -447,9 +449,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(resampled_df)
-                violations: None | list[
-                    Exception
-                ] = self._validate_traj_handler.evaluate()
+                violations: None | list[Exception] = (
+                    self._validate_traj_handler.evaluate()
+                )
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
@@ -509,6 +511,8 @@ class TrajectoryBuilderSvc:
                 first_waypoint_datehour = first_waypoint_ts.strftime("%Y-%m-%dT%H")
                 ordering_key = self.ORDERING_KEY_TEMPLATE.format(
                     flight_start_datehour=first_waypoint_datehour,
+                    met_src=job.met_source.name,
+                    airline_iata=job.flight_info.airline_iata,
                 )
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
