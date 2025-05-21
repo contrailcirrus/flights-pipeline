@@ -740,75 +740,43 @@ class CocipTrajectoryHandler:
                 "Unrecognized met source specified in trajectory worker job."
             )
 
-    def run(self):
+    def run(self) -> Flight:
         """
         Run the cocip trajectory model.
-
-        Package the cocip result in each respective Job object.
         """
-        # first run HRES jobs
-        # ------------------
-        if self._hres_jobs.flights:
-            # determine if we need low mem mode
-            largest_flight_n = max([len(fl.records) for fl in self._hres_jobs.flights])
+        logger.debug("running cocip model.")
+        if not self._met_dataset or not self._rad_dataset:
+            raise ValueError(
+                "met dataset or rad dataset have not been loaded. Run load()."
+            )
+        if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
             model = Cocip(
-                met=self._hres_met_dataset,
-                rad=self._hres_rad_dataset,
-                aircraft_performance=self._perf_model_handler,
+                met=self._met_dataset,
+                rad=self._rad_dataset,
+                aircraft_performance=self._perf_model,
                 **self.STATIC_PARAMS,
-                preprocess_lowmem=(
-                    True if largest_flight_n >= self.LOW_MEM_WAYPOINT_COUNT else False
-                ),
             )
-            results: list[Flight] = model.eval(
-                [fl.pycontrail_flight for fl in self._hres_jobs.flights]
+        else:
+            logger.info(
+                f"using low-mem cocip implementation for flight "
+                f"w/ {len(self._job.records)} waypoints"
             )
-            del model
-            # package results in the list of jobs
-            for job, res in zip(self._hres_jobs.flights, results):
-                job.pycontrail_cocip_result = res
-
-        # second run ERA5 jobs
-        # ------------------
-        if self._era5_jobs.flights:
-            # determine if we need low mem mode
-            largest_flight_n = max([len(fl.records) for fl in self._era5_jobs.flights])
-            model = Cocip(
-                met=self._era5_met_dataset,
-                rad=self._era5_rad_dataset,
-                aircraft_performance=self._perf_model_handler,
-                **self.STATIC_PARAMS,
-                preprocess_lowmem=(
-                    True if largest_flight_n >= self.LOW_MEM_WAYPOINT_COUNT else False
-                ),
-            )
-            results: list[Flight] = model.eval(
-                [fl.pycontrail_flight for fl in self._era5_jobs.flights]
-            )
-            del model
-            # package results in the list of jobs
-            for job, res in zip(self._era5_jobs.flights, results):
-                job.pycontrail_cocip_result = res
+        model = Cocip(
+            met=self._met_dataset,
+            rad=self._rad_dataset,
+            aircraft_performance=self._perf_model,
+            **self.STATIC_PARAMS,
+            preprocess_lowmem=True,
+        )
+        logger.debug("evaluating cocip model.")
+        result: Flight = model.eval(self._flight)
+        logger.debug("finished evaluating cocip model.")
+        return result
 
     @property
-    def hres_zarr_uris(self):
+    def zarr_uri(self):
         """
-        Returns the subdirectory that houses the hres zarr data
+        Returns the subdirectory that houses the hres or era5 zarr data
         and uniquely identifies the store based on the model_run_at time.
         """
-        return self._hres_zarr_src_fns
-
-    @property
-    def era5_zarr_uris(self):
-        """
-        Returns the subdirectory that houses the era5 zarr data
-        and uniquely identifies the store based on the model_run_at time.
-        """
-        return self._era5_zarr_src_fns
-
-    @property
-    def all_jobs(self) -> list[WaypointsRecord]:
-        """
-        Return a list of all WaypointsRecord jobs stored in the handler.
-        """
-        return self._hres_jobs.flights + self._era5_jobs.flights
+        return self._zarr_src_fn
