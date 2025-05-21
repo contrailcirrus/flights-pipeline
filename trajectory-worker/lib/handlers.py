@@ -511,13 +511,12 @@ class CocipTrajectoryHandler:
         self._rad_dataset: MetDataset | None = None
 
         self._verify_altitude(self._job)
-        self._perf_model, self._engine_uid = self._perf_lookup(self._job)
-        self._flight: pycontrails.Flight = self._create_flight(
-            self._job, self._engine_uid
-        )
         self._perf_model_handler: TrajectoryWorkerAP = TrajectoryWorkerAP(
             fill_low_altitude_with_isa_temperature=True,
             fill_low_altitude_with_zero_wind=True,
+        )
+        self._flight: pycontrails.Flight = self._create_flight(
+            self._job, self._perf_model_handler
         )
         logger.debug("instantiated cocip handler.")
 
@@ -753,7 +752,7 @@ class CocipTrajectoryHandler:
             model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=self._perf_model,
+                aircraft_performance=self._perf_model_handler,
                 **self.STATIC_PARAMS,
             )
         else:
@@ -761,13 +760,13 @@ class CocipTrajectoryHandler:
                 f"using low-mem cocip implementation for flight "
                 f"w/ {len(self._job.records)} waypoints"
             )
-        model = Cocip(
-            met=self._met_dataset,
-            rad=self._rad_dataset,
-            aircraft_performance=self._perf_model,
-            **self.STATIC_PARAMS,
-            preprocess_lowmem=True,
-        )
+            model = Cocip(
+                met=self._met_dataset,
+                rad=self._rad_dataset,
+                aircraft_performance=self._perf_model_handler,
+                **self.STATIC_PARAMS,
+                preprocess_lowmem=True,
+            )
         logger.debug("evaluating cocip model.")
         result: Flight = model.eval(self._flight)
         logger.debug("finished evaluating cocip model.")
