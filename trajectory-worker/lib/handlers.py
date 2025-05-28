@@ -176,24 +176,28 @@ class PubSubSubscriptionHandler:
         except KeyError:
             logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
 
-        self._client.acknowledge(
-            request={
-                "subscription": self.subscription,
-                "ack_ids": [message.ack_id],
-            },
-            timeout=30.0,  # default: 60
-            retry=google.api_core.retry.Retry(
-                initial=0.1,  # default: 0.1
-                maximum=60.0,  # default: 60
-                multiplier=1.3,  # default: 1.3
-                predicate=google.api_core.retry.if_exception_type(
-                    # Non-default exceptions:
-                    google.api_core.exceptions.DeadlineExceeded,
-                    # Default exceptions:
-                    google.api_core.exceptions.ServiceUnavailable,
+        try:
+            self._client.acknowledge(
+                request={
+                    "subscription": self.subscription,
+                    "ack_ids": [message.ack_id],
+                },
+                timeout=30.0,  # default: 60
+                retry=google.api_core.retry.Retry(
+                    initial=0.1,  # default: 0.1
+                    maximum=60.0,  # default: 60
+                    multiplier=1.3,  # default: 1.3
+                    predicate=google.api_core.retry.if_exception_type(
+                        # Non-default exceptions:
+                        google.api_core.exceptions.DeadlineExceeded,
+                        # Default exceptions:
+                        google.api_core.exceptions.ServiceUnavailable,
+                    ),
                 ),
-            ),
-        )
+            )
+        except Exception as e:
+            logger.warning(f"failed to ack message: {message}. {e}")
+            return
         logger.debug("successfully ack'ed message.")
 
     def nack(self, message: PubSubMessage):
