@@ -4,8 +4,8 @@ import sys
 
 import lib.environment as env
 from lib import schemas
+from lib.exceptions import FlightTooLowError, AircraftTypeUnrecognizedError
 from lib.utils import sigterm_manager
-from lib.exceptions import AircraftTypeUnrecognizedError, FlightTooLowError
 from lib.handlers import (
     CocipTrajectoryHandler,
     PubSubPublishHandler,
@@ -73,7 +73,7 @@ def run(
         now = datetime.now(tz=UTC)
 
         # ===================
-        # publish trajectory chunk model outputs to BQ
+        # publish cocip outputs to BQ
         # ===================
         logger.debug("publishing cocip outputs to BQ.")
 
@@ -105,7 +105,6 @@ def run(
             ),
         )
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
-
         # ===================
         # if enabled, publish all trajectory segments to BQ
         # ===================
@@ -129,8 +128,7 @@ def run(
                         time_start=output.time_start,
                     ),
                 )
-            trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
-
+        trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
         job_handler.ack(message)
 
 

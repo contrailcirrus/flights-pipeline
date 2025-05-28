@@ -1,3 +1,5 @@
+import secrets
+
 import dataclasses
 import sys
 
@@ -43,7 +45,11 @@ class TrajectoryBuilderSvc:
     ICAO_ADDRESS_QUERY_FILENAME = (
         "lib/sql/bq_waypoints_flights_daily_by_icao_address.sql"
     )
-    ORDERING_KEY_TEMPLATE = "flightsreport:{}"
+
+    # message ordering is not behaviorally necessary
+    # however, we retain ordered queues as a placeholder
+    # for possible reimplementation of batched flight processing
+    ORDERING_KEY_TEMPLATE = "flightsreport:{hash}"
 
     def __init__(
         self,
@@ -501,7 +507,7 @@ class TrajectoryBuilderSvc:
                 )
 
                 ordering_key = self.ORDERING_KEY_TEMPLATE.format(
-                    job.flight_info.flight_id
+                    hash=secrets.token_hex(36),
                 )
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(

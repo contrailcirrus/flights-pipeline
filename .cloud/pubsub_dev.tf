@@ -2,28 +2,12 @@
 # TOPICS
 # --------------
 
-resource "google_pubsub_topic" "dev_api_scraper_egress" {
-  name = "dev-fp-api-scraper-egress"
-}
-
-resource "google_pubsub_topic" "dev_resample_worker_ingress_dead_letter" {
-  name = "dev-fp-resample-worker-ingress-dead-letter"
-}
-
 resource "google_pubsub_topic" "dev_spire_ingest_raw_bigquery" {
   name = "dev-fp-spire-ingest-raw-bigquery"
 }
 
 resource "google_pubsub_topic" "dev_spire_ingest_raw_bigquery_dead_letter" {
   name = "dev-fp-spire-ingest-raw-bigquery-dead-letter"
-}
-
-resource "google_pubsub_topic" "dev_spire_ingest_resampled_bigquery" {
-  name = "dev-fp-spire-ingest-resampled-bigquery"
-}
-
-resource "google_pubsub_topic" "dev_spire_ingest_resampled_bigquery_dead_letter" {
-  name = "dev-fp-spire-ingest-resampled-bigquery-dead-letter"
 }
 
 resource "google_pubsub_topic" "dev_gaia_trajectory_chunk" {
@@ -95,93 +79,6 @@ resource "google_pubsub_subscription" "dev_spire_ingest_raw_bigquery_dead_letter
 
   depends_on = [
     google_pubsub_topic.dev_spire_ingest_raw_bigquery_dead_letter,
-  ]
-}
-
-resource "google_pubsub_subscription" "dev_resample_worker_ingress" {
-  name  = "dev-fp-resample-worker-ingress"
-  topic = google_pubsub_topic.dev_api_scraper_egress.id
-
-  ack_deadline_seconds         = 300
-  enable_message_ordering      = true
-  enable_exactly_once_delivery = true
-  message_retention_duration = "86400s"  # 1 day
-
-  retry_policy {
-    minimum_backoff = "1s"
-    maximum_backoff = "4s"
-  }
-
-  dead_letter_policy {
-    max_delivery_attempts = 5
-    dead_letter_topic = google_pubsub_topic.dev_resample_worker_ingress_dead_letter.id
-  }
-
-  expiration_policy {
-    ttl = ""
-  }
-
-  depends_on = [
-    google_pubsub_topic.dev_api_scraper_egress,
-    google_pubsub_topic.dev_resample_worker_ingress_dead_letter,
-  ]
-}
-
-resource "google_pubsub_subscription" "dev_resample_worker_ingress_dead_letter" {
-  name  = "dev-fp-resample-worker-ingress-dead-letter"
-  topic = google_pubsub_topic.dev_resample_worker_ingress_dead_letter.id
-  message_retention_duration = "86400s"  # 1 day
-
-  expiration_policy {
-    ttl = ""
-  }
-
-  depends_on = [
-    google_pubsub_topic.dev_resample_worker_ingress_dead_letter,
-  ]
-}
-
-resource "google_pubsub_subscription" "dev_spire_ingest_resampled_bigquery_delivery" {
-  name  = "dev-fp-spire-ingest-resampled-bigquery-delivery"
-  topic = google_pubsub_topic.dev_spire_ingest_resampled_bigquery.id
-
-  bigquery_config {
-    table = "contrails-301217.${google_bigquery_table.spire_flights_resampled_dev.dataset_id}.${google_bigquery_table.spire_flights_resampled_dev.table_id}"
-    use_table_schema = true
-    drop_unknown_fields = true
-  }
-
-  dead_letter_policy {
-    max_delivery_attempts = 10
-    dead_letter_topic = google_pubsub_topic.dev_spire_ingest_resampled_bigquery_dead_letter.id
-  }
-
-    retry_policy {
-    minimum_backoff = "1s"
-    maximum_backoff = "60s"
-  }
-
-  expiration_policy {
-    ttl = ""
-  }
-
-  depends_on = [
-    google_bigquery_table.spire_flights_resampled_dev,
-    google_pubsub_topic.dev_spire_ingest_resampled_bigquery_dead_letter
-  ]
-}
-
-resource "google_pubsub_subscription" "dev_spire_ingest_resampled_bigquery_dead_letter" {
-  name  = "dev-fp-spire-ingest-resampled-bigquery-dead-letter"
-  topic = google_pubsub_topic.dev_spire_ingest_resampled_bigquery_dead_letter.id
-  message_retention_duration = "86400s"  # 1 day
-
-  expiration_policy {
-    ttl = ""
-  }
-
-  depends_on = [
-    google_pubsub_topic.dev_spire_ingest_resampled_bigquery_dead_letter,
   ]
 }
 

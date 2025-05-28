@@ -22,22 +22,6 @@ resource "google_bigquery_table" "spire_flights_raw_dev" {
   ]
 }
 
-resource "google_bigquery_table" "spire_flights_resampled_dev" {
-  dataset_id = google_bigquery_dataset.flights_pipeline_dev.dataset_id
-  table_id   = "spire_flights_resampled_dev"
-  friendly_name = "[DEV] spire flights, resampled"
-  description = "resampled and interpolated flight instances from the Spire API"
-  deletion_protection = true
-  time_partitioning {
-    field = "timestamp"
-    type = "DAY"
-  }
-  schema = file("${path.module}/schemas/bq_spire_flights_resampled.json")
-  depends_on = [
-    google_bigquery_dataset.flights_pipeline_dev,
-  ]
-}
-
 resource "google_bigquery_table" "trajectory_cocip_dev" {
   dataset_id = google_bigquery_dataset.flights_pipeline_dev.dataset_id
   table_id   = "trajectory_cocip_dev"

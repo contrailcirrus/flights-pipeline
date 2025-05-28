@@ -45,13 +45,14 @@ and that key is mounted to this instance on boot-up, and injected into the GCP C
 ## Environment Variables
 The following environment variables are expected for production and development environments.
 
-| name                             |                                         description                                          |
-|:---------------------------------|:--------------------------------------------------------------------------------------------:|
-| TRAJECTORY_CHUNK_SUBSCRIPTION_ID |          fully-qualified uri for the flights trajectory chunks pubsub subscription           |
-| HRES_SOURCE_PATH                 |            fully-qualified path in gcs for the hres zarr store used to run cocip             |
-| ERA5_SOURCE_PATH                 |            fully-qualified path in gcs for the era5 zarr store used to run cocip             |
-| LOG_LEVEL                        |                          log level for service in cloud environment                          |
-| GIT_SHA                          | git hash for the trajectory worker; injected into the big query outputs for lineage tracking |
-| TRAJECTORY_COCIP_BQ_TOPIC_ID     |          fully-qualified uri for trajectory chunk cocip outputs, flows to BigQuery           |
-| CHUNKS_PER_JOB                   |                  (not implemented) max number of chunks ot process per job                   |
+| name                             |                                            description                                             |
+|:---------------------------------|:--------------------------------------------------------------------------------------------------:|
+| TRAJECTORY_CHUNK_SUBSCRIPTION_ID |             fully-qualified uri for the flights trajectory chunks pubsub subscription              |
+| HRES_SOURCE_PATH                 |               fully-qualified path in gcs for the hres zarr store used to run cocip                |
+| ERA5_SOURCE_PATH                 |               fully-qualified path in gcs for the era5 zarr store used to run cocip                |
+| LOG_LEVEL                        |                             log level for service in cloud environment                             |
+| GIT_SHA                          |    git hash for the trajectory worker; injected into the big query outputs for lineage tracking    |
+| TRAJECTORY_COCIP_BQ_TOPIC_ID     |             fully-qualified uri for trajectory chunk cocip outputs, flows to BigQuery              |
+| GCP_SVC_ACCT_KEY                 |               JSON service account key for the flights-pipeline GCP service account                |
+| N_JOBS                           | [NOT IMPLEMENTED]  max number of messages (flights) to dequeue and process per invocation of CoCiP |
 

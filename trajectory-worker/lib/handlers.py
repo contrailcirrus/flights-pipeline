@@ -3,12 +3,12 @@ Application handlers.
 """
 
 import concurrent.futures
+import hashlib
 import json
 import os
 import sys
 import threading
 from collections.abc import Iterator
-from dataclasses import dataclass
 from typing import Any, Callable
 
 import google.api_core.exceptions
@@ -19,7 +19,9 @@ import pycontrails
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
-from pycontrails.core.aircraft_performance import AircraftPerformance
+from pycontrails.core.aircraft_performance import (
+    AircraftPerformance,
+)
 from pycontrails.models.cocip import Cocip
 from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
@@ -29,20 +31,13 @@ from pycontrails_bada.bada_model import BADAFlight
 
 from lib.exceptions import (
     AircraftTypeUnrecognizedError,
-    FlightTooLowError,
     PerfModelUnsupportedError,
+    FlightTooLowError,
 )
 from lib.log import format_traceback, logger
-from lib.schemas import WaypointsRecord, MetSource
+from lib.schemas import WaypointsRecord, MetSource, PubSubMessage
 import lib.environment as env
 from lib.utils import sigterm_manager
-
-
-@dataclass(frozen=True)
-class Message:
-    data: bytes
-    ack_id: str
-    ordering_key: str
 
 
 class PubSubSubscriptionHandler:
@@ -71,12 +66,11 @@ class PubSubSubscriptionHandler:
         self.subscription = subscription
         self.pull_timeout_sec = pull_timeout_sec
         self.ack_extension_sec = ack_extension_sec
-
         self._client = pubsub_v1.SubscriberClient()
 
-        self._outstanding_messages: set[Message] = set()
+        self._outstanding_messages: set[PubSubMessage] = set()
 
-    def _fetch(self) -> Message:
+    def _fetch(self) -> PubSubMessage:
         """Fetch a message from the subscription queue.
 
         This method will hang and wait until a message is available. If an exception is
@@ -84,7 +78,7 @@ class PubSubSubscriptionHandler:
 
         Returns
         -------
-        Message
+        PubSubMessage
             The dequeued message from the pubsub subscription.
         """
         while True:
@@ -92,25 +86,32 @@ class PubSubSubscriptionHandler:
                 sys.exit(0)
             logger.debug(f"fetching message from {self.subscription}")
 
-            resp = self._client.pull(
-                request={"subscription": self.subscription, "max_messages": 1},
-                timeout=self.pull_timeout_sec,  # default: 60
-                retry=google.api_core.retry.Retry(
-                    initial=0.1,  # default: 0.1
-                    maximum=60.0,  # default: 60
-                    multiplier=1.3,  # default: 1.3
-                    predicate=google.api_core.retry.if_exception_type(
-                        # Non-default exceptions:
-                        google.api_core.exceptions.DeadlineExceeded,
-                        # Default exceptions:
-                        google.api_core.exceptions.Aborted,
-                        google.api_core.exceptions.InternalServerError,
-                        google.api_core.exceptions.ServiceUnavailable,
-                        google.api_core.exceptions.Unknown,
+            try:
+                resp = self._client.pull(
+                    request={
+                        "subscription": self.subscription,
+                        "max_messages": 1,
+                    },
+                    timeout=self.pull_timeout_sec,  # default: 60
+                    retry=google.api_core.retry.Retry(
+                        initial=0.1,  # default: 0.1
+                        maximum=60.0,  # default: 60
+                        multiplier=1.3,  # default: 1.3
+                        predicate=google.api_core.retry.if_exception_type(
+                            # Non-default exceptions:
+                            google.api_core.exceptions.DeadlineExceeded,
+                            # Default exceptions:
+                            google.api_core.exceptions.Aborted,
+                            google.api_core.exceptions.InternalServerError,
+                            google.api_core.exceptions.ServiceUnavailable,
+                            google.api_core.exceptions.Unknown,
+                        ),
+                        deadline=60.0,  # default: 60
                     ),
-                    deadline=60.0,  # default: 60
-                ),
-            )
+                )
+            except Exception as e:
+                logger.warning(f"failed to pull messages from subscription: {e}")
+                continue
 
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
@@ -124,15 +125,14 @@ class PubSubSubscriptionHandler:
                 f"published_time: {pubsub_msg.message.publish_time}, "
                 f"message_id: {pubsub_msg.message.message_id}"
             )
-
-            message = Message(
+            message = PubSubMessage(
                 data=pubsub_msg.message.data,
                 ack_id=pubsub_msg.ack_id,
                 ordering_key=pubsub_msg.message.ordering_key,
             )
             return message
 
-    def subscribe(self) -> Iterator[Message]:
+    def subscribe(self) -> Iterator[PubSubMessage]:
         """Yields messages from the subscription.
 
         This method returns an iterator to loop over messages in the subscription. While
@@ -166,7 +166,7 @@ class PubSubSubscriptionHandler:
         # Block until lease manager thread exits
         lease_manager.join()
 
-    def ack(self, message: Message):
+    def ack(self, message: PubSubMessage):
         """Acknowledge the message to remove from the queue."""
         # Stop extending lease before server-side ack. This avoids cases where the lease
         # management worker fails to extend the ack deadline for an already ack'ed
@@ -177,7 +177,10 @@ class PubSubSubscriptionHandler:
             logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
 
         self._client.acknowledge(
-            request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
+            request={
+                "subscription": self.subscription,
+                "ack_ids": [message.ack_id],
+            },
             timeout=30.0,  # default: 60
             retry=google.api_core.retry.Retry(
                 initial=0.1,  # default: 0.1
@@ -193,7 +196,7 @@ class PubSubSubscriptionHandler:
         )
         logger.debug("successfully ack'ed message.")
 
-    def nack(self, message: Message):
+    def nack(self, message: PubSubMessage):
         """Not-acknowledge the message to stop extending ack deadline.
 
         Does not nack the message server-side, so the message will be retried based on
@@ -219,7 +222,11 @@ class PubSubSubscriptionHandler:
             messages = self._outstanding_messages.copy()
             for message in messages:
                 ack_id = message.ack_id
-                logger.debug(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
+                # compress and tumble ack_id w/ md5
+                logger.info(
+                    f"extending ack deadline on ack_id: "
+                    f"{hashlib.md5(ack_id.encode('utf-8')).hexdigest()}..."
+                )
                 try:
                     self._client.modify_ack_deadline(
                         request={
@@ -382,14 +389,79 @@ class PubSubPublishHandler:
         return _exit_on_error
 
 
+class TrajectoryWorkerAP(AircraftPerformance):
+    """
+    Wrapper class to modulate which aircraft performance model we use with CoCiP.
+    """
+
+    name = "trajectory_worker_ap"
+    long_name = "Trajectory Worker Aircraft Performance"
+
+    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
+    BADA3_DATASET_FP = "bada3"
+
+    def perf_lookup(self, aircraft_type_icao: str) -> tuple[AircraftPerformance, str]:
+        """
+        Look up performance model and engine type for a job's aircraft type.
+
+        We provide a static, manually maintained lookup that maps one-to-one,
+        between an aircraft type (icao identifier), and
+        1. an aircraft performance model,
+        2. an engine identifier (icao uid)
+
+        At present, we have only implemented the PSFlight performance model.
+        The BADA model may or may not be supported in the future.
+
+        Futhermore, please note that the engine_uid is not used in running the PS perf model
+        (it is for BADA). However, we still return a single, default engine_uid for aircraft
+        associated with the PS model, since the engine_uid is used in setting emission indexes
+        for emissions calculations (emission calculations being separate from the perf model output)
+        """
+
+        with open(self.PERF_MODEL_LOOKUP_FP, "r") as fp:
+            lookup = json.load(fp)
+
+        target: dict[str, str] | None = lookup.get(aircraft_type_icao)
+
+        if not target:
+            raise AircraftTypeUnrecognizedError(
+                f"aircraft of type {aircraft_type_icao} " f"not in performance lookup."
+            )
+
+        engine_uid: str = target["engine_uid"]
+
+        perf_model: AircraftPerformance
+        match target["perf_model_id"]:
+            case "PS":
+                perf_model = PSFlight(params=self.params)
+            case "BADA3":
+                perf_model = BADAFlight(
+                    params=self.params,
+                    bada3_path=self.BADA3_DATASET_FP,
+                )
+            case _:
+                raise PerfModelUnsupportedError(
+                    f"perf model lookup returned an unsupported "
+                    f"perf_model_id of {target['perf_model_id']} "
+                    f"for aircraft_type_icao of {aircraft_type_icao}"
+                )
+        return perf_model, engine_uid
+
+    def eval_flight(self, fl: Flight):
+        aircraft_type_icao = fl.attrs.get("aircraft_type")
+        _perf_model, _ = self.perf_lookup(aircraft_type_icao)
+        return _perf_model.eval_flight(fl)
+
+    def calculate_aircraft_performance(*args, **kwargs):
+        raise
+
+
 class CocipTrajectoryHandler:
     """
     Manages the execution of the CoCip trajectory model on a flight trajectory chunk.
     """
 
     MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
-    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
-    BADA3_DATASET_FP = "bada3"
     LOW_MEM_WAYPOINT_COUNT = (
         300  # use low-mem cocip trajectory if traj length is above this val
     )
@@ -418,7 +490,7 @@ class CocipTrajectoryHandler:
         Parameters
         ----------
         job
-            A list of flight waypoints, sampled at contiguous, 1min intervals.
+            A WaypointsRecord job (flight instance) to process
         hres_src
             Fully-qualified uri for the source path the hres zarr store.
             e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
@@ -426,17 +498,25 @@ class CocipTrajectoryHandler:
             Fully-qualified uri for the source path the era5 zarr store.
             e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
         """
+        # aggregate and hash the ids for all messages received by the handler
+        # on instantiation.
+        # this serves as a unique identifier of the unit of work handled by
+        # the handler instance.
         self._hres_src = hres_src
         self._era5_src = era5_src
         self._job = job
+
         self._zarr_src_fn: str | list[str] | None = None
         self._met_dataset: MetDataset | None = None
         self._rad_dataset: MetDataset | None = None
 
         self._verify_altitude(self._job)
-        self._perf_model, self._engine_uid = self._perf_lookup(self._job)
+        self._perf_model_handler: TrajectoryWorkerAP = TrajectoryWorkerAP(
+            fill_low_altitude_with_isa_temperature=True,
+            fill_low_altitude_with_zero_wind=True,
+        )
         self._flight: pycontrails.Flight = self._create_flight(
-            self._job, self._engine_uid
+            self._job, self._perf_model_handler
         )
         logger.debug("instantiated cocip handler.")
 
@@ -451,65 +531,15 @@ class CocipTrajectoryHandler:
                 f"of {cls.MET_MIN_ALTITUDE_FT} feet."
             )
 
-    @classmethod
-    def _perf_lookup(cls, job: WaypointsRecord) -> tuple[AircraftPerformance, str]:
-        """
-        Look up performance model and engine type for a job's aircraft type.
-
-        We provide a static, manually maintained lookup that maps one-to-one,
-        between an aircraft type (icao identifier), and
-        1. an aircraft performance model,
-        2. an engine identifier (icao uid)
-
-        At present, we have only implemented the PSFlight performance model.
-        The BADA model may or may not be supported in the future.
-
-        Futhermore, please note that the engine_uid is not used in running the PS perf model
-        (it is for BADA). However, we still return a single, default engine_uid for aircraft
-        associated with the PS model, since the engine_uid is used in setting emission indexes
-        for emissions calculations (emission calculations being separate from the perf model output)
-        """
-
-        with open(cls.PERF_MODEL_LOOKUP_FP, "r") as fp:
-            lookup = json.load(fp)
-
-        target: dict[str, str] | None = lookup.get(job.flight_info.aircraft_type_icao)
-
-        if not target:
-            raise AircraftTypeUnrecognizedError(
-                f"aircraft of type {job.flight_info.aircraft_type_icao} "
-                f"not in performance lookup."
-            )
-
-        engine_uid: str = target["engine_uid"]
-
-        perf_model: AircraftPerformance
-        match target["perf_model_id"]:
-            case "PS":
-                perf_model = PSFlight(
-                    fill_low_altitude_with_isa_temperature=True,
-                    fill_low_altitude_with_zero_wind=True,
-                )
-            case "BADA3":
-                perf_model = BADAFlight(
-                    bada3_path=cls.BADA3_DATASET_FP,
-                    fill_low_altitude_with_isa_temperature=True,
-                    fill_low_altitude_with_zero_wind=True,
-                )
-            case _:
-                raise PerfModelUnsupportedError(
-                    f"perf model lookup returned an unsupported "
-                    f"perf_model_id of {target['perf_model_id']} "
-                    f"for aircraft_type_icao of {job.flight_info.aircraft_type_icao}"
-                )
-        return perf_model, engine_uid
-
     @staticmethod
-    def _create_flight(job: WaypointsRecord, engine_uid: str) -> Flight:
+    def _create_flight(
+        job: WaypointsRecord, perf_handler: TrajectoryWorkerAP
+    ) -> Flight:
         """Create Flight from job waypoints.
 
         Aircraft and engine type are associated with the flight here.
         """
+        _, engine_uid = perf_handler.perf_lookup(job.flight_info.aircraft_type_icao)
         return Flight(
             longitude=[w.longitude for w in job.records],
             latitude=[w.latitude for w in job.records],
@@ -635,10 +665,11 @@ class CocipTrajectoryHandler:
 
     def load(self):
         """
-        Open met data zarr stores.
+        Open met data zarr stores and build pycontrails Metdataset objects for HRES and ERA5 stores.
 
-        HRES: Will choose the most recent _usable_ forecast.
-        ERA5: Will choose store(s) that overlap entire flight traj + contrail evolution time.
+        HRES: Will choose the most recent _usable_ forecast for jobs needing HRES.
+        ERA5: Will choose and concat those store(s)
+              that overlap entire flight traj + contrail evolution time.
         """
         if self._job.met_source == MetSource.HRES:
             self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
@@ -649,10 +680,8 @@ class CocipTrajectoryHandler:
                 storage_options={"token": env.GCP_SVC_ACCT_KEY},
             )
             met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
-            variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables
-            )
-            met.standardize_variables(variables)
+            variables = Cocip.ecmwf_met_variables()
+            met = met.standardize_variables(variables)
 
             logger.debug(f"opening HRES SL zarr store at: {zarr_path}")
             sl = xr.open_zarr(
@@ -662,15 +691,14 @@ class CocipTrajectoryHandler:
                 },
             )
             rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
-            variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables
-            )
-            rad.standardize_variables(variables)
-
+            variables = Cocip.ecmwf_rad_variables()
+            rad = rad.standardize_variables(variables)
             self._met_dataset = met
             self._rad_dataset = rad
+
         elif self._job.met_source == MetSource.ERA5:
             self._zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
+
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []
             for src_fn in self._zarr_src_fn:
@@ -695,22 +723,17 @@ class CocipTrajectoryHandler:
             met = MetDataset(
                 pl_ds_agg, provider="ECMWF", dataset="ERA5", product="reanalysis"
             )
-            variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.met_variables
-            )
-            met.standardize_variables(variables)
+            variables = Cocip.ecmwf_met_variables()
+            met = met.standardize_variables(variables)
 
             rad = MetDataset(
                 sl_ds_agg, provider="ECMWF", dataset="ERA5", product="reanalysis"
             )
-            variables = (
-                v[0] if isinstance(v, tuple) else v for v in Cocip.rad_variables
-            )
-            rad.standardize_variables(variables)
+            variables = Cocip.ecmwf_rad_variables()
+            rad = rad.standardize_variables(variables)
 
             self._met_dataset = met
             self._rad_dataset = rad
-
         else:
             raise ValueError(
                 "Unrecognized met source specified in trajectory worker job."
@@ -725,12 +748,11 @@ class CocipTrajectoryHandler:
             raise ValueError(
                 "met dataset or rad dataset have not been loaded. Run load()."
             )
-
         if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
             model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=self._perf_model,
+                aircraft_performance=self._perf_model_handler,
                 **self.STATIC_PARAMS,
             )
         else:
@@ -741,7 +763,7 @@ class CocipTrajectoryHandler:
             model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=self._perf_model,
+                aircraft_performance=self._perf_model_handler,
                 **self.STATIC_PARAMS,
                 preprocess_lowmem=True,
             )
@@ -753,7 +775,7 @@ class CocipTrajectoryHandler:
     @property
     def zarr_uri(self):
         """
-        Returns the subdirectory that houses the hres zarr data
+        Returns the subdirectory that houses the hres or era5 zarr data
         and uniquely identifies the store based on the model_run_at time.
         """
         return self._zarr_src_fn

@@ -20,6 +20,13 @@ from lib.log import logger
 tf = TimezoneFinder()
 
 
+@dataclass(frozen=True)
+class PubSubMessage:
+    data: bytes
+    ack_id: str
+    ordering_key: str
+
+
 @dataclass
 class SpireWaypointPositional:
     """
@@ -728,7 +735,7 @@ class CocipTrajectoryChunk:
             total_contrail_length_sac_km=tot_sac_len,
             max_contrail_lifetime_h=max_contrail_age_hr,
             median_contrail_lifetime_h=median_contrail_age_hr,
-            pycontrails_ver=attrs["pycontrails_version"],
+            pycontrails_ver=pycontrails.__version__,
             perf_model_id=attrs["aircraft_performance_model"],
             nvpm_data_source=attrs["nvpm_data_source"],
             source_id=source_id,
@@ -904,7 +911,7 @@ class CocipTrajectoryChunk:
                 total_contrail_length_sac_km=tot_sac_len,
                 max_contrail_lifetime_h=max_contrail_age_hr,
                 median_contrail_lifetime_h=median_contrail_age_hr,
-                pycontrails_ver=attrs["pycontrails_version"],
+                pycontrails_ver=pycontrails.__version__,
                 perf_model_id=attrs["aircraft_performance_model"],
                 nvpm_data_source=attrs["nvpm_data_source"],
                 source_id=source_id,
@@ -1053,4 +1060,9 @@ class CocipTrajectoryChunk:
             "arrival_airport_icao": self.arrival_airport_icao,
             "arrival_scheduled_time": iso_to_microseconds(self.arrival_scheduled_time),
         }
-        return json.dumps(blob).encode("utf-8")
+        try:
+            json_out = json.dumps(blob).encode("utf-8")
+        except Exception as e:
+            logger.warning(f"could not JSON serialize output: {blob}")
+            raise Exception from e
+        return json_out
