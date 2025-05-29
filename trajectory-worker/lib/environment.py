@@ -17,3 +17,6 @@ N_JOBS = int(os.environ["N_JOBS"])
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG")
 GIT_SHA = os.environ.get("GIT_SHA", "local")
+TRAJECTORY_CHUNK_BACKUP_TOPIC_ID = os.environ.get(
+    "TRAJECTORY_CHUNK_BACKUP_TOPIC_ID", None
+)

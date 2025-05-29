@@ -128,6 +128,7 @@ class PubSubSubscriptionHandler:
             message = PubSubMessage(
                 data=pubsub_msg.message.data,
                 ack_id=pubsub_msg.ack_id,
+                delivery_attempt=pubsub_msg.delivery_attempt,
                 ordering_key=pubsub_msg.message.ordering_key,
             )
             return message

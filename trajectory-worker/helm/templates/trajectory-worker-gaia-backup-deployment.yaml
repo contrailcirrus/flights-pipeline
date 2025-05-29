@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: trajectory-worker-gaia
+  name: trajectory-worker-gaia-backup
   labels:
-    app: trajectory-worker-gaia
+    app: trajectory-worker-gaia-backup
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: trajectory-worker-gaia
+      app: trajectory-worker-gaia-backup
   template:
     metadata:
       labels:
-        app: trajectory-worker-gaia
+        app: trajectory-worker-gaia-backup
     spec:
       serviceAccountName: flights-pipeline-default-sa
       # terminationGracePeriodSeconds should be greater than the time to
@@ -23,13 +23,11 @@ spec:
         cloud.google.com/compute-class: "Performance"
         cloud.google.com/machine-family: "c4"
       containers:
-      - name: trajectory-worker-gaia
+      - name: trajectory-worker-gaia-backup
         image: {{ .Values.image | required ".Values.image is required" | quote }}
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
-            value: {{ .Values.trajectoryChunkGaiaSubscriptionId | required ".Values.trajectoryChunkGaiaSubscriptionId is required" | quote }}
-          - name: TRAJECTORY_CHUNK_BACKUP_TOPIC_ID
-            value: {{ .Values.trajectoryChunkGaiaBackupTopicId | required ".Values.trajectoryChunkGaiaBackupTopicId is required" | quote }}
+            value: {{ .Values.trajectoryChunkGaiaBackupSubscriptionId | required ".Values.trajectoryChunkGaiaBackupSubscriptionId is required" | quote }}
           - name: HRES_SOURCE_PATH
             value: {{ .Values.hresSourcePath | required ".Values.hresSourcePath is required" | quote }}
           - name: ERA5_SOURCE_PATH
@@ -49,8 +47,8 @@ spec:
                 key: GCP_SVC_ACCT_KEY
         resources:
           limits:
-            cpu: "0.7"
-            memory: "2.2Gi"
+            cpu: "0.75"
+            memory: "3Gi"
           requests:
-            cpu: "0.7"
-            memory: "2.2Gi"
+            cpu: "0.75"
+            memory: "3Gi"

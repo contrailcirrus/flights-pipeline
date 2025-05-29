@@ -6,6 +6,10 @@ logLevel:
 
 trajectoryChunkGaiaSubscriptionId:
 
+trajectoryChunkGaiaBackupTopicId:
+
+trajectoryChunkGaiaBackupSubscriptionId:
+
 hresSourcePath:
 
 era5SourcePath:

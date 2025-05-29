@@ -1,24 +1,14 @@
 .PHONY: deploy
-deploy: --check-env
+deploy:
 	helm upgrade --install trajectory-worker-deployment . \
 		--namespace=$(NAMESPACE) \
 		--set image=$(IMAGE) \
 		--set logLevel=$(LOG_LEVEL) \
 		--set trajectoryChunkGaiaSubscriptionId=$(TRAJECTORY_CHUNK_GAIA_SUBSCRIPTION_ID) \
+		--set trajectoryChunkGaiaBackupTopicId=$(TRAJECTORY_CHUNK_GAIA_BACKUP_TOPIC_ID) \
+		--set trajectoryChunkGaiaBackupTopicId=$(TRAJECTORY_CHUNK_GAIA_BACKUP_SUBSCRIPTION_ID) \
 		--set hresSourcePath=$(HRES_SOURCE_PATH) \
 		--set era5SourcePath=$(ERA5_SOURCE_PATH) \
 		--set gitSha=$(GIT_SHA) \
 		--set trajectoryCocipBqTopicId=$(TRAJECTORY_COCIP_BQ_TOPIC_ID) \
 		--set nJobs=$(N_JOBS)
-
-.PHONY: --check-env
---check-env:
-	@test $${NAMESPACE?environment variable is required}
-	@test $${IMAGE?environment variable is required}
-	@test $${LOG_LEVEL?environment variable is required}
-	@test $${TRAJECTORY_CHUNK_GAIA_SUBSCRIPTION_ID?environment variable is required}
-	@test $${HRES_SOURCE_PATH?environment variable is required}
-	@test $${ERA5_SOURCE_PATH?environment variable is required}
-	@test $${GIT_SHA?environment variable is required}
-	@test $${TRAJECTORY_COCIP_BQ_TOPIC_ID?environment variable is required}
-	@test $${N_JOBS?environment variable is required}
