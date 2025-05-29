@@ -14,8 +14,16 @@ resource "google_pubsub_topic" "dev_gaia_trajectory_chunk" {
   name = "dev-fp-gaia-trajectory-chunk"
 }
 
+resource "google_pubsub_topic" "dev_gaia_trajectory_chunk_backup" {
+  name = "dev-fp-gaia-trajectory-chunk-backup"
+}
+
 resource "google_pubsub_topic" "dev_gaia_trajectory_chunk_dead_letter" {
   name = "dev-fp-gaia-trajectory-chunk-dead-letter"
+}
+
+resource "google_pubsub_topic" "dev_gaia_trajectory_chunk_backup_dead_letter" {
+  name = "dev-fp-gaia-trajectory-chunk-backup-dead-letter"
 }
 
 resource "google_pubsub_topic" "dev_trajectory_worker_cocip_egress_bigquery" {
