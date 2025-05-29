@@ -15,7 +15,7 @@ spec:
     kind: Deployment
     name: trajectory-worker-gaia
   minReplicas: 1
-  maxReplicas: 20
+  maxReplicas: 100
   metrics:
     - type: External
       external:
