@@ -48,6 +48,7 @@ The following environment variables are expected for production and development 
 | name                             |                                            description                                             |
 |:---------------------------------|:--------------------------------------------------------------------------------------------------:|
 | TRAJECTORY_CHUNK_SUBSCRIPTION_ID |             fully-qualified uri for the flights trajectory chunks pubsub subscription              |
+| TRAJECTORY_CHUNK_BACKUP_TOPIC_ID | fully-qualified uri for the backup topic/subscription; this is an escape value alternative to dead-lettering |
 | HRES_SOURCE_PATH                 |               fully-qualified path in gcs for the hres zarr store used to run cocip                |
 | ERA5_SOURCE_PATH                 |               fully-qualified path in gcs for the era5 zarr store used to run cocip                |
 | LOG_LEVEL                        |                             log level for service in cloud environment                             |
