@@ -119,6 +119,35 @@ resource "google_pubsub_subscription" "dev_trajectory_worker_gaia_chunk_ingress"
   ]
 }
 
+resource "google_pubsub_subscription" "dev_trajectory_worker_gaia_chunk_backup_ingress" {
+  name  = "dev-fp-trajectory-worker-gaia-chunk-backup-ingress"
+  topic = google_pubsub_topic.dev_gaia_trajectory_chunk_backup.id
+
+  ack_deadline_seconds         = 60
+  enable_message_ordering      = true
+  enable_exactly_once_delivery = true
+  message_retention_duration = "86400s"  # 1 day
+
+  dead_letter_policy {
+    max_delivery_attempts = 5
+    dead_letter_topic = google_pubsub_topic.dev_gaia_trajectory_chunk_backup_dead_letter.id
+  }
+
+  retry_policy {
+    minimum_backoff = "1s"
+    maximum_backoff = "2s"
+  }
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.dev_gaia_trajectory_chunk_backup,
+    google_pubsub_topic.dev_gaia_trajectory_chunk_backup_dead_letter,
+  ]
+}
+
 resource "google_pubsub_subscription" "dev_trajectory_gaia_chunk_ingress_dead_letter" {
   name  = "dev-fp-trajectory-gaia-chunk-ingress-dead-letter"
   topic = google_pubsub_topic.dev_gaia_trajectory_chunk_dead_letter.id
@@ -130,6 +159,20 @@ resource "google_pubsub_subscription" "dev_trajectory_gaia_chunk_ingress_dead_le
 
   depends_on = [
     google_pubsub_topic.dev_gaia_trajectory_chunk_dead_letter,
+  ]
+}
+
+resource "google_pubsub_subscription" "dev_trajectory_gaia_chunk_backup_ingress_dead_letter" {
+  name  = "dev-fp-trajectory-gaia-chunk-backup-ingress-dead-letter"
+  topic = google_pubsub_topic.dev_gaia_trajectory_chunk_backup_dead_letter.id
+  message_retention_duration = "86400s"  # 1 day
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  depends_on = [
+    google_pubsub_topic.dev_gaia_trajectory_chunk_backup_dead_letter,
   ]
 }
 
