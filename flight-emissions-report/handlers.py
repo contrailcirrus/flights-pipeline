@@ -44,6 +44,7 @@ class PubSubSubscriptionHandler:
     class Message:
         data: bytes
         ack_id: str
+        delivery_attempt: int
         ordering_key: str
 
     def fetch(self, count: int = 1) -> List[Message]:
@@ -87,6 +88,7 @@ class PubSubSubscriptionHandler:
             message = self.Message(
                 data=itm.message.data,
                 ack_id=itm.ack_id,
+                delivery_attempt=itm.delivery_attempt,
                 ordering_key=itm.message.ordering_key,
             )
             messages.append(message)
