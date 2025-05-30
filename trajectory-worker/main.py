@@ -160,10 +160,13 @@ if __name__ == "__main__":
             ordered_queue=False,
         )
         job_handler = PubSubSubscriptionHandler(env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID)
-        backup_job_publisher = PubSubPublishHandler(
-            env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID,
-            ordered_queue=True,
-        )
+        if env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID:
+            backup_job_publisher = PubSubPublishHandler(
+                env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID,
+                ordered_queue=True,
+            )
+        else:
+            backup_job_publisher = None
         run(
             trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
             job_handler=job_handler,
