@@ -6,7 +6,6 @@ deploy:
 		--set logLevel=$(LOG_LEVEL) \
 		--set trajectoryChunkGaiaSubscriptionId=$(TRAJECTORY_CHUNK_GAIA_SUBSCRIPTION_ID) \
 		--set trajectoryChunkGaiaBackupTopicId=$(TRAJECTORY_CHUNK_GAIA_BACKUP_TOPIC_ID) \
-		--set trajectoryChunkGaiaBackupTopicId=$(TRAJECTORY_CHUNK_GAIA_BACKUP_SUBSCRIPTION_ID) \
 		--set hresSourcePath=$(HRES_SOURCE_PATH) \
 		--set era5SourcePath=$(ERA5_SOURCE_PATH) \
 		--set gitSha=$(GIT_SHA) \
