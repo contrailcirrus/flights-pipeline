@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 def run(
     trajectory_cocip_bq_publisher: PubSubPublishHandler,
     job_handler: PubSubSubscriptionHandler,
+    backup_job_publisher: PubSubPublishHandler | None,
 ) -> None:
     """
     Main entrypoint.
@@ -30,6 +31,24 @@ def run(
             sys.exit(0)
 
         job = schemas.WaypointsRecord.from_utf8_json(message.data)
+
+        if backup_job_publisher and message.delivery_attempt > 1:
+            # pass message to backup queue to be processed by traj workers w/ more resources
+            logger.info(
+                f"Too many delivery attempts ({message.delivery_attempt}). "
+                f"Forwarding to backup pipeline."
+                f"airline_iata: {job.flight_info.airline_iata}"
+                f"flight_id: {job.flight_info.flight_id}. "
+                f"got job with {len(job.records)} records."
+            )
+            backup_job_publisher.publish_async(
+                message.data,
+                timeout_seconds=45,
+                ordering_key=message.ordering_key,
+            )
+            backup_job_publisher.wait_for_publish(timeout_seconds=30)
+            job_handler.ack(message)
+            continue
 
         logger.info(
             f"airline_iata: {job.flight_info.airline_iata}"
@@ -141,9 +160,17 @@ if __name__ == "__main__":
             ordered_queue=False,
         )
         job_handler = PubSubSubscriptionHandler(env.TRAJECTORY_CHUNK_SUBSCRIPTION_ID)
+        if env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID:
+            backup_job_publisher = PubSubPublishHandler(
+                env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID,
+                ordered_queue=True,
+            )
+        else:
+            backup_job_publisher = None
         run(
             trajectory_cocip_bq_publisher=trajectory_cocip_bq_publisher,
             job_handler=job_handler,
+            backup_job_publisher=backup_job_publisher,
         )
 
     except Exception:

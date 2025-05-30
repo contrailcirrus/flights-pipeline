@@ -24,6 +24,7 @@ tf = TimezoneFinder()
 class PubSubMessage:
     data: bytes
     ack_id: str
+    delivery_attempt: int
     ordering_key: str
 
 
