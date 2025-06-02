@@ -49,8 +49,8 @@ spec:
                 key: GCP_SVC_ACCT_KEY
         resources:
           limits:
-            cpu: "0.3"
-            memory: "0.6Gi"
+            cpu: "0.2"
+            memory: "0.45Gi"
           requests:
-            cpu: "0.3"
-            memory: "0.6Gi"
+            cpu: "0.2"
+            memory: "0.45Gi"
