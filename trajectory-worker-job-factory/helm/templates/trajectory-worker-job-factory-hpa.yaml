@@ -15,7 +15,7 @@ spec:
     kind: Deployment
     name: trajectory-worker-job-factory
   minReplicas: 1
-  maxReplicas: 10
+  maxReplicas: 30
   metrics:
     - type: External
       external:
@@ -26,4 +26,4 @@ spec:
               resource.labels.subscription_id: {{ .Values.twjdSubscriptionId | required ".Values.twjdSubscriptionId is required" | splitList "/" | last | quote }}
         target:
           type: Value
-          value: 10
+          value: 30
