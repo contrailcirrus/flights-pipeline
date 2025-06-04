@@ -32,7 +32,7 @@ def run(
 
         job = schemas.WaypointsRecord.from_utf8_json(message.data)
 
-        if backup_job_publisher and message.delivery_attempt > 1:
+        if backup_job_publisher and message.delivery_attempt > 2:
             # pass message to backup queue to be processed by traj workers w/ more resources
             logger.info(
                 f"Too many delivery attempts ({message.delivery_attempt}). "

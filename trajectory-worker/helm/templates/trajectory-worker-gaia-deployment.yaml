@@ -18,8 +18,9 @@ spec:
       # terminationGracePeriodSeconds should be greater than the time to
       # perform a single job iteration. When a SIGTERM is received, the job
       # has this much time to gracefully exit before being killed.
-      terminationGracePeriodSeconds: 600
-    #  nodeSelector:
+      terminationGracePeriodSeconds: 15
+      nodeSelector:
+        cloud.google.com/gke-spot: "true"
     #    cloud.google.com/compute-class: "Performance"
     #    cloud.google.com/machine-family: "c4"
       containers:
