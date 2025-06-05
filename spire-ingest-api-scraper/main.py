@@ -99,7 +99,11 @@ async def main(
             f"Fetching: [{batch_start_at.isoformat()}, {batch_end_at.isoformat()})"
         )
         spire_df = await spire_client.get_data_between(batch_start_at, batch_end_at)
-
+        if len(spire_df) == 0:
+            logger.warning(
+                "did not receive record from spire. continuing to next time window."
+            )
+            continue
         spire_df = transform.filter_ingest_rules(spire_df)
 
         logger.info(f"Publishing {len(spire_df)} records to BQ.")
