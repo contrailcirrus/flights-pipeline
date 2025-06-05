@@ -96,9 +96,6 @@ def filter_ingest_rules(spire_df: pd.DataFrame) -> pd.DataFrame:
     # provide the relevant position data
     # to interpolate values for :00 second of each minute but drop records between
     # the first and last which do not influence interpolation downstream.
-    logger.info(
-        "Resampling to first/last record on a per icao_address, timestamp minute basis."
-    )
     spire_df = _downsample_icao_address_minutes_first_last(spire_df)
 
     return spire_df

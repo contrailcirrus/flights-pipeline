@@ -106,7 +106,7 @@ async def main(
             continue
         spire_df = transform.filter_ingest_rules(spire_df)
 
-        logger.info(f"Publishing {len(spire_df)} records to BQ.")
+        logger.info(f"Publishing {len(spire_df)} resampled records to BQ.")
 
         # ----------------
         # publish records
