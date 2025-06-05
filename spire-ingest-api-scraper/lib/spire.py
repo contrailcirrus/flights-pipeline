@@ -101,18 +101,24 @@ class SpireAPIClient:
         # Spire API's start_at and end_at query params reference ingestion_time.
         # Sometimes the SPIRE API will return records with ingestion_time outside of
         # [start_at, end_at_plus_lag).
-        ingestion_time: pd.Series = pd.to_datetime(df["ingestion_time"])
-        ingest_at_or_after_start = ingestion_time >= pd.to_datetime(start_at)
-        ingest_before_end = ingestion_time < pd.to_datetime(end_at)
-        in_range_filter = ingest_at_or_after_start & ingest_before_end
-        df = df.loc[in_range_filter, :]
+        # ---
+        # We are disabling this behavior following the Spire outage on 06/04/2025
+        # in which recovered data showed ingestion time outside of the target window.
+        # We may get duplicate data without this trimming
+        # but will tolerate those dupes given opaque behavior w.r.t the API window time and ingestion time
 
-        drop_count = (~in_range_filter).sum()
-        if drop_count > 0:
-            logger.info(
-                f"Drop {drop_count} records with "
-                f"ingestion time outside window: [{start_at}, {end_at})"
-            )
+        # ingestion_time: pd.Series = pd.to_datetime(df["ingestion_time"])
+        # ingest_at_or_after_start = ingestion_time >= pd.to_datetime(start_at)
+        # ingest_before_end = ingestion_time < pd.to_datetime(end_at)
+        # in_range_filter = ingest_at_or_after_start & ingest_before_end
+        # df = df.loc[in_range_filter, :]
+
+        # drop_count = (~in_range_filter).sum()
+        # if drop_count > 0:
+        #    logger.info(
+        #        f"Drop {drop_count} records with "
+        #        f"ingestion time outside window: [{start_at}, {end_at})"
+        #    )
 
         return df
 
