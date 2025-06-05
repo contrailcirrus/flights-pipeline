@@ -94,6 +94,8 @@ class SpireAPIClient:
         records = [record for result in results for record in result]
         df: pd.DataFrame = pd.DataFrame(records)
         logger.info(f"Fetched {len(df)} total records from Spire.")
+        if len(df) == 0:
+            return df
 
         # Drop records with ingestion timestamps outside of [start_at, end_at).
         # Spire API's start_at and end_at query params reference ingestion_time.
