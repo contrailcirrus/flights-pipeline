@@ -62,7 +62,6 @@ def filter_ingest_rules(spire_df: pd.DataFrame) -> pd.DataFrame:
     """
     # Retain records when aircraft is not on ground. on_ground is a nullable boolean
     # type which may be nan if unknown.
-    logger.info("Dropping on_ground records.")
     is_on_ground = spire_df["on_ground"].fillna(False).astype(bool)
     drop_count_on_ground = is_on_ground.sum()
     if drop_count_on_ground > 0:
@@ -71,7 +70,6 @@ def filter_ingest_rules(spire_df: pd.DataFrame) -> pd.DataFrame:
     spire_df = spire_df.loc[is_flying, :]
 
     # Drop any records missing altitude data.
-    logger.info("Dropping records with no altitude_baro.")
     is_missing_altitude = spire_df["altitude_baro"].isna()
     drop_count_missing_altitude = is_missing_altitude.sum()
     if drop_count_missing_altitude > 0:
@@ -83,7 +81,6 @@ def filter_ingest_rules(spire_df: pd.DataFrame) -> pd.DataFrame:
     spire_df = spire_df.loc[has_altitude, :]
 
     # drop records with an icao address in our keep-out list
-    logger.info("Dropping records with icao_address in keep-out list.")
     is_ignored_icao_address = spire_df["icao_address"].isin(IGNORE_ICAO_ADDRESS)
     spire_df = spire_df.loc[~is_ignored_icao_address, :]
 
