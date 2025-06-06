@@ -36,6 +36,8 @@ a single aircraft (`<icao_addr>`) originating on day (utc) of `<day>`, using met
 - `-i <flight_id> -s <met_data_src>` this submits a single job representing a single 
 flight instance (`<flight_id>`) which has origination on day (utc) of `<day>`, using met data source `<met_data_src>`.
 
+- `-d` can either be a single day (`2024-01-03`) or a date range (`2024-01-03_2024-12-13`). If a date range, it will submit days inclusive of the bounds.
+
 - `-t` this tells the trajectory worker to export to big query per-segment data in 
 addition to the full flight trajectory summary.  Records written to BQ using this flag show up 
 with `source_id="flightsreport_full"` rather than the default of 
