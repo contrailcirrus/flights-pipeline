@@ -33,6 +33,7 @@ class Input:
     flight_id: str | None = None
     icao_address: str | None = None
     met_data_src: str | None = None
+    telemetry_src: str | None = None
     full_traj: bool = False
     dry_run: bool = False
 
@@ -99,7 +100,12 @@ if __name__ == "__main__":
         target_dtstr = now_less_two_days.strftime("%Y-%m-%d")
         for target_kwarg in DAILY_TARGETS:
             logger.info(f"submitting flights for {target_kwarg} on {target_dtstr}")
-            args = Input(day=target_dtstr, met_data_src="hres", **target_kwarg)
+            args = Input(
+                day=target_dtstr,
+                met_data_src="hres",
+                telemetry_src="bq",
+                **target_kwarg,
+            )
             svc = JobWorkerSubmitSvc(Namespace(**asdict(args)))
             svc.run()
     except Exception:
