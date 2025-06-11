@@ -19,6 +19,7 @@ from lib.handlers import (
     HealTrajectoryHandler,
     ResampleHandler,
     RedisHandler,
+    CloudStorageHandler,
 )
 from lib.exceptions import (
     PermanentFailureException,
@@ -56,6 +57,7 @@ class TrajectoryBuilderSvc:
         self,
         cache_handler: RedisHandler | None,
         bq_handler: BigQueryHandler,
+        gcs_handler: CloudStorageHandler,
         heal_traj_handler: HealTrajectoryHandler,
         validate_traj_handler: ValidateTrajectoryHandler,
         resample_handler: ResampleHandler,
@@ -63,6 +65,7 @@ class TrajectoryBuilderSvc:
     ):
         self._cache_handler = cache_handler
         self._bq_handler = bq_handler
+        self._gcs_handler = gcs_handler
         self._traj_heal_handler = heal_traj_handler
         self._validate_traj_handler = validate_traj_handler
         self._resample_handler = resample_handler
@@ -120,17 +123,37 @@ class TrajectoryBuilderSvc:
                 )
                 df: pd.DataFrame = self._bq_handler.query(query, cfg)
                 df.drop_duplicates(inplace=True)
+                # segregate sat data (i.e. terr_waypoints with missing flight_id
+                df_satellite = df[df["flight_id"].isnull()]
+                df = df[~df["flight_id"].isnull()]
+
             case TelemetrySource.GOOGLE_CLOUD_STORAGE:
                 logger.info("Fetching ADS-B from Google Cloud Storage.")
+                df_all = self._gcs_handler.fetch_airline_days(
+                    [previous_day, day, next_day], airline_iata, prune=True
+                )
+                # the following logic emulates the logic in the SQL query dispatched to BQ
+                df_all["timestamp"] = pd.to_datetime(df_all["timestamp"])
+                df_all.sort_values("timestamp", inplace=True, ascending=True)
+                first_by_fid = df_all.groupby("flight_id").first()
+                is_on_day = (first_by_fid["timestamp"] >= pd.to_datetime(day)) & (
+                    first_by_fid["timestamp"] < pd.to_datetime(next_day)
+                )
+                first_by_fid = first_by_fid[is_on_day]
+
+                is_fid = df_all["flight_id"].isin(first_by_fid.index)
+                df = df_all[is_fid]
+
+                is_icao_w_null_fid = (
+                    df_all["icao_address"].isin(first_by_fid["icao_address"])
+                    & df_all["flight_id"].isna()
+                )
+                df_satellite = df_all[is_icao_w_null_fid]
 
             case _:
                 raise NotImplementedError(
                     f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for airline_iata based TWJDs."
                 )
-
-        # segregate sat data (i.e. terr_waypoints with missing flight_id
-        df_satellite = df[df["flight_id"].isnull()]
-        df = df[~df["flight_id"].isnull()]
         return df, df_satellite
 
     def _fetch_flight_id_day(

@@ -422,7 +422,9 @@ class CloudStorageHandler:
         self._client = storage.Client()
         self._bucket = self._client.bucket(self.GCS_BUCKET_SPIRE_CACHE)
 
-    def fetch_airline_days(self, days: list[str], airline_iata: str):
+    def fetch_airline_days(
+        self, days: list[str], airline_iata: str, prune: bool = False
+    ):
         """
         Fetch data from GCS for a given airline, over the specified days.
 
@@ -430,12 +432,23 @@ class CloudStorageHandler:
             list of target days for flights; fmt "%Y-%m-%d"
         airline_iata
             airline iata designator for which to fetch ads-b
+        prune
+            if true, 12 hours will be pruned from the left-hand-side of the first day in the list,
+            and 7 hours will be prune from the right-hand-side of the last day in the list.
         """
+
+        if len(days) < 2 and prune:
+            raise NotImplementedError(
+                "cannot prune when number of days provided is fewer than 3."
+            )
 
         datetime_hourly_strs: list[str] = []
         for day in days:
             for hr in range(0, 24):
                 datetime_hourly_strs.append(f"{day}T{hr:02}")
+
+        if prune:
+            datetime_hourly_strs = datetime_hourly_strs[12:-7]
 
         bq_blob_uri_prefixes = [
             f"hourly/{datetime_hr}" for datetime_hr in datetime_hourly_strs
@@ -462,7 +475,7 @@ class CloudStorageHandler:
             _,
         ) in bq_blob_map.items():  # load all pq shards in subdir at once into a df
             uri = f"gs://{self._bucket.name}/{k}"
-            print("fetching " + uri)
+            logger.info("fetching " + uri)
             df = pd.read_parquet(uri)
             df = df[df["airline_iata"] == airline_iata]
             df_parts.append(df)
