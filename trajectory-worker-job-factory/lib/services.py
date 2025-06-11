@@ -100,19 +100,33 @@ class TrajectoryBuilderSvc:
         previous_day = (pd.Timestamp(day) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
         next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
-        query = self._bq_handler.import_query(self.DAILY_FLIGHTS_QUERY_FILENAME)
-        cfg = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("airline", "STRING", airline_iata),
-                bigquery.ScalarQueryParameter("target_day", "STRING", day),
-                bigquery.ScalarQueryParameter(
-                    "target_day_before", "STRING", previous_day
-                ),
-                bigquery.ScalarQueryParameter("target_day_after", "STRING", next_day),
-            ]
-        )
-        df: pd.DataFrame = self._bq_handler.query(query, cfg)
-        df.drop_duplicates(inplace=True)
+        match telemetry_src:
+            case TelemetrySource.BIG_QUERY:
+                logger.info("Fetching ADS-B from BigQuery.")
+                query = self._bq_handler.import_query(self.DAILY_FLIGHTS_QUERY_FILENAME)
+                cfg = bigquery.QueryJobConfig(
+                    query_parameters=[
+                        bigquery.ScalarQueryParameter(
+                            "airline", "STRING", airline_iata
+                        ),
+                        bigquery.ScalarQueryParameter("target_day", "STRING", day),
+                        bigquery.ScalarQueryParameter(
+                            "target_day_before", "STRING", previous_day
+                        ),
+                        bigquery.ScalarQueryParameter(
+                            "target_day_after", "STRING", next_day
+                        ),
+                    ]
+                )
+                df: pd.DataFrame = self._bq_handler.query(query, cfg)
+                df.drop_duplicates(inplace=True)
+            case TelemetrySource.GOOGLE_CLOUD_STORAGE:
+                logger.info("Fetching ADS-B from Google Cloud Storage.")
+
+            case _:
+                raise NotImplementedError(
+                    f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for airline_iata based TWJDs."
+                )
 
         # segregate sat data (i.e. terr_waypoints with missing flight_id
         df_satellite = df[df["flight_id"].isnull()]
@@ -148,6 +162,12 @@ class TrajectoryBuilderSvc:
         td = pd.Timestamp.now(tz="UTC") - pd.Timestamp(day, tz="UTC")
         if td < pd.Timedelta(days=1):
             raise InvalidQueryException("flight day must be at least 1 day in the past")
+
+        if telemetry_src != TelemetrySource.BIG_QUERY:
+            raise NotImplementedError(
+                f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for flight_id based TWJDs."
+            )
+
         next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
         query = self._bq_handler.import_query(self.FLIGHT_ID_QUERY_FILENAME)
@@ -198,6 +218,11 @@ class TrajectoryBuilderSvc:
         td = pd.Timestamp.now(tz="UTC") - pd.Timestamp(day, tz="UTC")
         if td < pd.Timedelta(days=1):
             raise InvalidQueryException("flight day must be at least 1 day in the past")
+
+        if telemetry_src != TelemetrySource.BIG_QUERY:
+            raise NotImplementedError(
+                f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for icao_address-based TWJDs."
+            )
 
         previous_day = (pd.Timestamp(day) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
         next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
