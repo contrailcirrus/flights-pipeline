@@ -56,6 +56,13 @@ jobworker_submit_parser.add_argument(
     dest="met_data_src",
 )
 jobworker_submit_parser.add_argument(
+    "-w",
+    "--telemetry-src",
+    default="bq",
+    help="data source to use for ads-b telemetry data. Defaults to BigQuery. One of: 'bq', 'gcs'",
+    dest="telemetry_src",
+)
+jobworker_submit_parser.add_argument(
     "-t",
     "--full-traj",
     action="store_true",

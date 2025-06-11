@@ -1,12 +1,15 @@
--- targeting flights with takeoff_datetime on '2024-04-24'
+-- targeting flights with takeoff_datetime on '{day}'
 -- find all flights for an airline with a non-null flight_id originating on the target day
 -- pull extra data (needing pruning downstream), but guaranteeing capture of null flight_id values needing imputing
 
-WITH candidate_flights_tb AS
+WITH flights_sub_tb AS (SELECT *
+                        FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
+                        WHERE TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day_before, @target_day, @target_day_after)
+                          AND airline_iata = @airline),
+     candidate_flights_tb AS
          (SELECT timestamp, flight_id, icao_address
-          FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
-          WHERE airline_iata = @airline
-            AND TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day_before, @target_day)
+          FROM flights_sub_tb
+          WHERE TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day_before, @target_day)
             AND flight_id IS NOT NULL),
      ranked_candidate_flights_tb AS
          (SELECT ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY timestamp ASC) as row_number, *
@@ -18,7 +21,7 @@ WITH candidate_flights_tb AS
             AND TIMESTAMP_TRUNC(timestamp, DAY) = @target_day)
 
 SELECT *
-FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
+FROM flights_sub_tb
 WHERE (flight_id IN (SELECT flight_id FROM target_flight_id_tb) AND
        TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day, @target_day_after))
    OR (icao_address IN (SELECT icao_address FROM target_flight_id_tb) AND flight_id IS NULL AND
