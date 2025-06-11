@@ -16,6 +16,10 @@ resource "google_bigquery_table" "spire_flights_raw_prod" {
     field = "timestamp"
     type = "DAY"
   }
+  clustering = [
+    "airline_iata",
+    "icao_address",
+  ]
   require_partition_filter = true
   schema = file("${path.module}/schemas/bq_spire_flights_raw.json")
   depends_on = [

@@ -16,6 +16,10 @@ resource "google_bigquery_table" "spire_flights_raw_dev" {
     field = "timestamp"
     type = "DAY"
   }
+  clustering = [
+    "airline_iata",
+    "icao_address",
+  ]
   schema = file("${path.module}/schemas/bq_spire_flights_raw.json")
   depends_on = [
     google_bigquery_dataset.flights_pipeline_dev,
