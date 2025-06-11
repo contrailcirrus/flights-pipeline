@@ -43,6 +43,13 @@ addition to the full flight trajectory summary.  Records written to BQ using thi
 with `source_id="flightsreport_full"` rather than the default of 
 per flight summary data only (`"flightsreport"`).
 
+- `-w` specifies the data source to use for fetching flight ads-b telemetry (waypoint) data.
+Must be either `bq` (BigQuery) or `gcs` (Cloud Storage). Defaults to `bq`.  If fetching from
+BigQuery, waypoint data will be fetched from the spire raw waypoints table. If fetching from
+GCS, waypoint data will be fetched from the parquet file cache backing the adsb telemetry API endpoint.
+This service does NOT guarantee that any given day of Spire data is cached in GCS (i.e. if using the `gcs` flag,
+confirm that the daterange of ADS-B data of interest exists in GCS)
+
 **Examples**
 
 ```bash
