@@ -334,6 +334,11 @@ class MetSource(str, Enum):
     ERA5 = "era5"
 
 
+class TelemetrySource(str, Enum):
+    BIG_QUERY = "bq"
+    GOOGLE_CLOUD_STORAGE = "gcs"
+
+
 @dataclass
 class WaypointsRecord:
     """
@@ -1066,6 +1071,7 @@ class TrajectoryWorkerJobDescriptor:
 
     day: str  # "%Y-%m-%d"
     met_source: MetSource
+    telemetry_source: TelemetrySource  # src from which to fetch ads-b data
     full_traj: bool  # export per-seg cocip to bq
     airline_iata: str | None = None
     flight_id: str | None = None

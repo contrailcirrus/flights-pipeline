@@ -151,6 +151,12 @@ Multiple icao addresses can be submitted as a comma-delimited string.
 flight instance (`<flight_id>`) which has origination on day (utc) of `<day>`, using met data source `<met_data_src>`.
 
 Optional flags:
+- '-w' specifies the data source to use for fetching flight ads-b telemetry (waypoint) data.
+Must be either `bq` (BigQuery) or `gcs` (Cloud Storage). Defaults to `bq`.  If fetching from
+BigQuery, waypoint data will be fetched from the spire raw waypoints table. If fetching from
+GCS, waypoint data will be fetched from the parquet file cache backing the adsb telemetry API endpoint.
+This service does NOT guarantee that any given day of Spire data is cached in GCS (i.e. if using the `gcs` flag,
+confirm that the daterange of ADS-B data of interest exists in GCS)
 - `-e` this writes to file the resampled ADS-B data for each flight instance.
 The data written locally represents exactly the ADS-B trajectory submitted to the trajectory worker.
 This is a useful flag for fetching input data when investigating and reproducing behavior of the trajectory worker,

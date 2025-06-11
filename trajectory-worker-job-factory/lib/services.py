@@ -11,6 +11,7 @@ from lib.schemas import (
     WaypointsRecord,
     MetSource,
     AirlineDayFlightsProgressMarker,
+    TelemetrySource,
 )
 from lib.handlers import (
     PubSubPublishHandler,
@@ -68,10 +69,13 @@ class TrajectoryBuilderSvc:
         self._job_out_handler = job_out_handler
 
     def _fetch_airline_day(
-        self, day: str, airline_iata: str
+        self,
+        day: str,
+        airline_iata: str,
+        telemetry_src: TelemetrySource,
     ) -> (pd.DataFrame, pd.DataFrame):
         """
-        Fetch and clean a days flights (flights starting on calendar day) from BigQuery.
+        Fetch and clean a days flights (flights starting on calendar day) from BigQuery or GCS.
 
         Parameters
         ----------
@@ -79,6 +83,8 @@ class TrajectoryBuilderSvc:
             The target UTC day (flight instance origination) for flights; fmt "%Y-%m-%d"
         airline_iata
             The target airline for which to fetch all flight instances
+        telemetry_src
+            Specifies the source from which to fetch ads-b data
 
         Returns
         ---------
@@ -114,7 +120,10 @@ class TrajectoryBuilderSvc:
         return df, df_satellite
 
     def _fetch_flight_id_day(
-        self, day: str, flight_id: str
+        self,
+        day: str,
+        flight_id: str,
+        telemetry_src: TelemetrySource,
     ) -> (pd.DataFrame, pd.DataFrame):
         """
         Fetch and clean a days flights (flights starting on calendar day) from BigQuery.
@@ -125,6 +134,8 @@ class TrajectoryBuilderSvc:
             The target UTC day on which the flight instance originates; fmt "%Y-%m-%d"
         flight_id
             The target flight instance's flight_id
+        telemetry_src
+            Specifies the source from which to fetch ads-b data
 
         Returns
         ---------
@@ -156,7 +167,10 @@ class TrajectoryBuilderSvc:
         return df, df_satellite
 
     def _fetch_icao_address_day(
-        self, day: str, icao_address: str
+        self,
+        day: str,
+        icao_address: str,
+        telemetry_src: TelemetrySource,
     ) -> (pd.DataFrame, pd.DataFrame):
         """
         Fetch ads-b data for all flights originating on a single day, belonging to one or more
@@ -171,6 +185,8 @@ class TrajectoryBuilderSvc:
             The target icao_address for which to fetch all flight instances.
             If a single aircraft, then a single icao_address.
             If multiple aircraft, then a comma delimited string of icao_address values.
+        telemetry_src
+            Specifies the source from which to fetch ads-b data
 
         Returns
         ---------
@@ -186,12 +202,11 @@ class TrajectoryBuilderSvc:
         previous_day = (pd.Timestamp(day) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
         next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
-        query = self._bq_handler.import_query(self.ICAO_ADDRESS_QUERY_FILENAME)
-
         # icao_address can be a single icao address,
         # or a comma delimited string of multiple icao addresses
         icao_address_lst = icao_address.split(",")
 
+        query = self._bq_handler.import_query(self.ICAO_ADDRESS_QUERY_FILENAME)
         cfg = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ArrayQueryParameter(
@@ -234,16 +249,19 @@ class TrajectoryBuilderSvc:
                 df, df_satellite = self._fetch_airline_day(
                     day=twjd.day,
                     airline_iata=twjd.airline_iata,
+                    telemetry_src=twjd.telemetry_source,
                 )
             elif twjd.flight_id:
                 df, df_satellite = self._fetch_flight_id_day(
                     day=twjd.day,
                     flight_id=twjd.flight_id,
+                    telemetry_src=twjd.telemetry_source,
                 )
             elif twjd.icao_address:
                 df, df_satellite = self._fetch_icao_address_day(
                     day=twjd.day,
                     icao_address=twjd.icao_address,
+                    telemetry_src=twjd.telemetry_source,
                 )
             else:
                 raise NotImplementedError("TWJD could not be processed.")
