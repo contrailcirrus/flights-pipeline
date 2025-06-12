@@ -57,6 +57,6 @@ jobs:
         working-directory: spire-cache-bot/helm
         run: make deploy
         env:
-          NAMESPACE: flights-pipeline-dev
+          NAMESPACE: flights-pipeline-prod
           IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-cache-bot-prod:${{ github.sha }}
           SUSPEND_CRONJOB: false
