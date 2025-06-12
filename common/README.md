@@ -48,6 +48,10 @@ passing the literal key-value to store as a secret.
 SPIRE_AIRSAFE_API_TOKEN=token_value && kubectl create secret generic spire-airsafe-api-secret --from-literal=API_TOKEN=$(SPIRE_AIRSAFE_API_TOKEN) -n flights-pipeline-<prod/dev>
 ```
 
+### Contrails API token
+The production API token belonging to the `breakthrough` organization is a secret in the `flights-pipeline-<dev/prod>` namespaces.
+
+
 ### GCP Service Account
 Typically, services running in Kubernetes can authenticate to GCP services without the explicit
 use of an access token.  i.e. python clients for GCP services (e.g. GCS, PubSub, etc...) can be
