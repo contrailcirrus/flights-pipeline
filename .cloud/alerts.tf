@@ -112,6 +112,49 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
   ]
 }
 
+#
+# spire-cache-bot
+#
+resource "google_logging_metric" "spire_cache_bot_success_counter" {
+  name = "spire-cache-bot-success-counter"
+  filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-prod"
+        labels.k8s-pod/job-name:"spire-cache-bot-cronjob-"
+        textPayload =~ "Successfully called API"
+        EOF
+
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+  }
+}
+
+resource "google_monitoring_alert_policy" "k8cronjob_spire_cache_bot_success_count_below_threshold" {
+  display_name = "k8scronjob-spire-cache-bot-success-count-below-threshold"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "success count is below threshold (1 per hour)"
+    condition_monitoring_query_language {
+      query    = <<EOF
+        fetch k8s_container
+        | metric 'logging.googleapis.com/user/${google_logging_metric.spire_cache_bot_success_counter.name}'
+        | group_by sliding(70m), aggregate(value.counter)
+        | every 1m
+        | condition val() < 1
+        EOF
+      duration = "0s"
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+  ]
+}
+
 # 
 # trajectory-worker-gaia
 # 
