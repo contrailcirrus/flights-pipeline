@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+set -e
+
 YESTERDAY="$(date -d "yesterday" -u +%Y-%m-%dT%H)"
 
-curl "https://api.contrails.org/"
+curl -f "https://api.contrails.org/v1/adsb/telemetry?date=$YESTERDAY" -H "x-api-key: $CONTRAILS_API_KEY" >> /dev/null
+
+echo "Successfully called API for $YESTERDAY"
