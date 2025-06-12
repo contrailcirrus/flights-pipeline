@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Union, Tuple
 
 import pandas as pd
+import pendulum
 from google.cloud import bigquery
 
 from helpers import key_max_value_count
@@ -21,6 +22,7 @@ from schemas import (
     WaypointsRecord,
     MetSource,
     TrajectoryWorkerJobDescriptor,
+    TelemetrySource,
 )
 from log import logger
 from helpers import airport_icao_to_iata_lookup
@@ -50,10 +52,11 @@ class JobWorkerSubmitSvc(BaseSvc):
             namespace object returned from the parser.
             expected to contain members:
             - airline
-            - day
+            - day; can be single day, or date range inclusive
             - flight_id
             - icao_address
             - met_data_src
+            - telemetry_src
             - full_traj
             - dry_run
         """
@@ -62,6 +65,7 @@ class JobWorkerSubmitSvc(BaseSvc):
         self._flight_id = input.flight_id
         self._icao_address = input.icao_address
         self._met_data_src = input.met_data_src
+        self._telemetry_src = input.telemetry_src
         self._full_traj = input.full_traj
         self._dry_run = input.dry_run
         self._publish_handler = PubSubPublishHandler(
@@ -93,34 +97,51 @@ class JobWorkerSubmitSvc(BaseSvc):
     def run(self):
         if self._day and self._airline:
             logger.info(
-                f"🛠️submitting TWJDs for ✈️ {self._airline} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
+                f"🛠️submitting TWJDs for ✈️ {self._airline} using met data source 📊{self._met_data_src}"
             )
         elif self._day and self._flight_id:
             logger.info(
-                f"🛠️submitting TWJDs with 🛂 flight_id: {self._flight_id} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
+                f"🛠️submitting TWJDs with 🛂 flight_id: {self._flight_id} using met data source 📊{self._met_data_src}"
             )
         elif self._day and self._icao_address:
             logger.info(
-                f"🛠️submitting TWJDs with 🏤 icao_address: {self._icao_address} on 🗓️{self._day} using met data source 📊{self._met_data_src}"
+                f"🛠️submitting TWJDs with 🏤 icao_address: {self._icao_address} using met data source 📊{self._met_data_src}"
             )
         else:
             raise NotImplementedError("unhandled runtime case.")
 
-        twjd = TrajectoryWorkerJobDescriptor(
-            day=self._day,
-            met_source=MetSource(self._met_data_src),
-            full_traj=self._full_traj,
-            airline_iata=self._airline,
-            flight_id=self._flight_id,
-            icao_address=self._icao_address,
-            dry_run=self._dry_run,
-            export_waypoints=False,
-        )
+        if "_" in self._day:
+            start_day = self._day.split("_")[0]
+            end_day = self._day.split("_")[-1]
+            logger.info(
+                f"found date range. submitting records from {start_day} to {end_day}"
+            )
+            dt_rg = pendulum.interval(
+                pendulum.parse(start_day), pendulum.parse(end_day)
+            )
+            dt_rg_strs = [dt.strftime("%Y-%m-%d") for dt in dt_rg.range("days")]
+        else:
+            dt_rg_strs = [self._day]
 
-        self._publish_handler.publish_async(
-            twjd.as_utf8_json(),
-            timeout_seconds=10,
-        )
+        # submit twjds for dates in date range
+        for dt_str in dt_rg_strs:
+            logger.info(f"🛠️TWJD created for 🗓️day: {dt_str}")
+            twjd = TrajectoryWorkerJobDescriptor(
+                day=dt_str,
+                met_source=MetSource(self._met_data_src),
+                telemetry_source=TelemetrySource(self._telemetry_src),
+                full_traj=self._full_traj,
+                airline_iata=self._airline,
+                flight_id=self._flight_id,
+                icao_address=self._icao_address,
+                dry_run=self._dry_run,
+                export_waypoints=False,
+            )
+
+            self._publish_handler.publish_async(
+                twjd.as_utf8_json(),
+                timeout_seconds=10,
+            )
 
         logger.info("⏲️ waiting for publish to finish...")
         self._publish_handler.wait_for_publish(timeout_seconds=300)

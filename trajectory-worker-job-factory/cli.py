@@ -19,6 +19,7 @@ from lib.handlers import (  # noqa:E402
     HealTrajectoryHandler,
     ResampleHandler,
     PubSubPublishHandler,
+    CloudStorageHandler,
 )
 from lib.schemas import TrajectoryWorkerJobDescriptor  # noqa:E402
 import argparse  # noqa:E402
@@ -36,6 +37,7 @@ class TrajectoryBuilderSvcWrapper:
         self._twjd = TrajectoryWorkerJobDescriptor(
             day=input.day,
             met_source=input.met_data_src,
+            telemetry_source=input.telemetry_src,
             full_traj=input.full_traj,
             airline_iata=input.airline,
             flight_id=input.flight_id,
@@ -51,6 +53,7 @@ class TrajectoryBuilderSvcWrapper:
         svc = TrajectoryBuilderSvc(
             cache_handler=None,
             bq_handler=BigQueryHandler(),
+            gcs_handler=CloudStorageHandler(),
             validate_traj_handler=ValidateTrajectoryHandler(),
             heal_traj_handler=HealTrajectoryHandler(),
             resample_handler=ResampleHandler(),
@@ -107,6 +110,13 @@ flights_submit_parser.add_argument(
     dest="met_data_src",
 )
 flights_submit_parser.add_argument(
+    "-w",
+    "--telemetry-src",
+    default="bq",
+    help="data source to use for ads-b telemetry data. Defaults to BigQuery. One of: 'bq', 'gcs'",
+    dest="telemetry_src",
+)
+flights_submit_parser.add_argument(
     "-e",
     "--export-waypoints",
     action="store_true",
@@ -116,7 +126,6 @@ flights_submit_parser.add_argument(
 flights_submit_parser.add_argument(
     "-t",
     "--full-traj",
-    action="store_true",
     help="write the per-segment values to BQ",
     dest="full_traj",
 )

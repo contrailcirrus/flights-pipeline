@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: spire-cache-bot-cronjob
+spec:
+  schedule: "5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  suspend: {{ .Values.suspendCronjob | required ".Values.suspendCronjob is required" }}
+
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 120
+      backoffLimit: 3
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: flights-pipeline-default-sa
+          # terminationGracePeriodSeconds should be greater than the time to
+          # perform a single job iteration. When a SIGTERM is received, the job
+          # has this much time to gracefully exit before being killed.
+          terminationGracePeriodSeconds: 120
+          containers:
+            - name: main
+              image: {{ .Values.image | required ".Values.image is required" | quote }}
+              env:
+                - name: CONTRAILS_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: contrails-api-key
+                      key: CONTRAILS_API_KEY
+              resources:
+                requests:
+                  cpu: "0.25"
+                  memory: "0.5Gi"
+                limits:
+                  cpu: "0.25"
+                  memory: "0.5Gi"

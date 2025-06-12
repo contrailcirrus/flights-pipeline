@@ -17,6 +17,11 @@ graph
     contrails_api(Contrails API)
     get_internal_nat_track[internal.nat.track]:::operationStyle
     
+    subgraph gcs_1[Cloud Storage]
+        spire_gcs_cache(bucket: contrails-301217-spire-cache-prod)
+    end
+    style gcs_1 fill:#03cffc
+    
     subgraph k8s_1[Kubernetes]
         spire_ingest_api_scraper(cron: spire-ingest-api-scraper)
     end
@@ -46,6 +51,10 @@ graph
         nat_track_cacher(cron: nat-track-cacher)
     end
     style k8s_8 fill:#C88908
+    subgraph k8s_9[Kubernetes]
+        spire_cache_bot(cron: spire-cache-bot)
+    end
+    style k8s_9 fill:#C88908
     subgraph redis1[Redis]
         twjf_cache(trajectory-worker-job-factory-cache)
     end
@@ -106,6 +115,8 @@ graph
     style sql_1 fill:#f01f4c
     
     %% flow/associations
+    spire_cache_bot --> contrails_api
+    contrails_api <--> spire_gcs_cache
     spire_api --> spire_ingest_api_scraper
     spire_ingest_api_scraper --> spire_ingest_raw_bq_topic
     spire_ingest_raw_bq_topic --> spire_ingest_raw_bq_sub
@@ -138,7 +149,9 @@ graph
     
     traj_worker_cocip_bq_sub --> trajectory_cocip_tb
     
+    spire_gcs_cache --> twjf
     spire_flights_raw_tb --> twjf
+    spire_gcs_cache --> flights_submit
     spire_flights_raw_tb --> flights_submit
     flights_submit --> traj_worker_gaia_topic
     

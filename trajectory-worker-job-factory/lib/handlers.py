@@ -16,7 +16,7 @@ import google.api_core.exceptions
 import google.api_core.retry
 import google.auth
 import redis
-from google.cloud import pubsub_v1, bigquery  # type: ignore
+from google.cloud import pubsub_v1, bigquery, storage  # type: ignore
 from pycontrails import Flight
 
 from lib.exceptions import (
@@ -409,6 +409,78 @@ class BigQueryHandler:
         """
         with open(filename, "r") as fp:
             return fp.read()
+
+
+class CloudStorageHandler:
+    """
+    Handler for managing the fetch of ADS-B data from the Spire raw Parquet file cache.
+    """
+
+    GCS_BUCKET_SPIRE_CACHE = "contrails-301217-spire-cache-prod"
+
+    def __init__(self):
+        self._client = storage.Client()
+        self._bucket = self._client.bucket(self.GCS_BUCKET_SPIRE_CACHE)
+
+    def fetch_airline_days(
+        self, days: list[str], airline_iata: str, prune: bool = False
+    ):
+        """
+        Fetch data from GCS for a given airline, over the specified days.
+
+        days
+            list of target days for flights; fmt "%Y-%m-%d"
+        airline_iata
+            airline iata designator for which to fetch ads-b
+        prune
+            if true, 12 hours will be pruned from the left-hand-side of the first day in the list,
+            and 7 hours will be prune from the right-hand-side of the last day in the list.
+        """
+
+        if len(days) < 2 and prune:
+            raise NotImplementedError(
+                "cannot prune when number of days provided is fewer than 3."
+            )
+
+        datetime_hourly_strs: list[str] = []
+        for day in days:
+            for hr in range(0, 24):
+                datetime_hourly_strs.append(f"{day}T{hr:02}")
+
+        if prune:
+            datetime_hourly_strs = datetime_hourly_strs[12:-7]
+
+        bq_blob_uri_prefixes = [
+            f"hourly/{datetime_hr}" for datetime_hr in datetime_hourly_strs
+        ]
+
+        # map of hourly prefix to GCS blob objects available for that prefix
+        bq_blob_map: dict[str, list[storage.blob.Blob]] = dict()
+        for uri_prefix in bq_blob_uri_prefixes:
+            bq_blob_map.update(
+                {uri_prefix: list(self._bucket.list_blobs(prefix=f"{uri_prefix}/"))}
+            )
+
+        # confirm that all target data is available
+        for k, blob_lst in bq_blob_map.items():
+            if not blob_lst:
+                raise FileNotFoundError(f"No ADS-B files found in GCS with prefix: {k}")
+
+        # fetch all ads-b data from target blobs, and subset to only the target airline_iata
+        df_parts: list[pd.DataFrame] = []
+        # iterate serially here (since we subset on airline iata to keep mem footprint low
+        # on each iteration)
+        for (
+            k,
+            _,
+        ) in bq_blob_map.items():  # load all pq shards in subdir at once into a df
+            uri = f"gs://{self._bucket.name}/{k}"
+            logger.info("fetching " + uri)
+            df = pd.read_parquet(uri)
+            df = df[df["airline_iata"] == airline_iata]
+            df_parts.append(df)
+        df = pd.concat(df_parts)
+        return df
 
 
 class HealTrajectoryHandler:
