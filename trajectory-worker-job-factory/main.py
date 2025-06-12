@@ -12,6 +12,7 @@ from lib.handlers import (
     HealTrajectoryHandler,
     ResampleHandler,
     RedisHandler,
+    CloudStorageHandler,
 )
 from lib.schemas import (
     TrajectoryWorkerJobDescriptor,
@@ -79,6 +80,7 @@ if __name__ == "__main__":
         heal_traj_handler = HealTrajectoryHandler()
         validate_traj_handler = ValidateTrajectoryHandler()
         resample_handler = ResampleHandler()
+        gcs_handler = CloudStorageHandler()
         output_job_handler = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
             ordered_queue=True,
@@ -86,6 +88,7 @@ if __name__ == "__main__":
         job_builder_svc = TrajectoryBuilderSvc(
             cache_handler=cache_handler,
             bq_handler=bq_handler,
+            gcs_handler=gcs_handler,
             heal_traj_handler=heal_traj_handler,
             validate_traj_handler=validate_traj_handler,
             resample_handler=resample_handler,
