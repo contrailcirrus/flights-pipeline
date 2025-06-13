@@ -290,7 +290,7 @@ class TrajectoryBuilderSvc:
             raise PermanentFailureException from e
 
         # ------------------
-        # fetch ads-b data from bq
+        # fetch ads-b
         # ------------------
         try:
             if twjd.airline_iata:
@@ -434,9 +434,7 @@ class TrajectoryBuilderSvc:
                 records = []
                 for ix, ln in waypoints.iterrows():
                     record = SpireWaypointPositional(
-                        ingestion_time=ln["ingestion_time"].strftime(
-                            "%Y-%m-%dT%H:%M:%SZ"
-                        ),
+                        ingestion_time=None,
                         timestamp=ln["timestamp"].strftime("%Y-%m-%dT%H:%M:%SZ"),
                         latitude=ln["latitude"],
                         longitude=ln["longitude"],
