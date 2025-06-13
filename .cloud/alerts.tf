@@ -141,7 +141,7 @@ resource "google_monitoring_alert_policy" "k8cronjob_spire_cache_bot_success_cou
       query    = <<EOF
         fetch k8s_container
         | metric 'logging.googleapis.com/user/${google_logging_metric.spire_cache_bot_success_counter.name}'
-        | group_by sliding(70m), aggregate(value.counter)
+        | group_by [], sliding(70m)
         | every 1m
         | condition val() == 0
         EOF
