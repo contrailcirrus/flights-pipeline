@@ -143,7 +143,7 @@ resource "google_monitoring_alert_policy" "k8cronjob_spire_cache_bot_success_cou
         | metric 'logging.googleapis.com/user/${google_logging_metric.spire_cache_bot_success_counter.name}'
         | group_by sliding(70m), aggregate(value.counter)
         | every 1m
-        | condition val() < 1
+        | condition val() == 0
         EOF
       duration = "0s"
     }
