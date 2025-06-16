@@ -134,7 +134,6 @@ class TrajectoryBuilderSvc:
                 )
                 # the following logic emulates the logic in the SQL query dispatched to BQ
                 df_all["timestamp"] = pd.to_datetime(df_all["timestamp"])
-                df_all["timestamp"] = df_all["timestamp"].dt.tz_localize("UTC")
                 df_all.sort_values("timestamp", inplace=True, ascending=True)
                 first_by_fid = df_all.groupby("flight_id").first()
                 is_on_day = (first_by_fid["timestamp"] >= pd.to_datetime(day)) & (
@@ -149,6 +148,8 @@ class TrajectoryBuilderSvc:
                     df_all["icao_address"].isin(first_by_fid["icao_address"])
                     & df_all["flight_id"].isna()
                 )
+                # localize timestamp, as per expectations of downstream handlers/services
+                df_all["timestamp"] = df_all["timestamp"].dt.tz_localize("UTC")
                 df_satellite = df_all[is_icao_w_null_fid]
 
             case _:
