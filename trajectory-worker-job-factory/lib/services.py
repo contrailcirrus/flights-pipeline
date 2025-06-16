@@ -150,11 +150,25 @@ class TrajectoryBuilderSvc:
                 )
                 df_satellite = df_all[is_icao_w_null_fid]
 
-                # convert back to string obj as expected by downstream consumers
-                df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
-                df_satellite["timestamp"] = df_satellite["timestamp"].dt.strftime(
-                    "%Y-%m-%dT%H:%M:%S"
+                # localize timestamp, as per expectations of downstream handlers/services
+                df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
+                df_satellite["timestamp"] = df_satellite["timestamp"].dt.tz_localize(
+                    "UTC"
                 )
+
+                df["departure_scheduled_time"] = df[
+                    "departure_scheduled_time"
+                ].dt.tz_localize("UTC")
+                df_satellite["departure_scheduled_time"] = df_satellite[
+                    "departure_scheduled_time"
+                ].dt.tz_localize("UTC")
+
+                df["arrival_scheduled_time"] = df[
+                    "arrival_scheduled_time"
+                ].dt.tz_localize("UTC")
+                df_satellite["arrival_scheduled_time"] = df_satellite[
+                    "arrival_scheduled_time"
+                ].dt.tz_localize("UTC")
 
             case _:
                 raise NotImplementedError(
