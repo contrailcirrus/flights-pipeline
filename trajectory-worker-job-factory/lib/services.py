@@ -148,9 +148,13 @@ class TrajectoryBuilderSvc:
                     df_all["icao_address"].isin(first_by_fid["icao_address"])
                     & df_all["flight_id"].isna()
                 )
-                # localize timestamp, as per expectations of downstream handlers/services
-                df_all["timestamp"] = df_all["timestamp"].dt.tz_localize("UTC")
                 df_satellite = df_all[is_icao_w_null_fid]
+
+                # localize timestamp, as per expectations of downstream handlers/services
+                df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
+                df_satellite["timestamp"] = df_satellite["timestamp"].dt.tz_localize(
+                    "UTC"
+                )
 
             case _:
                 raise NotImplementedError(
