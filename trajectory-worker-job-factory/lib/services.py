@@ -150,10 +150,10 @@ class TrajectoryBuilderSvc:
                 )
                 df_satellite = df_all[is_icao_w_null_fid]
 
-                # localize timestamp, as per expectations of downstream handlers/services
-                df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
-                df_satellite["timestamp"] = df_satellite["timestamp"].dt.tz_localize(
-                    "UTC"
+                # convert back to string obj as expected by downstream consumers
+                df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+                df_satellite["timestamp"] = df_satellite["timestamp"].dt.strftime(
+                    "%Y-%m-%dT%H:%M:%S"
                 )
 
             case _:
