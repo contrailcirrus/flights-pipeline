@@ -134,6 +134,7 @@ class TrajectoryBuilderSvc:
                 )
                 # the following logic emulates the logic in the SQL query dispatched to BQ
                 df_all["timestamp"] = pd.to_datetime(df_all["timestamp"])
+                df_all["timestamp"] = df_all["timestamp"].dt.tz_localize("UTC")
                 df_all.sort_values("timestamp", inplace=True, ascending=True)
                 first_by_fid = df_all.groupby("flight_id").first()
                 is_on_day = (first_by_fid["timestamp"] >= pd.to_datetime(day)) & (
@@ -316,7 +317,7 @@ class TrajectoryBuilderSvc:
         except InvalidQueryException as e:
             raise PermanentFailureException("ads-b request to bq not valid.") from e
         except Exception as e:
-            raise Exception("failed to fetch ads-b data from bq.") from e
+            raise Exception("failed to fetch ads-b data from data source.") from e
 
         # -----------
         # resample trajectories,
