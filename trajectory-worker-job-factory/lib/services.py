@@ -150,6 +150,26 @@ class TrajectoryBuilderSvc:
                 )
                 df_satellite = df_all[is_icao_w_null_fid]
 
+                # localize timestamp, as per expectations of downstream handlers/services
+                df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
+                df_satellite["timestamp"] = df_satellite["timestamp"].dt.tz_localize(
+                    "UTC"
+                )
+
+                df["departure_scheduled_time"] = df[
+                    "departure_scheduled_time"
+                ].dt.tz_localize("UTC")
+                df_satellite["departure_scheduled_time"] = df_satellite[
+                    "departure_scheduled_time"
+                ].dt.tz_localize("UTC")
+
+                df["arrival_scheduled_time"] = df[
+                    "arrival_scheduled_time"
+                ].dt.tz_localize("UTC")
+                df_satellite["arrival_scheduled_time"] = df_satellite[
+                    "arrival_scheduled_time"
+                ].dt.tz_localize("UTC")
+
             case _:
                 raise NotImplementedError(
                     f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for airline_iata based TWJDs."
@@ -290,7 +310,7 @@ class TrajectoryBuilderSvc:
             raise PermanentFailureException from e
 
         # ------------------
-        # fetch ads-b data from bq
+        # fetch ads-b
         # ------------------
         try:
             if twjd.airline_iata:
@@ -316,7 +336,7 @@ class TrajectoryBuilderSvc:
         except InvalidQueryException as e:
             raise PermanentFailureException("ads-b request to bq not valid.") from e
         except Exception as e:
-            raise Exception("failed to fetch ads-b data from bq.") from e
+            raise Exception("failed to fetch ads-b data from data source.") from e
 
         # -----------
         # resample trajectories,
@@ -434,9 +454,7 @@ class TrajectoryBuilderSvc:
                 records = []
                 for ix, ln in waypoints.iterrows():
                     record = SpireWaypointPositional(
-                        ingestion_time=ln["ingestion_time"].strftime(
-                            "%Y-%m-%dT%H:%M:%SZ"
-                        ),
+                        ingestion_time=None,
                         timestamp=ln["timestamp"].strftime("%Y-%m-%dT%H:%M:%SZ"),
                         latitude=ln["latitude"],
                         longitude=ln["longitude"],

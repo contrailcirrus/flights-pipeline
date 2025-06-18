@@ -79,6 +79,8 @@ if __name__ == "__main__":
         bq_handler = BigQueryHandler()
         heal_traj_handler = HealTrajectoryHandler()
         validate_traj_handler = ValidateTrajectoryHandler()
+        # this field is missing when pulling data from the Spire parquet file cache
+        validate_traj_handler.SCHEMA.pop("ingestion_time")
         resample_handler = ResampleHandler()
         gcs_handler = CloudStorageHandler()
         output_job_handler = PubSubPublishHandler(

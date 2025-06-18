@@ -562,7 +562,6 @@ class HealTrajectoryHandler:
             "departure_scheduled_time": "datetime64[ns, UTC]",
             "arrival_airport_icao": str,
             "arrival_scheduled_time": "datetime64[ns, UTC]",
-            "ingestion_time": "datetime64[ns, UTC]",
             "timestamp": "datetime64[ns, UTC]",
             "latitude": float,
             "longitude": float,
