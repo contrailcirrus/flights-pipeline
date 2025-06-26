@@ -22,6 +22,11 @@ graph
     end
     style gcs_1 fill:#03cffc
     
+    subgraph firestore_1[Firestore]
+        spire_ingest_scraper_progress_marker(doc: timestamp-progress-marker)
+    end
+    style firestore_1 fill:#2a9191
+    
     subgraph k8s_1[Kubernetes]
         spire_ingest_api_scraper(cron: spire-ingest-api-scraper)
     end
@@ -118,6 +123,7 @@ graph
     spire_cache_bot --> contrails_api
     contrails_api <--> spire_gcs_cache
     spire_api --> spire_ingest_api_scraper
+    spire_ingest_api_scraper <--> spire_ingest_scraper_progress_marker
     spire_ingest_api_scraper --> spire_ingest_raw_bq_topic
     spire_ingest_raw_bq_topic --> spire_ingest_raw_bq_sub
     
