@@ -43,8 +43,8 @@ spec:
                       key: API_TOKEN
               resources:
                 requests:
-                  cpu: "3"
-                  memory: "24Gi"
+                  cpu: "4"
+                  memory: "32Gi"
                 limits:
-                  cpu: "3"
-                  memory: "24Gi"
+                  cpu: "4"
+                  memory: "32Gi"
