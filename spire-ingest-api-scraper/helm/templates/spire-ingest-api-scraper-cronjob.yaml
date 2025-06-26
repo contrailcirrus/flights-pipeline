@@ -16,7 +16,7 @@ spec:
         spec:
           nodeSelector:
             cloud.google.com/compute-class: "Performance"
-            cloud.google.com/machine-family: c4-highmem-16
+            cloud.google.com/machine-family: c4
           restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
           # terminationGracePeriodSeconds should be greater than the time to
