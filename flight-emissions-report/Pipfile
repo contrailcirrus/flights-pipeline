@@ -16,6 +16,8 @@ pycontrails = "==0.53.1"
 pyproj = "==3.6.1"
 reportlab = "==4.2.5"
 timezonefinder = "==6.5.2"
+plotly = "==6.1.2"
+kaleido = "==1.0.0"
 
 [dev-packages]
 black = "*"
