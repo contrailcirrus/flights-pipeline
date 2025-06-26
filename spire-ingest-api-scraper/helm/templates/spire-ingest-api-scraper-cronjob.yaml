@@ -14,8 +14,8 @@ spec:
       backoffLimit: 1200
       template:
         spec:
-          # nodeSelector:
-           #  cloud.google.com/compute-class: "Scale-Out"
+          nodeSelector:
+            cloud.google.com/compute-class: "Balanced"
           restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
           # terminationGracePeriodSeconds should be greater than the time to
@@ -43,10 +43,8 @@ spec:
                       key: API_TOKEN
               resources:
                 requests:
-                  cpu: "4"  # 1:4 ratio for Scale-Out enforced
-                  memory: "16Gi"
-                  ephemeral-storage: "1Gi"
+                  cpu: "3"
+                  memory: "24Gi"
                 limits:
-                  cpu: "4"
-                  memory: "16Gi"
-                  ephemeral-storage: "1Gi"
+                  cpu: "3"
+                  memory: "24Gi"
