@@ -153,7 +153,7 @@ class SpireAPIClient:
                         self._airsafe_url,
                         params=params,
                         headers=headers,
-                        timeout=120,
+                        timeout=180,
                     )
                 response.raise_for_status()
                 break

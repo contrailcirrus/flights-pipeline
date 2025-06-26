@@ -10,8 +10,8 @@ spec:
 
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 900
-      backoffLimit: 1
+      activeDeadlineSeconds:
+      backoffLimit: 1200
       template:
         spec:
           # nodeSelector:
