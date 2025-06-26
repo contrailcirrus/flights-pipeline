@@ -15,7 +15,8 @@ spec:
       template:
         spec:
           nodeSelector:
-            cloud.google.com/compute-class: "Balanced"
+            cloud.google.com/compute-class: "Performance"
+            cloud.google.com/machine-family: c4-highmem-16
           restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
           # terminationGracePeriodSeconds should be greater than the time to
@@ -43,8 +44,8 @@ spec:
                       key: API_TOKEN
               resources:
                 requests:
-                  cpu: "8"
-                  memory: "64Gi"
+                  cpu: "16"
+                  memory: "124Gi"
                 limits:
-                  cpu: "4"
-                  memory: "64Gi"
+                  cpu: "16"
+                  memory: "124Gi"
