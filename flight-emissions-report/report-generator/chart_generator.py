@@ -1,5 +1,4 @@
 import matplotlib
-matplotlib.use('Agg')
 import plotly.graph_objects as go
 from pathlib import Path
 import pandas as pd
@@ -12,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from styles import DARK_GRAY, DARK_DARK_GRAY
 
+matplotlib.use('Agg')
 
 def generate_figs(data: dict, output_path: Path, debug: bool = False):
     """
