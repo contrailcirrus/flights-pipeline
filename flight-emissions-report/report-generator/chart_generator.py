@@ -1,10 +1,6 @@
 import plotly.graph_objects as go
 from pathlib import Path
 
-from setup import OUTPUT_DIR
-
-FIGS_DIR = OUTPUT_DIR / "figs"
-
 
 def generate_figs(output_path: Path, debug: bool = False):
     """
@@ -19,7 +15,7 @@ def generate_figs(output_path: Path, debug: bool = False):
     if debug:
         print(f"  📈 Generating page 1 bar chart: out/figs/{p1_gwp_bar_chart_name}...")
     fig1 = create_interleaved_chart()
-    fig1.write_image(OUTPUT_DIR / "figs" / p1_gwp_bar_chart_name)
+    fig1.write_image(output_path / "figs" / p1_gwp_bar_chart_name)
     if debug:
         print(f"  ✅ Generated page 1 bar chart: out/figs/{p1_gwp_bar_chart_name}")
 

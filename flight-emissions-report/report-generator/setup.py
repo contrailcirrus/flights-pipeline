@@ -11,8 +11,6 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 FONT_DIR = PROJECT_ROOT / "fonts" / "Roboto"
 ASSETS_DIR = PROJECT_ROOT / "static"
 LOGO_PATH = ASSETS_DIR / "logos" / "logo_demo.png"
-OUTPUT_DIR = PROJECT_ROOT / "out" / "default"
-
 
 def setup(output_path: str, debug: bool = False):
     print("\n 🛠️ Setting up the report... ")
@@ -22,14 +20,13 @@ def setup(output_path: str, debug: bool = False):
         print("  Successfully registered Roboto font family.")
 
     # Create output directory if it doesn't exist
-    global OUTPUT_DIR
-    OUTPUT_DIR = Path(output_path)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_path)
+    output_dir.mkdir(parents=True, exist_ok=True)
     if debug:
-        print(f"  created output directory: {'/'.join(OUTPUT_DIR.parts[-3:])}")
+        print(f"  created output directory: {'/'.join(output_dir.parts[-3:])}")
 
     # Create figs directory
-    figs_dir = OUTPUT_DIR / "figs"
+    figs_dir = output_dir / "figs"
     figs_dir.mkdir(parents=True, exist_ok=True)
     if debug:
         print(f"  created figs directory: {'/'.join(figs_dir.parts[-4:])}")

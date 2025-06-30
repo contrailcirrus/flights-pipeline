@@ -4,6 +4,7 @@ from reportlab.platypus import (
     Table,
     Image,
 )
+from pathlib import Path
 
 from styles import (
     report_title_style,
@@ -17,7 +18,7 @@ from styles import (
     t_shaped_table_style,
     GRID_UNIT,
 )
-from setup import LOGO_PATH, OUTPUT_DIR
+from setup import LOGO_PATH
 
 TOTAL_PAGES = 5
 GRID_SPACER = Spacer(1, GRID_UNIT)
@@ -25,7 +26,7 @@ HALF_GRID_SPACER = Spacer(1, GRID_UNIT / 2)
 QUARTER_GRID_SPACER = Spacer(1, GRID_UNIT / 4)
 
 
-def build_first_page(airline_name: str):
+def build_first_page(output_path: Path, airline_name: str):
     """
     Assembles the entire 1st page for the report.
     """
@@ -50,7 +51,7 @@ def build_first_page(airline_name: str):
     story.append(GRID_SPACER)
 
     # --- Impact Data CONTAINER ---
-    story.append(build_impact_data_table(airline_name))
+    story.append(build_impact_data_table(output_path,airline_name))
 
     return story
 
@@ -178,7 +179,7 @@ def create_contrails_container():
     return container_table
 
 
-def build_impact_data_table(airline_name: str):
+def build_impact_data_table(output_path: Path, airline_name: str):
     """
     Constructs a T-shaped table. Table Structure:
 
@@ -252,7 +253,7 @@ def build_impact_data_table(airline_name: str):
             ],
             [
                 HALF_GRID_SPACER,
-                Image(str(OUTPUT_DIR / "figs" / "p1_gwp_bar_chart.png")),
+                Image(str(output_path / "figs" / "p1_gwp_bar_chart.png")),
                 HALF_GRID_SPACER,
             ],
         ],

@@ -40,7 +40,7 @@ def create_report(output_path: Path, airline_name: str, debug: bool = False):
 
     # 4. Build the first page content
     print("\n📄 Building the first page content... ")
-    story = build_first_page(airline_name)
+    story = build_first_page(output_path, airline_name)
 
     # 5. Build the PDF
     on_first = partial(draw_first_page_layout, debug=debug)
