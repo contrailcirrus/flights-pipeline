@@ -14,15 +14,25 @@ LOGO_PATH = ASSETS_DIR / "logos" / "logo_demo.png"
 OUTPUT_DIR = PROJECT_ROOT / "out" / "default"
 
 
-def setup(output_path: str):
+def setup(output_path: str, debug: bool = False):
+    print("\n 🛠️ Setting up the report... ")
+
     register_fonts()
+    if debug:
+        print("\tSuccessfully registered Roboto font family.")
 
     # Create output directory if it doesn't exist
     global OUTPUT_DIR
     OUTPUT_DIR = Path(output_path)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if debug:
+        print(f"\tcreated output directory: {OUTPUT_DIR}")
+
+    # Create figs directory
     figs_dir = OUTPUT_DIR / "figs"
     figs_dir.mkdir(parents=True, exist_ok=True)
+    if debug:
+        print(f"\tcreated figs directory: {figs_dir}")
 
 
 def register_fonts():
@@ -42,22 +52,20 @@ def register_fonts():
         if font_path.exists():
             pdfmetrics.registerFont(TTFont(name, font_path))
         else:
-            print(f"Warning: Font not found at '{font_path}'.")
+            print(f"\tWarning: Font not found at '{font_path}'.")
 
     pdfmetrics.registerFontFamily("Roboto", normal="Roboto", bold="Roboto-Bold")
     pdfmetrics.registerFontFamily(
         "Roboto-Light", normal="Roboto-Light", bold="Roboto-Medium"
     )
-    print("Successfully registered Roboto font family.")
 
 
-def draw_first_page_layout(canvas, doc, grid=False):
+def draw_first_page_layout(canvas, doc, debug=False):
     """
     Draws the layout for the very first page. In this case, it's clean.
     """
     canvas.saveState()
-    print("Drawing layout for the title page (Page 1)...")
-    if grid:
+    if debug:
         draw_grid(canvas, doc)
     canvas.restoreState()
 

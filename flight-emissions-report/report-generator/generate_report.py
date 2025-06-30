@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 from functools import partial
 from reportlab.platypus import SimpleDocTemplate
@@ -12,14 +13,16 @@ GRID_UNIT = 0.525 * cm
 AIRLINE_NAME = None
 
 
-def create_report(output_path: Path, airline_name: str, grid: bool = False):
+def create_report(output_path: Path, airline_name: str, debug: bool = False):
     """
     Generates the full PDF report by orchestrating the other modules.
     """
-    print("---  Starting Report Generation ---")
+    print(" ✨ Report Generation ")
+    if debug:
+        print("\t🔍 DEBUG MODE ENABLED")
 
     # 1. Setup fonts
-    setup(output_path)
+    setup(output_path, debug=debug)
 
     # 2. Create the document template
     doc = SimpleDocTemplate(
@@ -32,18 +35,20 @@ def create_report(output_path: Path, airline_name: str, grid: bool = False):
     )
 
     # 3. Build the first page content
-    print("Building the first page content...")
+    print("\n📄 Building the first page content... ")
     story = build_first_page(airline_name)
 
     # 4. Build the PDF
-    on_first = partial(draw_first_page_layout, grid=grid)
+    on_first = partial(draw_first_page_layout, debug=debug)
 
-    print(f"Building PDF at '{output_path}' (Debug Mode: {grid})...")
+    print("\n📁 Building PDF Report... ")
     try:
         doc.build(story, onFirstPage=on_first)
-        print("---  Report Generated Successfully ---")
+        print("\n🎉  Report generated successfully!  🎉")
+        # blue color to the file path
+        print(f"\t📄 Report saved to: \033[94m{output_path}\033[0m")
     except Exception as e:
-        print(f"---  AN ERROR OCCURRED --- \n{e}")
+        print(f"\n  AN ERROR OCCURRED {e}")
 
 
 if __name__ == "__main__":
@@ -54,22 +59,33 @@ if __name__ == "__main__":
         "-p",
         "--data_path",
         type=str,
-        default="out/default",
         help="path to data directory. e.g. out/D0",
     )
     parser.add_argument(
         "-a",
         "--airline_name",
         type=str,
+        required=True,
         help="airline friendly name",
     )
-    parser.add_argument(
-        "-g", "--grid", action="store_true", help="add grid to pdf overlay (True/False)"
-    )
+    parser.add_argument("-d", "--debug", action="store_true", help="debug mode")
     args = parser.parse_args()
 
+    if not args.airline_name:
+        print("🚨 Error: Airline name is required 🚨")
+        sys.exit(1)
+
+    output_path = None
+    if args.data_path:
+        output_path = PROJECT_ROOT / Path(args.output_path)
+    else:
+        output_path = PROJECT_ROOT / "out" / args.airline_name
+        print(
+            f"⚠️ Warning: Output directory not found, Using default path: \033[94m{output_path}\033[0m \n"
+        )
+
     create_report(
-        output_path=PROJECT_ROOT / Path(args.data_path),
+        output_path=output_path,
         airline_name=args.airline_name,
-        grid=args.grid,
+        debug=args.debug,
     )

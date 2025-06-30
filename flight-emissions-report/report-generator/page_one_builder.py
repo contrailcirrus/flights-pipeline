@@ -228,7 +228,7 @@ def create_interleaved_chart() -> go.Figure:
             align="left",
             xanchor="left",
             yanchor="middle",
-            font=dict(size=24, color="#000000", family="Roboto-Light"),
+            font=dict(size=24, color="#000000"),
         )
 
         # Annotation 3: Unit
@@ -244,7 +244,7 @@ def create_interleaved_chart() -> go.Figure:
             align="left",
             xanchor="left",
             yanchor="bottom",
-            font=dict(size=8, color="#333333", family="Roboto-Light"),
+            font=dict(size=8, color="#000000"),
         )
 
         # Add Bar Shape
@@ -274,6 +274,7 @@ def create_interleaved_chart() -> go.Figure:
         paper_bgcolor="rgba(0,0,0,0)",
         height=300,
         showlegend=False,
+        font=dict(family="Roboto-Light"),
     )
     return fig
 
