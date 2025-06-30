@@ -19,20 +19,20 @@ def setup(output_path: str, debug: bool = False):
 
     register_fonts()
     if debug:
-        print("\tSuccessfully registered Roboto font family.")
+        print("  Successfully registered Roboto font family.")
 
     # Create output directory if it doesn't exist
     global OUTPUT_DIR
     OUTPUT_DIR = Path(output_path)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     if debug:
-        print(f"\tcreated output directory: {OUTPUT_DIR}")
+        print(f"  created output directory: {'/'.join(OUTPUT_DIR.parts[-3:])}")
 
     # Create figs directory
     figs_dir = OUTPUT_DIR / "figs"
     figs_dir.mkdir(parents=True, exist_ok=True)
     if debug:
-        print(f"\tcreated figs directory: {figs_dir}")
+        print(f"  created figs directory: {'/'.join(figs_dir.parts[-4:])}")
 
 
 def register_fonts():
@@ -52,7 +52,7 @@ def register_fonts():
         if font_path.exists():
             pdfmetrics.registerFont(TTFont(name, font_path))
         else:
-            print(f"\tWarning: Font not found at '{font_path}'.")
+            print(f"  Warning: Font not found at '{font_path}'.")
 
     pdfmetrics.registerFontFamily("Roboto", normal="Roboto", bold="Roboto-Bold")
     pdfmetrics.registerFontFamily(
