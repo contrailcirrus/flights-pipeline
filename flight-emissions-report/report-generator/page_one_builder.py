@@ -253,7 +253,7 @@ def build_impact_data_table(output_path: Path, airline_name: str):
             ],
             [
                 HALF_GRID_SPACER,
-                Image(str(output_path / "figs" / "p1_gwp_bar_chart.png")),
+                Image(str(output_path / "figs" / "p1_gwp_bar_chart.png"), width=385, height=165),
                 HALF_GRID_SPACER,
             ],
         ],

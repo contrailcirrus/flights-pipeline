@@ -15,7 +15,7 @@ def generate_figs(output_path: Path, debug: bool = False):
     if debug:
         print(f"  📈 Generating page 1 bar chart: out/figs/{p1_gwp_bar_chart_name}...")
     fig1 = create_interleaved_chart()
-    fig1.write_image(output_path / "figs" / p1_gwp_bar_chart_name)
+    fig1.write_image(output_path / "figs" / p1_gwp_bar_chart_name, width=360, height=170, scale=12)
     if debug:
         print(f"  ✅ Generated page 1 bar chart: out/figs/{p1_gwp_bar_chart_name}")
 
@@ -23,18 +23,18 @@ def generate_figs(output_path: Path, debug: bool = False):
 def create_interleaved_chart() -> go.Figure:
     """Generates a Plotly figure with a custom layout of text labels and single-bar charts."""
     chart_data = [
-        {"top": "GWP 100 ", "val": "20", "unit": "kg CO2e/km"},
-        {"top": "GWP 50 ", "val": "40", "unit": "kg CO2e/km"},
-        {"top": "GWP 20 ", "val": "60", "unit": "kg CO2e/km"},
+        {"top": "GWP 100 ", "val": "20", "unit": " kg CO2e/km"},
+        {"top": "GWP 50 ", "val": "40", "unit": " kg CO2e/km"},
+        {"top": "GWP 20 ", "val": "60", "unit": " kg CO2e/km"},
     ]
 
     # Configuration
     row_height = 100  # Total vertical space for one complete row (label + bar).
-    text_y_offset = 25  # Y position for the top label within the row.
-    value_y_offset = -5  # Y position for the main value and unit.
-    bar_y_offset = -40  # Y position for the bar.
+    text_y_offset = 30  # Y position for the top label within the row.
+    value_y_offset = 5  # Y position for the main value and unit.
+    bar_y_offset = -30  # Y position for the bar.
     bar_thickness = 7  # Half the visual height of the bar.
-    label_gap = 6  # Gap between the labels and the bars.
+    label_gap = 7  # Gap between the labels and the bars.
 
     total_y_range = len(chart_data) * row_height
     fig = go.Figure()
@@ -78,7 +78,7 @@ def create_interleaved_chart() -> go.Figure:
             xref="paper",
             yref="y",
             x=unit_x_pos,
-            y=row_center_y + value_y_offset - label_gap - 18,
+            y=row_center_y + value_y_offset - label_gap - 20,
             text=f" {data_item['unit']}",
             showarrow=False,
             align="left",
