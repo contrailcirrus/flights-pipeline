@@ -4,6 +4,7 @@ from reportlab.lib.colors import HexColor, lightgrey, gray
 from reportlab.platypus import TableStyle
 from reportlab.lib.units import cm
 
+BLUE_HIGHLIGHT_COLOR = HexColor("#E8F0FE", 0.6)
 GRID_UNIT = 0.525 * cm
 HALF_GRID_UNIT = GRID_UNIT / 2
 
@@ -24,7 +25,7 @@ section_title_style = ParagraphStyle(
     name="SectionHeader",
     fontName="Roboto-Light",
     fontSize=12,
-    leading=12,
+    leading=15,
     alignment=TA_LEFT,
     textColor=BLACK,
     spaceBefore=HALF_GRID_UNIT,
@@ -58,8 +59,8 @@ bullet_style = ParagraphStyle(
 
 page_num_style = ParagraphStyle(
     name="PageNum",
-    fontName="Roboto",
-    fontSize=12,
+    fontName="Roboto-Light",
+    fontSize=10,
     alignment=TA_RIGHT,
     textColor=lightgrey,
 )
@@ -100,5 +101,18 @@ t_shaped_table_style = TableStyle(
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("SPAN", (0, 0), (1, 0)),
         ("LINEBELOW", (0, 0), (-1, 0), 1, lightgrey),
+    ]
+)
+
+inner_table_style = TableStyle(
+    [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.5, lightgrey),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("FONTNAME", (0, 0), (-1, -1), "Roboto-Light"),
+        ("TEXTCOLOR", (0, 0), (-1, -1), BLACK),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
     ]
 )

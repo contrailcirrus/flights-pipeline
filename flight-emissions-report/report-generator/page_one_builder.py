@@ -51,7 +51,7 @@ def build_first_page(output_path: Path, airline_name: str):
     story.append(GRID_SPACER)
 
     # --- Impact Data CONTAINER ---
-    story.append(build_impact_data_table(output_path,airline_name))
+    story.append(build_impact_data_table(output_path, airline_name))
 
     return story
 
@@ -239,6 +239,12 @@ def build_impact_data_table(output_path: Path, airline_name: str):
     gwp_text = Paragraph(
         "Contrails are more warming in<br></br>the short term", body_style
     )
+    chart_path = output_path / "figs" / "p1_gwp_bar_chart.png"
+    chart_image = None
+    if chart_path.exists():
+        chart_image = (Image(str(chart_path), width=385, height=165),)
+    else:
+        chart_image = Paragraph(f"Error: Chart not found at {chart_path}", body_style)
 
     data = [
         [impact_data_rows],
@@ -253,7 +259,7 @@ def build_impact_data_table(output_path: Path, airline_name: str):
             ],
             [
                 HALF_GRID_SPACER,
-                Image(str(output_path / "figs" / "p1_gwp_bar_chart.png"), width=385, height=165),
+                chart_image,
                 HALF_GRID_SPACER,
             ],
         ],

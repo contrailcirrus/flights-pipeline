@@ -51,13 +51,11 @@ def register_fonts():
         else:
             print(f"  Warning: Font not found at '{font_path}'.")
 
-    pdfmetrics.registerFontFamily("Roboto", normal="Roboto", bold="Roboto-Bold")
-    pdfmetrics.registerFontFamily(
-        "Roboto-Light", normal="Roboto-Light", bold="Roboto-Medium"
-    )
+    pdfmetrics.registerFontFamily("Roboto", normal="Roboto", bold="Roboto-Medium")
+    pdfmetrics.registerFontFamily("Roboto-Light", normal="Roboto-Light", bold="Roboto")
 
 
-def draw_first_page_layout(canvas, doc, debug=False):
+def draw_page_layout(canvas, doc, debug=False):
     """
     Draws the layout for the very first page. In this case, it's clean.
     """
