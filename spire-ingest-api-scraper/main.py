@@ -115,10 +115,8 @@ async def main(
             # _log_invariant_violations(rows)
 
             # spire response schema is not static;
-            # altitude gnss is sometimes missing from the response schema
-            altitude_gnss = row.get("altitude_gnss")
-            if not altitude_gnss:
-                logger.warning("altitude gnss not reported in Spire API response.")
+            # altitude gnss, departure/arrival airport etc...
+            # is sometimes missing from the response schema
             dto = schemas.SpireWaypointsRecord(
                 flight_info=schemas.SpireFlightInfo(
                     icao_address=str(row["icao_address"]),
@@ -129,14 +127,16 @@ async def main(
                     aircraft_type_icao=_to_str_or_none(row["aircraft_type_icao"]),
                     airline_iata=_to_str_or_none(row["airline_iata"]),
                     departure_airport_icao=_to_str_or_none(
-                        row["departure_airport_icao"]
+                        row.get("departure_airport_icao")
                     ),
                     departure_scheduled_time=_to_str_or_none(
-                        row["departure_scheduled_time"]
+                        row.get("departure_scheduled_time")
                     ),
-                    arrival_airport_icao=_to_str_or_none(row["arrival_airport_icao"]),
+                    arrival_airport_icao=_to_str_or_none(
+                        row.get("arrival_airport_icao")
+                    ),
                     arrival_scheduled_time=_to_str_or_none(
-                        row["arrival_scheduled_time"]
+                        row.get("arrival_scheduled_time")
                     ),
                 ),
                 records=[
@@ -147,7 +147,7 @@ async def main(
                         longitude=float(row["longitude"]),
                         collection_type=str(row["collection_type"]),
                         altitude_baro=int(row["altitude_baro"]),
-                        altitude_gnss=_to_int_or_none(altitude_gnss),
+                        altitude_gnss=_to_int_or_none(row.get("altitude_gnss")),
                         imputed=False,
                         flight_level=None,
                     )
