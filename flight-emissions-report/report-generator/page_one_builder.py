@@ -4,7 +4,7 @@ from reportlab.platypus import (
     Table,
     Image,
 )
-import plotly.graph_objects as go
+from pathlib import Path
 
 from styles import (
     report_title_style,
@@ -19,7 +19,6 @@ from styles import (
     GRID_UNIT,
 )
 from setup import LOGO_PATH
-from chart_generator import PlotlyChartFlowable
 
 TOTAL_PAGES = 5
 GRID_SPACER = Spacer(1, GRID_UNIT)
@@ -27,7 +26,7 @@ HALF_GRID_SPACER = Spacer(1, GRID_UNIT / 2)
 QUARTER_GRID_SPACER = Spacer(1, GRID_UNIT / 4)
 
 
-def build_first_page(airline_name: str):
+def build_first_page(output_path: Path, airline_name: str):
     """
     Assembles the entire 1st page for the report.
     """
@@ -52,7 +51,7 @@ def build_first_page(airline_name: str):
     story.append(GRID_SPACER)
 
     # --- Impact Data CONTAINER ---
-    story.append(build_impact_data_table(airline_name))
+    story.append(build_impact_data_table(output_path,airline_name))
 
     return story
 
@@ -180,105 +179,7 @@ def create_contrails_container():
     return container_table
 
 
-def create_interleaved_chart() -> go.Figure:
-    """Generates a Plotly figure with a custom layout of text labels and single-bar charts."""
-    chart_data = [
-        {"top": "GWP 100 ", "val": "20", "unit": "kg CO2e/km"},
-        {"top": "GWP 50 ", "val": "40", "unit": "kg CO2e/km"},
-        {"top": "GWP 20 ", "val": "60", "unit": "kg CO2e/km"},
-    ]
-
-    # Configuration
-    row_height = 100  # Total vertical space for one complete row (label + bar).
-    text_y_offset = 25  # Y position for the top label within the row.
-    value_y_offset = -5  # Y position for the main value and unit.
-    bar_y_offset = -40  # Y position for the bar.
-    bar_thickness = 7  # Half the visual height of the bar.
-    label_gap = 6  # Gap between the labels and the bars.
-
-    total_y_range = len(chart_data) * row_height
-    fig = go.Figure()
-
-    # Main Loop: Draw each row using multiple annotations
-    for i, data_item in enumerate(chart_data):
-        row_center_y = total_y_range - (i * row_height) - (row_height / 2)
-
-        # Annotation 1: Top Label
-        fig.add_annotation(
-            xref="paper",
-            yref="y",
-            x=0,
-            y=row_center_y + text_y_offset,
-            text=f"{data_item['top']} ⓘ",
-            showarrow=False,
-            align="left",
-            xanchor="left",
-            yanchor="middle",
-            font=dict(size=6, color="#808080", family="Roboto-Light"),  # Gray color
-        )
-
-        # Annotation 2: Main Value
-        fig.add_annotation(
-            xref="paper",
-            yref="y",
-            x=0,
-            y=row_center_y + value_y_offset - label_gap,
-            text=data_item["val"],
-            showarrow=False,
-            align="left",
-            xanchor="left",
-            yanchor="middle",
-            font=dict(size=24, color="#000000", family="Roboto-Light"),
-        )
-
-        # Annotation 3: Unit
-        value_char_length = len(str(data_item["val"]))
-        unit_x_pos = value_char_length * 0.032
-        fig.add_annotation(
-            xref="paper",
-            yref="y",
-            x=unit_x_pos,
-            y=row_center_y + value_y_offset - label_gap - 18,
-            text=f" {data_item['unit']}",
-            showarrow=False,
-            align="left",
-            xanchor="left",
-            yanchor="bottom",
-            font=dict(size=8, color="#333333", family="Roboto-Light"),
-        )
-
-        # Add Bar Shape
-        bar_center_y = row_center_y + bar_y_offset
-        bar_value = float(data_item["val"])
-        fig.add_shape(
-            type="rect",
-            xref="x",
-            yref="y",
-            x0=0,
-            y0=bar_center_y - bar_thickness,
-            x1=bar_value,
-            y1=bar_center_y + bar_thickness,
-            fillcolor="#4285F4",
-            line_width=0,
-            layer="below",
-        )
-
-    # Final Layout Configuration
-    fig.update_layout(
-        xaxis=dict(
-            visible=False, range=[0, max(float(d["val"]) for d in chart_data) * 1.05]
-        ),
-        yaxis=dict(visible=False, range=[0, total_y_range]),
-        margin=dict(l=0, r=0, t=0, b=0),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        height=300,
-        showlegend=False,
-    )
-    return fig
-
-
-def build_impact_data_table(airline_name: str):
+def build_impact_data_table(output_path: Path, airline_name: str):
     """
     Constructs a T-shaped table. Table Structure:
 
@@ -338,10 +239,6 @@ def build_impact_data_table(airline_name: str):
     gwp_text = Paragraph(
         "Contrails are more warming in<br></br>the short term", body_style
     )
-    plotly_chart_component = PlotlyChartFlowable(
-        chart_function=create_interleaved_chart,
-        image_name="interleaved_bar_chart.png",
-    )
 
     data = [
         [impact_data_rows],
@@ -354,7 +251,11 @@ def build_impact_data_table(airline_name: str):
                 HALF_GRID_SPACER,
                 gwp_text,
             ],
-            [HALF_GRID_SPACER, plotly_chart_component],
+            [
+                HALF_GRID_SPACER,
+                Image(str(output_path / "figs" / "p1_gwp_bar_chart.png"), width=385, height=165),
+                HALF_GRID_SPACER,
+            ],
         ],
     ]
 
