@@ -15,6 +15,8 @@ FONT_DIR = PROJECT_ROOT / "fonts" / "Roboto"
 ASSETS_DIR = PROJECT_ROOT / "static"
 LOGO_PATH = ASSETS_DIR / "logos" / "logo_demo.png"
 
+def setup(output_path: str, debug: bool = False):
+    print("\n 🛠️ Setting up the report... ")
 
 def setup(debug: bool = False):
     print("\n 🛠️ Setting up the report... ")
