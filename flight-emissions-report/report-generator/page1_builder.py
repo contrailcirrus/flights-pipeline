@@ -1,11 +1,5 @@
-from reportlab.platypus import (
-    Paragraph,
-    Spacer,
-    Table,
-    Image,
-)
+from reportlab.platypus import Paragraph, Table, Image
 from pathlib import Path
-
 from styles import (
     report_title_style,
     section_title_style,
@@ -16,50 +10,42 @@ from styles import (
     page_num_style,
     four_column_table_style,
     t_shaped_table_style,
-    GRID_UNIT,
+    TOTAL_PAGES,
+    GRID_SPACER,
+    HALF_GRID_SPACER,
+    QUARTER_GRID_SPACER,
 )
-from setup import LOGO_PATH
-
-TOTAL_PAGES = 5
-GRID_SPACER = Spacer(1, GRID_UNIT)
-HALF_GRID_SPACER = Spacer(1, GRID_UNIT / 2)
-QUARTER_GRID_SPACER = Spacer(1, GRID_UNIT / 4)
+from setup import format_number
 
 
-def build_first_page(output_path: Path, airline_name: str):
-    """
-    Assembles the entire 1st page for the report.
-    """
-    story = []
-
-    # --- Page Number ---
-    story.append(Table([[Paragraph(f"Page 1 of {TOTAL_PAGES}", page_num_style)]]))
+def build_first_page(data: dict, output_path: Path, airline_name: str):
+    """Assembles the entire 1st page for the report."""
+    page_content = []
+    page_content.append(Table([[Paragraph(f"Page 1 of {TOTAL_PAGES}", page_num_style)]]))
 
     # --- Add Logo ---
-    story.append(
-        Table(
-            [[Image(str(LOGO_PATH), width=GRID_UNIT * 2, height=GRID_UNIT)]],
-            hAlign="LEFT",
-        )
-    )
+    # TODO: Add logos of the airlines
+    #page_content.append(
+        #Table(
+            #[[Image(str(LOGO_PATH), width=GRID_UNIT * 2, height=GRID_UNIT)]],
+           # hAlign="LEFT",
+        #)
+    #)
 
     # --- Report Tilte ---
-    story.append(Paragraph("Airline Contrail Impact Report 2024", report_title_style))
+    page_content.append(Paragraph("Airline Contrail Impact Report 2024", report_title_style))
 
     # --- Contrails CONTAINER ---
-    story.append(create_contrails_container())
-    story.append(GRID_SPACER)
+    page_content.append(create_contrails_container(data))
+    page_content.append(GRID_SPACER)
 
     # --- Impact Data CONTAINER ---
-    story.append(build_impact_data_table(output_path, airline_name))
+    page_content.append(build_impact_data_table(data, output_path, airline_name))
+    return page_content
 
-    return story
 
-
-def create_contrails_container():
-    """
-    Assembles the contrails container that will be used on page 1.
-    """
+def create_contrails_container(data: dict):
+    """Assembles the contrails container for page 1."""
     container_content = [
         [HALF_GRID_SPACER],
         [Paragraph("What are Contrails?", section_title_style)],
@@ -104,11 +90,7 @@ def create_contrails_container():
 
     # IATA Codes Section
     container_content.append(
-        [
-            Paragraph(
-                "<b>IATA Codes:</b> This report covers [____] IATA code.", body_style
-            )
-        ]
+        [Paragraph(f"<b>IATA Codes:</b> This report covers the {data['iata_code']} IATA code.", body_style)]
     )
 
     # Modeling Process Section and bullets
@@ -119,10 +101,7 @@ def create_contrails_container():
         "Aircraft type (e.g., B777) is used to select a default engine type for modeling, unless the airline provides specific aircraft-engine pairings.",
     ]
     container_content.extend(
-        [
-            [Paragraph(text, style=bullet_style, bulletText="•")]
-            for text in modeling_bullets
-        ]
+        [[Paragraph(text, style=bullet_style, bulletText="•")] for text in modeling_bullets]
     )
 
     # Fuel Consumption Estimates Section
@@ -131,7 +110,7 @@ def create_contrails_container():
     )
     fuel_points = [
         "Fuel burn is based on the physics model, sensitive to engine type and assumed constant load factors (per aircraft type).",
-        "It primarily reflects fuel consumption “during flight” or “at cruise,” generally excluding taxi, and sometimes take-off/landing.",
+        'It primarily reflects fuel consumption "during flight" or "at cruise," generally excluding taxi, and sometimes take-off/landing.',
     ]
     container_content.extend(
         [
@@ -179,90 +158,86 @@ def create_contrails_container():
     return container_table
 
 
-def build_impact_data_table(output_path: Path, airline_name: str):
-    """
-    Constructs a T-shaped table. Table Structure:
-
-    * Top Row: Impact Data Table
-    * Bottom Row:
-        Column 1: Global Warming Potential Section
-        Column 2: Bar Chart
-    """
-    # Create impact data
+def build_impact_data_table(data: dict, output_path: Path, airline_name: str):
+    """Constructs a T-shaped table with dynamic data from the JSON file."""
     impact_data_rows = [
-        # Title
         QUARTER_GRID_SPACER,
         Paragraph("Impact Data", section_title_style),
-        HALF_GRID_SPACER,
     ]
-    # Impact row content
-    impact_data_rows.extend(
-        [
-            Paragraph(
-                f"Based on our prediction model, we analyzed 1.4M flights, 5.5 Million km (55,501 flight hours) and of those, 4.4% of all {airline_name} flights generated warming contrails in 2024.",
-                body_style,
-            ),
-            HALF_GRID_SPACER,
-        ]
+
+    impact_text = (
+        f"Based on our prediction model, we analyzed "
+        f"{format_number(data['count_flights']['total'])} flights, "
+        f"{format_number(data['flight_distance_km']['total'])} km "
+        f"({format_number(data['flight_hours']['total'])} flight hours) and of those, "
+        f"{data['percentages']['flight_distance_with_warming_contrails']}% of all "
+        f"{airline_name} flights generated warming contrails in {data['year']}."
     )
+    impact_data_rows.extend([Paragraph(impact_text, body_style), GRID_SPACER])
 
-    # Data for the table
-    data = [
-        ["Contrails percentage", "<font size='24'>4.4%</font> of flights km"],
-        [
+    # --- Calculate derived values for table display ---
+
+    # Calculate airline's average CO2e per km (using GWP50)
+    airline_total_co2e_gwp50 = data['co2e_metric_tons']['gwp50']['total']  # metric tons
+    airline_total_distance_km = data['flight_distance_km']['total']         # km
+    airline_avg_co2e_per_km = (airline_total_co2e_gwp50 * 1000) / airline_total_distance_km  # kg CO2e/km
+
+    # Calculate average fuel burn per km (CO2 only)
+    airline_total_co2 = data['co2_metric_tons']['total']  # metric tons
+    avg_fuel_burn_per_km = (airline_total_co2 * 1000) / airline_total_distance_km  # kg CO2/km
+
+    # TODO: Placeholder for all airlines average CO2e/km (to be replaced with real value)
+    all_airlines_avg_co2e_per_km = "xx.x"
+
+    # Prepare stats for display in the table
+    stats_data_values = [
+        (
+            "Contrails percentage",
+            f"<font size='23'>{data['percentages']['flight_distance_with_warming_contrails']}%</font> of flights km"
+        ),
+        (
             f"{airline_name} Average CO2e/km flown",
-            "<font size='24'>20.9</font> kg CO2e/km",
-        ],
-        ["All Airlines average CO2e/km", "<font size='24'>23.4</font> kg CO2e/km"],
-        ["Average fuel burn", "<font size='24'>26.6</font> kg CO2e/km"],
+            f"<font size='22'>{airline_avg_co2e_per_km:.1f}</font> kg CO2e/km"
+        ),
+        (
+            "All Airlines average CO2e/km",
+            f"<font size='22'>{all_airlines_avg_co2e_per_km}</font> kg CO2e/km"
+        ),
+        (
+            "Average fuel burn",
+            f"<font size='22'>{avg_fuel_burn_per_km:.1f}</font> kg CO2/km"
+        ),
     ]
 
-    # Create stats table
     stats_data = [
-        [Paragraph(line1, label_style) for line1, _ in data],
-        [Paragraph(line2, body_style) for _, line2 in data],
+        [Paragraph(label, label_style) for label, _ in stats_data_values],
+        [Paragraph(value, body_style) for _, value in stats_data_values],
     ]
-    stats_table = Table(stats_data, colWidths=["25%", "27%", "24%", "24%"])
+    stats_table = Table(stats_data, colWidths=["24%", "30%", "23%", "23%"])
     stats_table.setStyle(four_column_table_style)
 
     impact_data_rows.extend([stats_table, GRID_SPACER])
-
-    # Global warming potential section
-    gwp_title = Paragraph(
-        "<font size='11'>Global Warming</font>",
-        body_style,
-    )
-    gwp_title_2 = Paragraph(
-        "<font size='11'>potential 100, 50, 20</font>",
-        body_style,
-    )
-    gwp_text = Paragraph(
-        "Contrails are more warming in<br></br>the short term", body_style
-    )
-    chart_path = output_path / "figs" / "p1_gwp_bar_chart.png"
-    chart_image = None
+    
+    gwp_title = Paragraph("<font size='10'>Global Warming</font>", body_style)
+    gwp_title_2 = Paragraph("<font size='10'>potential 100, 50, 20</font>", body_style)
+    gwp_text = Paragraph("Contrails are more warming in<br></br>the short term", body_style)
+    chart_path = output_path / "figs" / "page1_gwp_bar_chart.png"
+    
     if chart_path.exists():
-        chart_image = (Image(str(chart_path), width=385, height=165),)
+        chart_image = Image(str(chart_path), width=385, height=165)
     else:
         chart_image = Paragraph(f"Error: Chart not found at {chart_path}", body_style)
 
-    data = [
+    data_for_main_table = [
         [impact_data_rows],
         [
             [
-                GRID_SPACER,
-                gwp_title,
-                QUARTER_GRID_SPACER,
-                gwp_title_2,
-                HALF_GRID_SPACER,
-                gwp_text,
+                GRID_SPACER, gwp_title, QUARTER_GRID_SPACER,
+                gwp_title_2, HALF_GRID_SPACER, gwp_text,
             ],
             [
-                HALF_GRID_SPACER,
-                chart_image,
-                HALF_GRID_SPACER,
+                HALF_GRID_SPACER, chart_image, HALF_GRID_SPACER,
             ],
         ],
     ]
-
-    return Table(data, colWidths=["25%", "75%"], style=t_shaped_table_style)
+    return Table(data_for_main_table, colWidths=["25%", "75%"], style=t_shaped_table_style)
