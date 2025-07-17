@@ -4,6 +4,7 @@ from functools import partial
 from reportlab.platypus import SimpleDocTemplate, PageBreak
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
+from concurrent.futures import ThreadPoolExecutor
 
 from chart_generator import generate_figs
 from page1_builder import build_first_page
@@ -32,7 +33,6 @@ def create_report(iata_codes: list[str], airline_name: str, debug: bool = False)
     setup(debug=debug)
 
     # Create the document template
-
     pdf_file_name = f"{'_'.join(iata_codes)}_flights_report.pdf"
     doc = SimpleDocTemplate(
         str(OUTPUT_DIR / pdf_file_name),
@@ -60,18 +60,32 @@ def create_report(iata_codes: list[str], airline_name: str, debug: bool = False)
 
         # Build pages for this IATA code and append to the report_content
         print(f"📄 Building pages for {iata_code}...")
-        report_content.extend(build_first_page(data, output_path, airline_name))
-        report_content.append(PageBreak())
-        report_content.extend(build_second_page(data, output_path, airline_name))
-        report_content.append(PageBreak())
-        report_content.extend(build_third_page(data, output_path, airline_name))
-        report_content.append(PageBreak())
-        report_content.extend(build_fourth_page(data, output_path, airline_name))
-        report_content.append(PageBreak())
-        report_content.extend(build_fifth_page(data, output_path, airline_name))
-        report_content.append(PageBreak())
-        report_content.extend(build_sixth_page(data, output_path, airline_name))
-        report_content.append(PageBreak())
+
+        # Define the page builder functions and their order
+        page_builders = [
+            build_first_page,
+            build_second_page,
+            build_third_page,
+            build_fourth_page,
+            build_fifth_page,
+            build_sixth_page,
+        ]
+
+        # Prepare arguments for each page builder
+        builder_args = [(builder, data, output_path, airline_name) for builder in page_builders]
+
+        def call_builder(args):
+            builder, data, output_path, airline_name = args
+            return builder(data, output_path, airline_name)
+
+        # Generate pages in parallel, but keep their order
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            results = list(executor.map(call_builder, builder_args))
+
+        # Add the results to report_content in order, with PageBreaks
+        for page_content in results:
+            report_content.extend(page_content)
+            report_content.append(PageBreak())
 
     #5. Build the PDF
     all_pages = partial(draw_page_layout, debug=debug)
@@ -80,7 +94,7 @@ def create_report(iata_codes: list[str], airline_name: str, debug: bool = False)
     try:
         doc.build(report_content, onFirstPage=all_pages, onLaterPages=all_pages)
         print("\n🎉  Report generated successfully!  🎉")
-        print(f"  📄 Report saved to: \033[94m{output_path}\033[0m")
+        print(f"  📄 Report saved to: \033[94m{str(OUTPUT_DIR / pdf_file_name)}\033[0m")
     except Exception as e:
         print(f"\n  AN ERROR OCCURRED {e}")
 

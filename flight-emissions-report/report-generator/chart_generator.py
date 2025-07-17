@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import plotly.graph_objects as go
 from pathlib import Path
 import pandas as pd
@@ -6,62 +8,73 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from matplotlib.ticker import FuncFormatter, MaxNLocator
+from concurrent.futures import ThreadPoolExecutor
 
 from styles import DARK_GRAY, DARK_DARK_GRAY
 
 
 def generate_figs(data: dict, output_path: Path, debug: bool = False):
     """
-    Generate all the figures needed for the pdf.
+    Generate all figures needed for the PDF report.
     """
     print("\n📊 Generating figures... ")
     figs_dir = output_path / "figs"
     figs_dir.mkdir(parents=True, exist_ok=True)
 
+    def generate_page1_charts():
+        if debug:
+            print("  -> Generating: page1_gwp_bar_chart.png...")
+        create_interleaved_chart(data).write_image(
+            figs_dir / "page1_gwp_bar_chart.png", width=360, height=180, scale=12
+        )
+
+    def generate_page2_charts():
+        if debug:
+            print("  -> Generating: page2_stacked_gwp_chart.png...")
+        create_p2_stacked_gwp_chart(data).write_image(
+            figs_dir / "page2_stacked_gwp_chart.png", width=800, height=250, scale=10
+        )
+
+        if debug:
+            print("  -> Generating: page2_day_night_chart.png...")
+        create_p2_night_day_bar_chart(data).write_image(
+            figs_dir / "page2_day_night_chart.png", width=800, height=150, scale=10
+        )
+
+    def generate_page4_charts():
+        if debug:
+            print("  -> Generating: top_flights_chart.png...")
+        create_top_flights_chart(data, str(figs_dir / "top_flights_chart.png"))
+
+    def generate_page5_charts():
+        csv_path = output_path / "data_case_study_0.csv"
+        if debug:
+            print("  -> Generating: case_study_chart.png...")
+        create_case_study_chart(str(csv_path), str(figs_dir / "case_study_chart.png"))
+
+    def generate_page6_charts():
+        if debug:
+            print("  -> Generating Page 6 charts...")
+        create_warming_by_month_chart(str(figs_dir / "warming_by_month.png"))
+        create_warming_per_flight_chart(str(figs_dir / "warming_per_flight.png"))
+        create_warming_by_departure_time_chart(str(figs_dir / "warming_by_departure.png"))
+
     try:
-        # # --- Page 1 Chart ---
-        # p1_chart_name = "page1_gwp_bar_chart.png"
-        # if debug: 
-        #     print(f"  -> Generating: {p1_chart_name}...")
-        # create_interleaved_chart(data).write_image(figs_dir / p1_chart_name, width=360, height=180, scale=12)
+        # Run chart generation in parallel
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [
+                executor.submit(generate_page1_charts),
+                executor.submit(generate_page2_charts),
+                executor.submit(generate_page4_charts),
+                executor.submit(generate_page5_charts),
+                executor.submit(generate_page6_charts)
+            ]
 
-        # # --- Page 2 Charts ---
-        # p2_stacked_chart_name = "page2_stacked_gwp_chart.png"
-        # if debug: 
-        #     print(f"  -> Generating: {p2_stacked_chart_name}...")
-        # create_p2_stacked_gwp_chart(data).write_image(figs_dir / p2_stacked_chart_name, width=800, height=250, scale=10)
-
-        # p2_day_night_chart_name = "page2_day_night_chart.png"
-        # if debug: 
-        #     print(f"  -> Generating: {p2_day_night_chart_name}...")
-        # create_p2_night_day_bar_chart(data).write_image(figs_dir / p2_day_night_chart_name, width=800, height=150, scale=10)
-        
-        # --- Page 4 Chart ---
-        top_flights_chart_name = "top_flights_chart.png"
-        if debug: 
-            print(f"  -> Generating: {top_flights_chart_name}...")
-        create_top_flights_chart(data, str(figs_dir / top_flights_chart_name))
-
-    #     # --- Page 5 Chart ---
-    #     case_study_chart_name = "case_study_chart.png"
-    #     csv_path = data.get("case_study_csv_path", "") # Get path from data dict or use a default
-    #     if csv_path:
-    #         if debug: 
-    #             print(f"  -> Generating: {case_study_chart_name}...")
-    #         create_case_study_chart(csv_path, figs_dir / case_study_chart_name)
-    #     else:
-    #         if debug:
-    #             print("  ⚠️ WARNING: No case study CSV path provided. Skipping chart.")
-
-    #     # --- Page 6 Charts ---
-    #     if debug: 
-    #         print("  -> Generating Page 6 charts...")
-    #     create_warming_by_month_chart(figs_dir / "warming_by_month.png")
-    #     create_warming_per_flight_chart(figs_dir / "warming_per_flight.png")
-    #     create_warming_by_departure_time_chart(figs_dir / "warming_by_departure.png")
+            # Wait for all to complete
+            for future in futures:
+                future.result()
 
         print("✅ All figures generated.")
-
     except Exception as e:
         print(f"❌ Error generating figures: {str(e)}")
         raise
@@ -70,12 +83,12 @@ def generate_figs(data: dict, output_path: Path, debug: bool = False):
 def create_interleaved_chart(data: dict) -> go.Figure:
     """Generates a Plotly figure with a custom layout of text labels and single-bar charts."""
     """Generates a Plotly figure with dynamic GWP data."""
-    
+
     # 1. Calculate the kg/km values from the data dictionary
-    total_km = data['flight_distance_km']['total']
-    gwp20_tonnes = data['co2e_metric_tons']['gwp20']['total']
-    gwp50_tonnes = data['co2e_metric_tons']['gwp50']['total']
-    gwp100_tonnes = data['co2e_metric_tons']['gwp100']['total']
+    total_km = data["flight_distance_km"]["total"]
+    gwp20_tonnes = data["co2e_metric_tons"]["gwp20"]["total"]
+    gwp50_tonnes = data["co2e_metric_tons"]["gwp50"]["total"]
+    gwp100_tonnes = data["co2e_metric_tons"]["gwp100"]["total"]
 
     gwp20_per_km = (gwp20_tonnes * 1000) / total_km
     gwp50_per_km = (gwp50_tonnes * 1000) / total_km
@@ -192,23 +205,23 @@ def create_p2_stacked_gwp_chart(data: dict) -> go.Figure:
     # 2. Helper function to calculate the percentage split for any GWP value
     def calculate_percentages(co2e_value):
         total_warming = total_co2 + co2e_value
-        if total_warming == 0: # Avoid division by zero
+        if total_warming == 0:  # Avoid division by zero
             return 100, 0
         co2_pct = round((total_co2 / total_warming) * 100)
-        co2e_pct = 100 - co2_pct # Ensure it always adds to 100
+        co2e_pct = 100 - co2_pct  # Ensure it always adds to 100
         return co2_pct, co2e_pct
 
     # 3. Calculate percentages for each GWP value
     gwp100_co2_pct, gwp100_co2e_pct = calculate_percentages(gwp100_co2e)
     gwp50_co2_pct, gwp50_co2e_pct = calculate_percentages(gwp50_co2e)
     gwp20_co2_pct, gwp20_co2e_pct = calculate_percentages(gwp20_co2e)
-    
+
     # 4. Build the chart_data list dynamically
     chart_data = [
         {"label": "GWP 100", "co2_pct": gwp100_co2_pct, "co2e_pct": gwp100_co2e_pct},
         {"label": "GWP 50", "co2_pct": gwp50_co2_pct, "co2e_pct": gwp50_co2e_pct},
         {"label": "GWP 20", "co2_pct": gwp20_co2_pct, "co2e_pct": gwp20_co2e_pct},
-    ] 
+    ]
 
     row_height = 118
     label_y_in_row = 113
@@ -332,31 +345,25 @@ def create_p2_night_day_bar_chart(data: dict) -> go.Figure:
     """
     night_val = data["co2e_metric_tons"]["gwp50"]["nighttime"]["total"]
     day_val = data["co2e_metric_tons"]["gwp50"]["daytime"]["total"]
-    
-    # --- Formatting logic for the text labels ---
-    
+
     # Format the nighttime value
     if night_val > 100000:
         night_text = f"{night_val / 1000:,.0f} kt CO2e"
     else:
-        # FIX: Changed format from :, to :.0f to remove decimals
         night_text = f"{night_val:,.0f} t CO2e"
 
     # Format the daytime value
     if day_val > 100000:
         day_text = f"{day_val / 1000:,.0f} kt CO2e"
     else:
-        # FIX: Changed format from :, to :.0f to remove decimals
         day_text = f"{day_val:,.0f} t CO2e"
-        
-    # --- The rest of the function remains the same ---
 
     total_val = night_val + day_val
     if total_val == 0:
         night_pct = 100
     else:
         night_pct = (night_val / total_val) * 100
-        
+
     bar_height = 30
     bar_center_y = bar_height / 2
 
@@ -364,39 +371,75 @@ def create_p2_night_day_bar_chart(data: dict) -> go.Figure:
 
     # Add the "Nighttime" segment
     fig.add_shape(
-        type="rect", xref="x", yref="y", layer="below", x0=0,
-        y0=bar_center_y - (bar_height / 2), x1=night_pct,
-        y1=bar_center_y + (bar_height / 2), fillcolor="#4a4266", line_width=0
+        type="rect",
+        xref="x",
+        yref="y",
+        layer="below",
+        x0=0,
+        y0=bar_center_y - (bar_height / 2),
+        x1=night_pct,
+        y1=bar_center_y + (bar_height / 2),
+        fillcolor="#4a4266",
+        line_width=0,
     )
     # Add the "Daytime" segment
     fig.add_shape(
-        type="rect", xref="x", yref="y", layer="below", x0=night_pct,
-        y0=bar_center_y - (bar_height / 2), x1=100,
-        y1=bar_center_y + (bar_height / 2), fillcolor="#e6c86e", line_width=0
+        type="rect",
+        xref="x",
+        yref="y",
+        layer="below",
+        x0=night_pct,
+        y0=bar_center_y - (bar_height / 2),
+        x1=100,
+        y1=bar_center_y + (bar_height / 2),
+        fillcolor="#e6c86e",
+        line_width=0,
     )
 
     # Annotations
     fig.add_annotation(
-        xref="x", yref="y", x=2, y=bar_center_y + (bar_height * 0.3),
-        text="Nighttime", showarrow=False, xanchor="left", yanchor="middle",
-        font=dict(size=12, color="white", family="Roboto Light")
+        xref="x",
+        yref="y",
+        x=2,
+        y=bar_center_y + (bar_height * 0.3),
+        text="Nighttime",
+        showarrow=False,
+        xanchor="left",
+        yanchor="middle",
+        font=dict(size=12, color="white", family="Roboto Light"),
     )
     fig.add_annotation(
-        xref="x", yref="y", x=2, y=bar_center_y + (bar_height * 0.1),
-        text=night_text, # Use formatted text
-        showarrow=False, xanchor="left", yanchor="middle",
-        font=dict(size=28, color="white", family="Roboto Light")
+        xref="x",
+        yref="y",
+        x=2,
+        y=bar_center_y + (bar_height * 0.1),
+        text=night_text,  # Use formatted text
+        showarrow=False,
+        xanchor="left",
+        yanchor="middle",
+        font=dict(size=28, color="white", family="Roboto Light"),
     )
     fig.add_annotation(
-        xref="x", yref="y", x=night_pct + 2, y=bar_center_y + (bar_height * 0.3),
-        text="Daytime", showarrow=False, xanchor="left", yanchor="middle",
-        font=dict(size=12, color="#4A3F55", family="Roboto")
+        xref="x",
+        yref="y",
+        x=night_pct + 2,
+        y=bar_center_y + (bar_height * 0.3),
+        text="Daytime",
+        showarrow=False,
+        xanchor="left",
+        yanchor="middle",
+        font=dict(size=12, color="#4A3F55", family="Roboto"),
     )
     fig.add_annotation(
-        xref="x", yref="y", x=night_pct + 2, y=bar_center_y + (bar_height * 0.1),
-        text=day_text, # Use formatted text
-        showarrow=False, xanchor="left", yanchor="middle",
-        font=dict(size=24, color="#4A3F55", family="Roboto")
+        xref="x",
+        yref="y",
+        x=night_pct + 2,
+        y=bar_center_y + (bar_height * 0.1),
+        text=day_text,
+        showarrow=False,
+        xanchor="left",
+        yanchor="middle",
+        font=dict(size=24, color="#4A3F55", family="Roboto"),
     )
 
     fig.update_layout(
@@ -410,14 +453,20 @@ def create_p2_night_day_bar_chart(data: dict) -> go.Figure:
     )
     return fig
 
-CONUS_COORDS_PLACEHOLDER = [
-    (-100, 5), (-50, 15), (-55, 30), (-80, 45),
-    (-125, 55), (-130, 40), (-115, 20),
-]
+
 def create_flight_paths_map(csv_path: str, output_image_path: str):
     """
     Generates a map with flight paths and the original legend.
     """
+    CONUS_COORDS_PLACEHOLDER = [
+        (-100, 5),
+        (-50, 15),
+        (-55, 30),
+        (-80, 45),
+        (-125, 55),
+        (-130, 40),
+        (-115, 20),
+    ]
     summary_df = pd.read_csv(csv_path)
     projection = ccrs.Mercator(
         central_longitude=12, min_latitude=-56.9, max_latitude=84.0
@@ -429,14 +478,14 @@ def create_flight_paths_map(csv_path: str, output_image_path: str):
 
     ax.fill(
         [c[0] for c in CONUS_COORDS_PLACEHOLDER],  # Changed here
-        [c[1] for c in CONUS_COORDS_PLACEHOLDER],   # Changed her
+        [c[1] for c in CONUS_COORDS_PLACEHOLDER],  # Changed her
         facecolor="#F7CA45",
         edgecolor="#F7CA45",
         linewidth=1.0,
         alpha=0.5,
         transform=ccrs.Geodetic(),
     )
-    
+
     num_flights_to_plot = 300
     if len(summary_df) > num_flights_to_plot:
         summary_df = summary_df.sample(n=num_flights_to_plot, random_state=1)
@@ -451,10 +500,6 @@ def create_flight_paths_map(csv_path: str, output_image_path: str):
             transform=ccrs.Geodetic(),
         )
 
-    # --- USING YOUR ORIGINAL LEGEND CODE ---
-    
-
-
     ax.set_xticks([])
     ax.set_yticks([])
     for spine in ax.spines.values():
@@ -464,6 +509,8 @@ def create_flight_paths_map(csv_path: str, output_image_path: str):
     fig.tight_layout()
     plt.savefig(output_image_path, transparent=True, dpi=300)
     plt.close(fig)
+
+
 def create_case_study_chart(data_case_study_fp: str, output_image_path: str):
     """
     Generates the case study plot with the correct dimensions to fit in the PDF.
@@ -483,7 +530,6 @@ def create_case_study_chart(data_case_study_fp: str, output_image_path: str):
     x_v = seg_df["dist_cum_km"]
     y_v = seg_df["median_altitude_ft"] / 100.0
 
-    # MODIFIED: Change min_y from 100 to 50 to add space at the bottom
     min_x, max_x = 0, seg_df["dist_cum_km"].max() * 1.05
     min_y, max_y = 50, 420
 
@@ -491,10 +537,17 @@ def create_case_study_chart(data_case_study_fp: str, output_image_path: str):
     if "in_conus" in seg_df.columns and seg_df["in_conus"].any():
         x_conus_min = seg_df.loc[seg_df["in_conus"], "dist_cum_km"].min()
         x_conus_max = seg_df.loc[seg_df["in_conus"], "dist_cum_km"].max()
-        ax.add_patch(plt.Rectangle(
-            (x_conus_min, min_y), x_conus_max - x_conus_min, max_y - min_y,
-            alpha=0.2, facecolor="#F3CD5D", edgecolor=None, zorder=1
-        ))
+        ax.add_patch(
+            plt.Rectangle(
+                (x_conus_min, min_y),
+                x_conus_max - x_conus_min,
+                max_y - min_y,
+                alpha=0.2,
+                facecolor="#F3CD5D",
+                edgecolor=None,
+                zorder=1,
+            )
+        )
 
     if "sum_ef_mj" in seg_df.columns:
         x_pred = x_v[seg_df["sum_ef_mj"] != 0]
@@ -512,16 +565,18 @@ def create_case_study_chart(data_case_study_fp: str, output_image_path: str):
     ax.grid(axis="y", linewidth=1, linestyle="dotted", color="#E0E0E0")
     ax.spines[["top", "right", "left"]].set_visible(False)
     ax.spines["bottom"].set_color("#BDBDBD")
-    ax.tick_params(axis='both', which='major', labelsize=13, length=0)
+    ax.tick_params(axis="both", which="major", labelsize=13, length=0)
 
     ax.set_yticks(np.arange(100, 451, 50))
     ax.set_yticklabels([f"FL{int(y)}" for y in ax.get_yticks()])
 
     ax.xaxis.set_major_locator(MaxNLocator(nbins=14, integer=True))
+
     def km_formatter(x, pos):
-        return f'{x:,.0f}km'
+        return f"{x:,.0f}km"
+
     ax.xaxis.set_major_formatter(FuncFormatter(km_formatter))
-    
+
     plt.xticks(rotation=90)
 
     ax.set_xlim([min_x, max_x])
@@ -532,55 +587,83 @@ def create_case_study_chart(data_case_study_fp: str, output_image_path: str):
     plt.savefig(output_image_path, transparent=True, dpi=600)
     plt.close(fig)
 
+
 def create_warming_by_month_chart(output_image_path: str):
     """Generates the 'Contrail warming by month' bar chart."""
-    months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+    months = [
+        "JAN",
+        "FEB",
+        "MAR",
+        "APR",
+        "MAY",
+        "JUN",
+        "JUL",
+        "AUG",
+        "SEP",
+        "OCT",
+        "NOV",
+        "DEC",
+    ]
     co2_emissions = np.random.uniform(50000, 85000, 12)
     contrail_warming = np.random.uniform(70000, 120000, 12)
 
-    df = pd.DataFrame({'Month': months, 'CO₂ Emissions (tCO₂e)': co2_emissions, 'Contrail Warming (tCO₂e)': contrail_warming})
+    df = pd.DataFrame(
+        {
+            "Month": months,
+            "CO₂ Emissions (tCO₂e)": co2_emissions,
+            "Contrail Warming (tCO₂e)": contrail_warming,
+        }
+    )
 
     fig, ax = plt.subplots(figsize=(10, 3))
-    df.plot(x='Month', kind='bar', ax=ax, color=["red", "gray"], width=0.8, legend=None)
+    df.plot(x="Month", kind="bar", ax=ax, color=["red", "gray"], width=0.8, legend=None)
 
-    ax.spines[['top', 'right', 'left']].set_visible(False)
-    ax.yaxis.grid(True, linestyle='--', color='lightgray')
-    ax.set_ylabel('')
-    ax.set_xlabel('')
-    ax.tick_params(axis='y', length=0)
-    ax.tick_params(axis='x', rotation=0)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.yaxis.grid(True, linestyle="--", color="lightgray")
+    ax.set_ylabel("")
+    ax.set_xlabel("")
+    ax.tick_params(axis="y", length=0)
+    ax.tick_params(axis="x", rotation=0)
 
-    # --- FIX ---
     fig.tight_layout()
-    plt.savefig(output_image_path, transparent=True, dpi=300) # Removed bbox_inches='tight'
+    plt.savefig(output_image_path, transparent=True, dpi=300)
     plt.close(fig)
+
+
 def create_warming_per_flight_chart(output_image_path: str):
     """Generates the 'Contrail Warming per Flight' dual-axis chart."""
-    aircraft = ['A320', 'A380', '737-800', '727', 'CRI-900', '737 Max']
+    aircraft = ["A320", "A380", "737-800", "727", "CRI-900", "737 Max"]
     num_flights = [4000, 1000, 10000, 1500, 9000, 1000]
     warming_per_flight = [20, 5, 45, 15, 55, 10]
 
     fig, ax1 = plt.subplots(figsize=(10, 4))
 
     # Bar chart for Number of Flights (left y-axis)
-    ax1.bar(aircraft, num_flights, color='gray', width=0.4, label='Number of Flights')
-    ax1.set_ylabel('Number of Flights', color='gray')
-    ax1.tick_params(axis='y', labelcolor='gray')
-    ax1.spines[['top', 'left', 'right']].set_visible(False)
+    ax1.bar(aircraft, num_flights, color="gray", width=0.4, label="Number of Flights")
+    ax1.set_ylabel("Number of Flights", color="gray")
+    ax1.tick_params(axis="y", labelcolor="gray")
+    ax1.spines[["top", "left", "right"]].set_visible(False)
 
     # Bar chart for Contrail Warming (right y-axis)
     ax2 = ax1.twinx()
-    ax2.bar(np.arange(len(aircraft)) + 0.4, warming_per_flight, color='red', alpha=0.6, width=0.4, label='Contrail Warming per Flight')
-    ax2.set_ylabel('Contrail Warming per Flight', color='red')
-    ax2.tick_params(axis='y', labelcolor='red')
-    ax2.spines[['top', 'left', 'right']].set_visible(False)
+    ax2.bar(
+        np.arange(len(aircraft)) + 0.4,
+        warming_per_flight,
+        color="red",
+        alpha=0.6,
+        width=0.4,
+        label="Contrail Warming per Flight",
+    )
+    ax2.set_ylabel("Contrail Warming per Flight", color="red")
+    ax2.tick_params(axis="y", labelcolor="red")
+    ax2.spines[["top", "left", "right"]].set_visible(False)
 
-    fig.legend(loc='lower center', bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
-    
-    # --- FIX ---
+    fig.legend(loc="lower center", bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
+
     fig.tight_layout()
-    plt.savefig(output_image_path, transparent=True, dpi=300) # Removed bbox_inches='tight'
+    plt.savefig(output_image_path, transparent=True, dpi=300)
     plt.close(fig)
+
 
 def create_warming_by_departure_time_chart(output_image_path: str):
     """Generates the 'Contrail warming by local departure time' chart with vertical bar labels."""
@@ -591,28 +674,59 @@ def create_warming_by_departure_time_chart(output_image_path: str):
     width = 0.4
     fig, ax1 = plt.subplots(figsize=(10, 4))
 
-    rects1 = ax1.bar(hours - width/2, contrail_warming, width, color='gray', label='Contrail warming')
-    ax1.set_ylabel('Energy Forcing (kW)')
-    ax1.set_xlabel('Departure Hour (Local)')
-    ax1.spines[['top', 'right']].set_visible(False)
+    rects1 = ax1.bar(
+        hours - width / 2,
+        contrail_warming,
+        width,
+        color="gray",
+        label="Contrail warming",
+    )
+    ax1.set_ylabel("Energy Forcing (kW)")
+    ax1.set_xlabel("Departure Hour (Local)")
+    ax1.spines[["top", "right"]].set_visible(False)
 
     ax2 = ax1.twinx()
-    rects2 = ax2.bar(hours + width/2, number_of_flights, width, color='red', alpha=0.6, label='Number of flights')
-    ax2.set_ylabel('Number of Flights (tCO2)')
-    ax2.spines[['top', 'right']].set_visible(False)
+    rects2 = ax2.bar(
+        hours + width / 2,
+        number_of_flights,
+        width,
+        color="red",
+        alpha=0.6,
+        label="Number of flights",
+    )
+    ax2.set_ylabel("Number of Flights (tCO2)")
+    ax2.spines[["top", "right"]].set_visible(False)
 
-    # --- FIX: Removed the conflicting y=0.5 argument ---
-    ax1.bar_label(rects1, padding=3, fmt='%.0f', fontsize=7, color='gray', label_type='edge', rotation=90)
-    ax2.bar_label(rects2, padding=3, fmt='%.0f', fontsize=7, color='red', label_type='edge', rotation=90)
+    ax1.bar_label(
+        rects1,
+        padding=3,
+        fmt="%.0f",
+        fontsize=7,
+        color="gray",
+        label_type="edge",
+        rotation=90,
+    )
+    ax2.bar_label(
+        rects2,
+        padding=3,
+        fmt="%.0f",
+        fontsize=7,
+        color="red",
+        label_type="edge",
+        rotation=90,
+    )
 
     ax1.set_xticks(hours)
-    fig.legend(loc='lower center', bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False)
+    fig.legend(loc="lower center", bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False)
 
     fig.tight_layout()
     plt.savefig(output_image_path, transparent=True, dpi=300)
     plt.close(fig)
 
-def create_top_flights_chart(data: dict, output_image_path: str, min_flight_count: int = 52):
+
+def create_top_flights_chart(
+    data: dict, output_image_path: str, min_flight_count: int = 52
+):
     """
     Generates a horizontal bar chart of the top 10 OD pairs by contrail warming intensity (kg CO2e/km).
     """
@@ -622,66 +736,69 @@ def create_top_flights_chart(data: dict, output_image_path: str, min_flight_coun
     BAR_WIDTH = 0.8
     BAR_COLOR = "#4A3F55"
     BAR_OPACITY = 0.9
-    
+
     od_pairs_data = data.get("od_pairs", [])
     valid_od_pairs = [
-        item for item in od_pairs_data
-        if (item.get("airport_iata_od", "") and 
-            "None" not in item.get("airport_iata_od", "") and 
-            item.get("flight_count", 0) >= min_flight_count)
+        item
+        for item in od_pairs_data
+        if (
+            item.get("airport_iata_od", "")
+            and "None" not in item.get("airport_iata_od", "")
+            and item.get("flight_count", 0) >= min_flight_count
+        )
     ]
-    
+
     if not valid_od_pairs:
         return
-    
+
     valid_od_pairs.sort(
         key=lambda item: item.get("impact_density_co2e_metric_tons_per_dist_km", 0),
-        reverse=True
+        reverse=True,
     )
     top_10_pairs = valid_od_pairs[:10]
-    
-    od_pairs_labels = [pair['airport_iata_od'].replace('_', ' - ') for pair in top_10_pairs][::-1]
+
+    od_pairs_labels = [
+        pair["airport_iata_od"].replace("_", " - ") for pair in top_10_pairs
+    ][::-1]
     warming_values = [
-        pair.get('impact_density_co2e_metric_tons_per_dist_km', 0) * 1000 
+        pair.get("impact_density_co2e_metric_tons_per_dist_km", 0) * 1000
         for pair in top_10_pairs
     ][::-1]
-    
+
     fig = go.Figure()
-    
-    fig.add_trace(go.Bar(
-        x=warming_values,
-        y=od_pairs_labels,
-        orientation='h',
-        marker=dict(color=BAR_COLOR, opacity=BAR_OPACITY),
-        width=BAR_WIDTH,
-        text=[f"  {val:.0f} kg CO₂e/km" for val in warming_values],
-        textposition='outside',
-        insidetextanchor='start',
-        hovertemplate='%{y}: %{x:.0f} kg CO2e/km<extra></extra>',
-        showlegend=False,
-        cliponaxis=False,
-        textfont=dict(
-            size=FONT_SIZE,
-            family="Roboto Light",
-            color=DARK_DARK_GRAY
-        ),
-    ))
-    
+
+    fig.add_trace(
+        go.Bar(
+            x=warming_values,
+            y=od_pairs_labels,
+            orientation="h",
+            marker=dict(color=BAR_COLOR, opacity=BAR_OPACITY),
+            width=BAR_WIDTH,
+            text=[f"  {val:.0f} kg CO₂e/km" for val in warming_values],
+            textposition="outside",
+            insidetextanchor="start",
+            hovertemplate="%{y}: %{x:.0f} kg CO2e/km<extra></extra>",
+            showlegend=False,
+            cliponaxis=False,
+            textfont=dict(size=FONT_SIZE, family="Roboto Light", color=DARK_DARK_GRAY),
+        )
+    )
+
     fig.update_layout(
         xaxis=dict(
-            title='',
+            title="",
             showgrid=True,
-            gridcolor='lightgray',
+            gridcolor="lightgray",
             zeroline=False,
             color=DARK_GRAY,
             tickfont=dict(size=FONT_SIZE, family="Roboto Light", color=DARK_DARK_GRAY),
             showline=False,
             showticklabels=True,
-            ticks='outside',
+            ticks="outside",
             showspikes=False,
-            ticksuffix=' kg CO₂e/km',
-            tickformat='.0f',
-            tickmode='auto',
+            ticksuffix=" kg CO₂e/km",
+            tickformat=".0f",
+            tickmode="auto",
             nticks=8,
             tickangle=0,
         ),
@@ -691,18 +808,20 @@ def create_top_flights_chart(data: dict, output_image_path: str, min_flight_coun
             color=DARK_GRAY,
             tickfont=dict(size=FONT_SIZE, family="Roboto Light", color=DARK_DARK_GRAY),
             showticklabels=True,
-            ticks='outside',
-            ticksuffix=' ',
+            ticks="outside",
+            ticksuffix=" ",
             showspikes=False,
             automargin=True,
         ),
         margin=dict(l=0, r=0, t=10, b=0, pad=0),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
         showlegend=False,
         font=dict(family="Roboto Light", color=DARK_DARK_GRAY, size=FONT_SIZE),
         height=CHART_HEIGHT_PX,
         width=CHART_WIDTH_PX,
     )
-    
-    fig.write_image(output_image_path, width=CHART_WIDTH_PX, height=CHART_HEIGHT_PX, scale=2)
+
+    fig.write_image(
+        output_image_path, width=CHART_WIDTH_PX, height=CHART_HEIGHT_PX, scale=2
+    )

@@ -19,9 +19,6 @@ from styles import (
 )
 
 
-
-
-
 def build_sixth_page(data: dict, output_path: Path, airline_name: str):
     """
     Assembles the entire 6th page for the report.
