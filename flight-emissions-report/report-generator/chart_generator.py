@@ -43,25 +43,31 @@ def generate_figs(data: dict, output_path: Path, debug: bool = False):
 
     def generate_page4_charts():
         if debug:
-            print("  -> Generating: top_flights_chart.png...")
-        create_top_flights_chart(data, str(figs_dir / "top_flights_chart.png"))
+            print("  -> Generating: page4_top_flights_chart.png...")
+        create_top_flights_chart(data, str(figs_dir / "page4_top_flights_chart.png"))
 
     def generate_page5_charts():
+        data_all_internal_fp = output_path / "data_all_internal.csv"
+        if debug:
+            print("  -> Generating: page5_flight_paths_map.png...")
+        create_flight_paths_map(
+            str(data_all_internal_fp), str(figs_dir / "page5_flight_paths_map.png")
+        )
         csv_path = output_path / "data_case_study_0.csv"
         if debug:
-            print("  -> Generating: case_study_chart.png...")
-        create_case_study_chart(str(csv_path), str(figs_dir / "case_study_chart.png"))
+            print("  -> Generating: page5_case_study_chart.png...")
+        create_case_study_chart(str(csv_path), str(figs_dir / "page5_case_study_chart.png"))
 
     def generate_page6_charts():
         if debug:
             print("  -> Generating Page 6 charts...")
-        create_warming_by_month_chart(str(figs_dir / "warming_by_month.png"))
-        create_warming_per_flight_chart(str(figs_dir / "warming_per_flight.png"))
-        create_warming_by_departure_time_chart(str(figs_dir / "warming_by_departure.png"))
+        create_warming_by_month_chart(str(figs_dir / "page6_warming_by_month.png"))
+        create_warming_per_flight_chart(str(figs_dir / "page6_warming_per_flight.png"))
+        create_warming_by_departure_time_chart(str(figs_dir / "page6_warming_by_departure.png"))
 
     try:
         # Run chart generation in parallel
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=6) as executor:
             futures = [
                 executor.submit(generate_page1_charts),
                 executor.submit(generate_page2_charts),
@@ -69,7 +75,6 @@ def generate_figs(data: dict, output_path: Path, debug: bool = False):
                 executor.submit(generate_page5_charts),
                 executor.submit(generate_page6_charts)
             ]
-
             # Wait for all to complete
             for future in futures:
                 future.result()
@@ -81,7 +86,6 @@ def generate_figs(data: dict, output_path: Path, debug: bool = False):
 
 
 def create_interleaved_chart(data: dict) -> go.Figure:
-    """Generates a Plotly figure with a custom layout of text labels and single-bar charts."""
     """Generates a Plotly figure with dynamic GWP data."""
 
     # 1. Calculate the kg/km values from the data dictionary
@@ -454,20 +458,11 @@ def create_p2_night_day_bar_chart(data: dict) -> go.Figure:
     return fig
 
 
-def create_flight_paths_map(csv_path: str, output_image_path: str):
+def create_flight_paths_map(data_csv_path: str, output_image_path: str):
     """
-    Generates a map with flight paths and the original legend.
+    Generates a map with flight paths
     """
-    CONUS_COORDS_PLACEHOLDER = [
-        (-100, 5),
-        (-50, 15),
-        (-55, 30),
-        (-80, 45),
-        (-125, 55),
-        (-130, 40),
-        (-115, 20),
-    ]
-    summary_df = pd.read_csv(csv_path)
+    summary_df = pd.read_csv(data_csv_path)
     projection = ccrs.Mercator(
         central_longitude=12, min_latitude=-56.9, max_latitude=84.0
     )
@@ -476,16 +471,30 @@ def create_flight_paths_map(csv_path: str, output_image_path: str):
     ax.set_global()
     ax.add_feature(cfeature.LAND, color="#C4C7C5")
 
+    # Coordinates below are taken from flight-emissions-report/services.py (CONUS region boundary)
+    CONUS_COORDS = (
+        (-40, 61),
+        (-110, 61),
+        (-128, 52.3),
+        (-134, 50),
+        (-120, 10),
+        (-90, -5),
+        (-90, -40),
+        (-50, -40),
+        (-30, 0),
+        (-60, 15),
+    )
     ax.fill(
-        [c[0] for c in CONUS_COORDS_PLACEHOLDER],  # Changed here
-        [c[1] for c in CONUS_COORDS_PLACEHOLDER],  # Changed her
+        [c[0] for c in CONUS_COORDS],
+        [c[1] for c in CONUS_COORDS],
         facecolor="#F7CA45",
-        edgecolor="#F7CA45",
+        edgecolor=None,
         linewidth=1.0,
         alpha=0.5,
         transform=ccrs.Geodetic(),
     )
-
+    
+    # Downsample and draw flight paths
     num_flights_to_plot = 300
     if len(summary_df) > num_flights_to_plot:
         summary_df = summary_df.sample(n=num_flights_to_plot, random_state=1)
@@ -505,9 +514,12 @@ def create_flight_paths_map(csv_path: str, output_image_path: str):
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    # Use tight_layout instead of bbox_inches for more reliable saving
-    fig.tight_layout()
-    plt.savefig(output_image_path, transparent=True, dpi=300)
+    plt.savefig(
+        output_image_path,
+        bbox_inches="tight",
+        transparent=True,
+        dpi=300
+    )
     plt.close(fig)
 
 

@@ -10,13 +10,9 @@ DARK_GRAY = "#444444"
 MEDIUM_GRAY = "#B0B0B0"
 BLACK = HexColor("#000000")
 BLUE_HIGHLIGHT_COLOR = HexColor("#E8F0FE")
-OBSERVATION_COLOR = HexColor("#E5B64E")
-ALGORITHM_COLOR = HexColor("#C4C7C5")
-LINE_COLOR = HexColor("#4A3F55")
 DIVIDER_COLOR = HexColor("#F5E6E8")
 PREDICTED_COLOR = HexColor("#B1C6FD")
 CONFIRMED_COLOR = HexColor("#F9DF92")
-
 
 
 GRID_UNIT = 0.525 * cm
@@ -82,109 +78,138 @@ page_num_style = ParagraphStyle(
     textColor=gray,
 )
 
-container_table_style = TableStyle([
-    ("ROUNDEDCORNERS", [8, 8, 8, 8]),
-    ("BOX", (0, 0), (-1, -1), 1, lightgrey),
-    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ("TOPPADDING", (0, 0), (-1, -1), 0),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ("LEFTPADDING", (0, 0), (-1, -1), 10),
-    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-])
+legend_style = ParagraphStyle(
+    "LegendLabel", fontName="Helvetica", fontSize=8, textColor=BLACK
+)
 
-four_column_table_style = TableStyle([
-    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ("ALIGN", (0, 0), (0, -1), "LEFT"),
-    ("ALIGN", (1, 0), (1, -1), "LEFT"),
-    ("TOPPADDING", (0, 0), (-1, -1), 0),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-])
+container_table_style = TableStyle(
+    [
+        ("ROUNDEDCORNERS", [8, 8, 8, 8]),
+        ("BOX", (0, 0), (-1, -1), 1, lightgrey),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]
+)
 
-t_shaped_table_style = TableStyle([
-    ("BOX", (0, 0), (-1, -1), 1, lightgrey),
-    ("ROUNDEDCORNERS", [8, 8, 8, 8]),
-    ("LEFTPADDING", (0, 0), (-1, -1), 10),
-    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-    ("TOPPADDING", (0, 0), (-1, -1), 0),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ("SPAN", (0, 0), (1, 0)),
-    ("LINEBELOW", (0, 0), (-1, 0), 1, lightgrey),
-])
+four_column_table_style = TableStyle(
+    [
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (0, -1), "LEFT"),
+        ("ALIGN", (1, 0), (1, -1), "LEFT"),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]
+)
 
-inner_table_style = TableStyle([
-    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ("GRID", (0, 0), (-1, -1), 0.5, lightgrey),
-    ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-    ("FONTNAME", (0, 0), (-1, -1), "Roboto-Light"),
-    ("TEXTCOLOR", (0, 0), (-1, -1), BLACK),
-    ("TOPPADDING", (0, 0), (-1, -1), 7),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-    ("FONTSIZE", (0, 0), (-1, -1), 7),
-])
+t_shaped_table_style = TableStyle(
+    [
+        ("BOX", (0, 0), (-1, -1), 1, lightgrey),
+        ("ROUNDEDCORNERS", [8, 8, 8, 8]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("SPAN", (0, 0), (1, 0)),
+        ("LINEBELOW", (0, 0), (-1, 0), 1, lightgrey),
+    ]
+)
 
-two_by_two_table_style = TableStyle([
-    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-    ("BOTTOMPADDING", (0, 0), (1, 0), GRID_UNIT),
-])
+inner_table_style = TableStyle(
+    [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.5, lightgrey),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("FONTNAME", (0, 0), (-1, -1), "Roboto-Light"),
+        ("TEXTCOLOR", (0, 0), (-1, -1), BLACK),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+    ]
+)
 
-highlighted_box_style = TableStyle([
-    ("BACKGROUND", (0, 0), (-1, -1), HexColor("#F7F2F2")),
-    ("ROUNDEDCORNERS", [8, 8, 8, 8]),
-    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ("FONTNAME", (0, 0), (-1, -1), "Roboto-Light"),
-    ("TOPPADDING", (0, 0), (-1, -1), 0),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ("LEFTPADDING", (0, 0), (-1, -1), 10),
-    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-])
+two_by_two_table_style = TableStyle(
+    [
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (1, 0), GRID_UNIT),
+    ]
+)
 
-blue_highlight_box_style = TableStyle([
-    ("BACKGROUND", (0,0), (-1,-1), BLUE_HIGHLIGHT_COLOR),
-    ("ROUND", (0,0), (-1,-1), 8),
-    ("LEFTPADDING", (0,0), (-1,-1), 10),
-    ("RIGHTPADDING", (0,0), (-1,-1), 10),
-    ("TOPPADDING", (0,0), (-1,-1), 10),
-    ("BOTTOMPADDING", (0,0), (-1,-1), 10),
-    ("ROUNDEDCORNERS", [8, 8, 8, 8]),
-])
+highlighted_box_style = TableStyle(
+    [
+        ("BACKGROUND", (0, 0), (-1, -1), HexColor("#F7F2F2")),
+        ("ROUNDEDCORNERS", [8, 8, 8, 8]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTNAME", (0, 0), (-1, -1), "Roboto-Light"),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]
+)
 
-two_column_stats_style = TableStyle([
-    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
-    ("TOPPADDING", (0, 0), (-1, 0), 0),
-    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-])
+blue_highlight_box_style = TableStyle(
+    [
+        ("BACKGROUND", (0, 0), (-1, -1), BLUE_HIGHLIGHT_COLOR),
+        ("ROUND", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("ROUNDEDCORNERS", [8, 8, 8, 8]),
+    ]
+)
 
-od_pair_stats_table_style = TableStyle([
-    ("SPAN", (0, 0), (2, 0)),
-    ("VALIGN", (0, 1), (-1, -1), "TOP"),
-    ("LEFTPADDING", (0,0), (0,-1), 15),
-])
+two_column_stats_style = TableStyle(
+    [
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+        ("TOPPADDING", (0, 0), (-1, 0), 0),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]
+)
 
-map_legend_style = TableStyle([
-    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-])
+od_pair_stats_table_style = TableStyle(
+    [
+        ("SPAN", (0, 0), (2, 0)),
+        ("VALIGN", (0, 1), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (0, -1), 15),
+    ]
+)
 
-three_col_stats_style = TableStyle([
-    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-    ("TOPPADDING", (0, 0), (-1, -1), 10),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-])
+map_legend_style = TableStyle(
+    [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]
+)
 
-divider_line_style = TableStyle([
-    ("LINEBELOW", (0, 0), (-1, -1), 1, DIVIDER_COLOR),
-])
+three_col_stats_style = TableStyle(
+    [
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    ]
+)
 
-valign_middle_style = TableStyle([
-    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-])
+divider_line_style = TableStyle(
+    [
+        ("LINEBELOW", (0, 0), (-1, -1), 1, DIVIDER_COLOR),
+    ]
+)
 
+valign_middle_style = TableStyle(
+    [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]
+)
