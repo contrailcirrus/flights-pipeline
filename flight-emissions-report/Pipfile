@@ -27,7 +27,7 @@ pre-commit = "*"
 pytest = "*"
 pytest-asyncio = "*"
 pytest-cov = "*"
-ruff = "<=0.4.10"
+ruff = "*"
 
 [requires]
 python_version = "3.12"
