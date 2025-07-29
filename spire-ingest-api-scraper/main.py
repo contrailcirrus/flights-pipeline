@@ -150,6 +150,8 @@ async def main(
                         altitude_gnss=_to_int_or_none(row.get("altitude_gnss")),
                         imputed=False,
                         flight_level=None,
+                        nic=_to_int_or_none(row.get("nic")),
+                        nacp=_to_int_or_none(row.get("nacp")),
                     )
                 ],
             )

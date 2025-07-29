@@ -1,5 +1,0 @@
-# image is the docker image uri to be deployed including the image tag
-image:
-
-# state of the cronjob
-suspendCronjob:

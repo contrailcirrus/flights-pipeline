@@ -1,75 +1,139 @@
 import argparse
-from pathlib import Path
+import sys
 from functools import partial
-from reportlab.platypus import SimpleDocTemplate
+from reportlab.platypus import SimpleDocTemplate, PageBreak
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
+from concurrent.futures import ThreadPoolExecutor
 
-from setup import setup, draw_first_page_layout, PROJECT_ROOT
-from page_one_builder import build_first_page
+from chart_generator import generate_figs
+from page1_builder import build_first_page
+from page2_builder import build_second_page
+from page3_builder import build_third_page
+from page4_builder import build_fourth_page
+from page5_builder import build_fifth_page
+from page6_builder import build_sixth_page
+from setup import setup, draw_page_layout
+
+from setup import OUTPUT_DIR, load_data
 
 GRID_UNIT = 0.525 * cm
-AIRLINE_NAME = None
+HALF_GRID_UNIT = GRID_UNIT / 2
 
 
-def create_report(output_path: Path, airline_name: str, grid: bool = False):
+def create_report(iata_codes: list[str], airline_name: str, debug: bool = False):
     """
-    Generates the full PDF report by orchestrating the other modules.
+    Generates the full PDF report for the given airline and IATA codes.
     """
-    print("---  Starting Report Generation ---")
+    print(" ✨ Report Generation ")
+    if debug:
+        print("  🔍 DEBUG MODE ENABLED")
 
-    # 1. Setup fonts
-    setup(output_path)
+    # Setup fonts
+    setup(debug=debug)
 
-    # 2. Create the document template
+    # Create the document template
+    pdf_file_name = f"{'_'.join(iata_codes)}_flights_report.pdf"
     doc = SimpleDocTemplate(
-        str(output_path / "flight_contrails_impact_report.pdf"),
+        str(OUTPUT_DIR / pdf_file_name),
         pagesize=A4,
         rightMargin=GRID_UNIT * 2,
         leftMargin=GRID_UNIT * 2,
-        topMargin=GRID_UNIT,
+        topMargin=HALF_GRID_UNIT,
         bottomMargin=GRID_UNIT,
     )
 
-    # 3. Build the first page content
-    print("Building the first page content...")
-    story = build_first_page(airline_name)
+    # Generate figures and build pages for each IATA code
+    report_content = []
+    for iata_code in iata_codes:
+        output_path = OUTPUT_DIR / iata_code
+        data = load_data(output_path / "data_summary.json")
+        if data is None:
+            print(f"❌ Error: Could not load {output_path}/data_summary.json")
+            return
 
-    # 4. Build the PDF
-    on_first = partial(draw_first_page_layout, grid=grid)
+        data["airline_name"] = airline_name
+        data["iata_code"] = iata_code
+        data["data_path"] = output_path
 
-    print(f"Building PDF at '{output_path}' (Debug Mode: {grid})...")
+        generate_figs(data=data, output_path=output_path, debug=debug)
+
+        # Build pages for this IATA code and append to the report_content
+        print(f"📄 Building pages for {iata_code}...")
+
+        # Define the page builder functions and their order
+        page_builders = [
+            build_first_page,
+            build_second_page,
+            build_third_page,
+            build_fourth_page,
+            build_fifth_page,
+            build_sixth_page,
+        ]
+
+        # Prepare arguments for each page builder
+        builder_args = [(builder, data, output_path, airline_name) for builder in page_builders]
+
+        def call_builder(args):
+            builder, data, output_path, airline_name = args
+            return builder(data, output_path, airline_name)
+
+        # Generate pages in parallel, but keep their order
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            results = list(executor.map(call_builder, builder_args))
+
+        # Add the results to report_content in order, with PageBreaks
+        for page_content in results:
+            report_content.extend(page_content)
+            report_content.append(PageBreak())
+
+    #5. Build the PDF
+    all_pages = partial(draw_page_layout, debug=debug)
+
+    print("\n📁 Building PDF Report... ")
     try:
-        doc.build(story, onFirstPage=on_first)
-        print("---  Report Generated Successfully ---")
+        doc.build(report_content, onFirstPage=all_pages, onLaterPages=all_pages)
+        print("\n🎉  Report generated successfully!  🎉")
+        print(f"  📄 Report saved to: \033[94m{str(OUTPUT_DIR / pdf_file_name)}\033[0m")
     except Exception as e:
-        print(f"---  AN ERROR OCCURRED --- \n{e}")
+        print(f"\n  AN ERROR OCCURRED {e}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Generate the Flight Emissions Report PDF"
     )
+
     parser.add_argument(
-        "-p",
-        "--data_path",
+        "--iata_codes",
         type=str,
-        default="out/default",
-        help="path to data directory. e.g. out/D0",
+        required=True,
+        help="Comma-separated list of IATA codes for processing",
     )
     parser.add_argument(
-        "-a",
         "--airline_name",
         type=str,
-        help="airline friendly name",
+        required=True,
+        help="The friendly name of the airline (e.g., 'Turkish Airlines')",
     )
     parser.add_argument(
-        "-g", "--grid", action="store_true", help="add grid to pdf overlay (True/False)"
+        "--debug",
+        action="store_true",
+        help="Enable debug mode for extra output",
     )
     args = parser.parse_args()
 
+    # Check if data_summary.json exists for each IATA code directory
+    iata_codes = args.iata_codes.split(",")
+    for iata_code in iata_codes:
+        output_path = OUTPUT_DIR  / iata_code
+        data_summary_path = output_path / "data_summary.json"
+        if not data_summary_path.exists():
+            print(f"❌ data_summary.json not found for IATA code '{iata_code}' in '{output_path}'.")
+            sys.exit(1)
+
     create_report(
-        output_path=PROJECT_ROOT / Path(args.data_path),
+        iata_codes=iata_codes,
         airline_name=args.airline_name,
-        grid=args.grid,
+        debug=args.debug,
     )

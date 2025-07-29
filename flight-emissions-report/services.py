@@ -42,7 +42,7 @@ class JobWorkerSubmitSvc(BaseSvc):
     Service backing calls to the flights submit parser.
     """
 
-    TWJD_TOPIC_ID = "projects/contrails-301217/topics/dev-fp-twjd-ingress"
+    TWJD_TOPIC_ID = "projects/contrails-301217/topics/prod-fp-twjd-ingress"
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -361,6 +361,8 @@ class FlightsReportFetchSvc(BaseSvc):
                 "time_start_local": "first_waypoint_local_time",
                 "lat_end": "destination_latitude",
                 "lon_end": "destination_longitude",
+                "departure_airport_icao": "origin_airport_icao",
+                "arrival_airport_icao": "destination_airport_icao",
                 "time_end": "last_waypoint_time",
                 "time_end_local": "last_waypoint_local_time",
                 "pycontrails_ver": "pycontrails_version",
@@ -381,6 +383,8 @@ class FlightsReportFetchSvc(BaseSvc):
                 "tail_number",
                 "aircraft_type_icao",
                 "engine_uid",
+                "origin_airport_icao",
+                "destination_airport_icao",
                 "origin_latitude",
                 "origin_longitude",
                 "first_waypoint_time",
