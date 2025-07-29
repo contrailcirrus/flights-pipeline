@@ -118,5 +118,17 @@
     "type": "TIMESTAMP",
     "mode": "NULLABLE",
     "description": "arrival (landing) scheduled time for the flight instance"
+  },
+    {
+    "name": "nic",
+    "type": "INT64",
+    "mode": "NULLABLE",
+    "description": "navigation integrity category"
+  },
+    {
+    "name": "nacp",
+    "type": "INT64",
+    "mode": "NULLABLE",
+    "description": "navigation accuracy category (position)"
   }
 ]
