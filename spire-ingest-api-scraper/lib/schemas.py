@@ -27,6 +27,8 @@ class SpireWaypointPositional:
     # vertical_rate: float  # e.g. -64.0
     imputed: bool  # True if record was imputed, False is observed (i.e. in original Spire API data)
     flight_level: int | None = None  # 390 (imputed) altitude_baro//100 mapped -> list
+    nic: int | None = None  # navigation integrity category
+    nacp: int | None = None  # navigation accuracy category - position
 
     def as_utf8_json(self) -> bytes:
         """
@@ -192,6 +194,8 @@ class SpireWaypointsRecord:
                 "arrival_scheduled_time": iso_to_microseconds(
                     self.flight_info.arrival_scheduled_time
                 ),
+                "nic": record.nic,
+                "nacp": record.nacp,
             }
             out.append(json.dumps(blob).encode("utf-8"))
         return out
