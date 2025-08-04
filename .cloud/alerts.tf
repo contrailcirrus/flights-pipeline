@@ -1,36 +1,6 @@
 # 
 # api-scraper
 # 
-resource "google_monitoring_alert_policy" "k8scronjob_spire_ingest_api_scraper_prod_checkpoint_behind" {
-  display_name = "k8scronjob-spire-ingest-api-scraper-prod-checkpoint-behind"
-  combiner     = "OR"
-
-  conditions {
-    display_name = "Error in logs"
-    condition_matched_log {
-      filter = <<EOF
-        resource.type="k8s_container"
-        resource.labels.cluster_name="contrails-gke-general"
-        resource.labels.namespace_name="flights-pipeline-prod"
-        labels.k8s-pod/job-name:"spire-ingest-api-scraper-cronjob-"
-        jsonPayload.textPayload:"Spire checkpoint behind"
-        severity=WARNING
-        EOF
-    }
-  }
-
-  notification_channels = [
-    # Nick Masson: SMS
-    "projects/contrails-301217/notificationChannels/5296843968149494052",
-  ]
-
-  alert_strategy {
-    notification_rate_limit {
-      period = "3600s"
-    }
-    auto_close = "86400s"
-  }
-}
 
 resource "google_monitoring_alert_policy" "k8scronjob_spire_ingest_api_scraper_prod_error_in_logs" {
   display_name = "k8scronjob-spire-ingest-api-scraper-prod-error-in-logs"
@@ -52,6 +22,9 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_ingest_api_scraper_p
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 
   alert_strategy {
@@ -84,6 +57,8 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+     # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 }
 
@@ -109,6 +84,8 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 }
 
@@ -152,6 +129,8 @@ resource "google_monitoring_alert_policy" "k8cronjob_spire_cache_bot_success_cou
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 }
 
@@ -179,6 +158,8 @@ resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_gaia_
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 
   alert_strategy {
@@ -227,6 +208,8 @@ resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_gaia_
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 }
 
@@ -253,6 +236,8 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_gaia_trajectory_chun
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 }
 
@@ -278,6 +263,8 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_trajectory_worker_co
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 }
 
@@ -304,6 +291,8 @@ resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_report_cr
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 
   alert_strategy {
@@ -334,6 +323,8 @@ resource "google_monitoring_alert_policy" "k8scronjob_flight_emissions_cron_repo
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 
   alert_strategy {
@@ -368,6 +359,8 @@ resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_job_f
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 
   alert_strategy {
@@ -400,6 +393,8 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_twjd_ingress_dead_le
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 }
 
@@ -426,6 +421,8 @@ resource "google_monitoring_alert_policy" "k8scron_nat_track_cacher_prod_error_i
   notification_channels = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 
   alert_strategy {
