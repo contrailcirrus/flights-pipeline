@@ -519,48 +519,22 @@ def _gen_od_bar_figs(
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
 
-    night_co2e_grp = [
-        (
-            int(
-                itm["co2e50_metric_tons"]
-                * min(itm["percentage_nighttime_co2e"], 100)
-                / 100
-            )
-            if itm["percentage_nighttime_co2e"]
-            else 0.0
-        )
-        for itm in top_ods_by_net_co2e
-    ]
-    day_co2e_grp = [
-        (
-            int(
-                itm["co2e50_metric_tons"]
-                * (100 - min(itm["percentage_nighttime_co2e"], 100))
-                / 100
-            )
-            if itm["percentage_nighttime_co2e"]
-            else 0.0
-        )
-        for itm in top_ods_by_net_co2e
-    ]
+    co2e_grp = [int(itm["co2e50_metric_tons"]) for itm in top_ods_by_net_co2e]
     flight_count = [itm["flight_count"] for itm in top_ods_by_net_co2e]
     flight_dist_km = [round(int(itm["tot_dist_km"]), -2) for itm in top_ods_by_net_co2e]
     grp_names = [
         itm["airport_iata_od"].replace("_", " - ") for itm in top_ods_by_net_co2e
     ]
 
-    night_co2e_grp.reverse()
-    day_co2e_grp.reverse()
+    co2e_grp.reverse()
     flight_count.reverse()
+    flight_dist_km.reverse()
     grp_names.reverse()
 
     # Plot the stacked bars
-    night_bar = ax.barh(grp_names, night_co2e_grp, color="#2C2857", zorder=2)
-    day_bar = ax.barh(
-        grp_names, day_co2e_grp, left=night_co2e_grp, color="#F7CA45", zorder=2
-    )
+    bars = ax.barh(grp_names, co2e_grp, color="#2C2857", zorder=2)
 
-    max_x = max([int(itm["co2e50_metric_tons"]) for itm in top_ods_by_net_co2e])
+    max_x = max(co2e_grp)
     x_label_count = 5
     x_range = list(np.linspace(0, max_x, x_label_count))
     x_range_labels = [f"{i:,.0f}t CO2e" for i in x_range]
@@ -580,13 +554,12 @@ def _gen_od_bar_figs(
     )
 
     # set margins
-    min_bar_width = night_bar[0].get_width() + day_bar[0].get_width()
+    min_bar_width = bars[0].get_width()
     inline_flights_margin = min_bar_width * 0.05
     inline_km_margin = min_bar_width * 0.5
-    inline_co2e_padding = min_bar_width * 0.01
 
     # set flight count inline text
-    for ix, bar in enumerate(night_bar):
+    for ix, bar in enumerate(bars):
         label_text = f"{flight_count[ix]} Flights"
         ax.text(
             inline_flights_margin,
@@ -598,7 +571,7 @@ def _gen_od_bar_figs(
         )
 
     # set flight distance km inline text
-    for ix, bar in enumerate(night_bar):
+    for ix, bar in enumerate(bars):
         label_text = f"{round(flight_dist_km[ix]/1000.):,}K km"
         ax.text(
             inline_km_margin,
@@ -610,12 +583,11 @@ def _gen_od_bar_figs(
         )
 
     # set total co2e inline text
-    for ix, bars in enumerate(zip(night_bar, day_bar)):
-        total_co2e = int(night_co2e_grp[ix] + day_co2e_grp[ix])
-        label_text = f"{total_co2e/1000:.0f}kt CO2e"
+    for ix, bar in enumerate(bars):
+        label_text = f"{co2e_grp[ix]/1000:.0f}kt CO2e"
         ax.text(
-            bars[0].get_width() + bars[1].get_width() + inline_co2e_padding,
-            bars[0].get_y() + bars[0].get_height() / 2,
+            1.01 * bar.get_width(),
+            bar.get_y() + bar.get_height() / 2,
             label_text,
             ha="left",
             va="center",
