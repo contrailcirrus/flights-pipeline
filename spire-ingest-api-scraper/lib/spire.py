@@ -107,7 +107,7 @@ class SpireAPIClient:
         # We may get duplicate data without this trimming
         # but will tolerate those dupes given opaque behavior w.r.t the API window time and ingestion time
 
-        ingestion_time: pd.Series = pd.to_datetime(df["ingestion_time"])
+        ingestion_time: pd.Series = pd.to_datetime(df["ingestion_time"], infer_datetime_format=True)
         ingest_at_or_after_start = ingestion_time >= pd.to_datetime(start_at)
         ingest_before_end = ingestion_time < pd.to_datetime(end_at)
         in_range_filter = ingest_at_or_after_start & ingest_before_end
