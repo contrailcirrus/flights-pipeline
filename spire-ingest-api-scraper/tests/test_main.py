@@ -49,7 +49,6 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
     asyncio.run(
         main(
             triggered_at=triggered_at,
-            egress_queue_client=egress_queue_client,
             bq_queue_client=bq_queue_client,
             sigterm_handler=sigterm_handler,
             spire_client=spire_client,
@@ -103,7 +102,6 @@ def test_main_entrypoint_exits_if_less_than_5_minutes_elapsed() -> None:
     asyncio.run(
         main(
             triggered_at=triggered_at,
-            egress_queue_client=egress_queue_client,
             bq_queue_client=bq_queue_client,
             sigterm_handler=sigterm_handler,
             spire_client=spire_client,
