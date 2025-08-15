@@ -22,7 +22,7 @@ format:
 	pipenv run black .
 
 dependency-check:
-	pipenv check
+	pipenv check --scan
 	pipenv verify
 
 lint:

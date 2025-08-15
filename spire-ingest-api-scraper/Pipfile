@@ -19,6 +19,7 @@ pytest-asyncio = "*"
 pytest-cov = "*"
 respx = "*"
 ruff = "*"
+safety = "*"
 
 [requires]
 python_version = "3.12"
