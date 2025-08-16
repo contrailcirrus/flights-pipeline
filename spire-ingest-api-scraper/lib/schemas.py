@@ -127,6 +127,7 @@ class SpireWaypointsRecord:
             longitude=wp["longitude"],
             collection_type=None,
             altitude_baro=wp["altitude_ft"],
+            altitude_gnss=None,
             ingestion_time=None,
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
