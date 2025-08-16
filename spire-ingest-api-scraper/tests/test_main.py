@@ -39,7 +39,6 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
     triggered_at = datetime(2024, 3, 1, 13, 10, 1, 2, tzinfo=timezone.utc)
     last_sync_end_at = datetime(2024, 3, 1, 13, 0, 0, tzinfo=timezone.utc)
 
-    egress_queue_client = Mock(spec=queue.QueueClient)
     bq_queue_client = Mock(spec=queue.QueueClient)
     sigterm_handler = utils.SigtermHandler()
     spire_client = spire.SpireAPIClient("fake-token", mock_spire_airsafe_api)
@@ -56,33 +55,34 @@ def test_main_entrypoint(mock_spire_airsafe_api: str) -> None:
         )
     )
 
-    assert egress_queue_client.publish_async.call_count == 1127
-    assert egress_queue_client.wait_for_publish.call_count == 1
+    assert bq_queue_client.publish_async.call_count == 2477
+    assert bq_queue_client.wait_for_publish.call_count == 1
 
-    for args, kwargs in egress_queue_client.publish_async.call_args_list:
+    for args, kwargs in bq_queue_client.publish_async.call_args_list:
         data = kwargs["data"]
-        ordering_key = kwargs["ordering_key"]
-        assert isinstance(ordering_key, str)
         dto = json.loads(data)
-        flight_info = dto["flight_info"]
-        assert isinstance(flight_info["icao_address"], str)
-        assert _is_valid_str_or_none(flight_info["flight_id"])
-        assert _is_valid_str_or_none(flight_info["callsign"])
-        assert _is_valid_str_or_none(flight_info["tail_number"])
-        assert _is_valid_str_or_none(flight_info["flight_number"])
-        assert _is_valid_str_or_none(flight_info["aircraft_type_icao"])
-        assert _is_valid_str_or_none(flight_info["airline_iata"])
-        assert _is_valid_str_or_none(flight_info["departure_airport_icao"])
-        assert _is_valid_str_or_none(flight_info["departure_scheduled_time"])
-        assert _is_valid_str_or_none(flight_info["arrival_airport_icao"])
-        assert _is_valid_str_or_none(flight_info["arrival_scheduled_time"])
-        for record in dto["records"]:
-            assert isinstance(record["timestamp"], str)
-            assert isinstance(record["latitude"], float)
-            assert isinstance(record["longitude"], float)
-            assert isinstance(record["altitude_baro"], int)
-            assert record["flight_level"] is None
-            assert not record["imputed"]
+        assert isinstance(dto["icao_address"], str)
+        assert _is_valid_str_or_none(dto["flight_id"])
+        assert _is_valid_str_or_none(dto["callsign"])
+        assert _is_valid_str_or_none(dto["tail_number"])
+        assert _is_valid_str_or_none(dto["flight_number"])
+        assert _is_valid_str_or_none(dto["aircraft_type_icao"])
+        assert _is_valid_str_or_none(dto["airline_iata"])
+        assert _is_valid_str_or_none(dto["departure_airport_icao"])
+        # Timestamps are integers (microseconds since epoch) or None
+        if dto["departure_scheduled_time"] is not None:
+            assert isinstance(dto["departure_scheduled_time"], int)
+        if dto["arrival_scheduled_time"] is not None:
+            assert isinstance(dto["arrival_scheduled_time"], int)
+        assert _is_valid_str_or_none(dto["arrival_airport_icao"])
+        # Timestamps are integers (microseconds since epoch)
+        assert isinstance(dto["timestamp"], int)
+        assert isinstance(dto["ingestion_time"], int)
+        assert isinstance(dto["latitude"], float)
+        assert isinstance(dto["longitude"], float)
+        assert isinstance(dto["altitude_baro"], int)
+        assert dto["flight_level"] is None
+        assert not dto["imputed"]
 
     expected_sync_end_at = datetime(2024, 3, 1, 13, 5, tzinfo=timezone.utc)
     state_client.set_last_sync_end_at.assert_called_once_with(expected_sync_end_at)
@@ -92,7 +92,6 @@ def test_main_entrypoint_exits_if_less_than_5_minutes_elapsed() -> None:
     triggered_at = datetime(2024, 3, 1, 13, 1, 1, 2, tzinfo=timezone.utc)
     last_sync_end_at = datetime(2024, 3, 1, 13, 0, 0, tzinfo=timezone.utc)
 
-    egress_queue_client = Mock(spec=queue.QueueClient)
     bq_queue_client = Mock(spec=queue.QueueClient)
     sigterm_handler = utils.SigtermHandler()
     spire_client = Mock(spec=spire.SpireAPIClient)
@@ -110,4 +109,4 @@ def test_main_entrypoint_exits_if_less_than_5_minutes_elapsed() -> None:
     )
 
     assert spire_client.get_data_between.call_count == 0
-    assert egress_queue_client.publish_async.call_count == 0
+    assert bq_queue_client.publish_async.call_count == 0

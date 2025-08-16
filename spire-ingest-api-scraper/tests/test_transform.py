@@ -11,7 +11,7 @@ async def test_downsample(mock_spire_airsafe_api: str) -> None:
 
     result = transform._downsample_icao_address_minutes_first_last(spire_df)
     assert len(result.columns) == len(spire_df.columns)
-    assert len(result) == 2507
+    assert len(result) == 2852
 
     # is result a subset of original df?
     inner = result.merge(spire_df, how="inner")
