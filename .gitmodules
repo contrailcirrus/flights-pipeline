@@ -1,0 +1,3 @@
+[submodule "data/airports"]
+	path = data/airports
+	url = https://github.com/contrailcirrus/ourairports-data.git
