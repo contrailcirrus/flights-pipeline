@@ -25,7 +25,7 @@ from schemas import (
     TelemetrySource,
 )
 from log import logger
-from helpers import airport_icao_to_iata_lookup
+from helpers import airport_icao_to_iata_lookup, EUAirports
 
 
 class BaseSvc(ABC):
@@ -306,6 +306,7 @@ class FlightsReportFetchSvc(BaseSvc):
             self._validate_case_study_fids(self._case_study_fids)
 
         self._bq_handler = BigQueryHandler()
+        self._eu_airports = EUAirports()
         if self._goog_fp:
             self._goog_handler = GoogDatasetHandler(self._goog_fp)
         else:
@@ -437,11 +438,12 @@ class FlightsReportFetchSvc(BaseSvc):
         df["in_conus_co2e50_kg"] = (
             df["in_conus_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         )
-        if "in_eu_sum_ef_mj" in df.keys():
-            # we only augment the all-flights dataset w/ this, not the single trajectory dataset
-            df["in_eu_co2e50_kg"] = (
-                df["in_eu_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
-            )
+        # OLD LOGIC - EU statistics are now computed in compute_eu_statistics_by_airports method
+        # if "in_eu_sum_ef_mj" in df.keys():
+        #     # we only augment the all-flights dataset w/ this, not the single trajectory dataset
+        #     df["in_eu_co2e50_kg"] = (
+        #         df["in_eu_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
+        #     )
         df["daytime_co2e50_kg"] = (
             df["daytime_sum_ef_mj"] * 10**6 * cls.ERF_RF / cls.AGWP50
         )
@@ -535,6 +537,35 @@ class FlightsReportFetchSvc(BaseSvc):
 
         return df
 
+    def compute_eu_statistics_by_airports(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Compute EU statistics based on flights that originate and land in EU airports."""
+        df = df.copy(deep=True)
+        
+        eu_airports = self._eu_airports.get_airports_set()
+        
+        eu_flight_mask = (
+            df["departure_airport_icao"].isin(eu_airports) & 
+            df["arrival_airport_icao"].isin(eu_airports)
+        )
+        df["in_eu_by_airports"] = eu_flight_mask
+        df["in_eu_dist_km"] = df.apply(
+            lambda row: row["chunk_len_km"] if row["in_eu_by_airports"] else 0, axis=1
+        )
+        df["in_eu_sum_ef_mj"] = df.apply(
+            lambda row: row["sum_ef_mj"] if row["in_eu_by_airports"] else 0, axis=1
+        )
+        df["in_eu_contrail_dist_km"] = df.apply(
+            lambda row: row["total_persistent_contrail_length_km"] if row["in_eu_by_airports"] else 0, axis=1
+        )
+        df["in_eu_warming_contrail_dist_km"] = df.apply(
+            lambda row: row["total_pos_ef_persistent_contrail_length_km"] if row["in_eu_by_airports"] else 0, axis=1
+        )
+        df["in_eu_total_co2_kg"] = df.apply(
+            lambda row: row["total_co2_kg"] if row["in_eu_by_airports"] else 0, axis=1
+        )
+        df["in_eu_co2e50_kg"] = df["in_eu_sum_ef_mj"] * 10**6 * self.ERF_RF / self.AGWP50
+        return df
+
     def run(self):
         logger.info(
             f"🐶 fetching report for airline {self._airline} on day/day-range {self._day_str}..."
@@ -590,6 +621,11 @@ class FlightsReportFetchSvc(BaseSvc):
         logger.info("📨 received summary data from BigQuery. Augmenting dataset...")
         summary_df = self.augment_summary_df(summary_df)
         logger.info("🙌 finished augmenting dataset.")
+        
+        # Compute EU statistics based on airport codes instead of geo-boxing
+        logger.info("🇪🇺 computing EU statistics based on airport codes...")
+        summary_df = self.compute_eu_statistics_by_airports(summary_df)
+        logger.info("✅ finished computing EU statistics.")
         if self._goog_handler:
             logger.info("🎨 ...merging with Google dataset.")
             summary_df = pd.merge(
@@ -677,7 +713,7 @@ class FlightsReportFetchSvc(BaseSvc):
         count_aircrafts = summary_df.icao_address.nunique()
         count_flights = summary_df.flight_id.nunique()
         count_flights_in_eu = summary_df.flight_id[
-            ~summary_df.in_eu_dist_km.isna()
+            summary_df.in_eu_by_airports
         ].nunique()
         count_flights_positive_ef = len(summary_df[summary_df.sum_ef_mj > 0])
         total_flight_hours = summary_df.seg_cnt.sum() // 60
