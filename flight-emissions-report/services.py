@@ -230,7 +230,6 @@ class FlightsReportFetchSvc(BaseSvc):
 
     REPORT_QUERY_FILENAME = "sql/bq_flights_report_daily.sql"
     CASE_STUDY_QUERY_FILENAME = "sql/bq_flights_report_fid_trajectory.sql"
-    CASE_STUDY_QUERY_FILENAME = "sql/bq_flights_report_fid_trajectory.sql"
 
     EXPORT_FLIGHT_COCIP_SEGS_FILENAME_TEMPLATE = (
         "out/{airline}/data_case_study_{ix}.csv"
