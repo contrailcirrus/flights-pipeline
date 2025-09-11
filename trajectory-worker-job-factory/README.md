@@ -93,6 +93,25 @@ The following environment variables are expected for production and development 
 | TRAJECTORY_CHUNK_TOPIC_ID  |       fully-qualified path for the pubsub topic to which the svc publishes trajectory worker jobs        |
 | LOG_LEVEL                  |                                log level for service in cloud environment                                |
 
+## Audit: Skipped flight logs (log sink)
+
+When a flight fails QA/QC, this service logs messages containing "skipping". These are exported to GCS via a Cloud Logging sink for audit.
+
+- Bucket (prod): [contrails-301217-fp-prod-trajectory-worker-job-factory](https://console.cloud.google.com/storage/browser/contrails-301217-fp-prod-trajectory-worker-job-factory)
+- Bucket (dev): [contrails-301217-fp-dev-trajectory-worker-job-factory](https://console.cloud.google.com/storage/browser/contrails-301217-fp-dev-trajectory-worker-job-factory)
+
+Filter (prod):
+```text
+resource.type="k8s_container"
+resource.labels.cluster_name="contrails-gke-general"
+resource.labels.namespace_name="flights-pipeline-prod"
+labels.k8s-pod/app="trajectory-worker-job-factory"
+jsonPayload.textPayload =~ "skipping"
+```
+Notes:
+- Sinks write hourly batches; allow time for objects to appear
+- Logs should appear under the respective bucket after up to ~1 hour. Example: `contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2025/09/04`.
+
 
 ## Resumable Work (stateful behavior)
 The trajectory worker job factory makes use of an external Redis cache to maintain a progress marker when executing a TWJD.
