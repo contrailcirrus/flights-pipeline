@@ -10,7 +10,7 @@ IGNORE_ICAO_ADDRESS = {"000000", "00000a", "0000BA"}
 
 
 def _downsample_icao_address_minutes_first_last(df: pd.DataFrame) -> pd.DataFrame:
-    """Retains only the first and last rows for each [icao_address, minute].
+    """Retains the first rows for each 30 second bin of [icao_address, time_bin].
 
     Parameters
     ----------
@@ -21,22 +21,17 @@ def _downsample_icao_address_minutes_first_last(df: pd.DataFrame) -> pd.DataFram
     Returns
     -------
     pd.DataFrame
-        If a icao_address has only one observation timestamp during a given minute, only
-        one row will be returned per minute. If an icao_address has two or more
-        observation timestamps during a given minute, only two rows will be returned per
-        minute.
+        Dataframe of Spire data with the first observation in each 30 second time bin.
     """
     timestamp = pd.to_datetime(df["timestamp"])
-    minute = timestamp.dt.floor("1 min")
+    time_bin = timestamp.dt.floor("30 s")
 
-    grouped = df.sort_values("timestamp").groupby(["icao_address", minute])
+    grouped = df.sort_values("timestamp").groupby(["icao_address", time_bin])
     first = grouped.head(1)
-    last = grouped.tail(1)
 
     # Spire truncates millis from the observation timestamp, so each is floored to the
-    # nearest second. Ensure the first and last points are not during the same second.
-    result = pd.concat([first, last]).drop_duplicates(["icao_address", "timestamp"])
-    return result
+    # nearest second. Ensure the point are not during the same second.
+    return first.drop_duplicates(["icao_address", "timestamp"])
 
 
 def filter_ingest_rules(spire_df: pd.DataFrame) -> pd.DataFrame:
