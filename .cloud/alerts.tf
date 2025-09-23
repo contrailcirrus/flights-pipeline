@@ -431,38 +431,3 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_twjd_ingress_dead_le
     "projects/contrails-301217/notificationChannels/12238957771652159581",
   ]
 }
-
-#
-# nat-track-cacher
-#
-resource "google_monitoring_alert_policy" "k8scron_nat_track_cacher_prod_error_in_logs" {
-  display_name = "k8scron-nat-track-cacher-prod-error-in-logs"
-  combiner     = "OR"
-
-  conditions {
-    display_name = "Error in logs"
-    condition_matched_log {
-      filter = <<EOF
-        resource.type="k8s_container"
-        resource.labels.cluster_name="contrails-gke-general"
-        resource.labels.namespace_name="flights-pipeline-prod"
-        labels.k8s-pod/job-name:"nat-track-cacher"
-        severity>=ERROR
-        EOF
-    }
-  }
-
-  notification_channels = [
-    # Nick Masson: SMS
-    "projects/contrails-301217/notificationChannels/5296843968149494052",
-    # Mahesh Saripalli: SMS 
-    "projects/contrails-301217/notificationChannels/12238957771652159581",
-  ]
-
-  alert_strategy {
-    notification_rate_limit {
-      period = "3600s"
-    }
-    auto_close = "86400s"
-  }
-}
