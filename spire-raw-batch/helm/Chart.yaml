@@ -1,0 +1,4 @@
+apiVersion: v2
+name: spire-raw-batch
+version: 0.1.0
+
