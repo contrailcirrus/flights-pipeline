@@ -1,11 +1,11 @@
-import os
 import sys
 import time
 
+from lib import environment
+
 
 def main() -> int:
-    log_level = os.getenv("LOG_LEVEL", "INFO")
-    print(f"Hello from spire-raw-batch! LOG_LEVEL={log_level}")
+    print(f"Hello from spire-raw-batch! LOG_LEVEL={environment.LOG_LEVEL}")
     time.sleep(1)
     print("spire-raw-batch completed successfully")
     return 0
