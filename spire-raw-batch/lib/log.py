@@ -5,7 +5,6 @@ Logging utilities.
 import logging
 import sys
 import traceback
-from typing import Any
 
 # Configure logging
 logging.basicConfig(

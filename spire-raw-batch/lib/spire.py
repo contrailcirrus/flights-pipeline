@@ -2,10 +2,9 @@
 Spire API client for fetching aircraft position data.
 """
 
-import asyncio
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -53,7 +52,7 @@ class SpireAPIClient:
         records = await self._fetch_target_records_with_retry(start_at, end_at)
         df: pd.DataFrame = pd.DataFrame(records)
         logger.info(f"Fetched {len(df)} total records from Spire.")
-        
+
         return df
 
     async def _fetch_target_records_with_retry(
