@@ -13,8 +13,6 @@ spec:
       backoffLimit: 0
       template:
         spec:
-          nodeSelector:
-            cloud.google.com/compute-class: "Balanced"
           restartPolicy: Never
           serviceAccountName: flights-pipeline-default-sa
           terminationGracePeriodSeconds: 60
@@ -26,9 +24,9 @@ spec:
                   value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
               resources:
                 requests:
-                  cpu: "100m"
-                  memory: "128Mi"
+                  cpu: "3"
+                  memory: "24Gi"
                 limits:
-                  cpu: "200m"
-                  memory: "256Mi"
+                  cpu: "3"
+                  memory: "24Gi"
 
