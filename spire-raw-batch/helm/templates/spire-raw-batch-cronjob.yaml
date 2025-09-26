@@ -22,6 +22,11 @@ spec:
               env:
                 - name: LOG_LEVEL
                   value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
+                - name: SPIRE_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: spire-airsafe-api-secret
+                      key: API_TOKEN
               resources:
                 requests:
                   cpu: "3"
