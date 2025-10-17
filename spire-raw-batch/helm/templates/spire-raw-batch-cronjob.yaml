@@ -20,6 +20,14 @@ spec:
             - name: main
               image: {{ .Values.image | required ".Values.image is required" | quote }}
               env:
+                - name: FIRESTORE_STATE_DB
+                  value: {{ .Values.firestoreStateDb | required ".Values.firestoreStateDb is required" | quote }}
+                - name: FIRESTORE_STATE_COLLECTION
+                  value: {{ .Values.firestoreStateCollection | required ".Values.firestoreStateCollection is required" | quote }}
+                - name: FIRESTORE_STATE_DOC_ID
+                  value: {{ .Values.firestoreStateDocId | required ".Values.firestoreStateDocId is required" | quote }}
+                - name: GCS_BUCKET_NAME
+                  value: {{ .Values.gcsBucketName | required ".Values.gcsBucketName is required" | quote }}
                 - name: LOG_LEVEL
                   value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
                 - name: SPIRE_API_TOKEN
