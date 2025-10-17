@@ -1,12 +1,12 @@
-name: spire-raw-batch-deploy-dev
+name: spire-raw-batch-deploy-prod
 
 on:
   push:
     branches:
-      - develop
+      - main
     paths:
       - spire-raw-batch/**
-      - .github/workflows/spire-raw-batch-deploy-dev.yaml
+      - .github/workflows/spire-raw-batch-deploy-prod.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -48,8 +48,8 @@ jobs:
           context: spire-raw-batch/
           push: true
           tags: |
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-dev:${{ github.sha }}
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-dev:latest
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-prod:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-prod:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -57,12 +57,12 @@ jobs:
         working-directory: spire-raw-batch/helm
         run: make deploy
         env:
-          NAMESPACE: flights-pipeline-dev
-          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-dev:${{ github.sha }}
-          FIRESTORE_STATE_DB: flights-pipeline-dev
+          NAMESPACE: flights-pipeline-prod
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-prod:${{ github.sha }}
+          FIRESTORE_STATE_DB: flights-pipeline-prod
           FIRESTORE_STATE_COLLECTION: state
           FIRESTORE_STATE_DOC_ID: spire-raw-batch
-          GCS_BUCKET_NAME: contrails-301217-spire-cache-dev
+          GCS_BUCKET_NAME: contrails-301217-spire-cache-prod
           LOG_LEVEL: INFO
           # TODO: Set to true when ready for production deployment
           SUSPEND_CRONJOB: false
