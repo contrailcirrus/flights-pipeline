@@ -2,7 +2,7 @@ import asyncio
 import sys
 from datetime import datetime, timedelta, timezone
 
-from lib import environment, spire
+from lib import environment, gcs, spire, state
 from lib.log import format_traceback, logger
 
 
@@ -11,28 +11,45 @@ async def main() -> int:
     logger.info("Starting spire-raw-batch service")
 
     try:
-        # Initialize Spire API client
+        # Initialize clients
         spire_client = spire.SpireAPIClient(environment.SPIRE_API_TOKEN)
-        logger.info("Spire API client initialized successfully")
-
-        # API call with 5-minute window, 5 hours ago
-        now = datetime.now(tz=timezone.utc)
-        # Floor to 5-minute boundary and go back 5 hours
-        # TODO: Get the timestamp from the firestore file.
-        start_at = (now - timedelta(hours=5)).replace(
-            minute=(now.minute // 5) * 5, second=0, microsecond=0
+        state_client = state.PersistentStateClient(
+            environment.FIRESTORE_STATE_DB,
+            environment.FIRESTORE_STATE_COLLECTION,
+            environment.FIRESTORE_STATE_DOC_ID,
         )
-        end_at = start_at + timedelta(minutes=5)
+        gcs_client = gcs.GCSClient(environment.GCS_BUCKET_NAME)
+        logger.info("Clients initialized successfully")
 
-        logger.info(f"Fetching Spire data from {start_at} to {end_at}")
-        df = await spire_client.get_data_between(start_at, end_at)
+        # Get the last sync checkpoint from Firestore
+        triggered_at = datetime.now(tz=timezone.utc)
+        logger.info(f"Current time: {triggered_at.isoformat()}")
 
-        logger.info(f"Successfully fetched {len(df)} records from Spire API")
-        if len(df) > 0:
-            logger.info(f"Sample record columns: {list(df.columns)}")
-            logger.info(f"Sample record: {df.iloc[0].to_dict()}")
+        last_sync_end_at = state_client.get_last_sync_end_at()
+        logger.info(
+            f"Last sync timestamp from Firestore: {last_sync_end_at.isoformat()}"
+        )
 
-        logger.info("spire-raw-batch completed successfully")
+        # Check if we're behind schedule (warning for alerts)
+        time_since_last_sync = triggered_at - last_sync_end_at
+        logger.info(f"Time since last sync: {time_since_last_sync}")
+        if time_since_last_sync > timedelta(hours=1):
+            logger.warning(f"Spire checkpoint behind by: {time_since_last_sync}")
+
+        # For testing: update timestamp to current time
+        logger.info("Updating Firestore checkpoint to current time for testing")
+        current_checkpoint = triggered_at.replace(
+            minute=(triggered_at.minute // 5) * 5, second=0, microsecond=0
+        )
+        state_client.set_last_sync_end_at(current_checkpoint)
+
+        # Verify the update worked
+        updated_checkpoint = state_client.get_last_sync_end_at()
+        logger.info(
+            f"✅ Successfully updated checkpoint to: {updated_checkpoint.isoformat()}"
+        )
+
+        logger.info("spire-raw-batch completed successfully (timestamp update test)")
         return 0
 
     except Exception:
