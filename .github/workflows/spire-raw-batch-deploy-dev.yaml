@@ -8,7 +8,6 @@ on:
       - spire-raw-batch/**
       - .github/workflows/spire-raw-batch-deploy-dev.yaml
 
-# avoid possible race condition on multiple merges
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
@@ -64,5 +63,5 @@ jobs:
           FIRESTORE_STATE_DOC_ID: spire-raw-batch
           GCS_BUCKET_NAME: contrails-301217-spire-cache-dev
           LOG_LEVEL: INFO
-          # TODO: Set to true when ready for production deployment
+
           SUSPEND_CRONJOB: false
