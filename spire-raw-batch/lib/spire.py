@@ -22,7 +22,7 @@ class SpireAPIClient:
         self._api_token = api_token
         self._airsafe_url = airsafe_url
 
-    async def get_data_between(
+    def get_data_between(
         self,
         start_at: datetime,
         end_at: datetime,
@@ -49,13 +49,13 @@ class SpireAPIClient:
         start_at = start_at.astimezone(timezone.utc)
         end_at = end_at.astimezone(timezone.utc)
 
-        records = await self._fetch_target_records_with_retry(start_at, end_at)
+        records = self._fetch_target_records_with_retry(start_at, end_at)
         df: pd.DataFrame = pd.DataFrame(records)
         logger.info(f"Fetched {len(df)} total records from Spire.")
 
         return df
 
-    async def _fetch_target_records_with_retry(
+    def _fetch_target_records_with_retry(
         self,
         start_at_utc: datetime,
         end_at_utc: datetime,
@@ -81,8 +81,8 @@ class SpireAPIClient:
         while retry_count <= max_retry_count:
             logger.info(f"Calling Spire API: {start_at_fmt} to {end_at_fmt}")
             try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(
+                with httpx.Client() as client:
+                    response = client.get(
                         self._airsafe_url,
                         params=params,
                         headers=headers,

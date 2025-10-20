@@ -3,7 +3,6 @@ Google Cloud Storage client for writing parquet files.
 """
 
 import io
-from datetime import datetime
 
 import pandas as pd
 from google.cloud import storage  # type: ignore
@@ -58,18 +57,3 @@ class GCSClient:
         """Check if file exists in GCS bucket."""
         blob = self._bucket.blob(filename)
         return blob.exists()
-
-    def generate_deterministic_filename(self, start_at: datetime) -> str:
-        """Generate deterministic filename for parquet file.
-
-        Parameters
-        ----------
-        start_at
-            Start timestamp for the data window
-
-        Returns
-        -------
-        str
-            Filename in format: YYYYMMDD-HHMMSS.pq
-        """
-        return f"{start_at.strftime('%Y%m%d-%H%M%S')}.pq"

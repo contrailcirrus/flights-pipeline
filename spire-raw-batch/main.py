@@ -1,4 +1,3 @@
-import asyncio
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -6,19 +5,24 @@ from lib import environment, gcs, spire, state
 from lib.log import format_traceback, logger
 
 
-async def main() -> int:
+def main() -> int:
     """Fetch Spire data and write to GCS."""
     logger.info("Starting spire-raw-batch service")
 
     try:
         # Initialize clients
         spire_client = spire.SpireAPIClient(environment.SPIRE_API_TOKEN)
+        
+        # Initialize Firestore state client for progress tracking
         state_client = state.PersistentStateClient(
             environment.FIRESTORE_STATE_DB,
             environment.FIRESTORE_STATE_COLLECTION,
             environment.FIRESTORE_STATE_DOC_ID,
         )
+        
+        # Initialize GCS client for data storage
         gcs_client = gcs.GCSClient(environment.GCS_BUCKET_NAME)
+        
         logger.info("Clients initialized successfully")
 
         # Get the last sync checkpoint from Firestore
@@ -58,4 +62,4 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    sys.exit(main())

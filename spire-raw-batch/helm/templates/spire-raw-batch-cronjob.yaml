@@ -5,7 +5,7 @@ metadata:
 spec:
   schedule: "*/5 * * * *"
   concurrencyPolicy: Forbid
-  startingDeadlineSeconds: 600
+  startingDeadlineSeconds: 240
   suspend: {{ .Values.suspendCronjob | required ".Values.suspendCronjob is required" }}
 
   jobTemplate:
