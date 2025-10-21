@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+httpx = "==0.28.1"
+pandas = "==2.2.3"
+google-cloud-firestore = "==2.18.0"
+google-cloud-storage = "==2.18.0"
+pyarrow = "==18.1.0"
+
+[dev-packages]
+safety = "==3.6.2"
+ruff = "==0.13.2"
+black = "==25.9.0"
+mypy = "==1.18.2"
+pytest = "==8.4.2"
+pytest-cov = "==7.0.0"
+
+[requires]
+python_version = "3.13"
