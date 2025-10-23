@@ -4,7 +4,6 @@ Logging utilities.
 
 import logging
 import traceback
-import warnings
 
 from lib import environment
 
@@ -33,12 +32,6 @@ except KeyError:
 
 
 logging.basicConfig(encoding="utf-8", level=log_level, format=log_fmt)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 logger = logging.getLogger("spire-raw-batch")
-
-
-# capture and redirect warnings from the `warn` pkg to our logger
-def log_warn(message, category, filename, lineno, file=None, line=None):
-    logger.warning(message)
-
-
-warnings.showwarning = log_warn
