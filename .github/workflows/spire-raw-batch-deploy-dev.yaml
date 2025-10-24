@@ -63,4 +63,4 @@ jobs:
           FIRESTORE_STATE_DOC_ID: spire-raw-batch
           GCS_BUCKET_NAME: contrails-301217-spire-raw-batch-dev
           LOG_LEVEL: INFO
-          SUSPEND_CRONJOB: false
+          SUSPEND_CRONJOB: true
