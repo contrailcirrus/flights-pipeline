@@ -39,7 +39,7 @@ class GCSClient:
 
         # Convert DataFrame to parquet bytes
         buffer = io.BytesIO()
-        df.to_parquet(buffer, engine="pyarrow", index=False)
+        df.to_parquet(buffer, engine="pyarrow", index=False, compression="gzip")
         buffer.seek(0)
 
         # Upload to GCS
