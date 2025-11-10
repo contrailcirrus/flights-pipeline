@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: spire-raw-batch-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 240
+  suspend: {{ .Values.suspendCronjob | required ".Values.suspendCronjob is required" }}
+
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: flights-pipeline-default-sa
+          terminationGracePeriodSeconds: 60
+          containers:
+            - name: main
+              image: {{ .Values.image | required ".Values.image is required" | quote }}
+              env:
+                - name: FIRESTORE_STATE_DB
+                  value: {{ .Values.firestoreStateDb | required ".Values.firestoreStateDb is required" | quote }}
+                - name: FIRESTORE_STATE_COLLECTION
+                  value: {{ .Values.firestoreStateCollection | required ".Values.firestoreStateCollection is required" | quote }}
+                - name: FIRESTORE_STATE_DOC_ID
+                  value: {{ .Values.firestoreStateDocId | required ".Values.firestoreStateDocId is required" | quote }}
+                - name: GCS_BUCKET_NAME
+                  value: {{ .Values.gcsBucketName | required ".Values.gcsBucketName is required" | quote }}
+                - name: LOG_LEVEL
+                  value: {{ .Values.logLevel | required ".Values.logLevel is required" | quote }}
+                - name: SPIRE_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: spire-airsafe-api-secret
+                      key: API_TOKEN
+              resources:
+                requests:
+                  cpu: "3"
+                  memory: "24Gi"
+                limits:
+                  cpu: "3"
+                  memory: "24Gi"
+

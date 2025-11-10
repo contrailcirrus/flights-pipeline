@@ -1,0 +1,66 @@
+name: spire-raw-batch-deploy-dev
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - spire-raw-batch/**
+      - .github/workflows/spire-raw-batch-deploy-dev.yaml
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up GCP auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up gcloud plugins
+        run: gcloud components install gke-gcloud-auth-plugin
+
+      - name: Authorize kubectl CLI
+        run: gcloud container clusters get-credentials contrails-gke-general --region us-east1
+
+      - name: Authorize docker CLI
+        run: gcloud auth configure-docker us-east1-docker.pkg.dev
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: spire-raw-batch/
+          push: true
+          tags: |
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-dev:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-dev:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy helm resources
+        working-directory: spire-raw-batch/helm
+        run: make deploy
+        env:
+          NAMESPACE: flights-pipeline-dev
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/spire-raw-batch-dev:${{ github.sha }}
+          FIRESTORE_STATE_DB: flights-pipeline-dev
+          FIRESTORE_STATE_COLLECTION: state
+          FIRESTORE_STATE_DOC_ID: spire-raw-batch
+          GCS_BUCKET_NAME: contrails-301217-spire-raw-batch-dev
+          LOG_LEVEL: INFO
+          SUSPEND_CRONJOB: true
