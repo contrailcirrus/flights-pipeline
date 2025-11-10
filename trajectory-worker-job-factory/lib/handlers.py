@@ -434,7 +434,7 @@ class CloudStorageHandler:
             airline iata designator for which to fetch ads-b
         prune
             if true, 12 hours will be pruned from the left-hand-side of the first day in the list,
-            and 7 hours will be prune from the right-hand-side of the last day in the list.
+            and 7 hours will be pruned from the right-hand-side of the last day in the list.
         """
 
         if len(days) < 2 and prune:
