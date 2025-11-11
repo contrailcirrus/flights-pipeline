@@ -2,23 +2,28 @@
 Application handlers.
 """
 
+import io
+
+import asyncio
 import concurrent.futures
+import google.api_core.exceptions
+import google.api_core.retry
+import google.auth
+import httpx
 import os
+import pandas as pd
+import redis
 import sys
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any, Callable
-
-import pandas as pd
-
-import google.api_core.exceptions
-import google.api_core.retry
-import google.auth
-import redis
 from google.cloud import pubsub_v1, bigquery, storage  # type: ignore
 from pycontrails import Flight
+from redis.backoff import ExponentialBackoff
+from redis.retry import Retry
+from typing import Any, Callable
 
+import lib.environment as env
 from lib.exceptions import (
     BadTrajectoryException,
 )
@@ -26,8 +31,6 @@ from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
 from lib.schemas import SpireWaypointPositional, AirlineDayFlightsProgressMarker
 from lib.utils import sigterm_manager
-from redis.backoff import ExponentialBackoff
-from redis.retry import Retry
 
 
 @dataclass(frozen=True)
@@ -411,6 +414,132 @@ class BigQueryHandler:
             return fp.read()
 
 
+class SpireApiHandler:
+    """
+    Handler for managing the fetch of ADS-B data from the Spire API endpoint of contrails.org
+    """
+
+    URI_BASE = "https://api.contrails.org/v1/adsb/telemetry"
+    API_CONCURRENCY = 4  # concurrency with which to fetch data from telemetry API
+
+    def fetch_airline_days(
+        self, days: list[str], airline_iata: str, prune: bool = False
+    ):
+        """
+        Fetch data from contrails.org Spire ADS-B API for specified days and airline.
+
+                Parameters
+        ----------
+        days
+            list of target days for flights; fmt "%Y-%m-%d"
+        airline_iata
+            airline iata designator for which to fetch ads-b
+        prune
+            if true, 12 hours will be pruned from the left-hand-side of the first day in the list,
+            and 7 hours will be pruned from the right-hand-side of the last day in the list.
+
+        Returns
+        -------
+        pd.Dataframe
+            telemetry data for the target airline and day
+        """
+
+        if len(days) < 2 and prune:
+            raise NotImplementedError(
+                "cannot prune when number of days provided is fewer than 3."
+            )
+
+        datetime_hourly_strs: list[str] = []
+        for day in days:
+            for hr in range(0, 24):
+                datetime_hourly_strs.append(f"{day}T{hr:02}")
+
+        if prune:
+            datetime_hourly_strs = datetime_hourly_strs[12:-7]
+
+        df = asyncio.run(
+            self.fetch_airline_uris(
+                datetime_hourly_strs,
+                airline_iata,
+                concurrency=self.API_CONCURRENCY,
+            )
+        )
+
+        return df
+
+    @classmethod
+    async def _fetch_airline_telemetry(
+        cls,
+        semaphore: asyncio.locks.Semaphore,
+        time: str,
+        airline_iata: str,
+    ) -> pd.DataFrame:
+        """
+        Call the provided uri, subset for the target airline,
+        and return content as pandas dataframe.
+
+        Parameters
+        ----------
+        semaphore
+            a semaphore object for rate limiting async
+
+        times
+            list of target times. fmt: "%Y-%m-%dT%H"
+
+        airline_iata
+            the airline iata code upon which to filter the response content
+
+        Returns
+        -------
+        pd.DataFrame
+            telemetry content for the given airline day
+        """
+
+        header = {"x-api-key": env.CONTRAILS_API_KEY}
+        params = {"date": time}
+
+        async with semaphore, httpx.AsyncClient() as client:
+            r = await client.get(
+                cls.URI_BASE,
+                params=params,
+                headers=header,
+                timeout=120,
+            )
+            r.raise_for_status()
+
+        # write out response content as parquet file
+        df = pd.read_parquet(io.BytesIO(r.content))
+        return df[df["airline_iata"] == airline_iata]
+
+    async def fetch_airline_uris(
+        self, times: list[str], airline_iata: str, concurrency: int
+    ):
+        """
+        Run the fetch_target_hour() function for each time in the times list.
+
+        Parameters
+        ----------
+        times
+            list of target times. fmt: "%Y-%m-%dT%H"
+
+        airline_iata
+            airline iata code upon which to filter results
+
+        concurrency
+            max concurrency for REST calls to API
+        """
+        sem_lock = asyncio.Semaphore(concurrency)
+
+        routines = [
+            self._fetch_airline_telemetry(sem_lock, datehour, airline_iata)
+            for datehour in times
+        ]
+        results: list[pd.DataFrame]
+        results = await asyncio.gather(*routines)
+        df_all = pd.concat(results)
+        return df_all
+
+
 class CloudStorageHandler:
     """
     Handler for managing the fetch of ADS-B data from the Spire raw Parquet file cache.
@@ -424,10 +553,12 @@ class CloudStorageHandler:
 
     def fetch_airline_days(
         self, days: list[str], airline_iata: str, prune: bool = False
-    ):
+    ) -> pd.DataFrame:
         """
         Fetch data from GCS for a given airline, over the specified days.
 
+        Parameters
+        ----------
         days
             list of target days for flights; fmt "%Y-%m-%d"
         airline_iata
@@ -435,6 +566,11 @@ class CloudStorageHandler:
         prune
             if true, 12 hours will be pruned from the left-hand-side of the first day in the list,
             and 7 hours will be pruned from the right-hand-side of the last day in the list.
+
+        Returns
+        -------
+        pd.Dataframe
+            telemetry data for the target airline and day
         """
 
         if len(days) < 2 and prune:
