@@ -718,6 +718,7 @@ class HealTrajectoryHandler:
         try:
             self._df = self._dataframe_convert_types(self._df)
             self._df.replace("nan", None, inplace=True)
+            self._df.replace("None", None, inplace=True)
         except KeyError as e:
             raise KeyError(
                 "flight trajectory dataframe is missing an expected column."
@@ -746,6 +747,11 @@ class HealTrajectoryHandler:
             if val:
                 keep_filter = self._df[col] == val
                 self._df = self._df[keep_filter]
+                drop_cnt = (~keep_filter).sum()
+                if drop_cnt:
+                    logger.info(
+                        f"dropping {drop_cnt} values not matching:{val} for field: {col}."
+                    )
 
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
         self._df.reset_index(drop=True, inplace=True)
