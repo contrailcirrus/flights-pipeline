@@ -13,5 +13,6 @@ TRAJECTORY_CHUNK_TOPIC_ID = os.environ[
 ]  # trajectory worker job queue
 REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PORT = int(os.environ["REDIS_PORT"])
+CONTRAILS_API_KEY = os.environ["CONTRAILS_API_KEY"]
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG")

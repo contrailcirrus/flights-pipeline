@@ -50,11 +50,16 @@ class TrajectoryBuilderSvcWrapper:
         """
         CLI entrypoint. Wraps TrajectoryWorkerBuilderSvc().run()
         """
+
+        # this field is missing when pulling data from the Spire parquet file cache
+        validation_traj_handler = ValidateTrajectoryHandler()
+        validation_traj_handler.SCHEMA.pop("ingestion_time")
+
         svc = TrajectoryBuilderSvc(
             cache_handler=None,
             bq_handler=BigQueryHandler(),
             gcs_handler=CloudStorageHandler(),
-            validate_traj_handler=ValidateTrajectoryHandler(),
+            validate_traj_handler=validation_traj_handler,
             heal_traj_handler=HealTrajectoryHandler(),
             resample_handler=ResampleHandler(),
             job_out_handler=PubSubPublishHandler(
@@ -126,6 +131,7 @@ flights_submit_parser.add_argument(
 flights_submit_parser.add_argument(
     "-t",
     "--full-traj",
+    action="store_true",
     help="write the per-segment values to BQ",
     dest="full_traj",
 )
