@@ -66,7 +66,7 @@ def create_legend(legend_items: list):
     return legend_table
 def create_warming_by_month_container(output_path: Path):
     """Assembles the 'Contrail warming by month' container."""
-    chart_path = output_path / "figs" / "warming_by_month.png"
+    chart_path = output_path / "figs" / "page6_warming_by_month.png"
     
     image_width = 16 * cm
     image_height = image_width * (3 / 10)
@@ -93,7 +93,7 @@ def create_warming_by_month_container(output_path: Path):
 
 def create_warming_per_flight_container(output_path: Path):
     """Assembles the 'Contrail Warming per Flight' container."""
-    chart_path = output_path / "figs" / "warming_per_flight.png"
+    chart_path = output_path / "figs" / "page6_warming_per_flight.png"
     
     image_width = 16 * cm
     image_height = image_width * (4 / 10)
@@ -121,7 +121,7 @@ def create_warming_per_flight_container(output_path: Path):
 
 def create_warming_by_departure_container(output_path: Path):
     """Assembles the 'Contrail warming by local departure time' container."""
-    chart_path = output_path / "figs" / "warming_by_departure.png"
+    chart_path = output_path / "figs" / "page6_warming_by_departure.png"
 
     image_width = 16 * cm
     image_height = image_width * (4 / 10)
