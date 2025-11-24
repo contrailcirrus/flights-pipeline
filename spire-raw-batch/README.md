@@ -42,7 +42,7 @@ Firestore document with timestamp look like:
 
 ### 3. GCS Bucket
 Dev GCS bucket: `contrails-301217-spire-raw-batch-dev`
-Prod GCS bucket: `contrails-301217-spire-raw-batch-prod`
+Prod GCS bucket: `contrails-301217-spire-raw-batch`
 
 ## How It Works
 
