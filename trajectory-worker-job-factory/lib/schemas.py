@@ -337,6 +337,7 @@ class MetSource(str, Enum):
 class TelemetrySource(str, Enum):
     BIG_QUERY = "bq"
     GOOGLE_CLOUD_STORAGE = "gcs"
+    CONTRAILS_API = "api"
 
 
 @dataclass

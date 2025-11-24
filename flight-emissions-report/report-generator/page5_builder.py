@@ -67,7 +67,7 @@ def create_observation_coverage_container(data: dict, output_path: Path):
     ])
 
     # Map section
-    map_image_path = output_path / "figs" / "flight_paths_map.png"
+    map_image_path = output_path / "figs" / "page5_flight_paths_map.png"
     if map_image_path.exists():
         map_image = Image(str(map_image_path), width=17 * cm, height=11 * cm)
         map_container = Table([[map_image]], style=container_table_style)
@@ -145,14 +145,17 @@ def create_case_study_container(output_path: Path):
     ])
 
     # Chart Image
-    chart_image_path = output_path / "figs" / "case_study_chart.png"
-    try:
-        image_width = 18 * cm
-        image_height = image_width * (3 / 14)
-        chart_image = Image(str(chart_image_path), width=image_width, height=image_height)
-        container_content.append([chart_image])
-    except Exception as e:
-        container_content.append([Paragraph(f"Could not load chart: {e}", body_style)])
+    chart_image_path = output_path / "figs" / "page5_case_study_chart.png"
+    if chart_image_path.exists():
+        try:
+            image_width = 18 * cm
+            image_height = image_width * (3 / 14)
+            chart_image = Image(str(chart_image_path), width=image_width, height=image_height)
+            container_content.append([chart_image])
+        except Exception as e:
+            container_content.append([Paragraph(f"Could not load chart: {e}", body_style)])
+    else:
+        container_content.append([Paragraph("Case study data not available for this report.", body_style)])
 
     # Legend
     container_content.append([HALF_GRID_SPACER])

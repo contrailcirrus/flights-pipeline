@@ -57,3 +57,23 @@ The following environment variables are expected for production and development 
 | GCP_SVC_ACCT_KEY                       |                    JSON service account key for the flights-pipeline GCP service account                     |
 | N_JOBS                                 |      [NOT IMPLEMENTED]  max number of messages (flights) to dequeue and process per invocation of CoCiP      |
 
+## Audit: Skipped flight logs (log sink)
+
+This service emits WARNING/INFO logs containing the word "skipping" when a flight cannot be processed.
+These are exported to GCS via a Cloud Logging sink for audit.
+
+- Bucket (prod): [contrails-301217-fp-prod-trajectory-worker](https://console.cloud.google.com/storage/browser/contrails-301217-fp-prod-trajectory-worker)
+- Bucket (dev): [contrails-301217-fp-dev-trajectory-worker](https://console.cloud.google.com/storage/browser/contrails-301217-fp-dev-trajectory-worker)
+
+Filter (prod):
+```text
+resource.type="k8s_container"
+resource.labels.cluster_name="contrails-gke-general"
+resource.labels.namespace_name="flights-pipeline-prod"
+labels.k8s-pod/app="trajectory-worker-gaia"
+jsonPayload.textPayload =~ "skipping"
+```
+Notes:
+- Sinks write hourly batches; allow time for objects to appear
+- Logs should appear under the respective bucket after up to ~1 hour. Example: `contrails-301217-fp-prod-trajectory-worker/stderr/2025/09/04`.
+

@@ -1,3 +1,5 @@
+import os
+
 import secrets
 
 import dataclasses
@@ -497,8 +499,10 @@ class TrajectoryBuilderSvc:
                 logger.info(
                     f"writing waypoints to file for flight id {flight_info.flight_id}"
                 )
+                base_path = f"out/{flight_info.airline_iata}"
+                os.makedirs(base_path, exist_ok=True)
                 resampled_df.to_csv(
-                    f"{flight_info.airline_iata}_{flight_info.flight_id}.csv",
+                    f"{base_path}/{flight_info.flight_id}.csv",
                     index=False,
                 )
 
