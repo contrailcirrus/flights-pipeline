@@ -36,6 +36,110 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_ingest_api_scraper_p
   }
 }
 
+# 
+# spire-raw-batch
+# 
+
+resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_checkpoint_behind" {
+  display_name = "k8scronjob-spire-raw-batch-prod-checkpoint-behind"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Checkpoint behind warning"
+    condition_matched_log {
+      filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-prod"
+        labels.k8s-pod/job-name:"spire-raw-batch-cronjob-"
+        jsonPayload.textPayload:"Spire checkpoint behind"
+        severity=WARNING
+        EOF
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
+  ]
+
+  alert_strategy {
+    notification_rate_limit {
+      period = "86400s"
+    }
+    auto_close = "86400s"
+  }
+}
+
+resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_error_in_logs" {
+  display_name = "k8scronjob-spire-raw-batch-prod-error-in-logs"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Error in logs"
+    condition_matched_log {
+      filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-prod"
+        labels.k8s-pod/job-name:"spire-raw-batch-cronjob-"
+        severity>=ERROR
+        EOF
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
+  ]
+
+  alert_strategy {
+    notification_rate_limit {
+      period = "3600s"
+    }
+    auto_close = "86400s"
+  }
+}
+
+resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_dev_error_in_logs" {
+  display_name = "k8scronjob-spire-raw-batch-dev-error-in-logs"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Error in logs"
+    condition_matched_log {
+      filter = <<EOF
+        resource.type="k8s_container"
+        resource.labels.cluster_name="contrails-gke-general"
+        resource.labels.namespace_name="flights-pipeline-dev"
+        labels.k8s-pod/job-name:"spire-raw-batch-cronjob-"
+        severity>=ERROR
+        EOF
+    }
+  }
+
+  notification_channels = [
+    # Nick Masson: SMS
+    "projects/contrails-301217/notificationChannels/5296843968149494052",
+
+    # Mahesh Saripalli: SMS 
+    "projects/contrails-301217/notificationChannels/12238957771652159581",
+  ]
+
+  alert_strategy {
+    notification_rate_limit {
+      period = "3600s"
+    }
+    auto_close = "86400s"
+  }
+}
+
 resource "google_monitoring_alert_policy" "k8scronjob_spire_ingest_api_scraper_prod_error_in_logs" {
   display_name = "k8scronjob-spire-ingest-api-scraper-prod-error-in-logs"
   combiner     = "OR"

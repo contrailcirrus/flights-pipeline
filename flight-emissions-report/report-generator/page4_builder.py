@@ -42,7 +42,7 @@ def create_top_flights_container(data: dict, output_path: Path):
     """
     Creates the top flights chart container.
     """
-    chart_path = output_path / "figs" / "top_flights_chart.png"
+    chart_path = output_path / "figs" / "page4_top_flights_chart.png"
 
     container_content = [
         [HALF_GRID_SPACER],

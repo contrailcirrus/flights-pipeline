@@ -54,9 +54,13 @@ def generate_figs(data: dict, output_path: Path, debug: bool = False):
             str(data_all_internal_fp), str(figs_dir / "page5_flight_paths_map.png")
         )
         csv_path = output_path / "data_case_study_0.csv"
-        if debug:
-            print("  -> Generating: page5_case_study_chart.png...")
-        create_case_study_chart(str(csv_path), str(figs_dir / "page5_case_study_chart.png"))
+        if csv_path.exists():
+            if debug:
+                print("  -> Generating: page5_case_study_chart.png...")
+            create_case_study_chart(str(csv_path), str(figs_dir / "page5_case_study_chart.png"))
+        else:
+            if debug:
+                print("  -> Skipping: page5_case_study_chart.png (case study CSV not found)")
 
     def generate_page6_charts():
         if debug:
