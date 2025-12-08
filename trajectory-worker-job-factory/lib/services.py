@@ -1,7 +1,5 @@
 import os
 
-import secrets
-
 import dataclasses
 import sys
 
@@ -49,11 +47,6 @@ class TrajectoryBuilderSvc:
     ICAO_ADDRESS_QUERY_FILENAME = (
         "lib/sql/bq_waypoints_flights_daily_by_icao_address.sql"
     )
-
-    # message ordering is not behaviorally necessary
-    # however, we retain ordered queues as a placeholder
-    # for possible reimplementation of batched flight processing
-    ORDERING_KEY_TEMPLATE = "flightsreport:{hash}"
 
     def __init__(
         self,
@@ -472,9 +465,9 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.set(records)
                 self._resample_handler.interpolate()
 
-                waypoints_resampled: list[SpireWaypointPositional] = (
-                    self._resample_handler.waypoints_resampled
-                )
+                waypoints_resampled: list[
+                    SpireWaypointPositional
+                ] = self._resample_handler.waypoints_resampled
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
@@ -536,9 +529,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(resampled_df)
-                violations: None | list[Exception] = (
-                    self._validate_traj_handler.evaluate()
-                )
+                violations: None | list[
+                    Exception
+                ] = self._validate_traj_handler.evaluate()
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
@@ -593,15 +586,10 @@ class TrajectoryBuilderSvc:
                     met_source=MetSource(twjd.met_source),
                     export_cocip_trajectory=twjd.full_traj,
                 )
-
-                ordering_key = self.ORDERING_KEY_TEMPLATE.format(
-                    hash=secrets.token_hex(36),
-                )
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
                         job.as_utf8_json(),
                         timeout_seconds=45,
-                        ordering_key=ordering_key,
                     )
                     self._job_out_handler.wait_for_publish(timeout_seconds=300)
                     if self._cache_handler and twjd.airline_iata:
