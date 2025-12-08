@@ -164,7 +164,7 @@ if __name__ == "__main__":
         if env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID:
             backup_job_publisher = PubSubPublishHandler(
                 env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID,
-                ordered_queue=True,
+                ordered_queue=False,
             )
         else:
             backup_job_publisher = None

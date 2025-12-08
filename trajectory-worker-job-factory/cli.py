@@ -64,6 +64,7 @@ class TrajectoryBuilderSvcWrapper:
             resample_handler=ResampleHandler(),
             job_out_handler=PubSubPublishHandler(
                 topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
+                ordered_queue=False,
             ),
         )
         print(f"🚀 Running flights for: {self._twjd}")
