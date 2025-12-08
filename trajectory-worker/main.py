@@ -51,9 +51,9 @@ def run(
             continue
 
         logger.info(
-            f"airline_iata: {job.flight_info.airline_iata}"
+            f"airline_iata: {job.flight_info.airline_iata} "
             f"flight_id: {job.flight_info.flight_id}. "
-            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
+            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp} "
             f"got job with {len(job.records)} records."
         )
 
