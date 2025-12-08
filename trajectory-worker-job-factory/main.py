@@ -85,7 +85,6 @@ if __name__ == "__main__":
         gcs_handler = CloudStorageHandler()
         output_job_handler = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
-            ordered_queue=True,
         )
         job_builder_svc = TrajectoryBuilderSvc(
             cache_handler=cache_handler,
