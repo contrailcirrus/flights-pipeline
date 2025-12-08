@@ -9,9 +9,9 @@ import os
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
 
 os.environ["TWJD_SUBSCRIPTION_ID"] = "foobar"
-os.environ["TRAJECTORY_CHUNK_TOPIC_ID"] = (
-    "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
-)
+os.environ[
+    "TRAJECTORY_CHUNK_TOPIC_ID"
+] = "projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk"
 os.environ["LOG_LEVEL"] = "INFO"
 
 from lib.handlers import (  # noqa:E402
@@ -64,7 +64,7 @@ class TrajectoryBuilderSvcWrapper:
             resample_handler=ResampleHandler(),
             job_out_handler=PubSubPublishHandler(
                 topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
-                ordered_queue=True,
+                ordered_queue=False,
             ),
         )
         print(f"🚀 Running flights for: {self._twjd}")

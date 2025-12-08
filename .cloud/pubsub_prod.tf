@@ -97,7 +97,7 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_gaia_chunk_ingress
   topic = google_pubsub_topic.prod_gaia_trajectory_chunk.id
 
   ack_deadline_seconds         = 60
-  enable_message_ordering      = true
+  enable_message_ordering      = false
   enable_exactly_once_delivery = true
   message_retention_duration = "302400s"  # 3.5 day
 
@@ -126,7 +126,7 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_gaia_chunk_backup_
   topic = google_pubsub_topic.prod_gaia_trajectory_chunk_backup.id
 
   ack_deadline_seconds         = 60
-  enable_message_ordering      = true
+  enable_message_ordering      = false
   enable_exactly_once_delivery = true
   message_retention_duration = "302400s"  # 3.5 day
 

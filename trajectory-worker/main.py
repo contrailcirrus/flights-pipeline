@@ -14,6 +14,8 @@ from lib.handlers import (
 from lib.log import format_traceback, logger
 from datetime import UTC, datetime
 
+SOURCE_ID = "flightsreport"
+
 
 def run(
     trajectory_cocip_bq_publisher: PubSubPublishHandler,
@@ -44,7 +46,6 @@ def run(
             backup_job_publisher.publish_async(
                 message.data,
                 timeout_seconds=45,
-                ordering_key=message.ordering_key,
             )
             backup_job_publisher.wait_for_publish(timeout_seconds=30)
             job_handler.ack(message)
@@ -107,7 +108,7 @@ def run(
             raise ValueError("traj worker job met source not recognized")
 
         output = schemas.CocipTrajectoryChunk.from_cocip_result(
-            source_id=message.ordering_key.split(":")[0],
+            source_id=SOURCE_ID,
             git_sha=env.GIT_SHA,
             input_chunk=job,
             zarr_uri=fq_zarr_uri,
@@ -131,7 +132,7 @@ def run(
         if job.export_cocip_trajectory:
             logger.debug("exporting per-segment cocip outputs to BQ.")
             seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
-                source_id=message.ordering_key.split(":")[0],
+                source_id=SOURCE_ID,
                 git_sha=env.GIT_SHA,
                 input_chunk=job,
                 zarr_uri=fq_zarr_uri,
@@ -164,7 +165,7 @@ if __name__ == "__main__":
         if env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID:
             backup_job_publisher = PubSubPublishHandler(
                 env.TRAJECTORY_CHUNK_BACKUP_TOPIC_ID,
-                ordered_queue=True,
+                ordered_queue=False,
             )
         else:
             backup_job_publisher = None
