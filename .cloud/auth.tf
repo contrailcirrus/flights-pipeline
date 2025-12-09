@@ -37,6 +37,7 @@ resource "google_project_iam_custom_role" "flights_pipeline_role" {
     "storage.multipartUploads.create",
     "storage.multipartUploads.listParts",
     "storage.objects.create",
+    "storage.objects.delete",
   ]
   project = "contrails-301217"
   role_id = "flights_pipeline"
