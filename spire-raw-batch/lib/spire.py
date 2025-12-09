@@ -103,7 +103,8 @@ class SpireAPIClient:
             except (httpx.HTTPError, httpx.RemoteProtocolError) as e:
                 error_type = type(e).__name__
                 logger.warning(
-                    f"Spire request/response failed ({error_type}): " + format_traceback()
+                    f"Spire request/response failed ({error_type}): "
+                    + format_traceback()
                 )
 
                 can_retry = retry_count < max_retry_count
