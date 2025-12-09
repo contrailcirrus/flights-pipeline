@@ -62,7 +62,8 @@ class SpireAPIClient:
     ) -> list[dict[str, Any]]:
         """Sends GET request to Spire API and parses "target" records from response.
 
-        Failed requests are retried up to 5 times with exponential backoff.
+        Failed requests are retried up to 3 times with exponential backoff.
+        Handles both request errors and response reading errors (e.g., RemoteProtocolError).
         """
         headers = {"Authorization": f"Bearer {self._api_token}"}
         start_at_fmt = start_at_utc.isoformat().replace("+00:00", "Z")
@@ -89,10 +90,21 @@ class SpireAPIClient:
                         timeout=180,
                     )
                 response.raise_for_status()
-                break
 
-            except httpx.HTTPError as e:
-                logger.warning("Spire request failed with error " + format_traceback())
+                target_records = []
+                for line in response.iter_lines():
+                    record = json.loads(line)
+                    target_record = record.get("target")
+                    if target_record is not None:
+                        target_records.append(target_record)
+
+                return target_records
+
+            except (httpx.HTTPError, httpx.RemoteProtocolError) as e:
+                error_type = type(e).__name__
+                logger.warning(
+                    f"Spire request/response failed ({error_type}): " + format_traceback()
+                )
 
                 can_retry = retry_count < max_retry_count
                 if can_retry:
@@ -103,18 +115,3 @@ class SpireAPIClient:
                 else:
                     logger.warning("Retry limit exceeded")
                     raise e
-
-        # Spire response is newline-delimited records where the first line contains
-        # "status" records containing metadata and subsequent lines contain "target"
-        # records containing flight data.
-        #
-        # Extract only the "target" records so all records returned contain the same
-        # structure with flight data, dropping the "status" records.
-        target_records = []
-        for line in response.iter_lines():
-            record = json.loads(line)
-            target_record = record.get("target")
-            if target_record is not None:
-                target_records.append(target_record)
-
-        return target_records
