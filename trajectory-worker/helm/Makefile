@@ -11,4 +11,3 @@ deploy:
 		--set era5SourcePath=$(ERA5_SOURCE_PATH) \
 		--set gitSha=$(GIT_SHA) \
 		--set trajectoryCocipBqTopicId=$(TRAJECTORY_COCIP_BQ_TOPIC_ID) \
-		--set nJobs=$(N_JOBS)

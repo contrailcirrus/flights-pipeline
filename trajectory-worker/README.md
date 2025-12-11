@@ -1,22 +1,23 @@
 # Trajectory Worker
 
 ## Overview
-A Kubernetes deployment that ingests a set of contiguous waypoints ("flight trajectory chunk")
-for a given flight-instance, and runs CoCip on that trajectory segment.
-The set of waypoints in each job contains one additional leading waypoint 
-(and by extension, one additional leading segment), which serves as a sacrificial segment for 
-running CoCip. 
+A Kubernetes deployment that ingests a single flight instance ("flight trajectory chunk")
+and runs CoCip on that trajectory.
 
 # Behavior
 There are two trajectory worker deployments.
-1) realtime - this deployment consumes small segments (~5min flight segments) published by the resample worker.
-These are exported to the BQ table under `source_id` of `spire`
-2) gaia - this deployment consumes full flight trajectories (one job is a full flight) published by 
-the flight emissions report cronjob (or manually)
-These are exported to the BQ table under `source_id` of `flightsreport`. Trajectory workers in the gaia deployment
-will also export per-segment cocip outputs under `source_id` of `flightsreport` full.  At present,
-the flight emissions cronjob does not compose jobs that compel per-seg outputs 
-(i.e all per-seg outputs are currently dispatched manually w/ the gaia cli).
+
+The primary deployment (`helm/trajectory-worker-gaia-deployment.yaml`) does the majority of the job processing.
+This deployment is provisioned with less memory, and configured with a horizontal autoscaler with greater max concurrency.
+
+The secondary deployment (`helm/trajectory-worker-gaia-backup-deployment.yaml`) handles the overflow from the primary deployment.
+A job will overflow from the primary deployment if a worker in the primary deployment fails to process a job 
+(under normal conditions, this is due to resource constraints).  The secondary deployment is provisioned with more
+memory to handle the small volume of resource intensive jobs.
+
+Coordination between the primary and secondary deployment is achieved via a PubSub topic/queue.
+The primary worker will, before conducting work on a job, check to see if the job had failed in a previous processing
+attempt by the primary worker. If so, it will forward the job to the secondary deployment's queue.
 
 
 ## Application Authentication
@@ -45,17 +46,15 @@ and that key is mounted to this instance on boot-up, and injected into the GCP C
 ## Environment Variables
 The following environment variables are expected for production and development environments.
 
-| name                                   |                                                 description                                                  |
-|:---------------------------------------|:------------------------------------------------------------------------------------------------------------:|
-| TRAJECTORY_CHUNK_SUBSCRIPTION_ID       |                  fully-qualified uri for the flights trajectory chunks pubsub subscription                   |
-| TRAJECTORY_CHUNK_BACKUP_TOPIC_ID       | fully-qualified uri for the backup topic; this is an escape value alternative to dead-lettering |
-| HRES_SOURCE_PATH                       |                    fully-qualified path in gcs for the hres zarr store used to run cocip                     |
-| ERA5_SOURCE_PATH                       |                    fully-qualified path in gcs for the era5 zarr store used to run cocip                     |
-| LOG_LEVEL                              |                                  log level for service in cloud environment                                  |
-| GIT_SHA                                |         git hash for the trajectory worker; injected into the big query outputs for lineage tracking         |
-| TRAJECTORY_COCIP_BQ_TOPIC_ID           |                  fully-qualified uri for trajectory chunk cocip outputs, flows to BigQuery                   |
-| GCP_SVC_ACCT_KEY                       |                    JSON service account key for the flights-pipeline GCP service account                     |
-| N_JOBS                                 |      [NOT IMPLEMENTED]  max number of messages (flights) to dequeue and process per invocation of CoCiP      |
+| name                                   |                                            description                                             |
+|:---------------------------------------|:--------------------------------------------------------------------------------------------------:|
+| TRAJECTORY_CHUNK_SUBSCRIPTION_ID       |   fully-qualified uri for the subscription from which the worker dequeues flight trajectory jobs   |
+| HRES_SOURCE_PATH                       |               fully-qualified path in gcs for the hres zarr store used to run cocip                |
+| ERA5_SOURCE_PATH                       |               fully-qualified path in gcs for the era5 zarr store used to run cocip                |
+| LOG_LEVEL                              |                             log level for service in cloud environment                             |
+| GIT_SHA                                |    git hash for the trajectory worker; injected into the big query outputs for lineage tracking    |
+| TRAJECTORY_COCIP_BQ_TOPIC_ID           |                fully-qualified uri for publishing cocip outputs, flows to BigQuery                 |
+| GCP_SVC_ACCT_KEY                       |               JSON service account key for the flights-pipeline GCP service account                |
 
 ## Audit: Skipped flight logs (log sink)
 
