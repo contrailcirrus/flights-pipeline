@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+import "lib/segment.proto";
+
+package lib;
+
+message Trajectory {
+    repeated lib.Segment segments = 1;
+}
