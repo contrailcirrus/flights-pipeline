@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package lib;
+
+message Segment {
+    bytes flight_id = 1;  // 16byte (128bit)
+    sint32 lon_start = 2;  // encoded as (lon * 20) -- 13bit space
+    sint32 lat_start = 3;  // encoded as (lat * 20) -- 12bit space
+    uint32 alt_ft_start = 4;  // encoded as (alt_ft / 16) -- 12bit space
+    sint32 lon_end = 5;
+    sint32 lat_end = 6;
+    uint32 alt_ft_end = 7;
+    uint32 sum_ef_mj = 8;
+}
