@@ -76,3 +76,22 @@ Notes:
 - Sinks write hourly batches; allow time for objects to appear
 - Logs should appear under the respective bucket after up to ~1 hour. Example: `contrails-301217-fp-prod-trajectory-worker/stderr/2025/09/04`.
 
+## Protobufs
+The trajectory worker (if optionally indicated to do so in a Job) will write protobuf blobs to google cloud storage.
+Those blobs contain per-segment trajectory values (including segment time evolution data), on a per-flight basis.
+
+Updating the data model of the protobuf requires first updating the `*.proto` definition _then_ 
+regenerate the Python code stubs, _then_ updating the source code to adapt to the updates reflected
+in the regenerated code stub.
+
+Furthermore, any external clients wishing to consume (deserialize) the proto files from GCS will
+need a code stub for the proto-file's data model (generated for the client's code language).
+
+The generation of code stubs from the `*.proto` file requires the CLI tool [protoc](https://protobuf.dev/downloads/).
+
+Running the following from the root of the `trajectory-worker` subdirectory will generate the protobuf module with message metaclasses,
+and place them in the `/lib` module.
+
+```bash
+protoc --python_out=. --proto_path=protos protos/lib/trajectory.proto protos/lib/segment.proto
+```
