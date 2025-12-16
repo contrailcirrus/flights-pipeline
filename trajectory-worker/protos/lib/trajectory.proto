@@ -5,5 +5,5 @@ import "lib/segment.proto";
 package lib;
 
 message Trajectory {
-    repeated lib.Segment segments = 1;
+    repeated lib.Segment path = 1;
 }

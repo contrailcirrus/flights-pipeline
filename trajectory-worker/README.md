@@ -95,3 +95,6 @@ and place them in the `/lib` module.
 ```bash
 protoc -I/usr/local/include --python_out=. --proto_path=protos protos/lib/trajectory.proto protos/lib/segment.proto
 ```
+
+Note that you must have proto files for common types on your local machine, at the `/usr/local/include` location,
+as per the `protoc` installation instructions.
