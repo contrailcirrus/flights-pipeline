@@ -93,5 +93,5 @@ Running the following from the root of the `trajectory-worker` subdirectory will
 and place them in the `/lib` module.
 
 ```bash
-protoc --python_out=. --proto_path=protos protos/lib/trajectory.proto protos/lib/segment.proto
+protoc -I/usr/local/include --python_out=. --proto_path=protos protos/lib/trajectory.proto protos/lib/segment.proto
 ```
