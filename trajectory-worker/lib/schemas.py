@@ -1197,35 +1197,44 @@ class CocipTrajectoryProto:
         df_all["sum_ef_mj"] = df_all["ef"] / 10**6
         df_all = df_all.drop(columns=["ef"])
 
-        # append positional information for last waypoint, so we can create segments for each row
+        # append positional information for second to last waypoint
+        # (that included in the open-bounded range of the last resampling interval)
+        # so we can create segments for each row
         last_waypoint = pd.DataFrame(
             [[np.nan] * len(df_all.columns)], columns=df_all.columns
         )
-        last_waypoint["latitude"] = df.iloc[-1]["latitude"]
-        last_waypoint["longitude"] = df.iloc[-1]["longitude"]
-        last_waypoint["altitude_ft"] = df.iloc[-1]["altitude_ft"]
+        last_waypoint["latitude"] = df.iloc[-2]["latitude"]
+        last_waypoint["longitude"] = df.iloc[-2]["longitude"]
+        last_waypoint["altitude_ft"] = df.iloc[-2]["altitude_ft"]
         df_all = pd.concat([df_all, last_waypoint], ignore_index=True)
         return df_all
 
     @classmethod
     def from_cocip_result(
-        cls, input_chunk: WaypointsRecord, result_df: pd.DataFrame
+        cls, input_chunk: WaypointsRecord, result: pycontrails.core.Flight
     ) -> traj_pb.Trajectory:
         """Build a trajectory protobuf object from a cocip result."""
+        df = cls._resample_cocip_result(result)
+
         traj = traj_pb.Trajectory()
         traj.flight_id = input_chunk.flight_info.flight_id
 
-        for seg_ix in range(0, len(result_df) - 1):
+        for seg_ix in range(0, len(df) - 1):
             # segments are forward looking in the dataframe
             # the table has N_waypoints
             # thus N_segs = N_waypoints - 1 and the last seg spans [-2:]
-            # ds = result_df.iloc[seg_ix, :]
-            # ds_next = result_df.iloc[seg_ix + 1, :]
+            ds = df.iloc[seg_ix, :]
+            ds_next = df.iloc[seg_ix + 1, :]
 
-            seg = traj.segments.add()
-            seg.lon_start = 123
-            seg.lat_start = 123
-            seg.alt_ft_start = 111112
-            seg.lon_end = 234
-            seg.lon_end = 234
-            seg.alt_ft_end = 1232
+            seg = traj.path.add()
+            seg.time_start = ds["time"]
+            seg.lon_start = int(ds["longitude"] / 20)
+            seg.lat_start = int(ds["latitude"] / 20)
+            seg.alt_ft_start = int(ds["altitude_ft"] / 16)
+            seg.duration_start_to_end = ds_next["time"] - ds["time"]
+            seg.lon_end = int(ds_next["longitude"] / 20)
+            seg.lat_end = int(ds_next["latitude"] / 20)
+            seg.alt_ft_end = int(ds_next["altitude_ft"] / 16)
+            seg.sum_ef_mj = int(ds["sum_ef_mj"] / 100)
+
+        return traj
