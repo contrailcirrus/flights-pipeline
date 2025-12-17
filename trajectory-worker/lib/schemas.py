@@ -13,6 +13,7 @@ import pytz
 from timezonefinder import TimezoneFinder
 from astral import LocationInfo
 from astral.sun import sun
+from google.protobuf import json_format
 
 import numpy as np
 import pycontrails.core
@@ -1072,6 +1073,7 @@ class CocipTrajectoryChunk:
         return json_out
 
 
+@dataclass
 class CocipTrajectoryProto:
     """
     Object that encapsulates data transfer methods for a cocip trajectory protobuf object.
@@ -1082,10 +1084,14 @@ class CocipTrajectoryProto:
     Cocip model outputs are downsampled (as documented below), and compressed (as documented below).
     """
 
-    RESAMPLE_FREQUENCY = "10min"  # frequency indicator recognized by pandas resample
+    trajectory: traj_pb.Trajectory
 
     @classmethod
-    def _get_traj_contrail_freq_ix(cls, df: pd.DataFrame) -> pd.core.indexes.base.Index:
+    def _get_traj_contrail_freq_ix(
+        cls,
+        df: pd.DataFrame,
+        freq: str = "10min",
+    ) -> pd.core.indexes.base.Index:
         """
         Get indexes for a freq resample of df.
         Given a dataframe with the per-segment cocip outputs,
@@ -1095,6 +1101,8 @@ class CocipTrajectoryProto:
         ----------
         df
             dataframe from result.dataframe where result is an output of a cocip model() run
+        freq
+            frequency indicator for resampling; must be a string value recognized by pandas resample
 
         Returns
         -------
@@ -1103,7 +1111,7 @@ class CocipTrajectoryProto:
         """
         df_tmp = df[["waypoint", "time"]]
         df_tmp.set_index("time", inplace=True)
-        df_tmp_resample = df_tmp.resample(cls.RESAMPLE_FREQUENCY).first()
+        df_tmp_resample = df_tmp.resample(freq).first()
         df_tmp_resample = df_tmp_resample.set_index("waypoint")
         df_tmp_resample.index.name = None
         resample_index = df_tmp_resample.index
@@ -1188,7 +1196,7 @@ class CocipTrajectoryProto:
         ]
 
         df_first = df[first_fields]
-        df_first = df.groupby(bin_ranges, observed=False).first()
+        df_first = df_first.groupby(bin_ranges, observed=False).first()
         df_sum = df[sum_fields]
         df_sum = df_sum.groupby(bin_ranges, observed=False).sum()
         df_all = pd.merge([df_sum, df_first])
@@ -1212,8 +1220,22 @@ class CocipTrajectoryProto:
     @classmethod
     def from_cocip_result(
         cls, input_chunk: WaypointsRecord, result: pycontrails.core.Flight
-    ) -> traj_pb.Trajectory:
-        """Build a trajectory protobuf object from a cocip result."""
+    ):
+        """
+        Build a trajectory protobuf object from a cocip result.
+
+        Parameters
+        ----------
+        input_chunk
+            the flight trajectory and flight metadata
+        result
+            the pycontrails Flight model output from running CoCiP
+
+        Returns
+        -------
+        CocipTrajectoryProto
+            an instance of this dataclass, with a protobuf trajectory built from the inputs
+        """
         df = cls._resample_cocip_result(result)
 
         traj = traj_pb.Trajectory()
@@ -1237,4 +1259,17 @@ class CocipTrajectoryProto:
             seg.alt_ft_end = int(ds_next["altitude_ft"] / 16)
             seg.sum_ef_mj = int(ds["sum_ef_mj"] / 100)
 
-        return traj
+        return CocipTrajectoryProto(trajectory=traj)
+
+    def to_bytes(self) -> bytes:
+        """Serialize the protobuf trajectory belonging to an instance of this class."""
+        return self.trajectory.SerializeToString()
+
+    @classmethod
+    def from_bytes(cls, trajectory: bytes):
+        """Decode a protobuf trajectory into an object of this class."""
+        return CocipTrajectoryProto(trajectory=traj_pb.ParseFromString(trajectory))
+
+    def as_dict(self) -> dict:
+        """Convert the protobuf trajectory in an instance of this class to a python dict."""
+        return json_format.MessageToDict(self.trajectory)
