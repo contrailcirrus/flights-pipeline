@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import TypedDict
 from uuid import UUID
+
+import pandas as pd
 import pytz
 from timezonefinder import TimezoneFinder
 from astral import LocationInfo
@@ -16,6 +18,7 @@ import numpy as np
 import pycontrails.core
 
 from lib.log import logger
+from lib import trajectory_pb2 as traj_pb
 
 tf = TimezoneFinder()
 
@@ -1067,3 +1070,162 @@ class CocipTrajectoryChunk:
             logger.warning(f"could not JSON serialize output: {blob}")
             raise Exception from e
         return json_out
+
+
+class CocipTrajectoryProto:
+    """
+    Object that encapsulates data transfer methods for a cocip trajectory protobuf object.
+
+    The trajectory proto object includes both per-segment summary values and per-segment
+    contrail evolution values.
+
+    Cocip model outputs are downsampled (as documented below), and compressed (as documented below).
+    """
+
+    RESAMPLE_FREQUENCY = "10min"  # frequency indicator recognized by pandas resample
+
+    @classmethod
+    def _get_traj_contrail_freq_ix(cls, df: pd.DataFrame) -> pd.core.indexes.base.Index:
+        """
+        Get indexes for a freq resample of df.
+        Given a dataframe with the per-segment cocip outputs,
+        get the indexes at the fixed frequency resample.
+
+        Parameters
+        ----------
+        df
+            dataframe from result.dataframe where result is an output of a cocip model() run
+
+        Returns
+        -------
+        pd.core.indexes.base.Index
+            list of indexes of df that fall on a frequency interval
+        """
+        df_tmp = df[["waypoint", "time"]]
+        df_tmp.set_index("time", inplace=True)
+        df_tmp_resample = df_tmp.resample(cls.RESAMPLE_FREQUENCY).first()
+        df_tmp_resample = df_tmp_resample.set_index("waypoint")
+        df_tmp_resample.index.name = None
+        resample_index = df_tmp_resample.index
+        # add in rhs index to close upper bound
+        max_ix = df.index.max()
+        resample_index = resample_index.union(pd.Index([max_ix]))
+        return resample_index
+
+    @classmethod
+    def _get_traj_contrail_boundary_ix(
+        cls, df: pd.DataFrame
+    ) -> pd.core.indexes.base.Index:
+        """
+        Find indexes in df where contrails are formed.
+        Given a dataframe with the per-segment cocip model output,
+        find the boundaries where the `cocip` value is non-zero.
+
+        Parameters
+        ----------
+        df
+            dataframe from result.dataframe where result is an output of a cocip model() run
+
+        Returns
+        -------
+        pandas.core.indexes.base.Index
+            The list of pandas indexes matching start and ends of contrail segments.
+            Each row of df represents values for a forward-looking segment from geo-position ix -> ix+1.
+            The indexes returned here represent the first occurrence index
+            and last occurrence _slice_ index of a non-zero cocip value in
+            each continuous sequence of contrail segments.
+        """
+
+        contrail = df["cocip"] != 0
+        starts = (contrail == True) & (contrail.shift(1) == False)  # noqa:E712
+        ends = (contrail == True) & (contrail.shift(-1) == False)  # noqa:E712
+        starts_ix = (starts[starts == True]).index  # noqa:E712
+        ends_ix = (ends[ends == True]).index  # noqa:E712
+        ends_ix += (
+            1  # set index to slice (non-inclusive) index for right hand side of range
+        )
+        boundaries_ix = starts_ix.union(ends_ix)
+        boundaries_ix = boundaries_ix.drop_duplicates()
+        return boundaries_ix
+
+    @classmethod
+    def _resample_cocip_result(cls, result: pycontrails.core.Flight) -> pd.DataFrame:
+        """
+        Resample the per-segment cocip result.
+
+        Resamples to 10min fixed frequency, but preserves contrail start and stop boundaries.
+
+        Parameters
+        ----------
+        result
+            a pandas dataframe as returned from a pycontrails model.eval()
+
+        Returns
+        -------
+        pd.DataFrame
+            a pandas dataframe with resampled data.
+            fields included in the return dataframe encompass those itemized in the
+            `sum_fields` and `first_fields` lists below
+        """
+        df = result.dataframe
+        contrail_boundaries_ix = cls._get_traj_contrail_boundary_ix(df)
+        freq_boundaries_ix = cls._get_traj_contrail_freq_ix(df)
+        all_resample_boundaries = freq_boundaries_ix.union(contrail_boundaries_ix)
+
+        bin_ranges = pd.cut(
+            df.index, all_resample_boundaries, include_lowest=True, right=False
+        )
+        # fields of dataframe to resample with sum() method
+        sum_fields = ["ef"]
+
+        # fields of dataframe to resample with first() method
+        first_fields = [
+            "time",
+            "altitude_ft",
+            "longitude",
+            "latitude",
+            "waypoint",
+        ]
+
+        df_first = df[first_fields]
+        df_first = df.groupby(bin_ranges, observed=False).first()
+        df_sum = df[sum_fields]
+        df_sum = df_sum.groupby(bin_ranges, observed=False).sum()
+        df_all = pd.merge([df_sum, df_first])
+
+        # convert ef -> sum_ef_mj
+        df_all["sum_ef_mj"] = df_all["ef"] / 10**6
+        df_all = df_all.drop(columns=["ef"])
+
+        # append positional information for last waypoint, so we can create segments for each row
+        last_waypoint = pd.DataFrame(
+            [[np.nan] * len(df_all.columns)], columns=df_all.columns
+        )
+        last_waypoint["latitude"] = df.iloc[-1]["latitude"]
+        last_waypoint["longitude"] = df.iloc[-1]["longitude"]
+        last_waypoint["altitude_ft"] = df.iloc[-1]["altitude_ft"]
+        df_all = pd.concat([df_all, last_waypoint], ignore_index=True)
+        return df_all
+
+    @classmethod
+    def from_cocip_result(
+        cls, input_chunk: WaypointsRecord, result_df: pd.DataFrame
+    ) -> traj_pb.Trajectory:
+        """Build a trajectory protobuf object from a cocip result."""
+        traj = traj_pb.Trajectory()
+        traj.flight_id = input_chunk.flight_info.flight_id
+
+        for seg_ix in range(0, len(result_df) - 1):
+            # segments are forward looking in the dataframe
+            # the table has N_waypoints
+            # thus N_segs = N_waypoints - 1 and the last seg spans [-2:]
+            # ds = result_df.iloc[seg_ix, :]
+            # ds_next = result_df.iloc[seg_ix + 1, :]
+
+            seg = traj.segments.add()
+            seg.lon_start = 123
+            seg.lat_start = 123
+            seg.alt_ft_start = 111112
+            seg.lon_end = 234
+            seg.lon_end = 234
+            seg.alt_ft_end = 1232
