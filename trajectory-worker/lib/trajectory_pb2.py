@@ -22,7 +22,7 @@ from lib import segment_pb2 as lib_dot_segment__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x14lib/trajectory.proto\x12\x03lib\x1a\x11lib/segment.proto";\n\nTrajectory\x12\x11\n\tflight_id\x18\x01 \x01(\x0c\x12\x1a\n\x04path\x18\x02 \x03(\x0b\x32\x0c.lib.Segmentb\x06proto3'
+    b'\n\x14lib/trajectory.proto\x12\x03lib\x1a\x11lib/segment.proto";\n\nTrajectory\x12\x11\n\tflight_id\x18\x01 \x01(\t\x12\x1a\n\x04path\x18\x02 \x03(\x0b\x32\x0c.lib.Segmentb\x06proto3'
 )
 
 _globals = globals()

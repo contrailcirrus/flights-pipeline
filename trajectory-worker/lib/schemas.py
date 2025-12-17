@@ -1199,7 +1199,7 @@ class CocipTrajectoryProto:
         df_first = df_first.groupby(bin_ranges, observed=False).first()
         df_sum = df[sum_fields]
         df_sum = df_sum.groupby(bin_ranges, observed=False).sum()
-        df_all = pd.merge([df_sum, df_first])
+        df_all = pd.merge(df_sum, df_first, left_index=True, right_index=True)
 
         # convert ef -> sum_ef_mj
         df_all["sum_ef_mj"] = df_all["ef"] / 10**6
@@ -1211,6 +1211,7 @@ class CocipTrajectoryProto:
         last_waypoint = pd.DataFrame(
             [[np.nan] * len(df_all.columns)], columns=df_all.columns
         )
+        last_waypoint["time"] = df.iloc[-2]["time"]
         last_waypoint["latitude"] = df.iloc[-2]["latitude"]
         last_waypoint["longitude"] = df.iloc[-2]["longitude"]
         last_waypoint["altitude_ft"] = df.iloc[-2]["altitude_ft"]
@@ -1250,12 +1251,12 @@ class CocipTrajectoryProto:
 
             seg = traj.path.add()
             seg.time_start = ds["time"]
-            seg.lon_start = int(ds["longitude"] / 20)
-            seg.lat_start = int(ds["latitude"] / 20)
+            seg.lon_start = int(ds["longitude"] * 20)
+            seg.lat_start = int(ds["latitude"] * 20)
             seg.alt_ft_start = int(ds["altitude_ft"] / 16)
             seg.duration_start_to_end = ds_next["time"] - ds["time"]
-            seg.lon_end = int(ds_next["longitude"] / 20)
-            seg.lat_end = int(ds_next["latitude"] / 20)
+            seg.lon_end = int(ds_next["longitude"] * 20)
+            seg.lat_end = int(ds_next["latitude"] * 20)
             seg.alt_ft_end = int(ds_next["altitude_ft"] / 16)
             seg.sum_ef_mj = int(ds["sum_ef_mj"] / 100)
 
@@ -1266,9 +1267,11 @@ class CocipTrajectoryProto:
         return self.trajectory.SerializeToString()
 
     @classmethod
-    def from_bytes(cls, trajectory: bytes):
+    def from_bytes(cls, traj_bytes: bytes):
         """Decode a protobuf trajectory into an object of this class."""
-        return CocipTrajectoryProto(trajectory=traj_pb.ParseFromString(trajectory))
+        trajectory = traj_pb.Trajectory()
+        trajectory.ParseFromString(traj_bytes)
+        return CocipTrajectoryProto(trajectory=trajectory)
 
     def as_dict(self) -> dict:
         """Convert the protobuf trajectory in an instance of this class to a python dict."""
