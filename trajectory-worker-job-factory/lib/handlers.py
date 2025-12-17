@@ -753,7 +753,34 @@ class HealTrajectoryHandler:
                         f"dropping {drop_cnt} values not matching:{val} for field: {col}."
                     )
 
+        # --------------
+        # Drop data points where computed ground speed is too slow or too fast, as
+        # defined in the pycontrails ValidateTrajectoryHandler. The "too slow" case is
+        # often taxiing. The "too fast" case is often caused by small misalignments
+        # between receiver timestamps.
+        # --------------
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+
+        # add columns needed for the Flight class
+        self._df["time"] = self._df["timestamp"]
+        self._df["altitude"] = None  # dummy, not used in ground speed calculation
+
+        if self._df["time"].duplicated().sum():
+            self._df.drop_duplicates(["time"], inplace=True)
+
+        self._df["ground_speed_m_s"] = Flight(self._df).segment_groundspeed()
+        # Min and max speeds are defined in the pycontrails ValidateTrajectoryHandler.
+        # The `shift()` method is used to drop data points on both sides of a bad speed.
+        self._df = self._df[
+            self._df["ground_speed_m_s"].between(45, 350, inclusive="neither")
+            & self._df["ground_speed_m_s"]
+            .shift(1)
+            .between(45, 350, inclusive="neither")
+        ]
+
+        # remove columns added at this healing step
+        self._df.drop(columns=["time", "altitude", "ground_speed_m_s"], inplace=True)
+
         self._df.reset_index(drop=True, inplace=True)
         if len(self._df) == 0:
             raise BadTrajectoryException("flight trajectory is empty.")
