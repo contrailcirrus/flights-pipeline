@@ -629,6 +629,7 @@ class HealTrajectoryHandler:
         self._df: pd.DataFrame | None = None
         self._min_speed_m_s = min_speed_m_s
         self._max_speed_m_s = max_speed_m_s
+        self._max_speed_filter_iterations = 5
 
     def set(self, trajectory: pd.DataFrame):
         """
@@ -708,6 +709,29 @@ class HealTrajectoryHandler:
         }
         return df.astype(cols)
 
+    @staticmethod
+    def _filter_speeds(
+        df: pd.DataFrame, min_speed_m_s: float, max_speed_m_s: float
+    ) -> pd.DataFrame:
+        """
+        Filter data points to keep only those with speeds between the allowed min and
+        max. Expects the "timestamp" column of the input df to be sorted and unique.
+        """
+        # create a new df for computing ground speed
+        speed_df = df[["timestamp", "latitude", "longitude"]]
+        speed_df.rename(columns={"timestamp": "time"}, inplace=True)
+        speed_df["altitude"] = None  # dummy, not used in ground speed calculation
+        speed_df["ground_speed_m_s"] = Flight(speed_df).segment_groundspeed()
+
+        # The `shift()` method is used to offset the "ground_speed_m_s" column by 1,
+        # so data points on both sides of an invalid speed are dropped.
+        valid_speed_idx = speed_df["ground_speed_m_s"].between(
+            min_speed_m_s, max_speed_m_s, inclusive="neither"
+        ) & speed_df["ground_speed_m_s"].shift(1).between(
+            min_speed_m_s, max_speed_m_s, inclusive="neither"
+        )
+        return df[valid_speed_idx]
+
     def heal(self) -> pd.DataFrame:
         """
         Manipulate trajectories with qaqc heuristics.
@@ -763,21 +787,20 @@ class HealTrajectoryHandler:
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
         self._df.drop_duplicates(["timestamp"], inplace=True)
 
-        # create a separate df for computing ground speed
-        speed_df = self._df[["timestamp", "latitude", "longitude"]]
-        speed_df.rename(columns={"timestamp": "time"}, inplace=True)
-        speed_df["altitude"] = None  # dummy, not used in ground speed calculation
-
-        # Filter data points to keep only those with speeds between the allowed min and
-        # max. The `shift()` method is used to drop data points on both sides of a bad
-        # speed.
-        speed_df["ground_speed_m_s"] = Flight(speed_df).segment_groundspeed()
-        valid_speed_idx = speed_df["ground_speed_m_s"].between(
-            self._min_speed_m_s, self._max_speed_m_s, inclusive="neither"
-        ) & speed_df["ground_speed_m_s"].shift(1).between(
-            self._min_speed_m_s, self._max_speed_m_s, inclusive="neither"
-        )
-        self._df = self._df[valid_speed_idx]
+        # Iteratively apply the speed filter, to cover cases where (for example) two
+        # points with invalid speeds have a third point between them. The middle point
+        # would not be dropped in a single iteration, but may be dropped in a second
+        # one.
+        iterations = self._max_speed_filter_iterations
+        while iterations:
+            prev_len = len(self._df)
+            self._df = self._filter_speeds(
+                self._df, self._min_speed_m_s, self._max_speed_m_s
+            )
+            # stop filtering once no data points are dropped
+            if len(self._df) == prev_len:
+                break
+            iterations -= 1
 
         self._df.reset_index(drop=True, inplace=True)
         if len(self._df) == 0:
