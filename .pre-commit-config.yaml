@@ -10,6 +10,7 @@ repos:
       - jupyter
   - id: ruff
     name: ruff
+    exclude: ^.*pb2\.py
     language: python
     entry: ruff
     types_or:

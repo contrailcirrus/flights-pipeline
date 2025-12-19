@@ -2,6 +2,8 @@
 
 import sys
 
+import pandas as pd
+
 import lib.environment as env
 from lib import schemas
 from lib.exceptions import FlightTooLowError, AircraftTypeUnrecognizedError
@@ -13,8 +15,15 @@ from lib.handlers import (
 )
 from lib.log import format_traceback, logger
 from datetime import UTC, datetime
+from google.cloud import storage
 
 SOURCE_ID = "flightsreport"
+GCS_PARQUET_URI_TEMPLATE = (
+    "trajectory-worker/trajectory-pq/{start_datehour}/{airline_iata}/{flight_id}.pq"
+)
+
+gcs_client = storage.Client()
+gcs_bucket = gcs_client.bucket(env.GCS_BUCKET_NAME)
 
 
 def run(
@@ -52,9 +61,9 @@ def run(
             continue
 
         logger.info(
-            f"airline_iata: {job.flight_info.airline_iata}"
+            f"airline_iata: {job.flight_info.airline_iata} "
             f"flight_id: {job.flight_info.flight_id}. "
-            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
+            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp} "
             f"got job with {len(job.records)} records."
         )
 
@@ -126,10 +135,11 @@ def run(
             ),
         )
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
-        # ===================
-        # if enabled, publish all trajectory segments to BQ
-        # ===================
+
         if job.export_cocip_trajectory:
+            # ===================
+            # if enabled, publish all trajectory segments to BQ
+            # ===================
             logger.debug("exporting per-segment cocip outputs to BQ.")
             seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
                 source_id=SOURCE_ID,
@@ -149,6 +159,27 @@ def run(
                         time_start=output.time_start,
                     ),
                 )
+            del seg_outputs
+            # ===================
+            # if enabled, publish trajectory segments to protobuf in GCS
+            # ===================
+            traj_proto: schemas.CocipTrajectoryProto
+            traj_proto = schemas.CocipTrajectoryProto.from_cocip_result(
+                input_chunk=job,
+                result=cocip_result,
+            )
+            bytes_out = traj_proto.to_bytes()
+            first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
+            destination_uri = GCS_PARQUET_URI_TEMPLATE.format(
+                start_datehour=first_waypoint_ts.strftime("%Y%m%d%H"),
+                airline_iata=job.flight_info.airline_iata,
+                flight_id=job.flight_info.flight_id,
+            )
+            gcs_blob = gcs_bucket.blob(destination_uri)
+            gcs_blob.upload_from_string(
+                bytes_out, content_type="application/x-protobuf"
+            )
+
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
         job_handler.ack(message)
 
