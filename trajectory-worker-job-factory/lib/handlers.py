@@ -789,8 +789,8 @@ class HealTrajectoryHandler:
 
         # Iteratively apply the speed filter, to cover cases where (for example) two
         # points with invalid speeds have a third point between them. The middle point
-        # would not be dropped in a single iteration, but may be dropped in a second
-        # one.
+        # could have a valid speed in the first iteration, but then have an invalid
+        # speed in the second iteration, after its adjacent points are dropped.
         iterations = self._max_speed_filter_iterations
         while iterations:
             prev_len = len(self._df)
