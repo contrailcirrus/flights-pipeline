@@ -13,8 +13,12 @@ from lib.handlers import (
 )
 from lib.log import format_traceback, logger
 from datetime import UTC, datetime
+from google.cloud import storage
 
 SOURCE_ID = "flightsreport"
+
+gcs_client = storage.Client()
+gcs_bucket = gcs_client.bucket(env.GCS_BUCKET_NAME)
 
 
 def run(
@@ -126,10 +130,11 @@ def run(
             ),
         )
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
-        # ===================
-        # if enabled, publish all trajectory segments to BQ
-        # ===================
+
         if job.export_cocip_trajectory:
+            # ===================
+            # if enabled, publish all trajectory segments to BQ
+            # ===================
             logger.debug("exporting per-segment cocip outputs to BQ.")
             seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
                 source_id=SOURCE_ID,
@@ -149,6 +154,11 @@ def run(
                         time_start=output.time_start,
                     ),
                 )
+            del seg_outputs
+            # ===================
+            # if enabled, publish trajectory segments to protobuf in GCS
+            # ===================
+
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
         job_handler.ack(message)
 

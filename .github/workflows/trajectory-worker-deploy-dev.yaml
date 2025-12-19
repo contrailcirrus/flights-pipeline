@@ -80,4 +80,5 @@ jobs:
           ERA5_SOURCE_PATH: gs://contrails-301217-ecmwf-era5-zarr-v2
           GIT_SHA: ${{ github.sha }}
           TRAJECTORY_COCIP_BQ_TOPIC_ID: projects/contrails-301217/topics/dev-fp-trajectory-worker-cocip-egress-bigquery
+          GCS_BUCKET_NAME: contrails-301217-contrails-api-dev
           N_JOBS: 50  # not implemented
