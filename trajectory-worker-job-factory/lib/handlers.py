@@ -625,8 +625,10 @@ class HealTrajectoryHandler:
     and applies a ruleset to heal quality issues with trajectories.
     """
 
-    def __init__(self):
+    def __init__(self, min_speed_m_s, max_speed_m_s):
         self._df: pd.DataFrame | None = None
+        self._min_speed_m_s = min_speed_m_s
+        self._max_speed_m_s = max_speed_m_s
 
     def set(self, trajectory: pd.DataFrame):
         """
@@ -754,32 +756,28 @@ class HealTrajectoryHandler:
                     )
 
         # --------------
-        # Drop data points where computed ground speed is too slow or too fast, as
-        # defined in the pycontrails ValidateTrajectoryHandler. The "too slow" case is
-        # often taxiing. The "too fast" case is often caused by small misalignments
-        # between receiver timestamps.
+        # Drop data points where computed ground speed is too slow or too fast. The
+        # "too slow" case is often taxiing. The "too fast" case is often caused by
+        # small misalignments between receiver timestamps.
         # --------------
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+        self._df.drop_duplicates(["timestamp"], inplace=True)
 
-        # add columns needed for the Flight class
-        self._df["time"] = self._df["timestamp"]
-        self._df["altitude"] = None  # dummy, not used in ground speed calculation
+        # create a separate df for computing ground speed
+        speed_df = self._df[["timestamp", "latitude", "longitude"]]
+        speed_df.rename(columns={"timestamp": "time"}, inplace=True)
+        speed_df["altitude"] = None  # dummy, not used in ground speed calculation
 
-        if self._df["time"].duplicated().sum():
-            self._df.drop_duplicates(["time"], inplace=True)
-
-        self._df["ground_speed_m_s"] = Flight(self._df).segment_groundspeed()
-        # Min and max speeds are defined in the pycontrails ValidateTrajectoryHandler.
-        # The `shift()` method is used to drop data points on both sides of a bad speed.
-        self._df = self._df[
-            self._df["ground_speed_m_s"].between(45, 350, inclusive="neither")
-            & self._df["ground_speed_m_s"]
-            .shift(1)
-            .between(45, 350, inclusive="neither")
-        ]
-
-        # remove columns added at this healing step
-        self._df.drop(columns=["time", "altitude", "ground_speed_m_s"], inplace=True)
+        # Filter data points to keep only those with speeds between the allowed min and
+        # max. The `shift()` method is used to drop data points on both sides of a bad
+        # speed.
+        speed_df["ground_speed_m_s"] = Flight(speed_df).segment_groundspeed()
+        valid_speed_idx = speed_df["ground_speed_m_s"].between(
+            self._min_speed_m_s, self._max_speed_m_s, inclusive="neither"
+        ) & speed_df["ground_speed_m_s"].shift(1).between(
+            self._min_speed_m_s, self._max_speed_m_s, inclusive="neither"
+        )
+        self._df = self._df[valid_speed_idx]
 
         self._df.reset_index(drop=True, inplace=True)
         if len(self._df) == 0:
@@ -849,8 +847,7 @@ class ResampleHandler:
             lambda r: r.tz_localize(None)
         )
 
-        if df_records["time"].duplicated().sum():
-            df_records.drop_duplicates(["time"], inplace=True)
+        df_records.drop_duplicates(["time"], inplace=True)
 
         self._min_records_ts = df_records["time"].min()
         self._waypoints_df = df_records
