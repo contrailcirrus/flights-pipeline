@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from google.cloud import storage
 
 SOURCE_ID = "flightsreport"
+GCS_PARQUET_URI_TEMPLATE = "trajectory-worker/"
+
 
 gcs_client = storage.Client()
 gcs_bucket = gcs_client.bucket(env.GCS_BUCKET_NAME)
