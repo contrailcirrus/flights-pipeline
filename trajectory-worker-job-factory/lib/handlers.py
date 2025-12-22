@@ -625,8 +625,11 @@ class HealTrajectoryHandler:
     and applies a ruleset to heal quality issues with trajectories.
     """
 
-    def __init__(self):
+    def __init__(self, min_speed_m_s, max_speed_m_s):
         self._df: pd.DataFrame | None = None
+        self._min_speed_m_s = min_speed_m_s
+        self._max_speed_m_s = max_speed_m_s
+        self._max_speed_filter_iterations = 5
 
     def set(self, trajectory: pd.DataFrame):
         """
@@ -706,6 +709,29 @@ class HealTrajectoryHandler:
         }
         return df.astype(cols)
 
+    @staticmethod
+    def _filter_speeds(
+        df: pd.DataFrame, min_speed_m_s: float, max_speed_m_s: float
+    ) -> pd.DataFrame:
+        """
+        Filter data points to keep only those with speeds between the allowed min and
+        max. Expects the "timestamp" column of the input df to be sorted and unique.
+        """
+        # create a new df for computing ground speed
+        speed_df = df[["timestamp", "latitude", "longitude"]]
+        speed_df.rename(columns={"timestamp": "time"}, inplace=True)
+        speed_df["altitude"] = None  # dummy, not used in ground speed calculation
+        speed_df["ground_speed_m_s"] = Flight(speed_df).segment_groundspeed()
+
+        # The `shift()` method is used to offset the "ground_speed_m_s" column by 1,
+        # so data points on both sides of an invalid speed are dropped.
+        valid_speed_idx = speed_df["ground_speed_m_s"].between(
+            min_speed_m_s, max_speed_m_s, inclusive="neither"
+        ) & speed_df["ground_speed_m_s"].shift(1).between(
+            min_speed_m_s, max_speed_m_s, inclusive="neither"
+        )
+        return df[valid_speed_idx]
+
     def heal(self) -> pd.DataFrame:
         """
         Manipulate trajectories with qaqc heuristics.
@@ -753,7 +779,29 @@ class HealTrajectoryHandler:
                         f"dropping {drop_cnt} values not matching:{val} for field: {col}."
                     )
 
+        # --------------
+        # Drop data points where computed ground speed is too slow or too fast. The
+        # "too slow" case is often taxiing. The "too fast" case is often caused by
+        # small misalignments between receiver timestamps.
+        # --------------
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+        self._df.drop_duplicates(["timestamp"], inplace=True)
+
+        # Iteratively apply the speed filter, to cover cases where (for example) two
+        # points with invalid speeds have a third point between them. The middle point
+        # could have a valid speed in the first iteration, but then have an invalid
+        # speed in the second iteration, after its adjacent points are dropped.
+        iterations = self._max_speed_filter_iterations
+        while iterations:
+            prev_len = len(self._df)
+            self._df = self._filter_speeds(
+                self._df, self._min_speed_m_s, self._max_speed_m_s
+            )
+            # stop filtering once no data points are dropped
+            if len(self._df) == prev_len:
+                break
+            iterations -= 1
+
         self._df.reset_index(drop=True, inplace=True)
         if len(self._df) == 0:
             raise BadTrajectoryException("flight trajectory is empty.")
@@ -822,8 +870,7 @@ class ResampleHandler:
             lambda r: r.tz_localize(None)
         )
 
-        if df_records["time"].duplicated().sum():
-            df_records.drop_duplicates(["time"], inplace=True)
+        df_records.drop_duplicates(["time"], inplace=True)
 
         self._min_records_ts = df_records["time"].min()
         self._waypoints_df = df_records
