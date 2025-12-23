@@ -33,7 +33,7 @@ from lib.utils import sigterm_manager
 from google.cloud import bigquery
 import pandas as pd
 
-from lib.log import logger
+from lib.log import logger, format_traceback
 
 
 class TrajectoryBuilderSvc:
@@ -402,16 +402,16 @@ class TrajectoryBuilderSvc:
                 self._traj_heal_handler.set(waypoints)
                 waypoints = self._traj_heal_handler.heal()
                 self._traj_heal_handler.unset()
-            except BadTrajectoryException as e:
+            except BadTrajectoryException as _:
                 logger.warning(
                     f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
-                    f"skipping {flight_id}. failed to process in healing step: {e}"
+                    f"skipping {flight_id}. failed to process in healing step: {format_traceback()}"
                 )
                 continue
-            except Exception as e:
+            except Exception as _:
                 logger.error(
                     f"airline_iata: {twjd.airline_iata}. day: {twjd.day}. "
-                    f"skipping {flight_id}. failed to process in healing step: {e}"
+                    f"skipping {flight_id}. failed to process in healing step: {format_traceback()}"
                 )
                 continue
 
