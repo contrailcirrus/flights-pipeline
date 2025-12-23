@@ -77,11 +77,9 @@ if __name__ == "__main__":
             env.TWJD_SUBSCRIPTION_ID,
         )
         bq_handler = BigQueryHandler()
-        heal_traj_handler = (
-            HealTrajectoryHandler(
-                min_speed_m_s=ValidateTrajectoryHandler.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS,
-                max_speed_m_s=ValidateTrajectoryHandler.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS,
-            ),
+        heal_traj_handler = HealTrajectoryHandler(
+            min_speed_m_s=ValidateTrajectoryHandler.INSTANTANEOUS_LOW_GROUND_SPEED_THRESHOLD_MPS,
+            max_speed_m_s=ValidateTrajectoryHandler.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS,
         )
         validate_traj_handler = ValidateTrajectoryHandler()
         # this field is missing when pulling data from the Spire parquet file cache
