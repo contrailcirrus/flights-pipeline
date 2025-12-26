@@ -93,6 +93,7 @@ resource "google_logging_metric" "spire_raw_batch_prod_error_counter" {
 resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_error_in_logs" {
   display_name = "k8scronjob-spire-raw-batch-prod-error-in-logs"
   combiner     = "OR"
+  severity     = "ERROR"
 
   conditions {
     display_name = "Error in logs (5min window)"
@@ -143,6 +144,7 @@ resource "google_logging_metric" "spire_raw_batch_dev_error_counter" {
 resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_dev_error_in_logs" {
   display_name = "k8scronjob-spire-raw-batch-dev-error-in-logs"
   combiner     = "OR"
+  severity     = "ERROR"
 
   conditions {
     display_name = "Error in logs (5min window)"
