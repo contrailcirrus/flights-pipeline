@@ -74,20 +74,37 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_check
   }
 }
 
+resource "google_logging_metric" "spire_raw_batch_prod_error_counter" {
+  name = "spire-raw-batch-prod-error-counter"
+  filter = <<EOF
+    resource.type="k8s_container"
+    resource.labels.cluster_name="contrails-gke-general"
+    resource.labels.namespace_name="flights-pipeline-prod"
+    labels.k8s-pod/job-name:"spire-raw-batch-cronjob-"
+    severity>=ERROR
+    EOF
+
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+  }
+}
+
 resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_error_in_logs" {
   display_name = "k8scronjob-spire-raw-batch-prod-error-in-logs"
   combiner     = "OR"
 
   conditions {
-    display_name = "Error in logs"
-    condition_matched_log {
-      filter = <<EOF
-        resource.type="k8s_container"
-        resource.labels.cluster_name="contrails-gke-general"
-        resource.labels.namespace_name="flights-pipeline-prod"
-        labels.k8s-pod/job-name:"spire-raw-batch-cronjob-"
-        severity>=ERROR
+    display_name = "Error in logs (5min window)"
+    condition_monitoring_query_language {
+      query    = <<EOF
+        fetch k8s_container
+        | metric 'logging.googleapis.com/user/${google_logging_metric.spire_raw_batch_prod_error_counter.name}'
+        | group_by sliding(5m), aggregate(value.counter)
+        | every 1m
+        | condition val() > 0
         EOF
+      duration = "180s"
     }
   }
 
@@ -107,20 +124,37 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_error
   }
 }
 
+resource "google_logging_metric" "spire_raw_batch_dev_error_counter" {
+  name = "spire-raw-batch-dev-error-counter"
+  filter = <<EOF
+    resource.type="k8s_container"
+    resource.labels.cluster_name="contrails-gke-general"
+    resource.labels.namespace_name="flights-pipeline-dev"
+    labels.k8s-pod/job-name:"spire-raw-batch-cronjob-"
+    severity>=ERROR
+    EOF
+
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+  }
+}
+
 resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_dev_error_in_logs" {
   display_name = "k8scronjob-spire-raw-batch-dev-error-in-logs"
   combiner     = "OR"
 
   conditions {
-    display_name = "Error in logs"
-    condition_matched_log {
-      filter = <<EOF
-        resource.type="k8s_container"
-        resource.labels.cluster_name="contrails-gke-general"
-        resource.labels.namespace_name="flights-pipeline-dev"
-        labels.k8s-pod/job-name:"spire-raw-batch-cronjob-"
-        severity>=ERROR
+    display_name = "Error in logs (5min window)"
+    condition_monitoring_query_language {
+      query    = <<EOF
+        fetch k8s_container
+        | metric 'logging.googleapis.com/user/${google_logging_metric.spire_raw_batch_dev_error_counter.name}'
+        | group_by sliding(5m), aggregate(value.counter)
+        | every 1m
+        | condition val() > 0
         EOF
+      duration = "180s"
     }
   }
 
