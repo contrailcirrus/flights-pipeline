@@ -118,9 +118,6 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_error
   ]
 
   alert_strategy {
-    notification_rate_limit {
-      period = "3600s"
-    }
     auto_close = "86400s"
   }
 }
@@ -169,9 +166,6 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_dev_error_
   ]
 
   alert_strategy {
-    notification_rate_limit {
-      period = "3600s"
-    }
     auto_close = "86400s"
   }
 }
