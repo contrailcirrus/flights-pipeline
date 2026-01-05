@@ -1,5 +1,6 @@
 syntax = "proto3";
 
+import "lib/contrail.proto";
 import "lib/segment.proto";
 
 package lib;
@@ -7,4 +8,5 @@ package lib;
 message Trajectory {
     string flight_id = 1;
     repeated lib.Segment path = 2;
+    repeated lib.Contrail contrails = 3;
 }

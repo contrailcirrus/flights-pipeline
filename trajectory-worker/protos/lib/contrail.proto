@@ -2,13 +2,13 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
-import "lib/line.proto";
+import "lib/multiline.proto";
 
 package lib;
 
-message Segment {
+message Contrail {
     google.protobuf.Timestamp time_start = 1;
     google.protobuf.Duration duration_start_to_end = 2;
-    lib.Line geometry = 3;
+    lib.MultiLine geometry = 3;
     sint32 sum_ef_mj = 4;  // encoded as (sum_ef_mJ / 100) -- 1 unit ~= 0.3 kg CO2e GWP100
 }
