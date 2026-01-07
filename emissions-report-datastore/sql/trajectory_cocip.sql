@@ -1,18 +1,17 @@
 create table "trajectory-cocip"
 (
-    chunk_len_km            double precision,
-    lat_start               double precision,
-    lon_start               double precision,
-    lat_end                 double precision,
-    lon_end                 double precision,
+    chunk_len_km            smallint,
+    lat_start               real,
+    lon_start               real,
+    lat_end                 real,
+    lon_end                 real,
     time_start              timestamp,
     time_end                timestamp,
     sum_ef_mj               bigint,
-    total_fuel_burn_kg      bigint,
     aircraft_type_icao      text,
     engine_uid              text,
-    mean_aircraft_mass_kg   double precision,
-    mean_overall_efficiency double precision,
+    mean_aircraft_mass_kg   integer,
+    mean_overall_efficiency real,
     icao_address            text,
     flight_id               text not null
         constraint "trajectory-cocip_pk"
