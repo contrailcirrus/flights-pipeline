@@ -23,5 +23,17 @@ This table is 1:1 with `trajectory-cocip`, and holds additional attributes for a
 The source-of-truth for flight emissions data lives in BigQuery.
 Those data sync'ed to the postgres instance originate in the BigQuery `flights_pipeline_prod.trajectory_cocip_prod`.
 
+1. Export the BigQuery data into Parquet shards under the following URL pattern:
+   `gs://contrails-301217-sandbox-internal/flights-pipeline/emissions-export/<target_daterange>/<process_time>/*.pq`
+   - Where target_daterange is of format %Y(Q%N) where %Y is the full calendar year, and %N is the quarter. Q%N is
+     optional. Valid entries include e.g. 2025 or 2025Q2.
+   - Where process_time is the time at which the export was run. This is %Y%m%d, the date (utc) on which the export
+     command was run against BQ
+
+2. Ensure that the Postgres tables are defined as per `sql/trajectory_cocip.sql` and `sql/trajectory_cocip_meta.sql`.
+3. Run `gcs_to_psdb.py --date_ranges=<ranges>` to export the Parquet shards to Postgres If a different GCS bucket are 
+   directory prefix is used in (1) change the default values here as well.
+4. Update the materialized views. TODO add explanation!
+
 <TODO: TOOLING/INSTRUCTIONS FOR SYNC'ING>
 
