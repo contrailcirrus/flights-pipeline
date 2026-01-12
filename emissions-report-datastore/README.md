@@ -31,8 +31,17 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
      command was run against BQ
 
 2. Ensure that the Postgres tables are defined as per `sql/trajectory_cocip.sql` and `sql/trajectory_cocip_meta.sql`.
-3. Run `gcs_to_psdb.py --date_ranges=<ranges>` to export the Parquet shards to Postgres If a different GCS bucket are 
+3. Run `main.py --date_ranges=<ranges>` to export the Parquet shards to Postgres If a different GCS bucket are 
    directory prefix is used in (1) change the default values here as well.
+   - You can either run the util through a Cloud SQL Proxy or you can connect directly to a specific IP address:
+     ```
+     docker run --rm -it \
+      -e PSDB_CONTRAILS_DEFAULT_PWD="<password of read/write user>" \
+      -e DB_HOST="<Postgres DB IP address>" \
+      -e DB_PORT="5432" \
+      gcs-to-pgdb \
+      --date_ranges "<date range, e.g.: 2024,2025Q1>" --num_workers 10
+    ```
 4. Update the materialized views using `sql/trajectory_cocip_views.sql`.
 
 <TODO: TOOLING/INSTRUCTIONS FOR SYNC'ING>
