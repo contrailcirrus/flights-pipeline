@@ -1,6 +1,6 @@
 # Set python version
 # https://hub.docker.com/_/python
-ARG PYTHON_VERSION=3.12.2
+ARG PYTHON_VERSION=3.14.0
 
 # -----------------------------
 # Stage 1: Install dependencies
