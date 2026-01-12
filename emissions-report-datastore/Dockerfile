@@ -39,6 +39,5 @@ RUN apt-get update && apt-get install -y libpq-dev
 # Copy the application code
 WORKDIR /
 COPY main.py ./
-COPY environment.py ./
 
 CMD ["python3", "main.py"]

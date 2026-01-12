@@ -12,30 +12,25 @@ from sqlalchemy import URL, create_engine
 from tqdm import tqdm
 import psycopg2
 
-import environment as env
-
-
-def get_db_uri():
+def get_db_uri(db_host: str, port: int, db_socket_instance: str, password: str):
     """Prioritizes TCP (DB_HOST) if set, otherwise falls back to Cloud SQL Unix Sockets."""
+    assert db_host or db_socket_instance, "Either a host IP or a socket instance name need to be specified!"
+
     common_params = {
         "drivername": "postgresql+psycopg",
         "username": "internal_user_rw",
-        "password": env.PSDB_CONTRAILS_DEFAULT_PWD,
+        "password": password,
         "database": "flights-pipeline-fer-cache",
     }
 
-    if env.DB_HOST:
-        host = env.DB_HOST
-        port = int(env.DB_PORT)
-        print(f"Connecting via TCP to {host}:{port}")
-        return URL.create(**common_params, host=host, port=port)
+    if db_host:
+        print(f"Connecting via TCP to {db_host}:{port}")
+        return URL.create(**common_params, host=db_host, port=port)
     else:
-        host = f"/cloudsql/contrails-301217:us-east1:{env.PSDB_CONTRAILS_DEFAULT_INSTANCE_NAME}"
-        print(f"Connecting via Unix Socket: {host}")
-        return URL.create(**common_params, query={"host": host, "port": "5432"})
+        socket_host_url = f"/cloudsql/contrails-301217:us-east1:{db_socket_instance}"
+        print(f"Connecting via Unix Socket: {socket_host_url}")
+        return URL.create(**common_params, query={"host": socket_host_url, "port": str(port)})
 
-
-INVENTORY_DB_URI = get_db_uri()
 
 class GcsPathReader:
     def __init__(self, bucket_name: str, prefix: str):
@@ -87,8 +82,8 @@ class GcsPathReader:
 
 
 class GcsToPostgresLoader:
-    def __init__(self, table_name: str):
-        self.engine = create_engine(INVENTORY_DB_URI)
+    def __init__(self, table_name: str, db_uri: str):
+        self.engine = create_engine(db_uri)
         self.table_name = table_name
 
 
@@ -179,10 +174,19 @@ if __name__ == "__main__":
                         help="Target table name in Postgres database.")
     parser.add_argument("--num_workers", dest="num_workers", default=10,
                         help="One Parquet file is about 40MB in size. Be cautious with multi-threading OOMing.")
+
+    parser.add_argument("--db_host", dest="db_host", default="",
+                        help="Postgres database IP address. Leave empty to use cloud SQL socket instead.")
+    parser.add_argument("--db_socket_name", dest="db_socket_name", default="",
+                        help="Postgres database instance name to be used with cloud SQL socket.")
+    parser.add_argument("--db_port", dest="db_port", default=5432)
+    parser.add_argument("--db_password", dest="db_password", required=True,
+                        help="Postgres database password.")
     args = parser.parse_args()
 
+    db_uri = get_db_uri(args.db_host, args.db_port, args.db_socket_name, args.db_password)
     gcs_paths = GcsPathReader(args.gcs_bucket, args.gcs_prefix)
-    loader = GcsToPostgresLoader(args.target_table)
+    loader = GcsToPostgresLoader(args.target_table, db_uri)
     parquet_files = list(gcs_paths.parquet_files(args.date_ranges))
     with ThreadPoolExecutor(max_workers=args.num_workers) as executor:
         tqdm(executor.map(loader.to_postgres, parquet_files), total=len(parquet_files))
