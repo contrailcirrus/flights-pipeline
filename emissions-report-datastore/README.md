@@ -33,7 +33,7 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
 2. Ensure that the Postgres tables are defined as per `sql/trajectory_cocip.sql` and `sql/trajectory_cocip_meta.sql`.
 3. Run `gcs_to_psdb.py --date_ranges=<ranges>` to export the Parquet shards to Postgres If a different GCS bucket are 
    directory prefix is used in (1) change the default values here as well.
-4. Update the materialized views. TODO add explanation!
+4. Update the materialized views using `sql/trajectory_cocip_views.sql`.
 
 <TODO: TOOLING/INSTRUCTIONS FOR SYNC'ING>
 
