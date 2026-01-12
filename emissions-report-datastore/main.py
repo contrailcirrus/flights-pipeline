@@ -1,6 +1,7 @@
 """Utility to load trajectory cocip Parquet shards from GCS and write them to Postgres."""
 
 import io
+import os
 from typing import Iterator
 from concurrent.futures import ThreadPoolExecutor
 
@@ -14,16 +15,27 @@ import psycopg2
 import environment as env
 
 
-INVENTORY_DB_URI = URL.create(
-    drivername="postgresql+psycopg",
-    username="internal_user_rw",
-    password=env.PSDB_CONTRAILS_DEFAULT_PWD,
-    database="flights-pipeline-fer-cache",
-    query={
-        "host": f"/cloudsql/contrails-301217:us-east1:{env.PSDB_CONTRAILS_DEFAULT_INSTANCE_NAME}",
-        "port": "5432",
-    },
-)
+def get_db_uri():
+    """Prioritizes TCP (DB_HOST) if set, otherwise falls back to Cloud SQL Unix Sockets."""
+    common_params = {
+        "drivername": "postgresql+psycopg",
+        "username": "internal_user_rw",
+        "password": env.PSDB_CONTRAILS_DEFAULT_PWD,
+        "database": "flights-pipeline-fer-cache",
+    }
+
+    if env.DB_HOST:
+        host = env.DB_HOST
+        port = int(env.DB_PORT)
+        print(f"Connecting via TCP to {host}:{port}")
+        return URL.create(**common_params, host=host, port=port)
+    else:
+        host = f"/cloudsql/contrails-301217:us-east1:{env.PSDB_CONTRAILS_DEFAULT_INSTANCE_NAME}"
+        print(f"Connecting via Unix Socket: {host}")
+        return URL.create(**common_params, query={"host": host, "port": "5432"})
+
+
+INVENTORY_DB_URI = get_db_uri()
 
 class GcsPathReader:
     def __init__(self, bucket_name: str, prefix: str):
@@ -156,9 +168,6 @@ class GcsToPostgresLoader:
 
 
 if __name__ == "__main__":
-    # Ensure you export your credentials first:
-    # export GOOGLE_APPLICATION_CREDENTIALS="/path/to/keyfile.json"
-
     parser = ArgumentParser()
     parser.add_argument("--date_ranges", dest="date_ranges", required=True,
                         help="Comma-separated list of date ranges in the format YYYY(Q[1-4]) (quarters are optional).")
@@ -168,12 +177,12 @@ if __name__ == "__main__":
                         help="GCS prefix for exported data.")
     parser.add_argument("--target_table", dest="target_table", default="trajectory_cocip",
                         help="Target table name in Postgres database.")
-    parser.add_argument("--num_workers", dest="date_ranges", default=10,
+    parser.add_argument("--num_workers", dest="num_workers", default=10,
                         help="One Parquet file is about 40MB in size. Be cautious with multi-threading OOMing.")
     args = parser.parse_args()
 
     gcs_paths = GcsPathReader(args.gcs_bucket, args.gcs_prefix)
-    loader = GcsToPostgresLoader(args.table_name)
+    loader = GcsToPostgresLoader(args.target_table)
     parquet_files = list(gcs_paths.parquet_files(args.date_ranges))
     with ThreadPoolExecutor(max_workers=args.num_workers) as executor:
         tqdm(executor.map(loader.to_postgres, parquet_files), total=len(parquet_files))

@@ -1,4 +1,7 @@
 import os
 
+DB_HOST = os.environ.get("DB_HOST")
+DB_PORT = os.environ.get("DB_PORT", "5432")
+
 PSDB_CONTRAILS_DEFAULT_PWD = os.environ.get("PSDB_CONTRAILS_DEFAULT_PWD", "")
 PSDB_CONTRAILS_DEFAULT_INSTANCE_NAME = os.environ.get("PSDB_CONTRAILS_DEFAULT_INSTANCE_NAME", "")
