@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 pandas = "==2.2.3"
-pyarrow = "==18.1.0"
+pyarrow = "==22.0.0"
 google-cloud-storage = "==3.7.0"
 sqlalchemy = "==2.0.36"
 tqdm = "==4.67.1"
