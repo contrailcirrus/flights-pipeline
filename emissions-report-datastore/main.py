@@ -70,7 +70,7 @@ class GcsPathReader:
                             f"/<process date YYYYMMDD>. But got {path}.")
         year_quarter_str, process_time_str = parts[-2], parts[-1]
         start_date, end_date = extract_year_quarter_range(year_quarter_str)
-        parse_date = datetime.strptime(process_time_str, '%YYYYMMDD').date()
+        parse_date = datetime.strptime(process_time_str, '%Y%m%d').date()
         if parse_date < date(2025, 1, 1) or parse_date > date.today():
             raise Exception(f"Invalid process date detected. Expected recent YYYYMMDD but got {parse_date}.")
 
