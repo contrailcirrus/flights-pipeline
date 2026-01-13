@@ -1,6 +1,6 @@
 """Utility to load trajectory cocip Parquet shards from GCS and write them to Postgres."""
 
-import datetime
+from datetime import date, datetime, timedelta
 import io
 import os
 from typing import Iterator
@@ -9,9 +9,12 @@ from concurrent.futures import ThreadPoolExecutor
 from argparse import ArgumentParser
 import pandas as pd
 from google.cloud import storage
-from sqlalchemy import URL, create_engine
+from sqlalchemy import URL, and_, create_engine, func, select, table, column
 from tqdm import tqdm
 import psycopg2
+
+TRAJECTORY_TABLE = table("trajectory-cocip", column("flight_id"), column("time_start"))
+
 
 def get_db_uri(db_host: str, port: int, db_socket_instance: str, password: str):
     """Prioritizes TCP (DB_HOST) if set, otherwise falls back to Cloud SQL Unix Sockets."""
@@ -33,21 +36,21 @@ def get_db_uri(db_host: str, port: int, db_socket_instance: str, password: str):
         return URL.create(**common_params, query={"host": socket_host_url, "port": str(port)})
 
 
-def extract_year_quarter_range(year_quarter_str: str) -> tuple[datetime.date, datetime.date]:
-    """Extracts the date range of YYYY(Q1-4) with the last and first day of the range."""
+def extract_year_quarter_range(year_quarter_str: str) -> tuple[date, date]:
+    """Extracts the date range of YYYY(Q1-4) with an inclusive start and exclusive end date."""
     if not year_quarter_str:
         raise Exception("Year quarter cannot be empty!")
 
     if not 'Q' in year_quarter_str:
         year = int(year_quarter_str)
-        year_quarter_start = datetime.date(year, 1, 1)
-        year_quarter_end = datetime.date(year, 12, 31)
+        year_quarter_start = date(year, 1, 1)
+        year_quarter_end = date(year + 1, 1, 1)
     else:
         period = pd.Period(year_quarter_str, freq='Q')
         year_quarter_start = period.start_time.date()
-        year_quarter_end = period.end_time.date()
+        year_quarter_end = period.end_time.date() + timedelta(days=1)
 
-    if year_quarter_start < year_quarter_end < datetime.date(2000, 1, 1):
+    if year_quarter_start < year_quarter_end < date(2000, 1, 1):
         raise Exception(f"Invalid old year detected prior to 2000. Got {year_quarter_str}")
     return year_quarter_start, year_quarter_end
 
@@ -59,7 +62,7 @@ class GcsPathReader:
         self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.bucket_name)
 
-    def _extract_date_range_process_time(self, path: str) -> tuple[datetime.date, datetime.date, datetime.date]:
+    def _extract_date_range_process_time(self, path: str) -> tuple[date, date, date]:
         """Extracts the following from the path: [date range start date, date range end date, process date]"""
         parts = path.split("/")
         if len(parts) < 2:
@@ -67,14 +70,14 @@ class GcsPathReader:
                             f"/<process date YYYYMMDD>. But got {path}.")
         year_quarter_str, process_time_str = parts[-2], parts[-1]
         start_date, end_date = extract_year_quarter_range(year_quarter_str)
-        parse_date = datetime.datetime.strptime(process_time_str, '%YYYYMMDD').date()
-        if parse_date < datetime.date(2025, 1, 1) or parse_date > datetime.date.today():
+        parse_date = datetime.strptime(process_time_str, '%YYYYMMDD').date()
+        if parse_date < date(2025, 1, 1) or parse_date > date.today():
             raise Exception(f"Invalid process date detected. Expected recent YYYYMMDD but got {parse_date}.")
 
         return start_date, end_date, parse_date
 
 
-    def date_ranges(self) -> Iterator[tuple[datetime.date, datetime.date]]:
+    def date_ranges(self) -> Iterator[tuple[date, date]]:
         for path in self.paths:
             start_date, end_date, _ = self._extract_date_range_process_time(path)
             yield start_date, end_date
@@ -99,6 +102,28 @@ class GcsToPostgresLoader:
     def __init__(self, table_name: str, db_uri: str):
         self.engine = create_engine(db_uri)
         self.table_name = table_name
+
+
+    def assert_no_data(self, start_incl: date, end_excl: date) -> None:
+        """Ensure that there is no data currently within the specified date range: [start_incl, end_excl)."""
+        stmt = (
+            select(func.count(TRAJECTORY_TABLE.c.flight_id).label("flight_cnt"))
+            .where(and_(
+                TRAJECTORY_TABLE.c.time_start >= start_incl,
+                TRAJECTORY_TABLE.c.time_start < end_excl,
+            ))
+        )
+
+        df = pd.read_sql(stmt, self.engine)
+        if df.empty:
+            # Good there were no matching results.
+            return
+        if len(df.index) > 1:
+            raise Exception(f"There were multiple rows for the time range: {start_incl} - {end_excl}")
+
+        df["flight_cnt"] = df["flight_cnt"].fillna(0)
+        assert (df["flight_cnt"] == 0).all(), "There is flights data present in [{start_incl}, {end_excl})."\
+                                              "Please delete it first."
 
 
     def _read_parquet_blob(self, blob: storage.Blob) -> pd.DataFrame:
@@ -180,7 +205,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--gcs_bucket", dest="gcs_bucket", default="contrails-301217-sandbox-internal",
                         help="GCS bucket name.")
-    parser.add_argument("--gcs_paths", dest="gcs_prefix", default="flights-pipeline/emissions-export",
+    parser.add_argument("--gcs_paths", dest="gcs_paths", default="flights-pipeline/emissions-export",
                         help="Comma-separated GCS paths to the directory with the .pq files.")
     parser.add_argument("--target_table", dest="target_table", default="trajectory_cocip",
                         help="Target table name in Postgres database.")
@@ -198,6 +223,9 @@ if __name__ == "__main__":
     db_uri = get_db_uri(args.db_host, args.db_port, args.db_socket_name, args.db_password)
     gcs_paths = GcsPathReader(args.gcs_bucket, args.gcs_paths)
     loader = GcsToPostgresLoader(args.target_table, db_uri)
+    for start_incl, end_excl in gcs_paths.date_ranges():
+        loader.assert_no_data(start_incl, end_excl)
+
     parquet_files = list(gcs_paths.parquet_files())
     with ThreadPoolExecutor(max_workers=args.num_workers) as executor:
         tqdm(executor.map(loader.to_postgres, parquet_files), total=len(parquet_files))
