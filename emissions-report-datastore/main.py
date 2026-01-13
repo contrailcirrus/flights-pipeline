@@ -1,5 +1,6 @@
 """Utility to load trajectory cocip Parquet shards from GCS and write them to Postgres."""
 
+import datetime
 import io
 import os
 from typing import Iterator
@@ -32,49 +33,62 @@ def get_db_uri(db_host: str, port: int, db_socket_instance: str, password: str):
         return URL.create(**common_params, query={"host": socket_host_url, "port": str(port)})
 
 
+def extract_year_quarter_range(year_quarter_str: str) -> tuple[datetime.date, datetime.date]:
+    """Extracts the date range of YYYY(Q1-4) with the last and first day of the range."""
+    if not year_quarter_str:
+        raise Exception("Year quarter cannot be empty!")
+
+    if not 'Q' in year_quarter_str:
+        year = int(year_quarter_str)
+        year_quarter_start = datetime.date(year, 1, 1)
+        year_quarter_end = datetime.date(year, 12, 31)
+    else:
+        period = pd.Period(year_quarter_str, freq='Q')
+        year_quarter_start = period.start_time.date()
+        year_quarter_end = period.end_time.date()
+
+    if year_quarter_start < year_quarter_end < datetime.date(2000, 1, 1):
+        raise Exception(f"Invalid old year detected prior to 2000. Got {year_quarter_str}")
+    return year_quarter_start, year_quarter_end
+
+
 class GcsPathReader:
-    def __init__(self, bucket_name: str, prefix: str):
+    def __init__(self, bucket_name: str, paths: str):
         self.bucket_name = bucket_name
-        self.prefix = prefix.rstrip("/")
+        self.paths = [p.rstrip("/") for p in paths.split(",")]
         self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.bucket_name)
 
+    def _extract_date_range_process_time(self, path: str) -> tuple[datetime.date, datetime.date, datetime.date]:
+        """Extracts the following from the path: [date range start date, date range end date, process date]"""
+        parts = path.split("/")
+        if len(parts) < 2:
+            raise Exception("Paths need to be in the format a/b/.../<year><optional Q1-4>"
+                            f"/<process date YYYYMMDD>. But got {path}.")
+        year_quarter_str, process_time_str = parts[-2], parts[-1]
+        start_date, end_date = extract_year_quarter_range(year_quarter_str)
+        parse_date = datetime.datetime.strptime(process_time_str, '%YYYYMMDD').date()
+        if parse_date < datetime.date(2025, 1, 1) or parse_date > datetime.date.today():
+            raise Exception(f"Invalid process date detected. Expected recent YYYYMMDD but got {parse_date}.")
 
-    def _latest_process_time(self, gcs_prefix: str) -> Iterator[str]:
-        blobs = list(self.storage_client.list_blobs(self.bucket_name, prefix=gcs_prefix))
-
-        if blobs:
-            # Relying on alphanumerical file sorting of YYYYMMDD to fetch the latest version.
-            yield max(b.name for b in blobs)
-        else:
-            print(f"No blobs in {gcs_prefix}.")
-
-
-    def _process_quarterly_data(self, quarterly_date_range: str) -> Iterator[str]:
-        yield from self._latest_process_time(f"{self.prefix}/{quarterly_date_range}")
-
-
-    def _process_yearly_data(self, year: int) -> Iterator[str]:
-        # Check if yearly data is present and otherwise default to quarterly data
-        yearly_path = f"{self.prefix}/{year}"
-        if storage.Blob(bucket=self.bucket, name=yearly_path).exists(self.storage_client):
-            yield from self._latest_process_time(yearly_path)
-        else:
-            print(f"No yearly data for {yearly_path}. Falling back to quarterly.")
-            for quarter in range(1, 5):
-                yield from self._process_quarterly_data(f'{year}Q{quarter}')
+        return start_date, end_date, parse_date
 
 
-    def find_valid_paths(self, date_ranges: str) -> Iterator[str]:
-        for date_range in date_ranges.split(","):
-            if 'Q' in date_range:
-                yield from self._process_quarterly_data(date_range)
-            else:
-                yield from self._process_yearly_data(int(date_range))
+    def date_ranges(self) -> Iterator[tuple[datetime.date, datetime.date]]:
+        for path in self.paths:
+            start_date, end_date, _ = self._extract_date_range_process_time(path)
+            yield start_date, end_date
 
 
-    def parquet_files(self, date_ranges: str) -> Iterator[storage.Blob]:
-        for path in self.find_valid_paths(date_ranges):
+    def find_valid_paths(self) -> Iterator[str]:
+        # Valid paths are of the format: a/b/.../<year><optional Q1-4>/<process time YYYYMMDD>
+        for path in self.paths:
+            _, _, _ = self._extract_date_range_process_time(path)
+            yield path
+
+
+    def parquet_files(self) -> Iterator[storage.Blob]:
+        for path in self.find_valid_paths():
             blobs = self.storage_client.list_blobs(self.bucket_name, prefix=path)
             parquet_shards = [b for b in blobs if b.name.endswith(".pq")]
             print(f"Found {len(parquet_shards)} parquet shards.")
@@ -164,17 +178,14 @@ class GcsToPostgresLoader:
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--date_ranges", dest="date_ranges", required=True,
-                        help="Comma-separated list of date ranges in the format YYYY(Q[1-4]) (quarters are optional).")
     parser.add_argument("--gcs_bucket", dest="gcs_bucket", default="contrails-301217-sandbox-internal",
                         help="GCS bucket name.")
-    parser.add_argument("--gcs_prefix", dest="gcs_prefix", default="flights-pipeline/emissions-export",
-                        help="GCS prefix for exported data.")
+    parser.add_argument("--gcs_paths", dest="gcs_prefix", default="flights-pipeline/emissions-export",
+                        help="Comma-separated GCS paths to the directory with the .pq files.")
     parser.add_argument("--target_table", dest="target_table", default="trajectory_cocip",
                         help="Target table name in Postgres database.")
     parser.add_argument("--num_workers", dest="num_workers", default=10,
                         help="One Parquet file is about 40MB in size. Be cautious with multi-threading OOMing.")
-
     parser.add_argument("--db_host", dest="db_host", default="",
                         help="Postgres database IP address. Leave empty to use cloud SQL socket instead.")
     parser.add_argument("--db_socket_name", dest="db_socket_name", default="",
@@ -185,8 +196,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     db_uri = get_db_uri(args.db_host, args.db_port, args.db_socket_name, args.db_password)
-    gcs_paths = GcsPathReader(args.gcs_bucket, args.gcs_prefix)
+    gcs_paths = GcsPathReader(args.gcs_bucket, args.gcs_paths)
     loader = GcsToPostgresLoader(args.target_table, db_uri)
-    parquet_files = list(gcs_paths.parquet_files(args.date_ranges))
+    parquet_files = list(gcs_paths.parquet_files())
     with ThreadPoolExecutor(max_workers=args.num_workers) as executor:
         tqdm(executor.map(loader.to_postgres, parquet_files), total=len(parquet_files))
