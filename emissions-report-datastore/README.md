@@ -43,8 +43,7 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
       -e DB_HOST="<Postgres DB IP address>" \
       -e DB_PORT="5432" \
       gcs-to-pgdb \
-      --gcs_paths flights-pipeline/emissions-export/2024/20260112,flights-pipeline/emissions-export/2025Q1/20260112 \
-      --num_workers 10
+      --gcs_paths flights-pipeline/emissions-export/2024/20260112,flights-pipeline/emissions-export/2025Q1/20260112
      ```
 4. Update the materialized views by running the following sequence of SQL commands:
    1. `REFRESH MATERIALIZED VIEW inventory_monthly_airlines_stats;`

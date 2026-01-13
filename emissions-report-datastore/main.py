@@ -13,7 +13,8 @@ from sqlalchemy import URL, and_, create_engine, func, select, table, column
 from tqdm import tqdm
 import psycopg2
 
-TRAJECTORY_TABLE = table("trajectory-cocip", column("flight_id"), column("time_start"))
+TRAJECTORY_TABLE_NAME = "trajectory-cocip"
+TRAJECTORY_TABLE = table(TRAJECTORY_TABLE_NAME, column("flight_id"), column("time_start"))
 
 
 def get_db_uri(db_host: str, port: int, db_socket_instance: str, password: str):
@@ -122,7 +123,7 @@ class GcsToPostgresLoader:
             raise Exception(f"There were multiple rows for the time range: {start_incl} - {end_excl}")
 
         df["flight_cnt"] = df["flight_cnt"].fillna(0)
-        assert (df["flight_cnt"] == 0).all(), "There is flights data present in [{start_incl}, {end_excl})."\
+        assert (df["flight_cnt"] == 0).all(), f"There is flights data present in [{start_incl}, {end_excl})."\
                                               "Please delete it first."
 
 
@@ -135,18 +136,19 @@ class GcsToPostgresLoader:
         """Uploads a pandas DataFrame to Postgres using the efficient COPY command."""
 
         connection = self.engine.raw_connection()
-        cur = connection.cursor()
 
-        # Use a buffer to hold CSV data in memory
-        output = io.StringIO()
-
-        # specific formatting for Postgres COPY
-        df.to_csv(output, sep='\t', header=False, index=False)
-        output.seek(0)
+        # Write dataframe to buffer to then copy the entire buffer to Postgres.
+        buffer = io.StringIO()
+        df.to_csv(buffer, sep='\t', header=False, index=False)
+        buffer.seek(0)
 
         try:
-            full_table_name = f"{schema}.{self.table_name}"
-            cur.copy_from(output, full_table_name, null="")
+            full_table_name = f'"{schema}"."{self.table_name}"'
+            copy_stmt = f"COPY {full_table_name} FROM STDIN WITH (FORMAT CSV, DELIMITER '\t', NULL '')"
+            with connection.cursor() as cur:
+                with cur.copy(copy_stmt) as copy:
+                    copy.write(buffer.getvalue())
+
             connection.commit()
         except Exception as e:
             connection.rollback()
@@ -158,8 +160,10 @@ class GcsToPostgresLoader:
 
 
     def _transform_parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["chunk_len_km"] = df["chunk_len_km"].astype(int)
-        df["mean_aircraft_mass_kg"] = df["mean_aircraft_mass_kg"].astype(int)
+        df = df.assign(
+            chunk_len_km=df["chunk_len_km"].astype(int),
+            mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int)
+        )
 
         features = [
             "chunk_len_km",
@@ -184,7 +188,7 @@ class GcsToPostgresLoader:
             "arrival_airport_icao",
         ]
         # Only keep the relevant columns specified above.
-        df.drop(df.columns.difference(features), 1, inplace=True)
+        return df[features]
 
 
     def to_postgres(self, blob: storage.Blob) -> None:
@@ -195,7 +199,7 @@ class GcsToPostgresLoader:
                 return
 
             # TODO split into main and meta tables
-            self._transform_parquet_data_to_postgres(df)
+            df = self._transform_parquet_data_to_postgres(df)
             self._upload_to_postgres(df)
         except Exception as e:
             print(f"Failed to process {blob.name}: {e}")
@@ -207,10 +211,8 @@ if __name__ == "__main__":
                         help="GCS bucket name.")
     parser.add_argument("--gcs_paths", dest="gcs_paths", default="flights-pipeline/emissions-export",
                         help="Comma-separated GCS paths to the directory with the .pq files.")
-    parser.add_argument("--target_table", dest="target_table", default="trajectory_cocip",
+    parser.add_argument("--target_table", dest="target_table", default=TRAJECTORY_TABLE_NAME,
                         help="Target table name in Postgres database.")
-    parser.add_argument("--num_workers", dest="num_workers", default=10,
-                        help="One Parquet file is about 40MB in size. Be cautious with multi-threading OOMing.")
     parser.add_argument("--db_host", dest="db_host", default="",
                         help="Postgres database IP address. Leave empty to use cloud SQL socket instead.")
     parser.add_argument("--db_socket_name", dest="db_socket_name", default="",
@@ -227,5 +229,5 @@ if __name__ == "__main__":
         loader.assert_no_data(start_incl, end_excl)
 
     parquet_files = list(gcs_paths.parquet_files())
-    with ThreadPoolExecutor(max_workers=args.num_workers) as executor:
-        tqdm(executor.map(loader.to_postgres, parquet_files), total=len(parquet_files))
+    for p in tqdm(parquet_files):
+        loader.to_postgres(p)
