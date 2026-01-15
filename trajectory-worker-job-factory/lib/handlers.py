@@ -721,13 +721,24 @@ class HealTrajectoryHandler:
         speed_df = df[["timestamp", "latitude", "longitude"]]
         speed_df.rename(columns={"timestamp": "time"}, inplace=True)
         speed_df["altitude"] = None  # dummy, not used in ground speed calculation
-        speed_df["ground_speed_m_s"] = Flight(speed_df).segment_groundspeed()
 
         # The `shift()` method is used to offset the "ground_speed_m_s" column by 1,
-        # so data points on both sides of an invalid speed are dropped.
+        # so data points on both sides of an invalid speed will be dropped.
+        speed_df["ground_speed_m_s"] = Flight(speed_df).segment_groundspeed()
+        speed_df["ground_speed_m_s_shifted"] = speed_df["ground_speed_m_s"].shift(1)
+
+        # The last value of the "ground_speed_m_s" column will be NA, and the first
+        # value of the "ground_speed_m_s_shifted" column will be NA. These need to be
+        # filled, otherwise the first and last rows would always be dropped at the
+        # filtering step.
+        speed_df["ground_speed_m_s"] = speed_df["ground_speed_m_s"].ffill()
+        speed_df["ground_speed_m_s_shifted"] = speed_df[
+            "ground_speed_m_s_shifted"
+        ].bfill()
+
         valid_speed_idx = speed_df["ground_speed_m_s"].between(
             min_speed_m_s, max_speed_m_s, inclusive="neither"
-        ) & speed_df["ground_speed_m_s"].shift(1).between(
+        ) & speed_df["ground_speed_m_s_shifted"].between(
             min_speed_m_s, max_speed_m_s, inclusive="neither"
         )
         return df[valid_speed_idx]
@@ -794,6 +805,9 @@ class HealTrajectoryHandler:
         iterations = self._max_speed_filter_iterations
         while iterations:
             prev_len = len(self._df)
+            # need at least 2 data points to compute a speed
+            if prev_len < 2:
+                break
             self._df = self._filter_speeds(
                 self._df, self._min_speed_m_s, self._max_speed_m_s
             )
