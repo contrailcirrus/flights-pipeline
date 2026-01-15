@@ -1242,6 +1242,9 @@ class CocipTrajectoryProto:
         traj = traj_pb.Trajectory()
         traj.flight_id = input_chunk.flight_info.flight_id
 
+        # ----------
+        # package PER SEGMENT CoCiP outputs
+        # ----------
         for seg_ix in range(0, len(df) - 1):
             # segments are forward looking in the dataframe
             # the table has N_waypoints
@@ -1251,13 +1254,13 @@ class CocipTrajectoryProto:
 
             seg = traj.path.add()
             seg.time_start = ds["time"]
-            seg.lon_start = int(ds["longitude"] * 20)
-            seg.lat_start = int(ds["latitude"] * 20)
-            seg.alt_ft_start = int(ds["altitude_ft"] / 16)
             seg.duration_start_to_end = ds_next["time"] - ds["time"]
-            seg.lon_end = int(ds_next["longitude"] * 20)
-            seg.lat_end = int(ds_next["latitude"] * 20)
-            seg.alt_ft_end = int(ds_next["altitude_ft"] / 16)
+            seg.geometry.coord_start.lon = int(ds["longitude"] * 20)
+            seg.geometry.coord_start.lat = int(ds["latitude"] * 20)
+            seg.geometry.coord_start.alt_ft = int(ds["altitude_ft"] / 16)
+            seg.geometry.coord_end.lon = int(ds_next["longitude"] * 20)
+            seg.geometry.coord_end.lat = int(ds_next["latitude"] * 20)
+            seg.geometry.coord_end.alt_ft = int(ds_next["altitude_ft"] / 16)
             seg.sum_ef_mj = int(ds["sum_ef_mj"] / 100)
 
         return CocipTrajectoryProto(trajectory=traj)
