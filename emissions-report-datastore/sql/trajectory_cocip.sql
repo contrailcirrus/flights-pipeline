@@ -26,10 +26,16 @@ create table "trajectory-cocip"
     ef_mj_per_km double precision GENERATED ALWAYS AS (
         CASE WHEN chunk_len_km = 0 THEN NULL ELSE sum_ef_mj::double precision / chunk_len_km END
     ) STORED,
+    duration_mins smallint GENERATED ALWAYS AS (
+        EXTRACT(EPOCH FROM (time_end - time_start)) / 60) STORED,
 );
 
-alter table "trajectory-cocip" owner to postgres;
-
+CREATE INDEX idx_ef_desc
+    ON "trajectory-cocip" (sum_ef_mj DESC, time_start);
+CREATE INDEX idx_ef_per_km_desc
+    ON "trajectory-cocip" (ef_mj_per_km DESC, time_start);
+CREATE INDEX idx_duration_mins
+    ON "trajectory-cocip" (duration_mins);
 CREATE INDEX index_time_start_time_end
     ON "trajectory-cocip" (time_start, time_end);
 CREATE INDEX idx_airline_time_start_ef
@@ -37,7 +43,7 @@ CREATE INDEX idx_airline_time_start_ef
 CREATE INDEX idx_airline_time_start_ef_per_km
     ON "trajectory-cocip" (airline_iata, time_start, ef_mj_per_km DESC);
 
+alter table "trajectory-cocip" owner to postgres;
 grant delete, insert, select, update on "trajectory-cocip" to internal_user_rw;
-
 grant select on "trajectory-cocip" to internal_user_ro;
 
