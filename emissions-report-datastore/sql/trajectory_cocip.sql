@@ -30,12 +30,12 @@ create table "trajectory-cocip"
 
 alter table "trajectory-cocip" owner to postgres;
 
-CREATE index index_time_start_time_end
+CREATE INDEX index_time_start_time_end
     ON "trajectory-cocip" (time_start, time_end);
-CREATE INDEX idx_ef_time_start
-    ON "trajectory-cocip" (sum_ef_mj DESC, time_start);
-CREATE INDEX idx_ef_per_km_time_start
-    ON "trajectory-cocip" (ef_mj_per_km DESC, time_start);
+CREATE INDEX idx_airline_time_start_ef
+    ON "trajectory-cocip" (airline_iata, time_start, sum_ef_mj DESC);
+CREATE INDEX idx_airline_time_start_ef_per_km
+    ON "trajectory-cocip" (airline_iata, time_start, ef_mj_per_km DESC);
 
 grant delete, insert, select, update on "trajectory-cocip" to internal_user_rw;
 
