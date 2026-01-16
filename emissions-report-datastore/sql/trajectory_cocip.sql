@@ -39,9 +39,9 @@ CREATE INDEX idx_duration_mins
 CREATE INDEX index_time_start_time_end
     ON "trajectory-cocip" (time_start, time_end);
 CREATE INDEX idx_airline_time_start_ef
-    ON "trajectory-cocip" (airline_iata, time_start, sum_ef_mj DESC);
+    ON "trajectory-cocip" (airline_iata, sum_ef_mj DESC, time_start);
 CREATE INDEX idx_airline_time_start_ef_per_km
-    ON "trajectory-cocip" (airline_iata, time_start, ef_mj_per_km DESC);
+    ON "trajectory-cocip" (airline_iata, ef_mj_per_km DESC, time_start);
 
 alter table "trajectory-cocip" owner to postgres;
 grant delete, insert, select, update on "trajectory-cocip" to internal_user_rw;
