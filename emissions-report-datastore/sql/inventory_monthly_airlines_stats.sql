@@ -11,3 +11,7 @@ GROUP BY month_bucket, airline_iata;
 
 -- Create an index for instant access from the FER endpoints.
 CREATE INDEX idx_mv_monthly_airline_stats ON inventory_monthly_airlines_stats (month_bucket, airline_iata);
+
+ALTER TABLE inventory_monthly_airlines_stats OWNER TO postgres;
+GRANT DELETE, INSERT, SELECT, UPDATE ON inventory_monthly_airlines_stats TO internal_user_rw;
+GRANT SELECT ON inventory_monthly_airlines_stats TO internal_user_ro;
