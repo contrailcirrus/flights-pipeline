@@ -17,6 +17,12 @@ GROUP BY month_bucket, airline_iata, aircraft_type_icao, engine_uid;
 CREATE INDEX idx_mv_monthly_airline_stats
 ON inventory_monthly_airlines_stats (airline_iata, aircraft_type_icao, engine_uid, month_bucket);
 
+-- Indices to speed up the inventory/facets endpoint:
+CREATE INDEX idx_mv_month_bucket
+    ON inventory_monthly_airlines_stats (month_bucket);
+CREATE INDEX idx_mv_airline_month
+    ON inventory_monthly_airlines_stats (airline_iata, month_bucket);
+
 ALTER TABLE inventory_monthly_airlines_stats OWNER TO postgres;
 GRANT DELETE, INSERT, SELECT, UPDATE ON inventory_monthly_airlines_stats TO internal_user_rw;
 GRANT SELECT ON inventory_monthly_airlines_stats TO internal_user_ro;
