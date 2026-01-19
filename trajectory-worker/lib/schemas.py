@@ -17,6 +17,7 @@ from google.protobuf import json_format
 
 import numpy as np
 import pycontrails.core
+from pycontrails.models.cocip.cocip import Cocip
 
 from lib.log import logger
 from lib import trajectory_pb2 as traj_pb
@@ -1219,8 +1220,46 @@ class CocipTrajectoryProto:
         return df_all
 
     @classmethod
+    def _group_contrails(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Group continuous ranges of waypoints into contrail instances.
+
+        Given a pandas dataframe representing a group of waypoints
+        for a contrail evolution at a given time,
+        append a column (waypoint_bin) where each bin represents a continuous linestring
+        for a given contrail.
+
+        Parameters
+        ----------
+        df
+            a dataframe from a pycontrails CoCiP result (model.contrail) grouped by `time`
+
+        Return
+        ------
+        pd.DataFrame
+            mirror of input dataframe, with a `waypoint_bin`
+        """
+        df = df.copy()
+        # extract each continuous multiline from evolution step
+        df.sort_values(
+            "waypoint", ascending=True, inplace=True
+        )  # guarantee waypoints are ordered
+        # find breaks in continuous contrail segments
+        # inclusive (left-hand-side) of the record with wp_breaks of True
+        breaks = df["waypoint"].diff() > 1
+        wp_breaks = list(df["waypoint"][breaks])
+        # add waypoint values for lh and rh extremes to create bins for each set
+        wp_breaks.extend([0, int(df["waypoint"].max()) + 1])
+        wp_breaks.sort()
+        # allocate a bin identifier to each row
+        # each bin being a continuous range of waypoints (i.e. multi-line contrail object)
+        # include row/waypoint on left-hand-side, as per above convention in `breaks`
+        df["waypoint_bin"] = pd.cut(df["waypoint"], wp_breaks, right=False)
+        return df
+
+    @classmethod
     def from_cocip_result(
-        cls, input_chunk: WaypointsRecord, result: pycontrails.core.Flight
+        cls, input_chunk: WaypointsRecord, result: pycontrails.core.Flight, model: Cocip
     ):
         """
         Build a trajectory protobuf object from a cocip result.
@@ -1231,6 +1270,8 @@ class CocipTrajectoryProto:
             the flight trajectory and flight metadata
         result
             the pycontrails Flight model output from running CoCiP
+        model
+            instance of a CoCiP model from which result is generated
 
         Returns
         -------
@@ -1238,6 +1279,7 @@ class CocipTrajectoryProto:
             an instance of this dataclass, with a protobuf trajectory built from the inputs
         """
         df = cls._resample_cocip_result(result)
+        # contrail_evolution = model.contrail
 
         traj = traj_pb.Trajectory()
         traj.flight_id = input_chunk.flight_info.flight_id
