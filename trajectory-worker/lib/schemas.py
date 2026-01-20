@@ -1301,7 +1301,10 @@ class CocipTrajectoryProto:
             seg.geometry.coord_start.alt_ft = int(ds["altitude_ft"] / 16)
             seg.geometry.coord_end.lon = int(ds_next["longitude"] * 20)
             seg.geometry.coord_end.lat = int(ds_next["latitude"] * 20)
-            seg.geometry.coord_end.alt_ft = int(ds_next["altitude_ft"] / 16)
+            alt_ft = ds_next["altitude_ft"]
+            if alt_ft < 0:
+                alt_ft = 0
+            seg.geometry.coord_end.alt_ft = int(alt_ft / 16)
             seg.sum_ef_mj = int(ds["sum_ef_mj"] / 100)
 
         # ----------
@@ -1311,12 +1314,53 @@ class CocipTrajectoryProto:
         # TODO - possible to receive the cocip per-seg result and per-seg evolution in same pycontrails obj?
         contrail_evol = model.contrail
         contrail_evol_tm_grps = contrail_evol.groupby("time")
+        evolution_timestep = (
+            pd.Series(contrail_evol_tm_grps.groups.keys()).diff().iloc[1]
+        )
+        if (
+            evolution_timestep
+            != pd.Series(contrail_evol_tm_grps.groups.keys()).diff().mean()
+        ):
+            raise Exception(
+                "inconsistent timesteps in CoCiP contrail evolution dataframe"
+            )
         # handle each evolution timestep independently
         for ts, grp in contrail_evol_tm_grps:
             # identify continuous contrail line-strings within timestep of evolution
             grp = cls._group_contrails(grp)
-            contrails_in_grp = grp.groupby("waypoint_bin", observed=True)  # noqa: F841
-
+            contrails_in_grp = grp.groupby("waypoint_bin", observed=True)
+            for wp_bin, contrail_df in contrails_in_grp:
+                if len(contrail_df) == 1:
+                    # this is always the case for the single waypoint
+                    # which coincides with the t_0 of contrail evolution for a given timestamp
+                    # and that waypoint will always have the column `continuous` w/ value False
+                    continue
+                # -------
+                # construct multi-line object from sequence of waypoints
+                # --
+                # by convention, the values in a given row are left-handed
+                # i.e. the line formed by coords defined in row[i] -> row[i+1]
+                # take the values defined in row[i].
+                # by extension, the last row is expected to provide the right-hand
+                # coords for the last line object, and that row's values are expected to be null
+                # (these "points of discontinuity" are also identifiable by having the col `continuous`== False)
+                contrail = traj.contrails.add()
+                contrail.avg_age = contrail_df.age.mean().round("s")
+                # by convention, the timestamp is that following the evolution timestep
+                contrail.time_start = contrail_df.iloc[0]["time"] - evolution_timestep
+                contrail.duration_start_to_end = evolution_timestep
+                # sum of ef across all segments of multi-line contrails FOR THE EVOLUTION TIMESTEP
+                sum_ef_mj = contrail_df.ef.sum() / 10**6
+                contrail.sum_ef_mj = int(sum_ef_mj / 100)
+                # build multi-line geometry
+                for _, row in contrail_df.iterrows():
+                    coord = contrail.geometry.coords.add()
+                    coord.lon = int(row["longitude"] * 20)
+                    coord.lat = int(row["latitude"] * 20)
+                    alt_ft = row["altitude"] * 3.28
+                    if alt_ft < 0:
+                        alt_ft = 0
+                    coord.alt_ft = int(alt_ft / 16)
         return CocipTrajectoryProto(trajectory=traj)
 
     def to_bytes(self) -> bytes:
