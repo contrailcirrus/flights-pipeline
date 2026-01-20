@@ -24,7 +24,7 @@ from lib import multiline_pb2 as lib_dot_multiline__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x12lib/contrail.proto\x12\x03lib\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x13lib/multiline.proto"\xa9\x01\n\x08\x43ontrail\x12.\n\ntime_start\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x38\n\x15\x64uration_start_to_end\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12 \n\x08geometry\x18\x03 \x01(\x0b\x32\x0e.lib.MultiLine\x12\x11\n\tsum_ef_mj\x18\x04 \x01(\x11\x62\x06proto3'
+    b'\n\x12lib/contrail.proto\x12\x03lib\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x13lib/multiline.proto"\xd5\x01\n\x08\x43ontrail\x12.\n\ntime_start\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x38\n\x15\x64uration_start_to_end\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12*\n\x07\x61vg_age\x18\x03 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x11\n\tsum_ef_mj\x18\x04 \x01(\x11\x12 \n\x08geometry\x18\x05 \x01(\x0b\x32\x0e.lib.MultiLineb\x06proto3'
 )
 
 _globals = globals()
@@ -33,5 +33,5 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "lib.contrail_pb2", _globals
 if not _descriptor._USE_C_DESCRIPTORS:
     DESCRIPTOR._loaded_options = None
     _globals["_CONTRAIL"]._serialized_start = 114
-    _globals["_CONTRAIL"]._serialized_end = 283
+    _globals["_CONTRAIL"]._serialized_end = 327
 # @@protoc_insertion_point(module_scope)
