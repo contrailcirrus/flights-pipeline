@@ -1,9 +1,9 @@
 """Entrypoint for the Trajectory Worker."""
 
-import json
 import sys
 
 import pandas as pd
+from google.oauth2 import service_account
 
 import lib.environment as env
 from lib import schemas
@@ -22,8 +22,10 @@ SOURCE_ID = "flightsreport"
 GCS_PARQUET_URI_TEMPLATE = (
     "trajectory-worker/trajectory-pq/{start_datehour}/{airline_iata}/{flight_id}.pq"
 )
-
-gcs_client = storage.Client.from_service_account_json(json.dumps(env.GCP_SVC_ACCT_KEY))
+storage_credentials = service_account.Credentials.from_service_account_info(
+    env.GCP_SVC_ACCT_KEY
+)
+gcs_client = storage.Client(credentials=storage_credentials)
 gcs_bucket = gcs_client.bucket(env.GCS_BUCKET_NAME)
 
 
