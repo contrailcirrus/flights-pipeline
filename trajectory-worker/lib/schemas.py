@@ -1279,7 +1279,6 @@ class CocipTrajectoryProto:
             an instance of this dataclass, with a protobuf trajectory built from the inputs
         """
         df = cls._resample_cocip_result(result)
-        # contrail_evolution = model.contrail
 
         traj = traj_pb.Trajectory()
         traj.flight_id = input_chunk.flight_info.flight_id
@@ -1304,6 +1303,19 @@ class CocipTrajectoryProto:
             seg.geometry.coord_end.lat = int(ds_next["latitude"] * 20)
             seg.geometry.coord_end.alt_ft = int(ds_next["altitude_ft"] / 16)
             seg.sum_ef_mj = int(ds["sum_ef_mj"] / 100)
+
+        # ----------
+        # package CONTRAIL EVOLUTION CoCiP outputs
+        # ----------
+
+        # TODO - possible to receive the cocip per-seg result and per-seg evolution in same pycontrails obj?
+        contrail_evol = model.contrail
+        contrail_evol_tm_grps = contrail_evol.groupby("time")
+        # handle each evolution timestep independently
+        for ts, grp in contrail_evol_tm_grps:
+            # identify continuous contrail line-strings within timestep of evolution
+            grp = cls._group_contrails(grp)
+            contrails_in_grp = grp.groupby("waypoint_bin", observed=True)  # noqa: F841
 
         return CocipTrajectoryProto(trajectory=traj)
 
