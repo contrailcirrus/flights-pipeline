@@ -22,7 +22,7 @@ GCS_PARQUET_URI_TEMPLATE = (
     "trajectory-worker/trajectory-pq/{start_datehour}/{airline_iata}/{flight_id}.pq"
 )
 
-gcs_client = storage.Client()
+gcs_client = storage.Client(credentials=env.GCP_SVC_ACCT_KEY)
 gcs_bucket = gcs_client.bucket(env.GCS_BUCKET_NAME)
 
 
