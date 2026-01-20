@@ -1,5 +1,6 @@
 """Entrypoint for the Trajectory Worker."""
 
+import json
 import sys
 
 import pandas as pd
@@ -22,7 +23,7 @@ GCS_PARQUET_URI_TEMPLATE = (
     "trajectory-worker/trajectory-pq/{start_datehour}/{airline_iata}/{flight_id}.pq"
 )
 
-gcs_client = storage.Client.from_service_account_json(env.GCP_SVC_ACCT_KEY)
+gcs_client = storage.Client.from_service_account_json(json.dumps(env.GCP_SVC_ACCT_KEY))
 gcs_bucket = gcs_client.bucket(env.GCS_BUCKET_NAME)
 
 
