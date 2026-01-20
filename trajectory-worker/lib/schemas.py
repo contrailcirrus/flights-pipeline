@@ -17,7 +17,7 @@ from google.protobuf import json_format
 
 import numpy as np
 import pycontrails.core
-from pycontrails.models.cocip.cocip import Cocip
+from pycontrails.models.cocip import Cocip
 
 from lib.log import logger
 from lib import trajectory_pb2 as traj_pb

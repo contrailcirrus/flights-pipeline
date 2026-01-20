@@ -520,6 +520,7 @@ class CocipTrajectoryHandler:
             fill_low_altitude_with_isa_temperature=True,
             fill_low_altitude_with_zero_wind=True,
         )
+        self._model: Cocip | None = None
         self._flight: pycontrails.Flight = self._create_flight(
             self._job, self._perf_model_handler
         )
@@ -754,7 +755,7 @@ class CocipTrajectoryHandler:
                 "met dataset or rad dataset have not been loaded. Run load()."
             )
         if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
-            model = Cocip(
+            self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
                 aircraft_performance=self._perf_model_handler,
@@ -765,7 +766,7 @@ class CocipTrajectoryHandler:
                 f"using low-mem cocip implementation for flight "
                 f"w/ {len(self._job.records)} waypoints"
             )
-            model = Cocip(
+            self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
                 aircraft_performance=self._perf_model_handler,
@@ -773,7 +774,7 @@ class CocipTrajectoryHandler:
                 preprocess_lowmem=True,
             )
         logger.debug("evaluating cocip model.")
-        result: Flight = model.eval(self._flight)
+        result: Flight = self._model.eval(self._flight)
         logger.debug("finished evaluating cocip model.")
         return result
 
@@ -784,3 +785,12 @@ class CocipTrajectoryHandler:
         and uniquely identifies the store based on the model_run_at time.
         """
         return self._zarr_src_fn
+
+    @property
+    def model(self):
+        """Get CoCiP model object."""
+        if not self._model:
+            raise Exception("CoCiP model must be instantiated.")
+
+        # TODO: add check that model has been run (i.e. self.model.contrail exists
+        return self._model
