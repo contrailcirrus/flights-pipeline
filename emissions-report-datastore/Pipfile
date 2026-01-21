@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pandas = "==2.2.3"
+pyarrow = "==22.0.0"
+google-cloud-storage = "==3.7.0"
+sqlalchemy = "==2.0.36"
+tqdm = "==4.67.1"
+psycopg = {extras = ["binary"], version = "==3.3.2"}
+psycopg2-binary = "==2.9.11"
+
+[requires]
+python_version = "3.14"
+python_full_version = "3.14.0"
