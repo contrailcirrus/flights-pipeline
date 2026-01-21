@@ -1245,16 +1245,7 @@ class CocipTrajectoryProto:
             "waypoint", ascending=True, inplace=True
         )  # guarantee waypoints are ordered
         # find breaks in continuous contrail segments
-        # inclusive (left-hand-side) of the record with wp_breaks of True
-        breaks = df["waypoint"].diff() > 1
-        wp_breaks = list(df["waypoint"][breaks])
-        # add waypoint values for lh and rh extremes to create bins for each set
-        wp_breaks.extend([0, int(df["waypoint"].max()) + 1])
-        wp_breaks.sort()
-        # allocate a bin identifier to each row
-        # each bin being a continuous range of waypoints (i.e. multi-line contrail object)
-        # include row/waypoint on left-hand-side, as per above convention in `breaks`
-        df["waypoint_bin"] = pd.cut(df["waypoint"], wp_breaks, right=False)
+        df["waypoint_bin"] = (df["waypoint"].diff() > 1).cumsum()
         return df
 
     @classmethod
@@ -1310,8 +1301,6 @@ class CocipTrajectoryProto:
         # ----------
         # package CONTRAIL EVOLUTION CoCiP outputs
         # ----------
-
-        # TODO - possible to receive the cocip per-seg result and per-seg evolution in same pycontrails obj?
         contrail_evol = model.contrail
         contrail_evol_tm_grps = contrail_evol.groupby("time")
         evolution_timestep = (
