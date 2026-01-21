@@ -792,5 +792,6 @@ class CocipTrajectoryHandler:
         if not self._model:
             raise Exception("CoCiP model must be instantiated.")
 
-        # TODO: add check that model has been run (i.e. self.model.contrail exists
+        if not self._model.contrails:
+            raise Exception("eval() has not been run on the CoCiP model")
         return self._model
