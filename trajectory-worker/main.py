@@ -170,6 +170,7 @@ def run(
             traj_proto = schemas.CocipTrajectoryProto.from_cocip_result(
                 input_chunk=job,
                 result=cocip_result,
+                model=trajectory_cocip_handler.model,
             )
             bytes_out = traj_proto.to_bytes()
             first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)

@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package lib;
+
+message Coordinate {
+    sint32 lon = 1;  // encoded as (lon * 20) -- 0.05deg -- 13bit space
+    sint32 lat = 2;  // encoded as (lat * 20) -- 0.05deg -- 12bit space
+    uint32 alt_ft = 3;  // encoded as (alt_ft / 16) -- 12bit space
+}
