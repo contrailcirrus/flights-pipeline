@@ -3,7 +3,6 @@
 from datetime import date, datetime, timedelta
 import io
 from typing import Iterator
-from concurrent.futures import ThreadPoolExecutor
 
 from argparse import ArgumentParser
 import pandas as pd
@@ -46,7 +45,7 @@ def extract_year_quarter_range(year_quarter_str: str) -> tuple[date, date]:
         raise Exception("Year quarter cannot be empty!")
 
     if not 'Q' in year_quarter_str:
-        year = int(year_quarter_str)
+        year = int(year_quarter_str.strip())
         year_quarter_start = date(year, 1, 1)
         year_quarter_end = date(year + 1, 1, 1)
     else:
@@ -65,6 +64,7 @@ class GcsPathReader:
         self.paths = [p.rstrip("/") for p in paths.split(",")]
         self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.bucket_name)
+
 
     def _extract_date_range_process_time(self, path: str) -> tuple[date, date, date]:
         """Extracts the following from the path: [date range start date, date range end date, process date]"""
@@ -117,16 +117,11 @@ class GcsToPostgresLoader:
                 TRAJECTORY_TABLE.c.time_start < end_excl,
             ))
         )
-
-        df = pd.read_sql(stmt, self.engine)
-        if df.empty:
-            # Good there were no matching results.
-            return
-        if len(df.index) > 1:
-            raise Exception(f"There were multiple rows for the time range: {start_incl} - {end_excl}")
-
-        assert (df["flight_cnt"].dropna() == 0).all(), f"There is flights data present in [{start_incl}, {end_excl})."\
-                                              " Please delete it first."
+        with self.engine.connect() as conn:
+            count = conn.scalar(stmt)
+            if count > 0:
+                raise Exception(f"There is flights data present in [{start_incl}, {end_excl})."\
+                                              " Please delete it first.")
 
 
     def _read_parquet_blob(self, blob: storage.Blob) -> pd.DataFrame:
@@ -169,14 +164,15 @@ class GcsToPostgresLoader:
                 return
 
             for data_transformer in self.data_transformers:
-                df_copy = df.copy(deep=True)
-                df_copy = data_transformer.parquet_data_to_postgres(df_copy)
-                self._upload_to_postgres(df_copy, data_transformer.table_name)
+                df_table_data = data_transformer.parquet_data_to_postgres(df)
+                self._upload_to_postgres(df_table_data, data_transformer.table_name)
         except Exception as e:
             print(f"Failed to process {blob.name}: {e}")
 
 
 class DataTransformer:
+    """Transforms data from the Parquet input format to the Postgres output format."""
+
     def __init__(self, table_name:str) -> None:
         self.table_name = table_name
 
@@ -185,6 +181,7 @@ class DataTransformer:
 
 
 class MainTableDataTransformer(DataTransformer):
+    """Transforms data from the Parquet input format to the Postgres output format for the main table."""
 
     def __init__(self, table_name:str) -> None:
         super().__init__(table_name)
@@ -229,18 +226,18 @@ class MainTableDataTransformer(DataTransformer):
 
         df["co2e_kg_bucket"] = pd.cut(
             df['sum_ef_mj'],
-            bins=CO2E_BINS,
             # Buckets computed from CO2e GWP100 thresholds [0.0, 800.0, 7500.0]
-            labels=[-np.inf, 0, 2696406.1, 25278807.1, np.inf],
+            bins=[-np.inf, 0, 2696406.1, 25278807.1, np.inf],
+            labels=CO2E_BINS,
             right=True,  # ensures that every bin is (start, end]
             include_lowest=True
         ).astype(str)
 
         df["co2e_kg_per_km_bucket"] = pd.cut(
             df['ef_mj_per_km'],
-            bins=CO2E_BINS,
             # Buckets computed from CO2e GWP100 thresholds [0.0, 2.8, 70.0]
-            labels=[-np.inf, 0, 9437.4, 235935.5, np.inf],
+            bins=[-np.inf, 0, 9437.4, 235935.5, np.inf],
+            labels=CO2E_BINS,
             right=True,  # ensures that every bin is (start, end]
             include_lowest=True
         ).astype(str)
@@ -249,6 +246,8 @@ class MainTableDataTransformer(DataTransformer):
 
 
 class MetadataTableDataTransformer(DataTransformer):
+    """Transforms data from the Parquet input format to the Postgres output format for the metadata table."""
+
     def __init__(self, table_name:str) -> None:
         super().__init__(table_name)
 
@@ -272,6 +271,7 @@ class MetadataTableDataTransformer(DataTransformer):
         ]
         # Only keep the relevant columns specified above.
         return df[features]
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()
