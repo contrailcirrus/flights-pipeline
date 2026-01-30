@@ -17,9 +17,10 @@ CREATE TABLE "trajectory-cocip"
     lon_start               real,
     lat_end                 real,
     lon_end                 real,
-    time_start              timestamp,
-    time_end                timestamp,
+    time_start              timestamp without time zone,
+    time_end                timestamp without time zone,
     sum_ef_mj               bigint,
+    ef_mj_per_km            double precision,
     aircraft_type_icao      text,
     engine_uid              text,
     mean_aircraft_mass_kg   integer,
@@ -35,40 +36,9 @@ CREATE TABLE "trajectory-cocip"
     departure_airport_icao  text,
     arrival_airport_icao    text,
 
-    ef_mj_per_km double precision GENERATED ALWAYS AS (
-        CASE
-            WHEN chunk_len_km = 0 THEN NULL
-            ELSE sum_ef_mj::double precision / chunk_len_km
-        END
-    ) STORED,
-
-    flight_length_bucket flight_length_bucket_enum GENERATED ALWAYS AS (
-        CASE
-            WHEN (EXTRACT(EPOCH FROM (time_end - time_start)) / 60) < 210 THEN 'short_flight'
-            ELSE 'long_flight'
-        END::flight_length_bucket_enum
-    ) STORED,
-
-    co2e_kg_bucket co2e_bucket_enum GENERATED ALWAYS AS (
-        -- Numbers computed from CO2e GWP100 thresholds [0.0, 800.0, 7500.0]
-        CASE
-            WHEN sum_ef_mj <= 0 THEN 'no_impact'
-            WHEN sum_ef_mj <= 2696406.1 THEN 'low_impact'
-            WHEN sum_ef_mj <= 25278807.1 THEN 'medium_impact'
-            ELSE 'high_impact'
-        END::co2e_bucket_enum
-    ) STORED,
-
-     co2e_kg_per_km_bucket co2e_bucket_enum GENERATED ALWAYS AS (
-        -- Numbers computed from CO2e GWP100 thresholds [0.0, 2.8, 70.0]
-        CASE
-            WHEN ef_mj_per_km * [FACTOR] <= 0 THEN 'no_impact'
-            WHEN ef_mj_per_km * [FACTOR] <= 9437.4 THEN 'low_impact'
-            WHEN ef_mj_per_km * [FACTOR] <= 235935.5 THEN 'medium_impact'
-            ELSE 'high_impact'
-        END::co2e_bucket_enum
-    ) STORED,
-
+    flight_length_bucket    flight_length_bucket_enum,
+    co2e_kg_bucket          co2e_bucket_enum,
+    co2e_kg_per_km_bucket   co2e_bucket_enum
 );
 
 -- Given that filters are optional any combination of them can be provided making standard B-Tree indices useless.

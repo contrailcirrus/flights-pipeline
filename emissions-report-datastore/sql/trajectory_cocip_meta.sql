@@ -14,10 +14,7 @@ create table "trajectory-cocip-meta"
     total_persistent_contrail_length_km smallint
 );
 
-alter table "trajectory-cocip-meta"
-    owner to postgres;
-
+alter table "trajectory-cocip-meta" owner to postgres;
 grant select on "trajectory-cocip-meta" to internal_user_ro;
-
 grant delete, insert, select, update on "trajectory-cocip-meta" to internal_user_rw;
 

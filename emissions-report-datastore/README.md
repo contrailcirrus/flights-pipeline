@@ -78,14 +78,17 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
    2. `sql/inventory_monthly_airlines_stats.sql`, `sql/inventory_monthly_od_pair_airline_stats.sql`
 3. Run `main.py --gcs_paths=<path1,path2,...>` to export the Parquet shards to Postgres. If a different GCS bucket is used 
    in (1) change the default values here as well.
-   - You can either run the util through a Cloud SQL Proxy or you can connect directly to a specific IP address:
+   - First login to gcloud to access cloud storage:
+     - `gcloud auth application-default login`
+   - Load the pipenv:
+     - `pip install -U pip; pip install pipenv; pipenv sync; pipenv shell`
+   - Run the utility (example for 2024 and 2025Q1 data):
      ```
-     docker run --rm -it \
-      -e PSDB_CONTRAILS_DEFAULT_PWD="<password of read/write user>" \
-      -e DB_HOST="<Postgres DB IP address>" \
-      -e DB_PORT="5432" \
-      gcs-to-pgdb \
-      --gcs_paths flights-pipeline/emissions-export/2024/20260112,flights-pipeline/emissions-export/2025Q1/20260112
+     ./main.py \
+       --db_user "internal_user_rw"
+       --db_password "<password of Postgres user internal_user_rw>"
+       --db_host "34.23.237.52"
+       --gcs_paths "flights-pipeline/emissions-export/2024/20260112,flights-pipeline/emissions-export/2025Q1/20260112"
      ```
 4. Update the materialized views by running the following sequence of SQL commands:
    1. `REFRESH MATERIALIZED VIEW inventory_monthly_airlines_stats;`
