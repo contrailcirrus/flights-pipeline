@@ -225,8 +225,8 @@ class WaypointCache:
 
     class Waypoint(TypedDict):
         flight_id: bytes  # UUID
-        latitude: float  # WSG ESPG:4326
-        longitude: float  # WSG ESPG:4326
+        latitude: float  # WGS ESPG:4326
+        longitude: float  # WGS ESPG:4326
         altitude_ft: int  # feet MSL
         timestamp: int  # unixtime
 

@@ -27,13 +27,13 @@
     "name": "latitude",
     "type": "FLOAT64",
     "mode": "REQUIRED",
-    "description": "WSG84 latitude for the for the waypoint"
+    "description": "WGS84 latitude for the for the waypoint"
   },
   {
     "name": "longitude",
     "type": "FLOAT64",
     "mode": "REQUIRED",
-    "description": "WSG84 latitude for the for the waypoint"
+    "description": "WGS84 longitude for the for the waypoint"
   },
     {
     "name": "collection_type",
