@@ -1,13 +1,13 @@
 create table "trajectory-cocip-meta"
 (
-    _processed_at    bigint,
-    total_fuel_burn_kg      smallint,
-    pycontrails_ver  text,
-    perf_model_id    text,
-    nvpm_data_source text,
-    git_sha          text,
-    zarr_uri         text,
-    flight_id        text not null
+    _processed_at       bigint,
+    total_fuel_burn_kg  integer,
+    pycontrails_ver     text,
+    perf_model_id       text,
+    nvpm_data_source    text,
+    git_sha             text,
+    zarr_uri            text,
+    flight_id           text not null
         constraint flight_id_fk
             references "trajectory-cocip",
     total_pos_ef_persistent_contrail_length_km smallint,

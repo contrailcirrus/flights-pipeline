@@ -79,7 +79,7 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
 3. Run `main.py --gcs_paths=<path1,path2,...>` to export the Parquet shards to Postgres. If a different GCS bucket is used 
    in (1) change the default values here as well.
    - First login to gcloud to access cloud storage:
-     - `gcloud auth application-default login`
+     - `gcloud auth login`
    - Load the pipenv:
      - `pip install -U pip; pip install pipenv; pipenv sync; pipenv shell`
    - Run the utility (example for 2024 and 2025Q1 data):

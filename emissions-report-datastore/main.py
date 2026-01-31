@@ -14,7 +14,7 @@ import psycopg2
 
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
 TRAJECTORY_TABLE = table(TRAJECTORY_TABLE_NAME, column("flight_id"), column("time_start"))
-TRAJECTORY_META_TABLE_NAME = "trajectory-cocip-main"
+TRAJECTORY_META_TABLE_NAME = "trajectory-cocip-meta"
 
 CO2E_BINS = ['no_impact', 'low_impact', 'medium_impact', 'high_impact']
 
@@ -176,6 +176,7 @@ class DataTransformer:
     def __init__(self, table_name:str) -> None:
         self.table_name = table_name
 
+
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError()
 
@@ -186,12 +187,44 @@ class MainTableDataTransformer(DataTransformer):
     def __init__(self, table_name:str) -> None:
         super().__init__(table_name)
 
+
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+
+        df.loc[:, "time_start"] = pd.to_datetime(df["time_start"])
+        df.loc[:, "time_end"] = pd.to_datetime(df["time_end"])
+
+        ef_mj_per_km = df['sum_ef_mj'].div(df['chunk_len_km'].replace(0, np.nan)).astype(float)
+
+        duration_seconds = (df["time_end"] - df["time_start"]).dt.total_seconds()
+        flight_length_bucket = np.where(duration_seconds < 3.5 * 60 * 60, "short_flight", "long_flight")
+
+        co2e_kg_bucket = pd.cut(
+            df['sum_ef_mj'],
+            # Buckets computed from CO2e GWP100 thresholds [0.0, 800.0, 7500.0]
+            bins=[-np.inf, 0, 2696406.1, 25278807.1, np.inf],
+            labels=CO2E_BINS,
+            right=True,  # ensures that every bin is (start, end]
+            include_lowest=True
+        ).astype(str)
+
+        co2e_kg_per_km_bucket = pd.cut(
+            ef_mj_per_km,
+            # Buckets computed from CO2e GWP100 thresholds [0.0, 2.8, 70.0]
+            bins=[-np.inf, 0, 9437.4, 235935.5, np.inf],
+            labels=CO2E_BINS,
+            right=True,  # ensures that every bin is (start, end]
+            include_lowest=True
+        ).astype(str)
+
         df = df.assign(
             chunk_len_km=df["chunk_len_km"].astype(int),
-            mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int)
+            mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int),
+            ef_mj_per_km=ef_mj_per_km,
+            flight_length_bucket=flight_length_bucket,
+            co2e_kg_bucket=co2e_kg_bucket,
+            co2e_kg_per_km_bucket=co2e_kg_per_km_bucket
         )
-
         features = [
             "chunk_len_km",
             "lat_start",
@@ -201,6 +234,7 @@ class MainTableDataTransformer(DataTransformer):
             "time_start",
             "time_end",
             "sum_ef_mj",
+            "ef_mj_per_km",
             "aircraft_type_icao",
             "engine_uid",
             "mean_aircraft_mass_kg",
@@ -213,36 +247,11 @@ class MainTableDataTransformer(DataTransformer):
             "airline_iata",
             "departure_airport_icao",
             "arrival_airport_icao",
+            "flight_length_bucket",
+            "co2e_kg_bucket",
+            "co2e_kg_per_km_bucket",
         ]
-        # Only keep the relevant columns specified above.
-        df = df[features]
-
-        df['ef_mj_per_km'] = df['sum_ef_mj'].div(df['chunk_len_km'].replace(0, np.nan)).astype(float)
-
-        df["time_start"] = pd.to_datetime(df["time_start"])
-        df["time_end"] = pd.to_datetime(df["time_end"])
-        duration_seconds = (df["time_end"] - df["time_start"]).dt.total_seconds()
-        df['flight_length_bucket'] = np.where(duration_seconds < 3.5 * 60 * 60, "short_flight", "long_flight")
-
-        df["co2e_kg_bucket"] = pd.cut(
-            df['sum_ef_mj'],
-            # Buckets computed from CO2e GWP100 thresholds [0.0, 800.0, 7500.0]
-            bins=[-np.inf, 0, 2696406.1, 25278807.1, np.inf],
-            labels=CO2E_BINS,
-            right=True,  # ensures that every bin is (start, end]
-            include_lowest=True
-        ).astype(str)
-
-        df["co2e_kg_per_km_bucket"] = pd.cut(
-            df['ef_mj_per_km'],
-            # Buckets computed from CO2e GWP100 thresholds [0.0, 2.8, 70.0]
-            bins=[-np.inf, 0, 9437.4, 235935.5, np.inf],
-            labels=CO2E_BINS,
-            right=True,  # ensures that every bin is (start, end]
-            include_lowest=True
-        ).astype(str)
-
-        return df
+        return df[features]
 
 
 class MetadataTableDataTransformer(DataTransformer):
@@ -252,9 +261,11 @@ class MetadataTableDataTransformer(DataTransformer):
         super().__init__(table_name)
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+
         df = df.assign(
-            chunk_len_km=df["chunk_len_km"].astype(int),
-            mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int)
+            total_pos_ef_persistent_contrail_length_km=df["total_pos_ef_persistent_contrail_length_km"].astype(int),
+            total_persistent_contrail_length_km=df["total_persistent_contrail_length_km"].astype(int)
         )
 
         features = [
@@ -277,7 +288,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--gcs_bucket", dest="gcs_bucket", default="contrails-301217-sandbox-internal",
                         help="GCS bucket name.")
-    parser.add_argument("--gcs_paths", dest="gcs_paths", default="flights-pipeline/emissions-export",
+    parser.add_argument("--gcs_paths", dest="gcs_paths", required=True,
                         help="Comma-separated GCS paths to the directory with the .pq files.")
     parser.add_argument("--target_table", dest="target_table", default=TRAJECTORY_TABLE_NAME,
                         help="Target table name in Postgres database.")
