@@ -23,8 +23,8 @@ GROUP BY
     aircraft_type_icao,
     engine_uid,
     flight_length_bucket,
-    co2e_kg_range,
-    co2e_kg_per_km_range;
+    co2e_kg_bucket,
+    co2e_kg_per_km_bucket;
 
 
 -- Given that filters are optional any combination of them can be provided making standard B-Tree indices useless.
@@ -36,9 +36,9 @@ CREATE INDEX idx_mv_filters_gin
         airline_iata,
         aircraft_type_icao,
         engine_uid,
-        flight_len_bucket,
-        co2e_impact_bucket,
-        co2e_intensity_bucket
+        flight_length_bucket,
+        co2e_kg_bucket,
+        co2e_kg_per_km_bucket
     );
 
 -- Use a standard B-Tree for the range filter.
