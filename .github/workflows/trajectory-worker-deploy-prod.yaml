@@ -81,4 +81,3 @@ jobs:
           GIT_SHA: ${{ github.sha }}
           TRAJECTORY_COCIP_BQ_TOPIC_ID: projects/contrails-301217/topics/prod-fp-trajectory-worker-cocip-egress-bigquery
           GCS_BUCKET_NAME: contrails-301217-flights-pipeline-prod
-          N_JOBS: 50  # not implemented
