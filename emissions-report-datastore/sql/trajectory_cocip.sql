@@ -47,6 +47,7 @@ CREATE EXTENSION IF NOT EXISTS btree_gin;
 CREATE INDEX idx_trajectory_filters_gin
     ON "trajectory-cocip"
     USING GIN (
+        time_start,
         airline_iata,
         aircraft_type_icao,
         engine_uid,
