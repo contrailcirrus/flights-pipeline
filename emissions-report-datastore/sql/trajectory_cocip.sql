@@ -45,7 +45,7 @@ CREATE TABLE "trajectory-cocip"
 -- Using a GIN index which efficiently computes intersections of any filter combinations.
 CREATE EXTENSION IF NOT EXISTS btree_gin;
 CREATE INDEX idx_trajectory_filters_gin
-    ON inventory_monthly_airlines_stats
+    ON "trajectory-cocip"
     USING GIN (
         airline_iata,
         aircraft_type_icao,
