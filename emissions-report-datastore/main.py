@@ -119,17 +119,13 @@ class GcsToPostgresLoader:
             end_str = next_month.strftime('%Y-%m-%d')
 
             with self.engine.connect() as conn:
-                conn.execute(text(f"""
-                    CREATE TABLE IF NOT EXISTS "{TRAJECTORY_TABLE_NAME}_{suffix}" 
-                    PARTITION OF "{TRAJECTORY_TABLE_NAME}" 
-                    FOR VALUES FROM ('{start_str}') TO ('{end_str}');
-                """))
-                conn.execute(text(f"""
-                    CREATE TABLE IF NOT EXISTS "{TRAJECTORY_META_TABLE_NAME}_{suffix}" 
-                    PARTITION OF "{TRAJECTORY_META_TABLE_NAME}" 
-                    FOR VALUES FROM ('{start_str}') TO ('{end_str}');
-                """))
-                conn.commit()
+                for data_transformer in self.data_transformers:
+                    conn.execute(text(f"""
+                        CREATE TABLE IF NOT EXISTS "{data_transformer.table_name}_{suffix}" 
+                        PARTITION OF "{data_transformer.table_name}" 
+                        FOR VALUES FROM ('{start_str}') TO ('{end_str}');
+                    """))
+                    conn.commit()
 
             current = next_month
 
