@@ -50,9 +50,9 @@ CREATE INDEX idx_trajectory_filters_gin
         airline_iata,
         aircraft_type_icao,
         engine_uid,
-        flight_len_bucket,
-        co2e_impact_bucket,
-        co2e_intensity_bucket,
+        flight_length_bucket,
+        co2e_kg_bucket,
+        co2e_kg_per_km_bucket,
         departure_airport_icao,
         arrival_airport_icao
     );
