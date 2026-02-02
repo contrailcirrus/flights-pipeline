@@ -96,12 +96,12 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_error
   severity     = "ERROR"
 
   conditions {
-    display_name = "Error in logs (5min window)"
+    display_name = "Error in logs (10min window)"
     condition_monitoring_query_language {
       query    = <<EOF
         fetch k8s_container
         | metric 'logging.googleapis.com/user/${google_logging_metric.spire_raw_batch_prod_error_counter.name}'
-        | group_by sliding(5m), aggregate(value.counter)
+        | group_by sliding(10m), aggregate(value.counter)
         | every 1m
         | condition val() > 0
         EOF
@@ -138,12 +138,12 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_dev_error_
   severity     = "ERROR"
 
   conditions {
-    display_name = "Error in logs (5min window)"
+    display_name = "Error in logs (10min window)"
     condition_monitoring_query_language {
       query    = <<EOF
         fetch k8s_container
         | metric 'logging.googleapis.com/user/${google_logging_metric.spire_raw_batch_dev_error_counter.name}'
-        | group_by sliding(5m), aggregate(value.counter)
+        | group_by sliding(10m), aggregate(value.counter)
         | every 1m
         | condition val() > 0
         EOF
