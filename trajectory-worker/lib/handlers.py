@@ -787,11 +787,13 @@ class CocipTrajectoryHandler:
         return self._zarr_src_fn
 
     @property
-    def model(self):
-        """Get CoCiP model object."""
+    def model(self) -> Cocip | None:
+        """
+        Get CoCiP model object.
+        """
         if not self._model:
             raise Exception("CoCiP model must be instantiated.")
 
-        if self._model.contrail is None:
+        if not hasattr(self._model, "source"):
             raise Exception("eval() has not been run on the CoCiP model")
         return self._model

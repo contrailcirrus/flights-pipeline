@@ -237,7 +237,7 @@ class WaypointCache:
 
     class Waypoint(TypedDict):
         flight_id: bytes  # UUID
-        latitude: float  #WGS ESPG:4326
+        latitude: float  # WGS ESPG:4326
         longitude: float  # WGS ESPG:4326
         altitude_ft: int  # feet MSL
         timestamp: int  # unixtime
@@ -1302,6 +1302,10 @@ class CocipTrajectoryProto:
         # package CONTRAIL EVOLUTION CoCiP outputs
         # ----------
         contrail_evol = model.contrail
+        if contrail_evol is None:
+            # if model.contrail is set but None, then no contrail was formed on model.eval()
+            return CocipTrajectoryProto(trajectory=traj)
+
         contrail_evol_tm_grps = contrail_evol.groupby("time")
         evolution_timestep = (
             pd.Series(contrail_evol_tm_grps.groups.keys()).diff().iloc[1]
