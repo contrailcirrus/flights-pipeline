@@ -66,12 +66,14 @@ CREATE INDEX idx_sort_time
     ON "trajectory-cocip" (time_start DESC, time_end DESC);
 
 -- Create indices that include aggregation data for faster lookups.
-CREATE INDEX idx_arrival_time_covering
-    ON "trajectory-cocip" (arrival_airport_icao, time_start)
-    INCLUDE (sum_ef_mj, chunk_len_km);
-CREATE INDEX idx_departure_time_covering
-    ON "trajectory-cocip" (departure_airport_icao, time_start)
-    INCLUDE (sum_ef_mj, chunk_len_km);
+CREATE INDEX idx_arr_sort_time ON "trajectory-cocip" (arrival_airport_icao, time_start DESC);
+CREATE INDEX idx_dep_sort_time ON "trajectory-cocip" (departure_airport_icao, time_start DESC);
+
+CREATE INDEX idx_dep_sort_impact ON "trajectory-cocip" (departure_airport_icao, sum_ef_mj DESC);
+CREATE INDEX idx_arr_sort_impact ON "trajectory-cocip" (arrival_airport_icao, sum_ef_mj DESC);
+
+CREATE INDEX idx_dep_sort_intensity ON "trajectory-cocip" (departure_airport_icao, ef_mj_per_km DESC);
+CREATE INDEX idx_arr_sort_intensity ON "trajectory-cocip" (arrival_airport_icao, ef_mj_per_km DESC);
 
 alter table "trajectory-cocip" owner to postgres;
 grant delete, insert, select, update on "trajectory-cocip" to internal_user_rw;
