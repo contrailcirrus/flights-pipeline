@@ -792,7 +792,7 @@ class HealTrajectoryHandler:
                         f"dropping {drop_cnt} values out of "
                         f"{total_number_before_drop} not matching: "
                         f"{val} for field: {col}. flight_id: "
-                        {self._df['flight_id'].iloc[0]}"
+                        f"{self._df['flight_id'].iloc[0]}"
                     )
 
         # --------------
