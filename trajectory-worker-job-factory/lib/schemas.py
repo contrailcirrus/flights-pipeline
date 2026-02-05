@@ -1181,7 +1181,7 @@ class TrajectoryCandidateInfo:
     airline_iata: str | None
     callsign: str | None
     flight_number: str | None
-    length: int | 0
+    length: int | None
     start_time: datetime | None
     end_time: datetime | None
 
