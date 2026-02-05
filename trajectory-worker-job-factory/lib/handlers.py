@@ -733,9 +733,10 @@ class HealTrajectoryHandler:
         max_interpolate_trip_frac: float,
     ) -> tuple[pd.DataFrame | None, float]:
         """
-        Return a one-row dataframe of an interpolated waypoint at an airport, or None
-        if interpolation conditions are not met. In both cases, also return the percent
-        of the full trip length between the waypoint and the airport.
+        Return a one-row dataframe of an interpolated waypoint at an airport, or None if
+        interpolation conditions are not met. In both cases, also return the distance
+        from the waypoint to the airport as a fraction of the full airport-to-airport
+        trip length.
         """
         waypoint_to_airport_dist_m = _pointed_haversine_3d(
             waypoint["longitude"],
