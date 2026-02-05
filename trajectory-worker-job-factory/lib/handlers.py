@@ -873,8 +873,10 @@ class HealTrajectoryHandler:
             )
         )
 
-        # don't interpolate if the actual segment is too short relative to the full
-        # trip length
+        # Don't interpolate if the combined trip fraction from first/last waypoints to
+        # departure/arrival airports is too high. This would mean (1) the actual data
+        # segment from first to last waypoint is too short, or (2) one or both of the
+        # airport ICAO codes in the data don't match the trip actually flown.
         if (trip_frac_to_departure_airport + trip_frac_to_arrival_airport) > (
             2 * max_interpolate_trip_frac
         ):
