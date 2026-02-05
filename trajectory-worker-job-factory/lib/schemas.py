@@ -1170,3 +1170,37 @@ class AirlineDayFlightsProgressMarker:
         """
         if resp:
             return int(resp.decode("utf-8"))
+
+@dataclass
+class TrajectoryCandidateInfo:
+    """
+    High level information about a candidate flight trajectory handled by 
+    healing and validation within the Trajectory Worker Job Factory.
+    """
+    flight_id: str
+    airline_iata: str | None
+    callsign: str | None
+    flight_number: str | None
+    length: int | 0
+    start_time: datetime | None
+    end_time: datetime | None
+
+    def to_dict(self):
+        return {
+            "flight_id": self.flight_id,
+            "airline_iata": self.airline_iata,
+            "callsign": self.callsign,
+            "flight_number": self.flight_number,
+            "length": self.length,
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat(),
+        }
+    
+    def to_json(self):
+        return json.dumps(self.to_dict())
+    
+    def as_utf8_json(self):
+        return self.to_json.encode("utf-8")
+
+    def __str__(self):
+        return str(self.to_json())
