@@ -35,7 +35,7 @@ from lib.exceptions import (
 )
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
-from lib.schemas import SpireWaypointPositional, AirlineDayFlightsProgressMarker
+from lib.schemas import SpireWaypointPositional, AirlineDayFlightsProgressMarker, TrajectoryCandidateInfo
 from lib.utils import sigterm_manager
 
 
@@ -641,7 +641,7 @@ class HealTrajectoryHandler:
         self._max_airport_interpolate_pct_of_trip = 0.1
         self._interpolate_altitude_above_airport_ft = 1000.0
 
-    def set(self, trajectory: pd.DataFrame):
+    def set(self, trajectory: pd.DataFrame, candidate_info: TrajectoryCandidateInfo):
         """
         Sets a target trajectory into this handler's state.
 
@@ -651,6 +651,9 @@ class HealTrajectoryHandler:
             A dataset with one flight trajectory.
             Each trajectory is identified by its flight_id.
             Dataset must include columns matching those in the BQ table `spire_flights_raw_prod`
+        candidate_info
+            Data class containing pertinent information about specific flight trajectory 
+            being handled.
         """
         if len(trajectory) == 0:
             raise BadTrajectoryException("flight trajectory is empty.")
@@ -660,6 +663,7 @@ class HealTrajectoryHandler:
                 "flight_id)."
             )
         self._df = trajectory.copy(deep=True)
+        self._candidate_info = candidate_info
 
     def unset(self):
         """
@@ -964,11 +968,17 @@ class HealTrajectoryHandler:
                 drop_cnt = (~keep_filter).sum()
                 if drop_cnt:
                     logger.info(
-                        f"dropping {drop_cnt} values not matching:{val} for field: {col}."
+                        f"{self._candidate_info}: dropped {drop_cnt} values not matching:{val} for field: {col}."
                     )
 
+        len_before_duplicate_drop = len(self._df)
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
         self._df.drop_duplicates(["timestamp"], inplace=True)
+        len_difference = len_before_duplicate_drop - len(self._df)
+        if len_difference != 0:
+            logger.info(
+                f"{self._candidate_info}: dropped {len_difference} duplicate timestamp records"
+            )
 
         # --------------
         # Interpolate to one or both airports if needed.
@@ -983,6 +993,9 @@ class HealTrajectoryHandler:
         if airport_waypoints_df is not None:
             self._df = pd.concat([self._df, airport_waypoints_df])
             self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+            logger.info(
+                f"{self._candidate_info}: interpolating to airports adding {len(airport_waypoints_df)} points"
+            )
 
         # --------------
         # Drop data points where computed ground speed is too slow or too fast. The
@@ -995,6 +1008,7 @@ class HealTrajectoryHandler:
         # could have a valid speed in the first iteration, but then have an invalid
         # speed in the second iteration, after its adjacent points are dropped.
         iterations = self._max_speed_filter_iterations
+        initial_length = len(self._df)
         while iterations:
             prev_len = len(self._df)
             # need at least 2 data points to compute a speed
@@ -1009,6 +1023,10 @@ class HealTrajectoryHandler:
             iterations -= 1
 
         self._df.reset_index(drop=True, inplace=True)
+        if len(self._df) != initial_length:
+            logger.info(
+                f"{self._candidate_info}: speed filter ejected {initial_length - len(self._df)} waypoints."
+            )
         if len(self._df) == 0:
             raise BadTrajectoryException("flight trajectory is empty.")
         return self._df
@@ -1056,6 +1074,8 @@ class ResampleHandler:
         430,
         440,
     ]
+
+    METERS_TO_FEET = 3.28084
 
     def __init__(self):
         self._min_records_ts: pd.Timestamp | None = None
@@ -1106,7 +1126,7 @@ class ResampleHandler:
 
         # compute the altitude_ft from altitude (note: pycontrails Flight operates on altitude [m])
         flight_resampled.loc[:, "altitude_ft"] = (
-            flight_resampled["altitude"] * 3.28
+            flight_resampled["altitude"] * self.METERS_TO_FEET
         ).astype(int)
 
         flight_resampled["flight_level"] = flight_resampled["altitude_ft"].apply(
