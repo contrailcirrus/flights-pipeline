@@ -931,7 +931,7 @@ class HealTrajectoryHandler:
             minutes_added_to_departure = (
                 first_waypoint["timestamp"]
                 - interpolated_departure_airport_waypoint["timestamp"]
-            ) / 60.0
+            ).total_seconds() / 60.0
             logger.info(
                 f"{candidate_info}: estimated endpoint at departure airport "
                 f"{departure_airport_icao} adding  "
