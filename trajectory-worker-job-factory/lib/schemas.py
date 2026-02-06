@@ -1,4 +1,4 @@
-""" Data Object Models & Schemas"""
+"""Data Object Models & Schemas"""
 
 import hashlib
 import json
@@ -1171,12 +1171,14 @@ class AirlineDayFlightsProgressMarker:
         if resp:
             return int(resp.decode("utf-8"))
 
+
 @dataclass
 class TrajectoryCandidateInfo:
     """
-    High level information about a candidate flight trajectory handled by 
+    High level information about a candidate flight trajectory handled by
     healing and validation within the Trajectory Worker Job Factory.
     """
+
     flight_id: str
     airline_iata: str | None
     callsign: str | None
@@ -1195,10 +1197,10 @@ class TrajectoryCandidateInfo:
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat(),
         }
-    
+
     def to_json(self):
         return json.dumps(self.to_dict())
-    
+
     def as_utf8_json(self):
         return self.to_json.encode("utf-8")
 

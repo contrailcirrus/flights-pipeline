@@ -35,7 +35,11 @@ from lib.exceptions import (
 )
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
-from lib.schemas import SpireWaypointPositional, AirlineDayFlightsProgressMarker, TrajectoryCandidateInfo
+from lib.schemas import (
+    SpireWaypointPositional,
+    AirlineDayFlightsProgressMarker,
+    TrajectoryCandidateInfo,
+)
 from lib.utils import sigterm_manager
 
 

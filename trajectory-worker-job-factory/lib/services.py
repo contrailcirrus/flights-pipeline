@@ -330,11 +330,15 @@ class TrajectoryBuilderSvc:
                     telemetry_src=twjd.telemetry_source,
                 )
             else:
-                raise NotImplementedError("TWJD could not be processed.")
+                raise NotImplementedError(f"TWJD could not be processed {twjd}")
         except InvalidQueryException as e:
-            raise PermanentFailureException("ads-b request to bq not valid.") from e
+            raise PermanentFailureException(
+                f"ads-b request to bq not valid for TWJD: {twjd}"
+            ) from e
         except Exception as e:
-            raise Exception("failed to fetch ads-b data from data source.") from e
+            raise Exception(
+                f"failed to fetch ads-b data from data source for TWJD: {twjd}"
+            ) from e
 
         # -----------
         # resample trajectories,
@@ -365,20 +369,20 @@ class TrajectoryBuilderSvc:
                 )
 
         counter = 0
-        number_of_flight_candidates = len(df['flight_id'].unique())
+        number_of_flight_candidates = len(df["flight_id"].unique())
         for flight_id, terr_waypoints in flight_instances:
             if sigterm_manager.should_exit:
                 sys.exit(0)
 
             # Keep track of initial trajectory information for logging
             candidate = TrajectoryCandidateInfo(
-                flight_id = flight_id,
-                airline_iata = terr_waypoints['airline_iata'][0],
-                callsign = terr_waypoints['callsign'][0],
-                flight_number = terr_waypoints['flight_number'][0],
-                length= len(terr_waypoints),
-                start_time = terr_waypoints['timestamp'][0],
-                end_time = terr_waypoints['timestamp'][-1],
+                flight_id=flight_id,
+                airline_iata=terr_waypoints["airline_iata"][0],
+                callsign=terr_waypoints["callsign"][0],
+                flight_number=terr_waypoints["flight_number"][0],
+                length=len(terr_waypoints),
+                start_time=terr_waypoints["timestamp"][0],
+                end_time=terr_waypoints["timestamp"][-1],
             )
             counter += 1
 
@@ -479,9 +483,9 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.set(records)
                 self._resample_handler.interpolate()
 
-                waypoints_resampled: list[
-                    SpireWaypointPositional
-                ] = self._resample_handler.waypoints_resampled
+                waypoints_resampled: list[SpireWaypointPositional] = (
+                    self._resample_handler.waypoints_resampled
+                )
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
@@ -498,16 +502,12 @@ class TrajectoryBuilderSvc:
                     for pos in waypoints_resampled
                 ]
             )
-            logger.info(
-                f"{candidate}: resampled to {len(resampled_df)} points."
-            )
+            logger.info(f"{candidate}: resampled to {len(resampled_df)} points.")
 
             if twjd.export_waypoints:
                 # save waypoints to disk
                 # CLI (local) use only
-                logger.info(
-                    f"{candidate}: writing waypoints to file"
-                )
+                logger.info(f"{candidate}: writing waypoints to file")
                 base_path = f"out/{flight_info.airline_iata}"
                 os.makedirs(base_path, exist_ok=True)
                 resampled_df.to_csv(
@@ -543,9 +543,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(resampled_df)
-                violations: None | list[
-                    Exception
-                ] = self._validate_traj_handler.evaluate()
+                violations: None | list[Exception] = (
+                    self._validate_traj_handler.evaluate()
+                )
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
