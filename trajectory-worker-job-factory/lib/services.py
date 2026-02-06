@@ -377,9 +377,9 @@ class TrajectoryBuilderSvc:
             # Keep track of initial trajectory information for logging
             candidate = TrajectoryCandidateInfo(
                 flight_id=flight_id,
-                airline_iata=terr_waypoints["airline_iata"][0],
-                callsign=terr_waypoints["callsign"][0],
-                flight_number=terr_waypoints["flight_number"][0],
+                airline_iata=terr_waypoints["airline_iata"].iloc[0],
+                callsign=terr_waypoints["callsign"].iloc[0],
+                flight_number=terr_waypoints["flight_number"].iloc[0],
                 length=len(terr_waypoints),
                 start_time=terr_waypoints["timestamp"].min(),
                 end_time=terr_waypoints["timestamp"].max(),
@@ -494,9 +494,9 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.set(records)
                 self._resample_handler.interpolate()
 
-                waypoints_resampled: list[SpireWaypointPositional] = (
-                    self._resample_handler.waypoints_resampled
-                )
+                waypoints_resampled: list[
+                    SpireWaypointPositional
+                ] = self._resample_handler.waypoints_resampled
                 self._resample_handler.unset()
             except Exception as e:
                 logger.error(
@@ -567,9 +567,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(resampled_df)
-                violations: None | list[Exception] = (
-                    self._validate_traj_handler.evaluate()
-                )
+                violations: None | list[
+                    Exception
+                ] = self._validate_traj_handler.evaluate()
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
