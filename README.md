@@ -206,8 +206,8 @@ As such, one can generally match the log files to the time periods during which 
 Nonetheless, it can be helpful to do a purge of logs from old runs of the dev pipeline.
 
 ```bash
-gsutil rm "contrails-301217-fp-dev-trajectory-worker-job-factory/stderr/**"
-gsutil rm "contrails-301217-fp-dev-trajectory-worker/stderr/**"
+gsutil -m rm "gs://contrails-301217-fp-dev-trajectory-worker-job-factory/stderr/**"
+gsutil -m rm "gs://contrails-301217-fp-dev-trajectory-worker/stderr/**"
 ```
 
 ### BigQuery
