@@ -1,9 +1,14 @@
-# Emissions Report Datastore
+# BQ to Postgres Util
 This subdirectory holds tooling, references, guides/instructions and documentation 
 relevant for the maintenance of the emissions report data tables (housed in a GCP Cloud SQL Postgres instance).
 
+Bigquery is the source-of-truth destination for CoCiP outputs from the flights pipeline.
+
+Those outputs are selectively mirrored/synced to a Postgres database,
+those data in Postgres backing the public-facing data access to the flights pipeline outputs ("contrail impact inventory").
+
 ## Data Models
-The emissions report data (per-flight CoCiP outputs) live in the `contrails-default-<dev/prod>` 
+The per-flight trajectory-worker outputs live in the `contrails-default-<dev/prod>` 
 postgres instances in Cloud SQL, in the `flights-pipeline-fer-cache` database.
 
 The table definitions are stored in the `sql` directory.
@@ -13,14 +18,14 @@ Several materialized views are also built from these base tables.
 ### Table Overviews
 
 #### `trajectory-cocip`
-This is the table of primary significance, holding the per-flight emissions data, and those 
+This is the table of primary significance, holding the per-flight CoCiP data, and those 
 flight attributes necessary for filtering/searching for a flight.
 
 #### `trajectory-cocip-meta`
 This table is 1:1 with `trajectory-cocip`, and holds additional attributes for a given flight.
 
 ## Data Sync'ing
-The source-of-truth for flight emissions data lives in BigQuery.
+The source-of-truth for flight CoCiP data lives in BigQuery.
 Those data sync'ed to the postgres instance originate in the BigQuery `flights_pipeline_prod.trajectory_cocip_prod`.
 
 1. Export the BigQuery data into Parquet shards under the following URL pattern:
@@ -96,5 +101,4 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
    1. `REFRESH MATERIALIZED VIEW inventory_monthly_airlines_stats;`
    2. `REFRESH MATERIALIZED VIEW inventory_monthly_od_pair_airline_stats;`
 
-<TODO: TOOLING/INSTRUCTIONS FOR SYNC'ING>
 
