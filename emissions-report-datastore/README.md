@@ -85,11 +85,13 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
    - Run the utility (example for 2024 and 2025Q1 data):
      ```
      ./main.py \
-       --db_user "internal_user_rw"
-       --db_password "<password of Postgres user internal_user_rw>"
-       --db_host "34.23.237.52"
+       --db_user "internal_user_rw" \
+       --db_password "<password of Postgres user internal_user_rw>" \
+       --db_host "34.23.237.52" \
        --gcs_paths "flights-pipeline/emissions-export/2024/20260112,flights-pipeline/emissions-export/2025Q1/20260112"
      ```
+   - The DB utility ensures that the required monthly partition tables are correctly created.
+     If a partition table needs to be created you have to use the following flags instead `--db_user "postgres" and --db_password "<pw of postgres user>"`
 4. Update the materialized views by running the following sequence of SQL commands:
    1. `REFRESH MATERIALIZED VIEW inventory_monthly_airlines_stats;`
    2. `REFRESH MATERIALIZED VIEW inventory_monthly_od_pair_airline_stats;`
