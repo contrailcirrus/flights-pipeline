@@ -652,14 +652,16 @@ class HealTrajectoryHandler:
             Each trajectory is identified by its flight_id.
             Dataset must include columns matching those in the BQ table `spire_flights_raw_prod`
         candidate_info
-            Data class containing pertinent information about specific flight trajectory 
-            being handled.
+            Data class containing pertinent information about specific flight `trajectory`.
+            Required for logging purposes.
         """
         if len(trajectory) == 0:
-            raise BadTrajectoryException("flight trajectory is empty.")
+            raise BadTrajectoryException(
+                f"{candidate_info}: flight trajectory is empty."
+            )
         if len(trajectory["flight_id"].unique()) > 1:
             raise Exception(
-                "dataset passed to handler must be for a single flight instance ("
+                f"{candidate_info}: dataset passed to handler must be for a single flight instance ("
                 "flight_id)."
             )
         self._df = trajectory.copy(deep=True)
@@ -670,6 +672,7 @@ class HealTrajectoryHandler:
         Pops a trajectory from this handler's state.
         """
         self._df = None
+        self._candidate_info = None
 
     @staticmethod
     def _get_priority_map(df: pd.DataFrame, cols: list) -> dict:
@@ -786,9 +789,8 @@ class HealTrajectoryHandler:
         interpolated_airport_waypoint["altitude_baro"] = airport_alt_ft
         return interpolated_airport_waypoint, waypoint_to_airport_trip_frac
 
-    @staticmethod
     def _heal_too_far_airports(
-        df: pd.DataFrame,
+        self,
         min_interpolate_dist_km: float,
         max_interpolate_dist_km: float,
         max_interpolate_trip_frac: float,
@@ -798,17 +800,18 @@ class HealTrajectoryHandler:
         Attempt to interpolate from the first and last waypoints to the departure and
         arrival airports. Will not interpolate if a waypoint is too close to the
         airport (no need for interpolation) or too far from the airport (don't want to
-        interpolate too much of the trip).
+        interpolate too much of the trip). Updates internal dataframe with interpolated
+        waypoints if successful.
 
-        Returns None, or a dataframe with up to two rows representing the interpolated
-        waypoints.
+        Returns None if no interpolation, or a dataframe with up to two rows representing
+        the interpolated waypoints.
         """
         # need at least two data points to compute speed
-        if len(df) < 2:
+        if len(self._df) < 2:
             return None
 
-        departure_airport_icao = df["departure_airport_icao"].iloc[0]
-        arrival_airport_icao = df["arrival_airport_icao"].iloc[0]
+        departure_airport_icao = self._df["departure_airport_icao"].iloc[0]
+        arrival_airport_icao = self._df["arrival_airport_icao"].iloc[0]
 
         departure_airport_lon, departure_airport_lat, departure_airport_alt_ft = (
             ValidateTrajectoryHandler._find_airport_coords(departure_airport_icao)
@@ -838,15 +841,15 @@ class HealTrajectoryHandler:
         if isclose(airport_to_airport_dist_m, 0):
             return None
 
-        speed_df = df.rename(
+        speed_df = self._df.rename(
             columns={"timestamp": "time", "altitude_baro": "altitude_ft"}
         )
         ground_speed_m_s = Flight(speed_df).segment_groundspeed(smooth=True)
         first_speed_m_s = ground_speed_m_s[0]
-        last_speed_m_s = ground_speed_m_s[-2]  # the very last speed is always nan
+        last_speed_m_s = ground_speed_m_s[-2]  # the last groundspeed is always nan
 
-        first_waypoint = df.iloc[0]
-        last_waypoint = df.iloc[-1]
+        first_waypoint = self._df.iloc[0]
+        last_waypoint = self._df.iloc[-1]
 
         interpolated_departure_airport_waypoint, trip_frac_to_departure_airport = (
             HealTrajectoryHandler._interpolate_to_airport(
@@ -889,10 +892,21 @@ class HealTrajectoryHandler:
         interpolated_waypoints = []
         if interpolated_departure_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_departure_airport_waypoint)
+            logger.info(
+                f"{self._candidate_info}: interpolated trajectory to departure airport "
+                f"{departure_airport_icao} at distance {airport_to_airport_dist_m * trip_frac_to_departure_airport} m."
+            )
         if interpolated_arrival_airport_waypoint is not None:
+            logger.info(
+                f"{self._candidate_info}: interpolated trajectory to arrival airport "
+                f"{arrival_airport_icao} at distance {airport_to_airport_dist_m * trip_frac_to_arrival_airport} m."
+            )
             interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
 
         if interpolated_waypoints:
+            self._df = pd.concat([self._df] + interpolated_waypoints).sort_values(
+                by="timestamp", ascending=True, inplace=True
+            )
             return pd.concat(interpolated_waypoints)
 
     @staticmethod
@@ -944,7 +958,7 @@ class HealTrajectoryHandler:
             self._df.replace("None", None, inplace=True)
         except KeyError as e:
             raise KeyError(
-                "flight trajectory dataframe is missing an expected column."
+                f"{self._candidate_info}: flight trajectory dataframe is missing an expected column."
             ) from e
 
         # --------------
@@ -1010,6 +1024,10 @@ class HealTrajectoryHandler:
                 break
             iterations -= 1
 
+        if len(self._df) != initial_length:
+            logger.info(
+                f"{self._candidate_info}: speed filter ejected {initial_length - len(self._df)} waypoints."
+            )
         # --------------
         # Interpolate to one or both airports if needed.
         # --------------
@@ -1021,19 +1039,16 @@ class HealTrajectoryHandler:
             self._interpolate_altitude_above_airport_ft,
         )
         if airport_waypoints_df is not None:
-            self._df = pd.concat([self._df, airport_waypoints_df])
-            self._df.sort_values(by="timestamp", ascending=True, inplace=True)
             logger.info(
                 f"{self._candidate_info}: interpolating to airports adding {len(airport_waypoints_df)} points"
             )
 
         self._df.reset_index(drop=True, inplace=True)
-        if len(self._df) != initial_length:
-            logger.info(
-                f"{self._candidate_info}: speed filter ejected {initial_length - len(self._df)} waypoints."
-            )
+
         if len(self._df) == 0:
-            raise BadTrajectoryException("flight trajectory is empty.")
+            raise BadTrajectoryException(
+                f"{self._candidate_info}: flight trajectory is empty."
+            )
         return self._df
 
 
