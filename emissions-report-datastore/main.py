@@ -1,6 +1,7 @@
 """Utility to load trajectory cocip Parquet shards from GCS and write them to Postgres."""
 
 from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 import io
 from typing import Iterator
 
@@ -8,7 +9,7 @@ from argparse import ArgumentParser
 import pandas as pd
 import numpy as np
 from google.cloud import storage
-from sqlalchemy import URL, and_, create_engine, func, select, table, column
+from sqlalchemy import URL, and_, create_engine, func, select, table, text, column
 from tqdm import tqdm
 import psycopg2
 
@@ -106,6 +107,27 @@ class GcsToPostgresLoader:
     def __init__(self, data_transformers: list[DataTransformer], db_uri: str):
         self.engine = create_engine(db_uri)
         self.data_transformers = data_transformers
+
+
+    def ensure_partitions_exist(self, start_incl: date, end_excl: date) -> None:
+        current = start_incl.replace(day=1)
+        while current < end_excl:
+            next_month = current + relativedelta(months=1)
+
+            suffix = current.strftime('%Y_%m')
+            start_str = current.strftime('%Y-%m-%d')
+            end_str = next_month.strftime('%Y-%m-%d')
+
+            with self.engine.connect() as conn:
+                for data_transformer in self.data_transformers:
+                    conn.execute(text(f"""
+                        CREATE TABLE IF NOT EXISTS "{data_transformer.table_name}_{suffix}" 
+                        PARTITION OF "{data_transformer.table_name}" 
+                        FOR VALUES FROM ('{start_str}') TO ('{end_str}');
+                    """))
+                    conn.commit()
+
+            current = next_month
 
 
     def assert_no_data(self, start_incl: date, end_excl: date) -> None:
@@ -263,6 +285,8 @@ class MetadataTableDataTransformer(DataTransformer):
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
 
+        df.loc[:, "time_start"] = pd.to_datetime(df["time_start"])
+
         df = df.assign(
             total_pos_ef_persistent_contrail_length_km=df["total_pos_ef_persistent_contrail_length_km"].astype(int),
             total_persistent_contrail_length_km=df["total_persistent_contrail_length_km"].astype(int)
@@ -277,6 +301,7 @@ class MetadataTableDataTransformer(DataTransformer):
             "git_sha",
             "zarr_uri",
             "flight_id",
+            "time_start",
             "total_pos_ef_persistent_contrail_length_km",
             "total_persistent_contrail_length_km",
         ]
@@ -315,6 +340,7 @@ if __name__ == "__main__":
         db_uri=get_db_uri(args.db_host, args.db_port, args.db_socket_name, args.db_user, args.db_password)
     )
     for start_incl, end_excl in gcs_paths.date_ranges():
+        loader.ensure_partitions_exist(start_incl, end_excl)
         loader.assert_no_data(start_incl, end_excl)
 
     parquet_files = list(gcs_paths.parquet_files())
