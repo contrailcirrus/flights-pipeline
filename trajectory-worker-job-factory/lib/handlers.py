@@ -935,7 +935,7 @@ class HealTrajectoryHandler:
             logger.info(
                 f"{candidate_info}: estimated endpoint at departure airport "
                 f"{departure_airport_icao} adding  "
-                f"{minutes_added_to_departure} minutes to the flight."
+                f"{int(minutes_added_to_departure)} minutes to the flight."
             )
         if interpolated_arrival_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
@@ -946,7 +946,7 @@ class HealTrajectoryHandler:
             logger.info(
                 f"{candidate_info}: interpolated trajectory to arrival airport "
                 f"{arrival_airport_icao} adding "
-                f"{minutes_added_to_arrival} minutes to the flight."
+                f"{int(minutes_added_to_arrival)} minutes to the flight."
             )
 
         if interpolated_waypoints:
