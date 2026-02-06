@@ -6,6 +6,7 @@ import io
 
 import asyncio
 import concurrent.futures
+import datetime
 import google.api_core.exceptions
 import google.api_core.retry
 import google.auth
@@ -18,7 +19,12 @@ import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
 from google.cloud import pubsub_v1, bigquery, storage  # type: ignore
+from math import isclose, isnan
 from pycontrails import Flight
+from pycontrails.datalib.spire.spire import (
+    _pointed_haversine_3d,
+    ValidateTrajectoryHandler,
+)
 from redis.backoff import ExponentialBackoff
 from redis.retry import Retry
 from typing import Any, Callable
@@ -630,6 +636,10 @@ class HealTrajectoryHandler:
         self._min_speed_m_s = min_speed_m_s
         self._max_speed_m_s = max_speed_m_s
         self._max_speed_filter_iterations = 5
+        self._min_interpolate_dist_km = 10.0
+        self._max_interpolate_dist_km = 400.0
+        self._max_interpolate_trip_frac = 0.1
+        self._interpolate_altitude_above_airport_ft = 1000.0
 
     def set(self, trajectory: pd.DataFrame):
         """
@@ -708,6 +718,178 @@ class HealTrajectoryHandler:
             "altitude_baro": int,
         }
         return df.astype(cols)
+
+    @staticmethod
+    def _interpolate_to_airport(
+        waypoint: pd.Series,
+        airport_is_departure: bool,
+        airport_lon: float,
+        airport_lat: float,
+        airport_alt_ft: float,
+        speed_m_s: float,
+        airport_to_airport_dist_m: float,
+        min_interpolate_dist_km: float,
+        max_interpolate_dist_km: float,
+        max_interpolate_trip_frac: float,
+    ) -> tuple[pd.DataFrame | None, float]:
+        """
+        Return a one-row dataframe of an interpolated waypoint at an airport, or None if
+        interpolation conditions are not met. In both cases, also return the distance
+        from the waypoint to the airport as a fraction of the full airport-to-airport
+        trip length.
+        """
+        waypoint_to_airport_dist_m = _pointed_haversine_3d(
+            waypoint["longitude"],
+            waypoint["latitude"],
+            waypoint["altitude_baro"],
+            airport_lon,
+            airport_lat,
+            airport_alt_ft,
+        )
+        waypoint_to_airport_trip_frac = (
+            waypoint_to_airport_dist_m / airport_to_airport_dist_m
+        )
+
+        # don't interpolate beyond the allowed ranges
+        if waypoint_to_airport_dist_m < (min_interpolate_dist_km * 1000):
+            return None, waypoint_to_airport_trip_frac
+        if waypoint_to_airport_dist_m > (max_interpolate_dist_km * 1000):
+            return None, waypoint_to_airport_trip_frac
+        if waypoint_to_airport_trip_frac > max_interpolate_trip_frac:
+            return None, waypoint_to_airport_trip_frac
+
+        # avoid dividing by 0
+        if isclose(speed_m_s, 0):
+            return None, waypoint_to_airport_trip_frac
+
+        time_to_airport = waypoint_to_airport_dist_m / speed_m_s
+        if airport_is_departure:
+            imputed_time_at_airport = waypoint["timestamp"] - datetime.timedelta(
+                seconds=time_to_airport
+            )
+        else:
+            imputed_time_at_airport = waypoint["timestamp"] + datetime.timedelta(
+                seconds=time_to_airport
+            )
+
+        # copy the input series to keep the invariant fields; also convert it into a
+        # one-row dataframe
+        interpolated_airport_waypoint = pd.DataFrame([waypoint], columns=waypoint.index)
+
+        interpolated_airport_waypoint["timestamp"] = imputed_time_at_airport
+        interpolated_airport_waypoint["longitude"] = airport_lon
+        interpolated_airport_waypoint["latitude"] = airport_lat
+        interpolated_airport_waypoint["altitude_baro"] = airport_alt_ft
+        return interpolated_airport_waypoint, waypoint_to_airport_trip_frac
+
+    @staticmethod
+    def _heal_too_far_airports(
+        df: pd.DataFrame,
+        min_interpolate_dist_km: float,
+        max_interpolate_dist_km: float,
+        max_interpolate_trip_frac: float,
+        interpolate_altitude_above_airport_ft: float,
+    ) -> pd.DataFrame | None:
+        """
+        Attempt to interpolate from the first and last waypoints to the departure and
+        arrival airports. Will not interpolate if a waypoint is too close to the
+        airport (no need for interpolation) or too far from the airport (don't want to
+        interpolate too much of the trip).
+
+        Returns None, or a dataframe with up to two rows representing the interpolated
+        waypoints.
+        """
+        # need at least two data points to compute speed
+        if len(df) < 2:
+            return None
+
+        departure_airport_icao = df["departure_airport_icao"].iloc[0]
+        arrival_airport_icao = df["arrival_airport_icao"].iloc[0]
+
+        departure_airport_lon, departure_airport_lat, departure_airport_alt_ft = (
+            ValidateTrajectoryHandler._find_airport_coords(departure_airport_icao)
+        )
+        arrival_airport_lon, arrival_airport_lat, arrival_airport_alt_ft = (
+            ValidateTrajectoryHandler._find_airport_coords(arrival_airport_icao)
+        )
+
+        # need to successfully look up both airports
+        if isnan(departure_airport_lon) or isnan(arrival_airport_lon):
+            return None
+
+        # interpolate to some distance above the airport, not ground level
+        departure_airport_alt_ft += interpolate_altitude_above_airport_ft
+        arrival_airport_alt_ft += interpolate_altitude_above_airport_ft
+
+        airport_to_airport_dist_m = _pointed_haversine_3d(
+            departure_airport_lon,
+            departure_airport_lat,
+            departure_airport_alt_ft,
+            arrival_airport_lon,
+            arrival_airport_lat,
+            arrival_airport_alt_ft,
+        )
+        # avoid dividing by 0; this would happen if the departure and arrival airports
+        # are the same
+        if isclose(airport_to_airport_dist_m, 0):
+            return None
+
+        speed_df = df.rename(
+            columns={"timestamp": "time", "altitude_baro": "altitude_ft"}
+        )
+        ground_speed_m_s = Flight(speed_df).segment_groundspeed(smooth=True)
+        first_speed_m_s = ground_speed_m_s[0]
+        last_speed_m_s = ground_speed_m_s[-2]  # the very last speed is always nan
+
+        first_waypoint = df.iloc[0]
+        last_waypoint = df.iloc[-1]
+
+        interpolated_departure_airport_waypoint, trip_frac_to_departure_airport = (
+            HealTrajectoryHandler._interpolate_to_airport(
+                first_waypoint,
+                airport_is_departure=True,
+                airport_lon=departure_airport_lon,
+                airport_lat=departure_airport_lat,
+                airport_alt_ft=departure_airport_alt_ft,
+                speed_m_s=first_speed_m_s,
+                airport_to_airport_dist_m=airport_to_airport_dist_m,
+                min_interpolate_dist_km=min_interpolate_dist_km,
+                max_interpolate_dist_km=max_interpolate_dist_km,
+                max_interpolate_trip_frac=max_interpolate_trip_frac,
+            )
+        )
+        interpolated_arrival_airport_waypoint, trip_frac_to_arrival_airport = (
+            HealTrajectoryHandler._interpolate_to_airport(
+                last_waypoint,
+                airport_is_departure=False,
+                airport_lon=arrival_airport_lon,
+                airport_lat=arrival_airport_lat,
+                airport_alt_ft=arrival_airport_alt_ft,
+                speed_m_s=last_speed_m_s,
+                airport_to_airport_dist_m=airport_to_airport_dist_m,
+                min_interpolate_dist_km=min_interpolate_dist_km,
+                max_interpolate_dist_km=max_interpolate_dist_km,
+                max_interpolate_trip_frac=max_interpolate_trip_frac,
+            )
+        )
+
+        # Don't interpolate if the combined trip fraction from first/last waypoints to
+        # departure/arrival airports is too high. This would mean (1) the actual data
+        # segment from first to last waypoint is too short, or (2) one or both of the
+        # airport ICAO codes in the data don't match the trip actually flown.
+        if (trip_frac_to_departure_airport + trip_frac_to_arrival_airport) > (
+            2 * max_interpolate_trip_frac
+        ):
+            return None
+
+        interpolated_waypoints = []
+        if interpolated_departure_airport_waypoint is not None:
+            interpolated_waypoints.append(interpolated_departure_airport_waypoint)
+        if interpolated_arrival_airport_waypoint is not None:
+            interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
+
+        if interpolated_waypoints:
+            return pd.concat(interpolated_waypoints)
 
     @staticmethod
     def _filter_speeds(
@@ -795,13 +977,14 @@ class HealTrajectoryHandler:
                         f"{self._df['flight_id'].iloc[0]}"
                     )
 
+        self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+        self._df.drop_duplicates(["timestamp"], inplace=True)
+
         # --------------
         # Drop data points where computed ground speed is too slow or too fast. The
         # "too slow" case is often taxiing. The "too fast" case is often caused by
         # small misalignments between receiver timestamps.
         # --------------
-        self._df.sort_values(by="timestamp", ascending=True, inplace=True)
-        self._df.drop_duplicates(["timestamp"], inplace=True)
 
         # Iteratively apply the speed filter, to cover cases where (for example) two
         # points with invalid speeds have a third point between them. The middle point
@@ -820,6 +1003,20 @@ class HealTrajectoryHandler:
             if len(self._df) == prev_len:
                 break
             iterations -= 1
+
+        # --------------
+        # Interpolate to one or both airports if needed.
+        # --------------
+        airport_waypoints_df = self._heal_too_far_airports(
+            self._df,
+            self._min_interpolate_dist_km,
+            self._max_interpolate_dist_km,
+            self._max_interpolate_trip_frac,
+            self._interpolate_altitude_above_airport_ft,
+        )
+        if airport_waypoints_df is not None:
+            self._df = pd.concat([self._df, airport_waypoints_df])
+            self._df.sort_values(by="timestamp", ascending=True, inplace=True)
 
         self._df.reset_index(drop=True, inplace=True)
         if len(self._df) == 0:
