@@ -369,7 +369,7 @@ class TrajectoryBuilderSvc:
                 )
 
         counter = 0
-        number_of_flight_candidates = len(df["flight_id"].unique())
+        number_of_flight_candidates = len(flight_instances.groups)
         for flight_id, terr_waypoints in flight_instances:
             if sigterm_manager.should_exit:
                 sys.exit(0)
@@ -381,9 +381,11 @@ class TrajectoryBuilderSvc:
                 callsign=terr_waypoints["callsign"][0],
                 flight_number=terr_waypoints["flight_number"][0],
                 length=len(terr_waypoints),
-                start_time=terr_waypoints["timestamp"][0],
-                end_time=terr_waypoints["timestamp"][-1],
+                start_time=terr_waypoints["timestamp"].min(),
+                end_time=terr_waypoints["timestamp"].max(),
             )
+            candidate.set_datetime_str_fmt(self.DATE_STRING_FORMAT)
+
             counter += 1
 
             # fast-forward if we are resuming a job
@@ -412,15 +414,24 @@ class TrajectoryBuilderSvc:
             waypoints = pd.concat([terr_waypoints, sat_waypoints])
             # fill null flight_ids (sat data does not have flight_id)
             waypoints.fillna(value={"flight_id": flight_id}, inplace=True)
-            logger.info(
-                f"{candidate}: has {len(waypoints)} waypoints after merging with satellite data."
-            )
+
             # -------------
             # Apply common fixes to trajectory
             # -------------
             try:
+                flight_duration_minutes = (
+                    waypoints["timestamp"].max() - waypoints["timestamp"].min()
+                ).total_seconds() / 60.0
                 self._traj_heal_handler.set(waypoints, candidate_info=candidate)
                 waypoints = self._traj_heal_handler.heal()
+                # Data are returned sorted by timestamp
+                new_flight_duration_minutes = (
+                    waypoints["timestamp"].iloc[-1] - waypoints["timestamp"].iloc[0]
+                ).total_seconds() / 60.0
+                logger.info(
+                    f"{candidate}: applied trajectory healing. "
+                    f"change in duration (min): {new_flight_duration_minutes - flight_duration_minutes:.2f}"
+                )
                 self._traj_heal_handler.unset()
             except BadTrajectoryException as _:
                 logger.warning(
@@ -521,8 +532,21 @@ class TrajectoryBuilderSvc:
             # thus, we re-apply the HealTrajectoryHandler to re-cast data-types
             # prior to running the ValidateTrajectoryHandler
             try:
+                # resampled_df is guaranteed time-sorted
+                flight_duration_minutes = (
+                    resampled_df["timestamp"].iloc[-1] - waypoints["timestamp"].iloc[0]
+                ).total_seconds() / 60.0
                 self._traj_heal_handler.set(resampled_df, candidate_info=candidate)
                 resampled_df = self._traj_heal_handler.heal()
+                # healed trajectory also time-sorted
+                new_flight_duration_minutes = (
+                    resampled_df["timestamp"].iloc[-1]
+                    - resampled_df["timestamp"].iloc[0]
+                ).total_seconds() / 60.0
+                logger.info(
+                    f"{candidate}: re-applied trajectory healing post resampling. "
+                    f"change in duration (min): {new_flight_duration_minutes - flight_duration_minutes:.2f}"
+                )
                 self._traj_heal_handler.unset()
             except BadTrajectoryException as e:
                 logger.warning(
