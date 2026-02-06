@@ -534,8 +534,8 @@ class TrajectoryBuilderSvc:
             try:
                 # resampled_df is guaranteed time-sorted
                 flight_duration_minutes = (
-                    resampled_df["timestamp"].iloc[-1]
-                    - resampled_df["timestamp"].iloc[0]
+                    pd.to_datetime(resampled_df["timestamp"].iloc[-1])
+                    - pd.to_datetime(resampled_df["timestamp"].iloc[0])
                 ).total_seconds() / 60.0
                 self._traj_heal_handler.set(resampled_df, candidate_info=candidate)
                 resampled_df = self._traj_heal_handler.heal()
