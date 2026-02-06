@@ -1,11 +1,11 @@
-""" Data Object Models & Schemas"""
+"""Data Object Models & Schemas"""
 
 import hashlib
 import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TypedDict
+from typing import List, TypedDict
 from uuid import UUID
 import pytz
 from timezonefinder import TimezoneFinder
@@ -1130,6 +1130,9 @@ class TrajectoryWorkerJobDescriptor:
         # verify datestr parsing w/o exc
         _ = datetime.strptime(self.day, "%Y-%m-%d")
 
+    def __str__(self):
+        return str(self.as_utf8_json)
+
 
 @dataclass
 class AirlineDayFlightsProgressMarker:
@@ -1170,3 +1173,43 @@ class AirlineDayFlightsProgressMarker:
         """
         if resp:
             return int(resp.decode("utf-8"))
+
+
+@dataclass
+class TrajectoryCandidateInfo:
+    """
+    High level information about a candidate flight trajectory handled by
+    healing and validation within the Trajectory Worker Job Factory.
+    """
+
+    flight_id: str
+    airline_iata: List[str | None] | None
+    callsign: List[str | None] | None
+    flight_number: List[str | None] | None
+    length: int | None
+    start_time: datetime | None
+    end_time: datetime | None
+    __datetime_str_fmt: str = "%Y-%m-%dT%H:%M:%SZ"
+
+    def to_dict(self):
+        return {
+            "flight_id": self.flight_id,
+            "airline_iata": self.airline_iata,
+            "callsign": self.callsign,
+            "flight_number": self.flight_number,
+            "length": self.length,
+            "start_time": self.start_time.strftime(self.__datetime_str_fmt),
+            "end_time": self.end_time.strftime(self.__datetime_str_fmt),
+        }
+
+    def set_datetime_str_fmt(self, str_fmt):
+        self.__datetime_str_fmt = str_fmt
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    def as_utf8_json(self):
+        return self.to_json.encode("utf-8")
+
+    def __str__(self):
+        return str(self.to_json())

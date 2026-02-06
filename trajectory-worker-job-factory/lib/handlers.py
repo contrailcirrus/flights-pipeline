@@ -35,7 +35,11 @@ from lib.exceptions import (
 )
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
-from lib.schemas import SpireWaypointPositional, AirlineDayFlightsProgressMarker
+from lib.schemas import (
+    SpireWaypointPositional,
+    AirlineDayFlightsProgressMarker,
+    TrajectoryCandidateInfo,
+)
 from lib.utils import sigterm_manager
 
 
@@ -641,7 +645,7 @@ class HealTrajectoryHandler:
         self._max_interpolate_trip_frac = 0.1
         self._interpolate_altitude_above_airport_ft = 1000.0
 
-    def set(self, trajectory: pd.DataFrame):
+    def set(self, trajectory: pd.DataFrame, candidate_info: TrajectoryCandidateInfo):
         """
         Sets a target trajectory into this handler's state.
 
@@ -651,21 +655,28 @@ class HealTrajectoryHandler:
             A dataset with one flight trajectory.
             Each trajectory is identified by its flight_id.
             Dataset must include columns matching those in the BQ table `spire_flights_raw_prod`
+        candidate_info
+            Data class containing pertinent information about specific flight `trajectory`.
+            Required for logging purposes.
         """
         if len(trajectory) == 0:
-            raise BadTrajectoryException("flight trajectory is empty.")
+            raise BadTrajectoryException(
+                f"{candidate_info}: flight trajectory is empty."
+            )
         if len(trajectory["flight_id"].unique()) > 1:
             raise Exception(
-                "dataset passed to handler must be for a single flight instance ("
+                f"{candidate_info}: dataset passed to handler must be for a single flight instance ("
                 "flight_id)."
             )
         self._df = trajectory.copy(deep=True)
+        self._candidate_info = candidate_info
 
     def unset(self):
         """
         Pops a trajectory from this handler's state.
         """
         self._df = None
+        self._candidate_info = None
 
     @staticmethod
     def _get_priority_map(df: pd.DataFrame, cols: list) -> dict:
@@ -782,22 +793,47 @@ class HealTrajectoryHandler:
         interpolated_airport_waypoint["altitude_baro"] = airport_alt_ft
         return interpolated_airport_waypoint, waypoint_to_airport_trip_frac
 
-    @staticmethod
     def _heal_too_far_airports(
         df: pd.DataFrame,
         min_interpolate_dist_km: float,
         max_interpolate_dist_km: float,
         max_interpolate_trip_frac: float,
         interpolate_altitude_above_airport_ft: float,
+        candidate_info: TrajectoryCandidateInfo,
     ) -> pd.DataFrame | None:
         """
-        Attempt to interpolate from the first and last waypoints to the departure and
-        arrival airports. Will not interpolate if a waypoint is too close to the
-        airport (no need for interpolation) or too far from the airport (don't want to
-        interpolate too much of the trip).
+        Attempt to estimate first and last waypoints at the departure and
+        arrival airports with appropriate times. Will not estimate if a
+        waypoint is too close to the airport (no need ) or too far from
+        the airport (don't want to "create" too much of the trip).
 
-        Returns None, or a dataframe with up to two rows representing the interpolated
-        waypoints.
+        Parameters
+        ----------
+        df
+            Dataframe with a single flight trajectory.
+        min_interpolate_dist_km
+            Minimum distance from first/last waypoint to departure/arrival airport
+            to require estimation.
+        max_interpolate_dist_km
+            Maximum distance from first/last waypoint to departure/arrival airport
+            to allow estimation.
+        max_interpolate_trip_frac
+            Maximum fraction of the total airport-to-airport trip distance
+            from first/last waypoint to departure/arrival airport to allow
+            estimation.
+        interpolate_altitude_above_airport_ft
+            Altitude above the airport (in feet) to use for estimations, to
+            avoid estimating new locations at or below ground level in cases
+            where the airport altitude is not accurate.
+        candidate_info
+            Data class containing pertinent information about specific flight `df`.
+            Required for logging purposes.
+
+        Returns
+        -------
+            A dataframe with up to two rows representing
+        the estimated begining and end waypoints, or None if no imputed endpoints
+        were generated.
         """
         # need at least two data points to compute speed
         if len(df) < 2:
@@ -839,7 +875,7 @@ class HealTrajectoryHandler:
         )
         ground_speed_m_s = Flight(speed_df).segment_groundspeed(smooth=True)
         first_speed_m_s = ground_speed_m_s[0]
-        last_speed_m_s = ground_speed_m_s[-2]  # the very last speed is always nan
+        last_speed_m_s = ground_speed_m_s[-2]  # the last groundspeed is always nan
 
         first_waypoint = df.iloc[0]
         last_waypoint = df.iloc[-1]
@@ -885,11 +921,30 @@ class HealTrajectoryHandler:
         interpolated_waypoints = []
         if interpolated_departure_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_departure_airport_waypoint)
+            minutes_added_to_departure = (
+                first_waypoint["timestamp"]
+                - interpolated_departure_airport_waypoint["timestamp"]
+            ) / 60.0
+            logger.info(
+                f"{candidate_info}: estimated endpoint at departure airport "
+                f"{departure_airport_icao} adding  "
+                f"{minutes_added_to_departure} minutes to the flight."
+            )
         if interpolated_arrival_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
+            minutes_added_to_arrival = (
+                interpolated_arrival_airport_waypoint["timestamp"]
+                - last_waypoint["timestamp"]
+            ) / 60.0
+            logger.info(
+                f"{candidate_info}: interpolated trajectory to arrival airport "
+                f"{arrival_airport_icao} adding "
+                f"{minutes_added_to_arrival} minutes to the flight."
+            )
 
         if interpolated_waypoints:
             return pd.concat(interpolated_waypoints)
+        return None
 
     @staticmethod
     def _filter_speeds(
@@ -971,14 +1026,18 @@ class HealTrajectoryHandler:
 
                 if drop_cnt:
                     logger.info(
-                        f"dropping {drop_cnt} values out of "
-                        f"{total_number_before_drop} not matching: "
-                        f"{val} for field: {col}. flight_id: "
-                        f"{self._df['flight_id'].iloc[0]}"
+                        f"{self._candidate_info}: dropped {drop_cnt} values out of "
+                        f"{total_number_before_drop} not matching {val} for field: {col}."
                     )
 
+        len_before_duplicate_drop = len(self._df)
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
         self._df.drop_duplicates(["timestamp"], inplace=True)
+        len_difference = len_before_duplicate_drop - len(self._df)
+        if len_difference != 0:
+            logger.info(
+                f"{self._candidate_info}: dropped {len_difference} duplicate timestamp records"
+            )
 
         # --------------
         # Drop data points where computed ground speed is too slow or too fast. The
@@ -991,6 +1050,7 @@ class HealTrajectoryHandler:
         # could have a valid speed in the first iteration, but then have an invalid
         # speed in the second iteration, after its adjacent points are dropped.
         iterations = self._max_speed_filter_iterations
+        initial_length = len(self._df)
         while iterations:
             prev_len = len(self._df)
             # need at least 2 data points to compute a speed
@@ -1004,21 +1064,30 @@ class HealTrajectoryHandler:
                 break
             iterations -= 1
 
+        if len(self._df) != initial_length:
+            logger.info(
+                f"{self._candidate_info}: speed filter ejected {initial_length - len(self._df)} waypoints."
+            )
         # --------------
         # Interpolate to one or both airports if needed.
         # --------------
-        airport_waypoints_df = self._heal_too_far_airports(
+        airport_waypoints_df = HealTrajectoryHandler._heal_too_far_airports(
             self._df,
             self._min_interpolate_dist_km,
             self._max_interpolate_dist_km,
             self._max_interpolate_trip_frac,
             self._interpolate_altitude_above_airport_ft,
         )
+
         if airport_waypoints_df is not None:
             self._df = pd.concat([self._df, airport_waypoints_df])
             self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+            logger.info(
+                f"{self._candidate_info}: heal too far airports adding {len(airport_waypoints_df)} points"
+            )
 
         self._df.reset_index(drop=True, inplace=True)
+
         if len(self._df) == 0:
             raise BadTrajectoryException("flight trajectory is empty.")
         return self._df
@@ -1066,6 +1135,8 @@ class ResampleHandler:
         430,
         440,
     ]
+
+    METERS_TO_FEET = 3.28084
 
     def __init__(self):
         self._min_records_ts: pd.Timestamp | None = None
@@ -1116,7 +1187,7 @@ class ResampleHandler:
 
         # compute the altitude_ft from altitude (note: pycontrails Flight operates on altitude [m])
         flight_resampled.loc[:, "altitude_ft"] = (
-            flight_resampled["altitude"] * 3.28
+            flight_resampled["altitude"] * self.METERS_TO_FEET
         ).astype(int)
 
         flight_resampled["flight_level"] = flight_resampled["altitude_ft"].apply(
