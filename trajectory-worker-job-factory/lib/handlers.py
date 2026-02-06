@@ -929,13 +929,9 @@ class HealTrajectoryHandler:
         if interpolated_departure_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_departure_airport_waypoint)
             minutes_added_to_departure = (
-                (
-                    first_waypoint["timestamp"]
-                    - interpolated_departure_airport_waypoint["timestamp"]
-                )
-                .astype("timedelta64[m]")
-                .astype(int)
-            )
+                first_waypoint["timestamp"]
+                - interpolated_departure_airport_waypoint["timestamp"]
+            ).astype("timedelta64[s]").astype(int) / 60
             logger.info(
                 f"{candidate_info}: estimated endpoint at departure airport "
                 f"{departure_airport_icao} adding  "
@@ -946,7 +942,7 @@ class HealTrajectoryHandler:
             minutes_added_to_arrival = (
                 interpolated_arrival_airport_waypoint["timestamp"]
                 - last_waypoint["timestamp"]
-            ) / 60.0
+            ).astype("timedelta64[s]").astype(int) / 60
             logger.info(
                 f"{candidate_info}: interpolated trajectory to arrival airport "
                 f"{arrival_airport_icao} adding "
