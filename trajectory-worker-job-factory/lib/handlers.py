@@ -637,6 +637,7 @@ class HealTrajectoryHandler:
 
     def __init__(self, min_speed_m_s, max_speed_m_s):
         self._df: pd.DataFrame | None = None
+        self._candidate_info: TrajectoryCandidateInfo | None = None
         self._min_speed_m_s = min_speed_m_s
         self._max_speed_m_s = max_speed_m_s
         self._max_speed_filter_iterations = 5
@@ -842,12 +843,16 @@ class HealTrajectoryHandler:
         departure_airport_icao = df["departure_airport_icao"].iloc[0]
         arrival_airport_icao = df["arrival_airport_icao"].iloc[0]
 
-        departure_airport_lon, departure_airport_lat, departure_airport_alt_ft = (
-            ValidateTrajectoryHandler._find_airport_coords(departure_airport_icao)
-        )
-        arrival_airport_lon, arrival_airport_lat, arrival_airport_alt_ft = (
-            ValidateTrajectoryHandler._find_airport_coords(arrival_airport_icao)
-        )
+        (
+            departure_airport_lon,
+            departure_airport_lat,
+            departure_airport_alt_ft,
+        ) = ValidateTrajectoryHandler._find_airport_coords(departure_airport_icao)
+        (
+            arrival_airport_lon,
+            arrival_airport_lat,
+            arrival_airport_alt_ft,
+        ) = ValidateTrajectoryHandler._find_airport_coords(arrival_airport_icao)
 
         # need to successfully look up both airports
         if isnan(departure_airport_lon) or isnan(arrival_airport_lon):
@@ -880,33 +885,35 @@ class HealTrajectoryHandler:
         first_waypoint = df.iloc[0]
         last_waypoint = df.iloc[-1]
 
-        interpolated_departure_airport_waypoint, trip_frac_to_departure_airport = (
-            HealTrajectoryHandler._interpolate_to_airport(
-                first_waypoint,
-                airport_is_departure=True,
-                airport_lon=departure_airport_lon,
-                airport_lat=departure_airport_lat,
-                airport_alt_ft=departure_airport_alt_ft,
-                speed_m_s=first_speed_m_s,
-                airport_to_airport_dist_m=airport_to_airport_dist_m,
-                min_interpolate_dist_km=min_interpolate_dist_km,
-                max_interpolate_dist_km=max_interpolate_dist_km,
-                max_interpolate_trip_frac=max_interpolate_trip_frac,
-            )
+        (
+            interpolated_departure_airport_waypoint,
+            trip_frac_to_departure_airport,
+        ) = HealTrajectoryHandler._interpolate_to_airport(
+            first_waypoint,
+            airport_is_departure=True,
+            airport_lon=departure_airport_lon,
+            airport_lat=departure_airport_lat,
+            airport_alt_ft=departure_airport_alt_ft,
+            speed_m_s=first_speed_m_s,
+            airport_to_airport_dist_m=airport_to_airport_dist_m,
+            min_interpolate_dist_km=min_interpolate_dist_km,
+            max_interpolate_dist_km=max_interpolate_dist_km,
+            max_interpolate_trip_frac=max_interpolate_trip_frac,
         )
-        interpolated_arrival_airport_waypoint, trip_frac_to_arrival_airport = (
-            HealTrajectoryHandler._interpolate_to_airport(
-                last_waypoint,
-                airport_is_departure=False,
-                airport_lon=arrival_airport_lon,
-                airport_lat=arrival_airport_lat,
-                airport_alt_ft=arrival_airport_alt_ft,
-                speed_m_s=last_speed_m_s,
-                airport_to_airport_dist_m=airport_to_airport_dist_m,
-                min_interpolate_dist_km=min_interpolate_dist_km,
-                max_interpolate_dist_km=max_interpolate_dist_km,
-                max_interpolate_trip_frac=max_interpolate_trip_frac,
-            )
+        (
+            interpolated_arrival_airport_waypoint,
+            trip_frac_to_arrival_airport,
+        ) = HealTrajectoryHandler._interpolate_to_airport(
+            last_waypoint,
+            airport_is_departure=False,
+            airport_lon=arrival_airport_lon,
+            airport_lat=arrival_airport_lat,
+            airport_alt_ft=arrival_airport_alt_ft,
+            speed_m_s=last_speed_m_s,
+            airport_to_airport_dist_m=airport_to_airport_dist_m,
+            min_interpolate_dist_km=min_interpolate_dist_km,
+            max_interpolate_dist_km=max_interpolate_dist_km,
+            max_interpolate_trip_frac=max_interpolate_trip_frac,
         )
 
         # Don't interpolate if the combined trip fraction from first/last waypoints to
@@ -1077,6 +1084,7 @@ class HealTrajectoryHandler:
             self._max_interpolate_dist_km,
             self._max_interpolate_trip_frac,
             self._interpolate_altitude_above_airport_ft,
+            self._candidate_info,
         )
 
         if airport_waypoints_df is not None:

@@ -1212,4 +1212,8 @@ class TrajectoryCandidateInfo:
         return self.to_json.encode("utf-8")
 
     def __str__(self):
-        return str(self.to_json())
+        # custom format to avoid JSON string literal confusion in logging
+        out = "flight_info - "
+        for k, v in self.to_dict().items():
+            out += f"{k}:{v}, "
+        return out
