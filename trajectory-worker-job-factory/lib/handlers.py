@@ -987,11 +987,14 @@ class HealTrajectoryHandler:
         for col, val in priority_values.items():
             if val:
                 keep_filter = self._df[col] == val
+                total_number_before_drop = len(self._df[col])
                 self._df = self._df[keep_filter]
                 drop_cnt = (~keep_filter).sum()
+
                 if drop_cnt:
                     logger.info(
-                        f"{self._candidate_info}: dropped {drop_cnt} values not matching:{val} for field: {col}."
+                        f"{self._candidate_info}: dropped {drop_cnt} values out of "
+                        f"{total_number_before_drop} not matching {val} for field: {col}."
                     )
 
         len_before_duplicate_drop = len(self._df)

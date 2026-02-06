@@ -2,12 +2,11 @@
 
 from datetime import date, datetime, timedelta
 import io
-import os
 from typing import Iterator
-from concurrent.futures import ThreadPoolExecutor
 
 from argparse import ArgumentParser
 import pandas as pd
+import numpy as np
 from google.cloud import storage
 from sqlalchemy import URL, and_, create_engine, func, select, table, column
 from tqdm import tqdm
@@ -15,15 +14,18 @@ import psycopg2
 
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
 TRAJECTORY_TABLE = table(TRAJECTORY_TABLE_NAME, column("flight_id"), column("time_start"))
+TRAJECTORY_META_TABLE_NAME = "trajectory-cocip-meta"
+
+CO2E_BINS = ['no_impact', 'low_impact', 'medium_impact', 'high_impact']
 
 
-def get_db_uri(db_host: str, port: int, db_socket_instance: str, password: str):
+def get_db_uri(db_host: str, port: int, db_socket_instance: str, user: str, password: str):
     """Prioritizes TCP (DB_HOST) if set, otherwise falls back to Cloud SQL Unix Sockets."""
     assert db_host or db_socket_instance, "Either a host IP or a socket instance name need to be specified!"
 
     common_params = {
         "drivername": "postgresql+psycopg",
-        "username": "internal_user_rw",
+        "username": user,
         "password": password,
         "database": "flights-pipeline-fer-cache",
     }
@@ -43,7 +45,7 @@ def extract_year_quarter_range(year_quarter_str: str) -> tuple[date, date]:
         raise Exception("Year quarter cannot be empty!")
 
     if not 'Q' in year_quarter_str:
-        year = int(year_quarter_str)
+        year = int(year_quarter_str.strip())
         year_quarter_start = date(year, 1, 1)
         year_quarter_end = date(year + 1, 1, 1)
     else:
@@ -62,6 +64,7 @@ class GcsPathReader:
         self.paths = [p.rstrip("/") for p in paths.split(",")]
         self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.bucket_name)
+
 
     def _extract_date_range_process_time(self, path: str) -> tuple[date, date, date]:
         """Extracts the following from the path: [date range start date, date range end date, process date]"""
@@ -95,14 +98,14 @@ class GcsPathReader:
         for path in self.find_valid_paths():
             blobs = self.storage_client.list_blobs(self.bucket_name, prefix=path)
             parquet_shards = [b for b in blobs if b.name.endswith(".pq")]
-            print(f"Found {len(parquet_shards)} parquet shards.")
+            print(f"Found {len(parquet_shards)} parquet shards in {path}.")
             yield from parquet_shards
 
 
 class GcsToPostgresLoader:
-    def __init__(self, table_name: str, db_uri: str):
+    def __init__(self, data_transformers: list[DataTransformer], db_uri: str):
         self.engine = create_engine(db_uri)
-        self.table_name = table_name
+        self.data_transformers = data_transformers
 
 
     def assert_no_data(self, start_incl: date, end_excl: date) -> None:
@@ -114,17 +117,11 @@ class GcsToPostgresLoader:
                 TRAJECTORY_TABLE.c.time_start < end_excl,
             ))
         )
-
-        df = pd.read_sql(stmt, self.engine)
-        if df.empty:
-            # Good there were no matching results.
-            return
-        if len(df.index) > 1:
-            raise Exception(f"There were multiple rows for the time range: {start_incl} - {end_excl}")
-
-        df["flight_cnt"] = df["flight_cnt"].fillna(0)
-        assert (df["flight_cnt"] == 0).all(), f"There is flights data present in [{start_incl}, {end_excl})."\
-                                              "Please delete it first."
+        with self.engine.connect() as conn:
+            count = conn.scalar(stmt)
+            if count > 0:
+                raise Exception(f"There is flights data present in [{start_incl}, {end_excl})."\
+                                              " Please delete it first.")
 
 
     def _read_parquet_blob(self, blob: storage.Blob) -> pd.DataFrame:
@@ -132,7 +129,7 @@ class GcsToPostgresLoader:
         return pd.read_parquet(io.BytesIO(data))
 
 
-    def _upload_to_postgres(self, df: pd.DataFrame, schema: str = "public") -> None:
+    def _upload_to_postgres(self, df: pd.DataFrame, table_name: str, schema: str = "public") -> None:
         """Uploads a pandas DataFrame to Postgres using the efficient COPY command."""
 
         connection = self.engine.raw_connection()
@@ -143,7 +140,7 @@ class GcsToPostgresLoader:
         buffer.seek(0)
 
         try:
-            full_table_name = f'"{schema}"."{self.table_name}"'
+            full_table_name = f'"{schema}"."{table_name}"'
             copy_stmt = f"COPY {full_table_name} FROM STDIN WITH (FORMAT CSV, DELIMITER '\t', NULL '')"
             with connection.cursor() as cur:
                 with cur.copy(copy_stmt) as copy:
@@ -159,12 +156,75 @@ class GcsToPostgresLoader:
             connection.close()
 
 
-    def _transform_parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+    def to_postgres(self, blob: storage.Blob) -> None:
+        try:
+            df = self._read_parquet_blob(blob)
+            if df.empty:
+                print(f"Empty parquet file: {blob}")
+                return
+
+            for data_transformer in self.data_transformers:
+                df_table_data = data_transformer.parquet_data_to_postgres(df)
+                self._upload_to_postgres(df_table_data, data_transformer.table_name)
+        except Exception as e:
+            print(f"Failed to process {blob.name}: {e}")
+
+
+class DataTransformer:
+    """Transforms data from the Parquet input format to the Postgres output format."""
+
+    def __init__(self, table_name:str) -> None:
+        self.table_name = table_name
+
+
+    def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError()
+
+
+class MainTableDataTransformer(DataTransformer):
+    """Transforms data from the Parquet input format to the Postgres output format for the main table."""
+
+    def __init__(self, table_name:str) -> None:
+        super().__init__(table_name)
+
+
+    def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+
+        df.loc[:, "time_start"] = pd.to_datetime(df["time_start"])
+        df.loc[:, "time_end"] = pd.to_datetime(df["time_end"])
+
+        ef_mj_per_km = df['sum_ef_mj'].div(df['chunk_len_km'].replace(0, np.nan)).astype(float)
+
+        duration_seconds = (df["time_end"] - df["time_start"]).dt.total_seconds()
+        flight_length_bucket = np.where(duration_seconds < 3.5 * 60 * 60, "short_flight", "long_flight")
+
+        co2e_kg_bucket = pd.cut(
+            df['sum_ef_mj'],
+            # Buckets computed from CO2e GWP100 thresholds [0.0, 800.0, 7500.0]
+            bins=[-np.inf, 0, 2696406.1, 25278807.1, np.inf],
+            labels=CO2E_BINS,
+            right=True,  # ensures that every bin is (start, end]
+            include_lowest=True
+        ).astype(str)
+
+        co2e_kg_per_km_bucket = pd.cut(
+            ef_mj_per_km,
+            # Buckets computed from CO2e GWP100 thresholds [0.0, 2.8, 70.0]
+            bins=[-np.inf, 0, 9437.4, 235935.5, np.inf],
+            labels=CO2E_BINS,
+            right=True,  # ensures that every bin is (start, end]
+            include_lowest=True
+        ).astype(str)
+
         df = df.assign(
             chunk_len_km=df["chunk_len_km"].astype(int),
-            mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int)
+            mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int),
+            ef_mj_per_km=ef_mj_per_km,
+            flight_length_bucket=flight_length_bucket,
+            co2e_kg_bucket=co2e_kg_bucket,
+            co2e_kg_per_km_bucket=co2e_kg_per_km_bucket
         )
-
         features = [
             "chunk_len_km",
             "lat_start",
@@ -174,6 +234,7 @@ class GcsToPostgresLoader:
             "time_start",
             "time_end",
             "sum_ef_mj",
+            "ef_mj_per_km",
             "aircraft_type_icao",
             "engine_uid",
             "mean_aircraft_mass_kg",
@@ -186,45 +247,73 @@ class GcsToPostgresLoader:
             "airline_iata",
             "departure_airport_icao",
             "arrival_airport_icao",
+            "flight_length_bucket",
+            "co2e_kg_bucket",
+            "co2e_kg_per_km_bucket",
         ]
-        # Only keep the relevant columns specified above.
         return df[features]
 
 
-    def to_postgres(self, blob: storage.Blob) -> None:
-        try:
-            df = self._read_parquet_blob(blob)
-            if df.empty:
-                print(f"Empty parquet file: {blob}")
-                return
+class MetadataTableDataTransformer(DataTransformer):
+    """Transforms data from the Parquet input format to the Postgres output format for the metadata table."""
 
-            # TODO split into main and meta tables
-            df = self._transform_parquet_data_to_postgres(df)
-            self._upload_to_postgres(df)
-        except Exception as e:
-            print(f"Failed to process {blob.name}: {e}")
+    def __init__(self, table_name:str) -> None:
+        super().__init__(table_name)
+
+    def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+
+        df = df.assign(
+            total_pos_ef_persistent_contrail_length_km=df["total_pos_ef_persistent_contrail_length_km"].astype(int),
+            total_persistent_contrail_length_km=df["total_persistent_contrail_length_km"].astype(int)
+        )
+
+        features = [
+            "_processed_at",
+            "total_fuel_burn_kg",
+            "pycontrails_ver",
+            "perf_model_id",
+            "nvpm_data_source",
+            "git_sha",
+            "zarr_uri",
+            "flight_id",
+            "total_pos_ef_persistent_contrail_length_km",
+            "total_persistent_contrail_length_km",
+        ]
+        # Only keep the relevant columns specified above.
+        return df[features]
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--gcs_bucket", dest="gcs_bucket", default="contrails-301217-sandbox-internal",
                         help="GCS bucket name.")
-    parser.add_argument("--gcs_paths", dest="gcs_paths", default="flights-pipeline/emissions-export",
+    parser.add_argument("--gcs_paths", dest="gcs_paths", required=True,
                         help="Comma-separated GCS paths to the directory with the .pq files.")
     parser.add_argument("--target_table", dest="target_table", default=TRAJECTORY_TABLE_NAME,
                         help="Target table name in Postgres database.")
+    parser.add_argument("--target_meta_table", dest="target_meta_table",
+                        default=TRAJECTORY_META_TABLE_NAME,
+                        help="Target metadata table name in Postgres database.")
     parser.add_argument("--db_host", dest="db_host", default="",
                         help="Postgres database IP address. Leave empty to use cloud SQL socket instead.")
     parser.add_argument("--db_socket_name", dest="db_socket_name", default="",
                         help="Postgres database instance name to be used with cloud SQL socket.")
     parser.add_argument("--db_port", dest="db_port", default=5432)
+    parser.add_argument("--db_user", dest="db_user", default="internal_user_rw",
+                        help="Postgres database user.")
     parser.add_argument("--db_password", dest="db_password", required=True,
                         help="Postgres database password.")
     args = parser.parse_args()
 
-    db_uri = get_db_uri(args.db_host, args.db_port, args.db_socket_name, args.db_password)
     gcs_paths = GcsPathReader(args.gcs_bucket, args.gcs_paths)
-    loader = GcsToPostgresLoader(args.target_table, db_uri)
+    loader = GcsToPostgresLoader(
+        data_transformers=[
+            MainTableDataTransformer(args.target_table),
+            MetadataTableDataTransformer(args.target_meta_table),
+        ],
+        db_uri=get_db_uri(args.db_host, args.db_port, args.db_socket_name, args.db_user, args.db_password)
+    )
     for start_incl, end_excl in gcs_paths.date_ranges():
         loader.assert_no_data(start_incl, end_excl)
 

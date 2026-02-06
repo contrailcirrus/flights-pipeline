@@ -237,8 +237,8 @@ class WaypointCache:
 
     class Waypoint(TypedDict):
         flight_id: bytes  # UUID
-        latitude: float  # WSG ESPG:4326
-        longitude: float  # WSG ESPG:4326
+        latitude: float  # WGS ESPG:4326
+        longitude: float  # WGS ESPG:4326
         altitude_ft: int  # feet MSL
         timestamp: int  # unixtime
 
@@ -1302,17 +1302,13 @@ class CocipTrajectoryProto:
         # package CONTRAIL EVOLUTION CoCiP outputs
         # ----------
         contrail_evol = model.contrail
+        if contrail_evol is None:
+            # if model.contrail is set but None, then no contrail was formed on model.eval()
+            return CocipTrajectoryProto(trajectory=traj)
+
         contrail_evol_tm_grps = contrail_evol.groupby("time")
-        evolution_timestep = (
-            pd.Series(contrail_evol_tm_grps.groups.keys()).diff().iloc[1]
-        )
-        if (
-            evolution_timestep
-            != pd.Series(contrail_evol_tm_grps.groups.keys()).diff().mean()
-        ):
-            raise Exception(
-                "inconsistent timesteps in CoCiP contrail evolution dataframe"
-            )
+        evolution_timestep = pd.Timedelta(model.params["dt_integration"])
+
         # handle each evolution timestep independently
         for ts, grp in contrail_evol_tm_grps:
             # identify continuous contrail line-strings within timestep of evolution

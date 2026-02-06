@@ -35,7 +35,8 @@ def test_get_data_between_success(spire_client, sample_api_response):
         mock_response.raise_for_status = MagicMock()
 
         mock_client_instance = MagicMock()
-        mock_client_instance.__enter__.return_value.get.return_value = mock_response
+        # Mock stream() instead of get()
+        mock_client_instance.__enter__.return_value.stream.return_value.__enter__.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
         df = spire_client.get_data_between(start, end)
@@ -73,10 +74,42 @@ def test_get_data_between_retry_on_failure(spire_client):
         mock_response.raise_for_status = MagicMock()
 
         mock_client_instance = MagicMock()
-        mock_client_instance.__enter__.return_value.get.return_value = mock_response
+        # Mock stream() instead of get()
+        mock_client_instance.__enter__.return_value.stream.return_value.__enter__.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
         with patch("time.sleep"):
             df = spire_client.get_data_between(start, end)
 
             assert len(df) == 0
+
+
+def test_get_data_between_retry_on_remote_protocol_error(spire_client, sample_api_response):
+    """Test that RemoteProtocolError during streaming triggers a retry."""
+    start = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+    end = datetime(2025, 1, 1, 12, 5, tzinfo=timezone.utc)
+
+    with patch("lib.spire.httpx.Client") as mock_client:
+        mock_response_fail = MagicMock()
+        # Raise error during iteration
+        mock_response_fail.iter_lines.side_effect = spire.httpx.RemoteProtocolError(
+            "incomplete chunked read"
+        )
+        mock_response_fail.raise_for_status = MagicMock()
+
+        mock_response_success = MagicMock()
+        mock_response_success.iter_lines.return_value = iter(sample_api_response)
+        mock_response_success.raise_for_status = MagicMock()
+
+        mock_client_instance = MagicMock()
+        # First call fails during streaming, second call succeeds
+        mock_stream_ctx = mock_client_instance.__enter__.return_value.stream.return_value
+        mock_stream_ctx.__enter__.side_effect = [mock_response_fail, mock_response_success]
+        mock_client.return_value = mock_client_instance
+
+        with patch("time.sleep"):
+            df = spire_client.get_data_between(start, end)
+
+            assert len(df) == 2
+            # Verify it was called twice (initial + 1 retry)
+            assert mock_client_instance.__enter__.return_value.stream.call_count == 2
