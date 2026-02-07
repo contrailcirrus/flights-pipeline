@@ -45,9 +45,6 @@ class TrajectoryBuilderSvc:
 
     DAILY_FLIGHTS_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_airline.sql"
     FLIGHT_ID_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_flight_id.sql"
-    ICAO_ADDRESS_QUERY_FILENAME = (
-        "lib/sql/bq_waypoints_flights_daily_by_icao_address.sql"
-    )
     FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT = 500
 
     def __init__(
@@ -226,72 +223,6 @@ class TrajectoryBuilderSvc:
         df = df[~df["flight_id"].isnull()]
         return df, df_satellite
 
-    def _fetch_icao_address_day(
-        self,
-        day: str,
-        icao_address: str,
-        telemetry_src: TelemetrySource,
-    ) -> (pd.DataFrame, pd.DataFrame):
-        """
-        Fetch ads-b data for all flights originating on a single day, belonging to one or more
-        icao address.
-
-
-        Parameters
-        ----------
-        day
-            The target UTC day (flight instance origination) for flights; fmt "%Y-%m-%d"
-        icao_address
-            The target icao_address for which to fetch all flight instances.
-            If a single aircraft, then a single icao_address.
-            If multiple aircraft, then a comma delimited string of icao_address values.
-        telemetry_src
-            Specifies the source from which to fetch ads-b data
-
-        Returns
-        ---------
-        pd.DataFrame
-            target terrestrial ads-b data for flights
-        pd.DataFrame
-            target superset of satellite ads-b data for flights
-        """
-        td = pd.Timestamp.now(tz="UTC") - pd.Timestamp(day, tz="UTC")
-        if td < pd.Timedelta(days=1):
-            raise InvalidQueryException("flight day must be at least 1 day in the past")
-
-        if telemetry_src != TelemetrySource.BIG_QUERY:
-            raise NotImplementedError(
-                f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for icao_address-based TWJDs."
-            )
-
-        previous_day = (pd.Timestamp(day) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-        next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-
-        # icao_address can be a single icao address,
-        # or a comma delimited string of multiple icao addresses
-        icao_address_lst = icao_address.split(",")
-
-        query = self._bq_handler.import_query(self.ICAO_ADDRESS_QUERY_FILENAME)
-        cfg = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ArrayQueryParameter(
-                    "icao_address", "STRING", icao_address_lst
-                ),
-                bigquery.ScalarQueryParameter("target_day", "STRING", day),
-                bigquery.ScalarQueryParameter(
-                    "target_day_before", "STRING", previous_day
-                ),
-                bigquery.ScalarQueryParameter("target_day_after", "STRING", next_day),
-            ]
-        )
-        df: pd.DataFrame = self._bq_handler.query(query, cfg)
-        df.drop_duplicates(inplace=True)
-
-        # segregate sat data (i.e. terr_waypoints with missing flight_id
-        df_satellite = df[df["flight_id"].isnull()]
-        df = df[~df["flight_id"].isnull()]
-        return df, df_satellite
-
     def run(self, twjd: TrajectoryWorkerJobDescriptor):
         """
         Main service entrypoint.
@@ -320,12 +251,6 @@ class TrajectoryBuilderSvc:
                 df, df_satellite = self._fetch_flight_id_day(
                     day=twjd.day,
                     flight_id=twjd.flight_id,
-                    telemetry_src=twjd.telemetry_source,
-                )
-            elif twjd.icao_address:
-                df, df_satellite = self._fetch_icao_address_day(
-                    day=twjd.day,
-                    icao_address=twjd.icao_address,
                     telemetry_src=twjd.telemetry_source,
                 )
             else:
@@ -490,9 +415,9 @@ class TrajectoryBuilderSvc:
                 self._resample_handler.set(records)
                 self._resample_handler.interpolate()
 
-                waypoints_resampled: list[
-                    SpireWaypointPositional
-                ] = self._resample_handler.waypoints_resampled
+                waypoints_resampled: list[SpireWaypointPositional] = (
+                    self._resample_handler.waypoints_resampled
+                )
                 self._resample_handler.unset()
             except Exception as _:
                 logger.error(
@@ -558,9 +483,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(resampled_df)
-                violations: None | list[
-                    Exception
-                ] = self._validate_traj_handler.evaluate()
+                violations: None | list[Exception] = (
+                    self._validate_traj_handler.evaluate()
+                )
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
