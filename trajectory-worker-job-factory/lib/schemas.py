@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import List, TypedDict
+from typing import TypedDict
 from uuid import UUID
 
 import pandas as pd
@@ -1187,9 +1187,11 @@ class TrajectoryCandidateInfo:
     """
 
     flight_id: str
-    airline_iata: List[str | None] | None
-    callsign: List[str | None] | None
-    flight_number: List[str | None] | None
+    airline_iata: list[str | None] | None
+    callsign: list[str | None] | None
+    flight_number: list[str | None] | None
+    arrival_airport_icao: list[str | None]
+    departure_airport_icao: list[str | None]
     start_time: datetime | None
     end_time: datetime | None
 
@@ -1201,6 +1203,8 @@ class TrajectoryCandidateInfo:
             airline_iata=list(df["airline_iata"].unique()),
             callsign=list(df["callsign"].unique()),
             flight_number=list(df["flight_number"].unique()),
+            arrival_airport_icao=list(df["arrival_airport_icao"].unique()),
+            departure_airport_icao=list(df["departure_airport_icao"].unique()),
             start_time=df["timestamp"].min(),
             end_time=df["timestamp"].max(),
         )
@@ -1211,6 +1215,8 @@ class TrajectoryCandidateInfo:
             "airline_iata": self.airline_iata,
             "callsign": self.callsign,
             "flight_number": self.flight_number,
+            "arrival_airport_icao": self.arrival_airport_icao,
+            "departure_airport_icao": self.departure_airport_icao,
             "start_time": self.start_time.strftime(DATETIME_STR_FMT),
             "end_time": self.end_time.strftime(DATETIME_STR_FMT),
         }

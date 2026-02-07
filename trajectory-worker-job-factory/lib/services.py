@@ -414,6 +414,14 @@ class TrajectoryBuilderSvc:
                 waypoints = self._traj_heal_handler.heal()
                 self._traj_heal_handler.unset()
 
+                if len(waypoints) == 0:
+                    # possible case if healing handler left no endpoint
+                    logger.info(
+                        f"flight_id: {candidate.flight_id}, "
+                        f"msg: skipping - empty flight "
+                    )
+                    continue
+
                 # update log context
                 candidate = TrajectoryCandidateInfo.from_waypoints(
                     flight_id=flight_id,
@@ -505,7 +513,7 @@ class TrajectoryBuilderSvc:
             )
 
             if len(resampled_df) == 0:
-                # possible case if healing handler striped flight of waypoints
+                # possible case if healing handler left single endpoint
                 # and none are left after resampling
                 logger.info(
                     f"flight_id: {candidate.flight_id}, "

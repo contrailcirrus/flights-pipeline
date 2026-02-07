@@ -932,25 +932,15 @@ class HealTrajectoryHandler:
         interpolated_waypoints = []
         if interpolated_departure_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_departure_airport_waypoint)
-            minutes_added_to_departure = (
-                first_waypoint["timestamp"]
-                - interpolated_departure_airport_waypoint["timestamp"]
-            ).astype("timedelta64[s]").astype(int) / 60
             logger.info(
-                f"{candidate_info}: estimated endpoint at departure airport "
-                f"{departure_airport_icao} adding  "
-                f"{int(minutes_added_to_departure)} minutes to the flight."
+                f"flight_id: {candidate_info.flight_id}, "
+                f"msg: impute wp at departure - {departure_airport_icao}"
             )
         if interpolated_arrival_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
-            minutes_added_to_arrival = (
-                interpolated_arrival_airport_waypoint["timestamp"]
-                - last_waypoint["timestamp"]
-            ).astype("timedelta64[s]").astype(int) / 60
             logger.info(
-                f"{candidate_info}: interpolated trajectory to arrival airport "
-                f"{arrival_airport_icao} adding "
-                f"{int(minutes_added_to_arrival)} minutes to the flight."
+                f"flight_id: {candidate_info.flight_id}, "
+                f"msg: impute wp at arrival - {arrival_airport_icao}"
             )
 
         if interpolated_waypoints:
@@ -1035,8 +1025,9 @@ class HealTrajectoryHandler:
 
                 if drop_cnt:
                     logger.info(
-                        f"{self._candidate_info}: dropped {drop_cnt} values out of "
-                        f"{total_number_before_drop} not matching {val} for field: {col}."
+                        f"flight_id: {self._candidate_info.flight_id}, "
+                        f"msg: dropped {drop_cnt} values out of "
+                        f"{total_number_before_drop} not matching {val} for field {col}."
                     )
 
         len_before_duplicate_drop = len(self._df)
@@ -1045,7 +1036,8 @@ class HealTrajectoryHandler:
         len_difference = len_before_duplicate_drop - len(self._df)
         if len_difference != 0:
             logger.info(
-                f"{self._candidate_info}: dropped {len_difference} duplicate timestamp records"
+                f"flight_id: {self._candidate_info.flight_id}, "
+                f"msg: dropped {len_difference} duplicate timestamp records"
             )
 
         # --------------
@@ -1075,7 +1067,8 @@ class HealTrajectoryHandler:
 
         if len(self._df) != initial_length:
             logger.info(
-                f"{self._candidate_info}: speed filter ejected {initial_length - len(self._df)} waypoints."
+                f"flight_id: {self._candidate_info.flight_id}, "
+                f"msg: heal speed ejected {initial_length - len(self._df)} waypoints."
             )
         # --------------
         # Interpolate to one or both airports if needed.
@@ -1092,14 +1085,9 @@ class HealTrajectoryHandler:
         if airport_waypoints_df is not None:
             self._df = pd.concat([self._df, airport_waypoints_df])
             self._df.sort_values(by="timestamp", ascending=True, inplace=True)
-            logger.info(
-                f"{self._candidate_info}: heal too far airports adding {len(airport_waypoints_df)} points"
-            )
 
         self._df.reset_index(drop=True, inplace=True)
 
-        if len(self._df) == 0:
-            raise BadTrajectoryException("flight trajectory is empty.")
         return self._df
 
 
