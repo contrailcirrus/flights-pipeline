@@ -1289,13 +1289,16 @@ class CocipTrajectoryProto:
             seg.duration_start_to_end = ds_next["time"] - ds["time"]
             seg.geometry.coord_start.lon = int(ds["longitude"] * 20)
             seg.geometry.coord_start.lat = int(ds["latitude"] * 20)
-            seg.geometry.coord_start.alt_ft = int(ds["altitude_ft"] / 16)
+            alt_ft_start = ds["altitude_ft"]
+            if alt_ft_start < 0:
+                alt_ft_start = 0
+            seg.geometry.coord_start.alt_ft = int(alt_ft_start / 16)
             seg.geometry.coord_end.lon = int(ds_next["longitude"] * 20)
             seg.geometry.coord_end.lat = int(ds_next["latitude"] * 20)
-            alt_ft = ds_next["altitude_ft"]
-            if alt_ft < 0:
-                alt_ft = 0
-            seg.geometry.coord_end.alt_ft = int(alt_ft / 16)
+            alt_ft_end = ds_next["altitude_ft"]
+            if alt_ft_end < 0:
+                alt_ft_end = 0
+            seg.geometry.coord_end.alt_ft = int(alt_ft_end / 16)
             seg.sum_ef_mj = int(ds["sum_ef_mj"] / 100)
 
         # ----------
