@@ -54,7 +54,6 @@ class JobWorkerSubmitSvc(BaseSvc):
             - airline
             - day; can be single day, or date range inclusive
             - flight_id
-            - icao_address
             - met_data_src
             - telemetry_src
             - full_traj
@@ -63,7 +62,6 @@ class JobWorkerSubmitSvc(BaseSvc):
         self._airline = input.airline
         self._day = input.day
         self._flight_id = input.flight_id
-        self._icao_address = input.icao_address
         self._met_data_src = input.met_data_src
         self._telemetry_src = input.telemetry_src
         self._full_traj = input.full_traj
@@ -77,7 +75,6 @@ class JobWorkerSubmitSvc(BaseSvc):
         valid_flag_combos = {
             (self._day, self._airline, self._met_data_src),
             (self._day, self._flight_id, self._met_data_src),
-            (self._day, self._icao_address, self._met_data_src),
         }
         is_valid = sum([all(itm) for itm in valid_flag_combos]) == 1
 
@@ -86,7 +83,6 @@ class JobWorkerSubmitSvc(BaseSvc):
                 "Must provide flags: "
                 "(1) --flight-id & --day & --met-data-src OR "
                 "(2) --airline & --day & --met-data-src OR "
-                "(3) --icao-address & --day & --met-data-src"
             )
 
         if self._met_data_src not in MetSource:
@@ -102,10 +98,6 @@ class JobWorkerSubmitSvc(BaseSvc):
         elif self._day and self._flight_id:
             logger.info(
                 f"🛠️submitting TWJDs with 🛂 flight_id: {self._flight_id} using met data source 📊{self._met_data_src}"
-            )
-        elif self._day and self._icao_address:
-            logger.info(
-                f"🛠️submitting TWJDs with 🏤 icao_address: {self._icao_address} using met data source 📊{self._met_data_src}"
             )
         else:
             raise NotImplementedError("unhandled runtime case.")
@@ -133,7 +125,6 @@ class JobWorkerSubmitSvc(BaseSvc):
                 full_traj=self._full_traj,
                 airline_iata=self._airline,
                 flight_id=self._flight_id,
-                icao_address=self._icao_address,
                 dry_run=self._dry_run,
                 export_waypoints=False,
             )
