@@ -23,6 +23,34 @@ tf = TimezoneFinder()
 
 DATETIME_STR_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
+FLIGHT_LEVELS = [
+    200,
+    210,
+    220,
+    230,
+    240,
+    250,
+    260,
+    270,
+    280,
+    290,
+    300,
+    310,
+    320,
+    330,
+    340,
+    350,
+    360,
+    370,
+    380,
+    390,
+    400,
+    410,
+    420,
+    430,
+    440,
+]
+
 
 @dataclass
 class SpireWaypointPositional:
@@ -333,7 +361,7 @@ class FlightInfoWide(SpireFlightInfo):
     engine_uid: str | None  # icao edb engine uid identifier
 
     @staticmethod
-    def from_waypoints(flight_id: str, df: pd.DataFrame):
+    def from_waypoints(df: pd.DataFrame):
         """
         Build instance of self from dataframe of Spire waypoints for a flight instance.
 
@@ -367,7 +395,7 @@ class FlightInfoWide(SpireFlightInfo):
 
         # check invariance
         for k, v in attrs.items():
-            if v and len(v) > 1:
+            if v is not None and len(v) > 1:
                 raise Exception(
                     f"cannot build FlightInfoWide. found multiple values for invariant field {k}"
                 )

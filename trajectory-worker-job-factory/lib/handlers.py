@@ -635,6 +635,20 @@ class HealTrajectoryHandler:
     and applies a ruleset to heal quality issues with trajectories.
     """
 
+    INVARIANT_FLIGHT_ATTRS = [
+        "icao_address",
+        "flight_id",
+        "callsign",
+        "tail_number",
+        "flight_number",
+        "aircraft_type_icao",
+        "airline_iata",
+        "departure_airport_icao",
+        "departure_scheduled_time",
+        "arrival_airport_icao",
+        "arrival_scheduled_time",
+    ]
+
     def __init__(self, min_speed_m_s, max_speed_m_s):
         self._df: pd.DataFrame | None = None
         self._candidate_info: TrajectoryCandidateInfo | None = None
@@ -1000,15 +1014,8 @@ class HealTrajectoryHandler:
         # --------------
         # update dataset so the following target keys are uniform/distinct for a given flight
         # --------------
-        target_cols = [
-            "callsign",
-            "flight_number",
-            "arrival_airport_icao",
-            "departure_airport_icao",
-            "airline_iata",
-        ]
 
-        priority_values = self._get_priority_map(self._df, target_cols)
+        priority_values = self._get_priority_map(self._df, self.INVARIANT_FLIGHT_ATTRS)
 
         # fill any null values with our priority values
         for col, val in priority_values.items():
