@@ -711,6 +711,7 @@ class HealTrajectoryHandler:
         Attempt to convert types for each dataframe column to expected type.
         Implicitly also checks for existence of expected columns.
         """
+        df = df.copy(deep=True)
         cols = {
             "icao_address": str,
             "flight_id": str,
@@ -729,7 +730,10 @@ class HealTrajectoryHandler:
             "collection_type": str,
             "altitude_baro": int,
         }
-        return df.astype(cols)
+        df = df.astype(cols)
+        df.replace("nan", None, inplace=True)
+        df.replace("None", None, inplace=True)
+        return df
 
     @staticmethod
     def _interpolate_to_airport(
@@ -998,8 +1002,6 @@ class HealTrajectoryHandler:
 
         try:
             self._df = self._dataframe_convert_types(self._df)
-            self._df.replace("nan", None, inplace=True)
-            self._df.replace("None", None, inplace=True)
         except KeyError as e:
             raise KeyError(
                 "flight trajectory dataframe is missing an expected column."

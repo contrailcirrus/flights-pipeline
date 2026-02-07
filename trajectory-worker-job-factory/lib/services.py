@@ -26,7 +26,6 @@ from lib.handlers import (
 from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
-    BadTrajectoryException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
 from pycontrails.datalib.spire.exceptions import ROCDError
@@ -490,7 +489,7 @@ class TrajectoryBuilderSvc:
             except Exception as _:
                 logger.error(
                     f"flight_id: {candidate.flight_id}, "
-                    f"msg: skipping - resample step failed,"
+                    f"msg: skipping - resample step failed, "
                     f"traceback: {format_traceback()}"
                 )
                 continue
@@ -503,6 +502,15 @@ class TrajectoryBuilderSvc:
                     }
                     for pos in waypoints_resampled
                 ]
+            )
+
+            # re-enforce datatypes
+            # TODO: possible remove this
+            # as this is currently necessary to re-cast timelike fields
+            # which are packaged as strings in the SpireWaypointPositional obj
+            # returned by the resample_handler
+            resampled_df = self._traj_heal_handler._dataframe_convert_types(
+                resampled_df
             )
 
             # update log context
@@ -525,17 +533,8 @@ class TrajectoryBuilderSvc:
                     index=False,
                 )
 
-            # reconstructing the resampled df from the SpireWaypointPositional list
-            # does not preserve expected datatypes for datetime-like fields
-            # (which are string literals in our SpireWaypointPositional objs)
-            # thus, we re-apply the HealTrajectoryHandler to re-cast data-types
-            # prior to running the ValidateTrajectoryHandler
-            self._traj_heal_handler.set(resampled_df, candidate_info=candidate)
-            resampled_df = self._traj_heal_handler.heal()
-            self._traj_heal_handler.unset()
-
             # ---------------
-            # confirm that trajectory meets acceptance criteria
+            # Apply VALIDATE step
             # ---------------
             permitted_violation_types = [
                 ROCDError,
@@ -561,29 +560,24 @@ class TrajectoryBuilderSvc:
                 )
 
                 if violations and len(violations) > 0:
-                    logger.warning(
-                        f"{candidate}: Skipping. invalid flight instance. "
-                        f" violations: {violations}"
+                    logger.info(
+                        f"flight_id: {candidate.flight_id}, "
+                        f"msg: skipping - violations found "
+                        f"reason: {violations}"
                     )
                     continue
 
                 if accepted_violations and len(accepted_violations) > 0:
-                    logger.warning(
-                        f"{candidate}: Keeping. acceptable violation(s). "
-                        f" violations: {accepted_violations}"
+                    logger.info(
+                        f"flight_id: {candidate.flight_id}, "
+                        f"msg: keeping - acceptable violation(s) "
+                        f"reason: {accepted_violations}"
                     )
-            except BadTrajectoryException as e:
-                logger.warning(
-                    f"{candidate}: Skipping. "
-                    f"received bad trajectory in trajectory validation handler. "
-                    f" {e}"
-                )
-                continue
-            except Exception as e:
+            except Exception as _:
                 logger.error(
-                    f"{candidate}: Skipping. "
-                    f"failed to run trajectory validation handler. "
-                    f" {e}"
+                    f"flight_id: {candidate.flight_id}, "
+                    f"msg: skipping - validate step failed, "
+                    f"traceback: {format_traceback()}"
                 )
                 continue
 
@@ -612,11 +606,11 @@ class TrajectoryBuilderSvc:
                                 marker=counter,
                             )
                         )
-            except Exception as e:
+            except Exception as _:
                 logger.error(
-                    f"{candidate}: Skipping. "
-                    f"failed to build and submit job for flight instance. "
-                    f"error: {e}"
+                    f"flight_id: {candidate.flight_id}, "
+                    f"msg: skipping - job submit failed, "
+                    f"traceback: {format_traceback()}"
                 )
 
         if self._cache_handler and twjd.airline_iata:
