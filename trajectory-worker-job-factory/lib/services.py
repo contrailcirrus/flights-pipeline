@@ -369,33 +369,7 @@ class TrajectoryBuilderSvc:
             # TODO: only serves the purpose of meeting the param input reqs. of the resample_handler
             # --------------
             try:
-                if not pd.isnull(waypoints["departure_scheduled_time"][0]):
-                    departure_scheduled_time = waypoints["departure_scheduled_time"][
-                        0
-                    ].strftime(DATETIME_STR_FMT)
-                else:
-                    departure_scheduled_time = None
-                if not pd.isnull(waypoints["arrival_scheduled_time"][0]):
-                    arrival_scheduled_time = waypoints["arrival_scheduled_time"][
-                        0
-                    ].strftime(DATETIME_STR_FMT)
-                else:
-                    arrival_scheduled_time = None
-
-                flight_info = FlightInfoWide(
-                    engine_uid=None,
-                    icao_address=waypoints["icao_address"][0],
-                    flight_id=waypoints["flight_id"][0],
-                    callsign=waypoints["callsign"][0],
-                    tail_number=waypoints["tail_number"][0],
-                    flight_number=waypoints["flight_number"][0],
-                    aircraft_type_icao=waypoints["aircraft_type_icao"][0],
-                    airline_iata=waypoints["airline_iata"][0],
-                    departure_airport_icao=waypoints["departure_airport_icao"][0],
-                    departure_scheduled_time=departure_scheduled_time,
-                    arrival_airport_icao=waypoints["arrival_airport_icao"][0],
-                    arrival_scheduled_time=arrival_scheduled_time,
-                )
+                flight_info = FlightInfoWide.from_waypoints(flight_id, waypoints)
                 records = []
                 for ix, ln in waypoints.iterrows():
                     record = SpireWaypointPositional(
