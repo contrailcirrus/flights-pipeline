@@ -36,7 +36,6 @@ from lib.exceptions import (
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
 from lib.schemas import (
-    SpireWaypointPositional,
     AirlineDayFlightsProgressMarker,
     TrajectoryCandidateInfo,
 )
@@ -635,6 +634,20 @@ class HealTrajectoryHandler:
     and applies a ruleset to heal quality issues with trajectories.
     """
 
+    INVARIANT_FLIGHT_ATTRS = [
+        "icao_address",
+        "flight_id",
+        "callsign",
+        "tail_number",
+        "flight_number",
+        "aircraft_type_icao",
+        "airline_iata",
+        "departure_airport_icao",
+        "departure_scheduled_time",
+        "arrival_airport_icao",
+        "arrival_scheduled_time",
+    ]
+
     def __init__(self, min_speed_m_s, max_speed_m_s):
         self._df: pd.DataFrame | None = None
         self._candidate_info: TrajectoryCandidateInfo | None = None
@@ -1000,15 +1013,8 @@ class HealTrajectoryHandler:
         # --------------
         # update dataset so the following target keys are uniform/distinct for a given flight
         # --------------
-        target_cols = [
-            "callsign",
-            "flight_number",
-            "arrival_airport_icao",
-            "departure_airport_icao",
-            "airline_iata",
-        ]
 
-        priority_values = self._get_priority_map(self._df, target_cols)
+        priority_values = self._get_priority_map(self._df, self.INVARIANT_FLIGHT_ATTRS)
 
         # fill any null values with our priority values
         for col, val in priority_values.items():
@@ -1089,159 +1095,6 @@ class HealTrajectoryHandler:
         self._df.reset_index(drop=True, inplace=True)
 
         return self._df
-
-
-class ResampleHandler:
-    """
-    Handles interpolation & data model coercing for a sequence of waypoints for a flight instance.
-    This handler takes:
-     (A) a sample of waypoints within a closed time window, and
-     (B) 1 or 2 waypoints** at some time prior to (A) (cached waypoints)
-         (**these are the waypoints from the right-hand-side of the previous window)
-
-     BB......................A.AA.AAA
-
-    Work includes:
-    - intra-window interpolation; i.e. interpolation within the window (A)
-    - inter-window interpolation; i.e. backward interpolation between A_0 and B
-    """
-
-    FLIGHT_LEVELS = [
-        200,
-        210,
-        220,
-        230,
-        240,
-        250,
-        260,
-        270,
-        280,
-        290,
-        300,
-        310,
-        320,
-        330,
-        340,
-        350,
-        360,
-        370,
-        380,
-        390,
-        400,
-        410,
-        420,
-        430,
-        440,
-    ]
-
-    METERS_TO_FEET = 3.28084
-
-    def __init__(self):
-        self._min_records_ts: pd.Timestamp | None = None
-        self._waypoints_df: pd.DataFrame | None = None
-        self._waypoints_df_resampled: pd.DataFrame | None = None
-
-    def set(self, records_window: list[SpireWaypointPositional]):
-        """
-        sets the following into this handler's state:
-        - _min_records_ts
-        - _waypoints_df
-        """
-        df_records = pd.DataFrame(records_window)
-        df_records.rename(
-            columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True
-        )
-        df_records["time"] = pd.to_datetime(df_records["time"]).apply(
-            lambda r: r.tz_localize(None)
-        )
-
-        df_records.drop_duplicates(["time"], inplace=True)
-
-        self._min_records_ts = df_records["time"].min()
-        self._waypoints_df = df_records
-
-    def unset(self):
-        """
-        pops the following from this handler's state:
-        - _waypoints_df_resampled
-        - _min_records_ts
-        - _waypoints_df
-        """
-        self._min_records_ts = None
-        self._waypoints_df = None
-        self._waypoints_df_resampled = None
-
-    def interpolate(self):
-        """
-        Run minute interpolation within the records time window, and backwards between
-        the first index of the records time window and the cached waypoints.
-        """
-        pyc_flight = Flight(self._waypoints_df)
-        flight_resampled: pd.DataFrame = pyc_flight.resample_and_fill().dataframe
-
-        # add imputation flags
-        # TODO add heuristics to appropriately apply imputation flag for full-trajectory resampling
-        flight_resampled["imputed"] = False
-
-        # compute the altitude_ft from altitude (note: pycontrails Flight operates on altitude [m])
-        flight_resampled.loc[:, "altitude_ft"] = (
-            flight_resampled["altitude"] * self.METERS_TO_FEET
-        ).astype(int)
-
-        flight_resampled["flight_level"] = flight_resampled["altitude_ft"].apply(
-            self.altitude_ft_to_flight_level
-        )
-
-        # flight_resampled at this point will include minute data
-        # the first row will match what was pulled from cache
-        # the last row will have a timestamp that is the bottom of the minute
-        # for the right-most minutes data in the spire waypoints record window ingested from pubsub
-        # -------------------
-
-        # Cleanup
-        flight_resampled.drop(columns=["altitude"], inplace=True)
-
-        self._waypoints_df_resampled = flight_resampled
-        return self
-
-    @property
-    def waypoints_resampled(self) -> list[SpireWaypointPositional]:
-        """
-        Returns
-        -------
-        List of SpireWaypointPositional objects, representing the resampled waypoints
-        between the cached waypoints and the records waypoints passed to this handler.
-        """
-        if not isinstance(self._waypoints_df_resampled, pd.DataFrame):
-            raise ValueError(
-                "interpolate() must be run before fetching the resampled waypoints."
-            )
-
-        waypoints: list[SpireWaypointPositional] = []
-        for _, r in self._waypoints_df_resampled.iterrows():
-            wp = SpireWaypointPositional(
-                ingestion_time=None,
-                timestamp=r["time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                latitude=r["latitude"],
-                longitude=r["longitude"],
-                collection_type=None,
-                altitude_baro=r["altitude_ft"],
-                imputed=r["imputed"],
-                flight_level=r["flight_level"],
-            )
-            waypoints.append(wp)
-        return waypoints
-
-    @classmethod
-    def altitude_ft_to_flight_level(cls, alt_ft: int):
-        """
-        Converts altitude in feet MSL to flight level (100s of ft), snapped to the nearest level.
-        """
-        if alt_ft < (cls.FLIGHT_LEVELS[0] * 100) - 500:
-            return -999
-        diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
-        min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
-        return cls.FLIGHT_LEVELS[min_ix]
 
 
 class RedisHandler:

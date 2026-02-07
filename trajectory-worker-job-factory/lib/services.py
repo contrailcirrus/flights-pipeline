@@ -1,9 +1,9 @@
 import os
 
-import dataclasses
 import sys
+from pycontrails import Flight
 
-from lib.helpers import key_max_value_count
+from lib.helpers import key_max_value_count, altitude_ft_to_flight_level
 from lib.schemas import (
     TrajectoryWorkerJobDescriptor,
     FlightInfoWide,
@@ -13,13 +13,11 @@ from lib.schemas import (
     MetSource,
     AirlineDayFlightsProgressMarker,
     TelemetrySource,
-    DATETIME_STR_FMT,
 )
 from lib.handlers import (
     PubSubPublishHandler,
     BigQueryHandler,
     HealTrajectoryHandler,
-    ResampleHandler,
     RedisHandler,
     CloudStorageHandler,
 )
@@ -54,7 +52,6 @@ class TrajectoryBuilderSvc:
         gcs_handler: CloudStorageHandler,
         heal_traj_handler: HealTrajectoryHandler,
         validate_traj_handler: ValidateTrajectoryHandler,
-        resample_handler: ResampleHandler,
         job_out_handler: PubSubPublishHandler,
     ):
         self._cache_handler = cache_handler
@@ -62,7 +59,6 @@ class TrajectoryBuilderSvc:
         self._gcs_handler = gcs_handler
         self._traj_heal_handler = heal_traj_handler
         self._validate_traj_handler = validate_traj_handler
-        self._resample_handler = resample_handler
         self._job_out_handler = job_out_handler
 
     def _fetch_airline_day(
@@ -363,36 +359,70 @@ class TrajectoryBuilderSvc:
                 )
                 continue
 
-            # --------------
-            # build jobs
-            # TODO: this should be reworked; marshalling to a list[SpireWaypointPositional]
-            # TODO: only serves the purpose of meeting the param input reqs. of the resample_handler
-            # --------------
             try:
-                flight_info = FlightInfoWide.from_waypoints(flight_id, waypoints)
-                records = []
-                for ix, ln in waypoints.iterrows():
-                    record = SpireWaypointPositional(
-                        ingestion_time=None,
-                        timestamp=ln["timestamp"].strftime(DATETIME_STR_FMT),
-                        latitude=ln["latitude"],
-                        longitude=ln["longitude"],
-                        collection_type=ln["collection_type"],
-                        imputed=False,
-                        altitude_baro=int(ln["altitude_baro"]),
-                    )
-                    records.append(record)
-
                 # -------------
                 # apply RESAMPLE step
                 # -------------
-                self._resample_handler.set(records)
-                self._resample_handler.interpolate()
 
-                waypoints_resampled: list[SpireWaypointPositional] = (
-                    self._resample_handler.waypoints_resampled
+                # segregate telemetry data and pass to pycontrails.resample
+                telemetry_columns = [
+                    "timestamp",
+                    "latitude",
+                    "longitude",
+                    "altitude_baro",
+                ]
+                waypoints_pycontrail = waypoints[telemetry_columns]
+                waypoints_pycontrail = waypoints_pycontrail.copy(deep=True)
+
+                # rename columns as expected by pycontrails.resample_and_fill
+                waypoints_pycontrail.rename(
+                    columns={"altitude_baro": "altitude_ft", "timestamp": "time"},
+                    inplace=True,
                 )
-                self._resample_handler.unset()
+                # ensure timelike objs are naive, as expected by pycontrails.resample_and_fill
+                waypoints_pycontrail["time"] = waypoints_pycontrail["time"].apply(
+                    lambda r: r.tz_localize(None)
+                )
+                # ensure no timestamp dupes, as expected by pycontrails.resample_and_fill
+                waypoints_pycontrail.drop_duplicates(["time"], inplace=True)
+
+                # resample waypoints
+                pyc_flight = Flight(waypoints_pycontrail)
+                waypoints_pycontrail = pyc_flight.resample_and_fill().dataframe
+                del pyc_flight
+
+                if len(waypoints_pycontrail) == 0:
+                    # possible case if healing handler left single endpoint
+                    # and none are left after resampling
+                    logger.info(
+                        f"flight_id: {candidate.flight_id}, "
+                        f"msg: skipping - empty flight "
+                    )
+                    continue
+
+                # UNDO manipulations to telemetry data introduced by pycontrails.resample_and_fill
+                waypoints_pycontrail.loc[:, "altitude_baro"] = (
+                    waypoints_pycontrail["altitude"] * 3.28
+                ).astype(int)
+                waypoints_pycontrail.drop(columns=["altitude"], inplace=True)
+                waypoints_pycontrail.rename(columns={"time": "timestamp"}, inplace=True)
+
+                # REINTRODUCE FIELDS NOT HANDLED BY pycontrails.resample_and_fill
+                waypoints_pycontrail["flight_level"] = waypoints_pycontrail[
+                    "altitude_baro"
+                ].apply(altitude_ft_to_flight_level)
+                waypoints_pycontrail["ingestion_time"] = None
+                waypoints_pycontrail["collection_type"] = None
+                # flight attrs (invariant fields; guaranteed invariant by HealingHandler)
+                flight_attrs = HealTrajectoryHandler.INVARIANT_FLIGHT_ATTRS
+                for attr in flight_attrs:
+                    waypoints_pycontrail[attr] = waypoints[attr].iloc[0]
+                # TODO: implement the following
+                # add a flag indicating which waypoints are due to interpolation
+                # across one or more minutes of telemetry not present in the raw spire data
+                # waypoints_pycontrail["imputed"] = ...
+                waypoints_pycontrail["imputed"] = False
+                del waypoints
             except Exception as _:
                 logger.error(
                     f"flight_id: {candidate.flight_id}, "
@@ -401,40 +431,11 @@ class TrajectoryBuilderSvc:
                 )
                 continue
 
-            resampled_df = pd.DataFrame(
-                [
-                    {
-                        **dataclasses.asdict(flight_info),
-                        **dataclasses.asdict(pos),
-                    }
-                    for pos in waypoints_resampled
-                ]
-            )
-
-            if len(resampled_df) == 0:
-                # possible case if healing handler left single endpoint
-                # and none are left after resampling
-                logger.info(
-                    f"flight_id: {candidate.flight_id}, "
-                    f"msg: skipping - empty flight "
-                )
-                continue
-
-            # re-enforce datatypes
-            # TODO: possible remove this
-            # as this is currently necessary to re-cast timelike fields
-            # which are packaged as strings in the SpireWaypointPositional obj
-            # returned by the resample_handler
-            resampled_df = self._traj_heal_handler._dataframe_convert_types(
-                resampled_df
-            )
-
             # update log context
             candidate = TrajectoryCandidateInfo.from_waypoints(
                 flight_id=flight_id,
-                df=resampled_df,
+                df=waypoints_pycontrail,
             )
-
             # log state of flight post resample
             logger.info(f"{candidate}" f"msg: resample step done")
 
@@ -442,10 +443,10 @@ class TrajectoryBuilderSvc:
                 # save waypoints to disk
                 # CLI (local) use only
                 logger.info(f"{candidate}: writing waypoints to file")
-                base_path = f"out/{flight_info.airline_iata}"
+                base_path = f"out/{candidate.airline_iata[0]}"
                 os.makedirs(base_path, exist_ok=True)
-                resampled_df.to_csv(
-                    f"{base_path}/{flight_info.flight_id}.csv",
+                waypoints_pycontrail.to_csv(
+                    f"{base_path}/{candidate.flight_id}.csv",
                     index=False,
                 )
 
@@ -456,7 +457,7 @@ class TrajectoryBuilderSvc:
                 ROCDError,
             ]
             try:
-                self._validate_traj_handler.set(resampled_df)
+                self._validate_traj_handler.set(waypoints_pycontrail)
                 violations: None | list[Exception] = (
                     self._validate_traj_handler.evaluate()
                 )
@@ -501,9 +502,23 @@ class TrajectoryBuilderSvc:
             # build and submit job
             # ---------------
             try:
+                records: list[SpireWaypointPositional] = []
+                for _, r in waypoints_pycontrail.iterrows():
+                    wp = SpireWaypointPositional(
+                        ingestion_time=r["ingestion_time"],
+                        timestamp=r["timestamp"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        latitude=r["latitude"],
+                        longitude=r["longitude"],
+                        collection_type=r["collection_type"],
+                        altitude_baro=r["altitude_baro"],
+                        imputed=r["imputed"],
+                        flight_level=r["flight_level"],
+                    )
+                    records.append(wp)
+
                 job = WaypointsRecord(
-                    flight_info=flight_info,
-                    records=waypoints_resampled,
+                    flight_info=FlightInfoWide.from_waypoints(waypoints_pycontrail),
+                    records=records,
                     met_source=MetSource(twjd.met_source),
                     export_cocip_trajectory=twjd.full_traj,
                 )
