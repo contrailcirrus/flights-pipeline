@@ -332,6 +332,68 @@ class FlightInfoWide(SpireFlightInfo):
 
     engine_uid: str | None  # icao edb engine uid identifier
 
+    @staticmethod
+    def from_waypoints(flight_id: str, df: pd.DataFrame):
+        """
+        Build instance of self from dataframe of Spire waypoints for a flight instance.
+
+        Many flight attributes for a flight instance are time/space invariant.
+        For instance, the callsign of a flight does not change over the course of a flight.
+        A dataframe of ADS-B Spire data will "flat map" these invariant fields,
+        resulting in a dataframe with the same invariant field repeated for every row.
+
+        The FlightInfoWide object is intended to capture those invariant fields, separate from the
+        time-varying telemetry data of a flight.
+
+        This builder method extracts those time invariant fields from a dataframe of Spire ADS-B data.
+        """
+        attrs = {}
+
+        if "engine_uid" in df.columns:
+            attrs["engine_uid"] = df["engine_uid"].unique()
+        else:
+            attrs["engine_uid"] = None
+        attrs["icao_address"] = df["icao_address"].unique()
+        attrs["flight_id"] = df["flight_id"].unique()
+        attrs["callsign"] = df["callsign"].unique()
+        attrs["tail_number"] = df["tail_number"].unique()
+        attrs["flight_number"] = df["flight_number"].unique()
+        attrs["aircraft_type_icao"] = df["aircraft_type_icao"].unique()
+        attrs["airline_iata"] = df["airline_iata"].unique()
+        attrs["departure_airport_icao"] = df["departure_airport_icao"].unique()
+        attrs["departure_scheduled_time"] = df["departure_scheduled_time"].unique()
+        attrs["arrival_airport_icao"] = df["arrival_airport_icao"].unique()
+        attrs["arrival_scheduled_time"] = df["arrival_scheduled_time"].unique()
+
+        # check invariance
+        for k, v in attrs.items():
+            if v and len(v) > 1:
+                raise Exception(
+                    f"cannot build FlightInfoWide. found multiple values for invariant field {k}"
+                )
+
+        # extract unique value from np.ndarray
+        for k, v in attrs.items():
+            if v:
+                attrs[k] = v[0]
+
+        # handle timestamp formatting; FlightInfoWide & by ext SpireFlightInfo
+        # expect timelike fields as string literal in iso fmt
+        if not pd.isnull(attrs["departure_scheduled_time"]):
+            attrs["departure_scheduled_time"] = attrs[
+                "departure_scheduled_time"
+            ].strftime(DATETIME_STR_FMT)
+        else:
+            attrs["departure_scheduled_time"] = None
+        if not pd.isnull(attrs["arrival_scheduled_time"]):
+            attrs["arrival_scheduled_time"] = attrs["arrival_scheduled_time"].strftime(
+                DATETIME_STR_FMT
+            )
+        else:
+            attrs["arrival_scheduled_time"] = None
+
+        return FlightInfoWide(**attrs)
+
 
 class MetSource(str, Enum):
     HRES = "hres"
