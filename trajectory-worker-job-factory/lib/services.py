@@ -13,6 +13,7 @@ from lib.schemas import (
     MetSource,
     AirlineDayFlightsProgressMarker,
     TelemetrySource,
+    DATETIME_STR_FMT,
 )
 from lib.handlers import (
     PubSubPublishHandler,
@@ -25,7 +26,6 @@ from lib.handlers import (
 from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
-    BadTrajectoryException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
 from pycontrails.datalib.spire.exceptions import ROCDError
@@ -49,7 +49,6 @@ class TrajectoryBuilderSvc:
         "lib/sql/bq_waypoints_flights_daily_by_icao_address.sql"
     )
     FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT = 500
-    DATE_STRING_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
     def __init__(
         self,
@@ -345,11 +344,6 @@ class TrajectoryBuilderSvc:
         # compose trajectory-worker jobs, on each flight instance,
         # and submit jobs to worker queue
         # -----------
-        logger.info(
-            f"airline_iata: {twjd.airline_iata}. "
-            f"flight count: {len(df['flight_id'].unique())}. "
-            f"waypoints: {len(df)} terrestrial & {len(df_satellite)} satellite."
-        )
         flight_instances = df.groupby("flight_id", sort=True)
 
         # fetch marker, if one exists, from redis cache
@@ -374,18 +368,6 @@ class TrajectoryBuilderSvc:
             if sigterm_manager.should_exit:
                 sys.exit(0)
 
-            # Keep track of initial trajectory information for logging
-            candidate = TrajectoryCandidateInfo(
-                flight_id=flight_id,
-                airline_iata=terr_waypoints["airline_iata"].iloc[0],
-                callsign=terr_waypoints["callsign"].iloc[0],
-                flight_number=terr_waypoints["flight_number"].iloc[0],
-                length=len(terr_waypoints),
-                start_time=terr_waypoints["timestamp"].min(),
-                end_time=terr_waypoints["timestamp"].max(),
-            )
-            candidate.set_datetime_str_fmt(self.DATE_STRING_FORMAT)
-
             counter += 1
 
             # fast-forward if we are resuming a job
@@ -394,7 +376,7 @@ class TrajectoryBuilderSvc:
 
             if (counter % self.FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT) == 0:
                 logger.info(
-                    f"{candidate}: processing {counter}/{number_of_flight_candidates}"
+                    f"progress: processing {counter}/{number_of_flight_candidates}"
                 )
             # --------------
             # merge sat data into terrestrial data
@@ -415,49 +397,63 @@ class TrajectoryBuilderSvc:
             # fill null flight_ids (sat data does not have flight_id)
             waypoints.fillna(value={"flight_id": flight_id}, inplace=True)
 
+            # --------------
+            # establish log context; track flight candidate
+            # --------------
+            candidate = TrajectoryCandidateInfo.from_waypoints(
+                flight_id=flight_id,
+                df=waypoints,
+            )
+            logger.info(f"{candidate}" f"msg: start work")
+
             # -------------
-            # Apply common fixes to trajectory
+            # Apply HEAL step
             # -------------
             try:
-                flight_duration_minutes = (
-                    waypoints["timestamp"].max() - waypoints["timestamp"].min()
-                ).total_seconds() / 60.0
                 self._traj_heal_handler.set(waypoints, candidate_info=candidate)
                 waypoints = self._traj_heal_handler.heal()
-                # Data are returned sorted by timestamp
-                new_flight_duration_minutes = (
-                    waypoints["timestamp"].iloc[-1] - waypoints["timestamp"].iloc[0]
-                ).total_seconds() / 60.0
-                logger.info(
-                    f"{candidate}: applied trajectory healing. "
-                    f"change in duration (min): {new_flight_duration_minutes - flight_duration_minutes:.2f}"
-                )
                 self._traj_heal_handler.unset()
-            except BadTrajectoryException as _:
-                logger.warning(
-                    f"{candidate}: Skipping. failed to process in healing step: {format_traceback()}"
+
+                if len(waypoints) == 0:
+                    # possible case if healing handler left no endpoint
+                    logger.info(
+                        f"flight_id: {candidate.flight_id}, "
+                        f"msg: skipping - empty flight "
+                    )
+                    continue
+
+                # update log context
+                candidate = TrajectoryCandidateInfo.from_waypoints(
+                    flight_id=flight_id,
+                    df=waypoints,
                 )
-                continue
+
+                # log state of flight post heal
+                logger.info(f"{candidate}" f"msg: heal step done")
             except Exception as _:
                 logger.error(
-                    f"{candidate}: Skipping. failed to process in healing step: {format_traceback()}"
+                    f"flight_id: {candidate.flight_id}, "
+                    f"msg: skipping - heal step failed, "
+                    f"traceback: {format_traceback()}"
                 )
                 continue
 
             # --------------
             # build jobs
+            # TODO: this should be reworked; marshalling to a list[SpireWaypointPositional]
+            # TODO: only serves the purpose of meeting the param input reqs. of the resample_handler
             # --------------
             try:
                 if not pd.isnull(waypoints["departure_scheduled_time"][0]):
                     departure_scheduled_time = waypoints["departure_scheduled_time"][
                         0
-                    ].strftime(self.DATE_STRING_FORMAT)
+                    ].strftime(DATETIME_STR_FMT)
                 else:
                     departure_scheduled_time = None
                 if not pd.isnull(waypoints["arrival_scheduled_time"][0]):
                     arrival_scheduled_time = waypoints["arrival_scheduled_time"][
                         0
-                    ].strftime(self.DATE_STRING_FORMAT)
+                    ].strftime(DATETIME_STR_FMT)
                 else:
                     arrival_scheduled_time = None
 
@@ -479,7 +475,7 @@ class TrajectoryBuilderSvc:
                 for ix, ln in waypoints.iterrows():
                     record = SpireWaypointPositional(
                         ingestion_time=None,
-                        timestamp=ln["timestamp"].strftime(self.DATE_STRING_FORMAT),
+                        timestamp=ln["timestamp"].strftime(DATETIME_STR_FMT),
                         latitude=ln["latitude"],
                         longitude=ln["longitude"],
                         collection_type=ln["collection_type"],
@@ -489,7 +485,7 @@ class TrajectoryBuilderSvc:
                     records.append(record)
 
                 # -------------
-                # resample records
+                # apply RESAMPLE step
                 # -------------
                 self._resample_handler.set(records)
                 self._resample_handler.interpolate()
@@ -498,9 +494,11 @@ class TrajectoryBuilderSvc:
                     SpireWaypointPositional
                 ] = self._resample_handler.waypoints_resampled
                 self._resample_handler.unset()
-            except Exception as e:
+            except Exception as _:
                 logger.error(
-                    f"{candidate}: Skipping. failed to resample flight instance. error: {e}"
+                    f"flight_id: {candidate.flight_id}, "
+                    f"msg: skipping - resample step failed, "
+                    f"traceback: {format_traceback()}"
                 )
                 continue
 
@@ -513,7 +511,33 @@ class TrajectoryBuilderSvc:
                     for pos in waypoints_resampled
                 ]
             )
-            logger.info(f"{candidate}: resampled to {len(resampled_df)} points.")
+
+            if len(resampled_df) == 0:
+                # possible case if healing handler left single endpoint
+                # and none are left after resampling
+                logger.info(
+                    f"flight_id: {candidate.flight_id}, "
+                    f"msg: skipping - empty flight "
+                )
+                continue
+
+            # re-enforce datatypes
+            # TODO: possible remove this
+            # as this is currently necessary to re-cast timelike fields
+            # which are packaged as strings in the SpireWaypointPositional obj
+            # returned by the resample_handler
+            resampled_df = self._traj_heal_handler._dataframe_convert_types(
+                resampled_df
+            )
+
+            # update log context
+            candidate = TrajectoryCandidateInfo.from_waypoints(
+                flight_id=flight_id,
+                df=resampled_df,
+            )
+
+            # log state of flight post resample
+            logger.info(f"{candidate}" f"msg: resample step done")
 
             if twjd.export_waypoints:
                 # save waypoints to disk
@@ -526,42 +550,8 @@ class TrajectoryBuilderSvc:
                     index=False,
                 )
 
-            # reconstructing the resampled df from the SpireWaypointPositional list
-            # does not preserve expected datatypes for datetime-like fields
-            # (which are string literals in our SpireWaypointPositional objs)
-            # thus, we re-apply the HealTrajectoryHandler to re-cast data-types
-            # prior to running the ValidateTrajectoryHandler
-            try:
-                # resampled_df is guaranteed time-sorted
-                flight_duration_minutes = (
-                    pd.to_datetime(resampled_df["timestamp"].iloc[-1])
-                    - pd.to_datetime(resampled_df["timestamp"].iloc[0])
-                ).total_seconds() / 60.0
-                self._traj_heal_handler.set(resampled_df, candidate_info=candidate)
-                resampled_df = self._traj_heal_handler.heal()
-                # healed trajectory also time-sorted
-                new_flight_duration_minutes = (
-                    resampled_df["timestamp"].iloc[-1]
-                    - resampled_df["timestamp"].iloc[0]
-                ).total_seconds() / 60.0
-                logger.info(
-                    f"{candidate}: re-applied trajectory healing post resampling. "
-                    f"change in duration (min): {new_flight_duration_minutes - flight_duration_minutes:.2f}"
-                )
-                self._traj_heal_handler.unset()
-            except BadTrajectoryException as e:
-                logger.warning(
-                    f"{candidate}: Skipping. bad trajectory post resampling. error: {e}"
-                )
-                continue
-            except Exception as e:
-                logger.error(
-                    f"{candidate}: Skipping. failed to run heal handler post resampling. error: {e}"
-                )
-                continue
-
             # ---------------
-            # confirm that trajectory meets acceptance criteria
+            # Apply VALIDATE step
             # ---------------
             permitted_violation_types = [
                 ROCDError,
@@ -587,29 +577,24 @@ class TrajectoryBuilderSvc:
                 )
 
                 if violations and len(violations) > 0:
-                    logger.warning(
-                        f"{candidate}: Skipping. invalid flight instance. "
-                        f" violations: {violations}"
+                    logger.info(
+                        f"flight_id: {candidate.flight_id}, "
+                        f"msg: skipping - violations found "
+                        f"reason: {violations}"
                     )
                     continue
 
                 if accepted_violations and len(accepted_violations) > 0:
-                    logger.warning(
-                        f"{candidate}: Keeping. acceptable violation(s). "
-                        f" violations: {accepted_violations}"
+                    logger.info(
+                        f"flight_id: {candidate.flight_id}, "
+                        f"msg: keeping - acceptable violation(s) "
+                        f"reason: {accepted_violations}"
                     )
-            except BadTrajectoryException as e:
-                logger.warning(
-                    f"{candidate}: Skipping. "
-                    f"received bad trajectory in trajectory validation handler. "
-                    f" {e}"
-                )
-                continue
-            except Exception as e:
+            except Exception as _:
                 logger.error(
-                    f"{candidate}: Skipping. "
-                    f"failed to run trajectory validation handler. "
-                    f" {e}"
+                    f"flight_id: {candidate.flight_id}, "
+                    f"msg: skipping - validate step failed, "
+                    f"traceback: {format_traceback()}"
                 )
                 continue
 
@@ -638,11 +623,11 @@ class TrajectoryBuilderSvc:
                                 marker=counter,
                             )
                         )
-            except Exception as e:
+            except Exception as _:
                 logger.error(
-                    f"{candidate}: Skipping. "
-                    f"failed to build and submit job for flight instance. "
-                    f"error: {e}"
+                    f"flight_id: {candidate.flight_id}, "
+                    f"msg: skipping - job submit failed, "
+                    f"traceback: {format_traceback()}"
                 )
 
         if self._cache_handler and twjd.airline_iata:

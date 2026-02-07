@@ -5,8 +5,10 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import List, TypedDict
+from typing import TypedDict
 from uuid import UUID
+
+import pandas as pd
 import pytz
 from timezonefinder import TimezoneFinder
 from astral import LocationInfo
@@ -18,6 +20,8 @@ import pycontrails.core
 from lib.log import logger
 
 tf = TimezoneFinder()
+
+DATETIME_STR_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 @dataclass
@@ -1183,13 +1187,27 @@ class TrajectoryCandidateInfo:
     """
 
     flight_id: str
-    airline_iata: List[str | None] | None
-    callsign: List[str | None] | None
-    flight_number: List[str | None] | None
-    length: int | None
+    airline_iata: list[str | None] | None
+    callsign: list[str | None] | None
+    flight_number: list[str | None] | None
+    arrival_airport_icao: list[str | None]
+    departure_airport_icao: list[str | None]
     start_time: datetime | None
     end_time: datetime | None
-    __datetime_str_fmt: str = "%Y-%m-%dT%H:%M:%SZ"
+
+    @staticmethod
+    def from_waypoints(flight_id: str, df: pd.DataFrame):
+        """Build instance of self from pd dataframe of Spire waypoints."""
+        return TrajectoryCandidateInfo(
+            flight_id=flight_id,
+            airline_iata=list(df["airline_iata"].unique()),
+            callsign=list(df["callsign"].unique()),
+            flight_number=list(df["flight_number"].unique()),
+            arrival_airport_icao=list(df["arrival_airport_icao"].unique()),
+            departure_airport_icao=list(df["departure_airport_icao"].unique()),
+            start_time=df["timestamp"].min(),
+            end_time=df["timestamp"].max(),
+        )
 
     def to_dict(self):
         return {
@@ -1197,13 +1215,11 @@ class TrajectoryCandidateInfo:
             "airline_iata": self.airline_iata,
             "callsign": self.callsign,
             "flight_number": self.flight_number,
-            "length": self.length,
-            "start_time": self.start_time.strftime(self.__datetime_str_fmt),
-            "end_time": self.end_time.strftime(self.__datetime_str_fmt),
+            "arrival_airport_icao": self.arrival_airport_icao,
+            "departure_airport_icao": self.departure_airport_icao,
+            "start_time": self.start_time.strftime(DATETIME_STR_FMT),
+            "end_time": self.end_time.strftime(DATETIME_STR_FMT),
         }
-
-    def set_datetime_str_fmt(self, str_fmt):
-        self.__datetime_str_fmt = str_fmt
 
     def to_json(self):
         return json.dumps(self.to_dict())
@@ -1213,7 +1229,7 @@ class TrajectoryCandidateInfo:
 
     def __str__(self):
         # custom format to avoid JSON string literal confusion in logging
-        out = "flight_info - "
+        out = ""
         for k, v in self.to_dict().items():
-            out += f"{k}:{v}, "
+            out += f"{k}: {v}, "
         return out
