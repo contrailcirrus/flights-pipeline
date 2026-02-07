@@ -504,6 +504,15 @@ class TrajectoryBuilderSvc:
                 ]
             )
 
+            if len(resampled_df) == 0:
+                # possible case if healing handler striped flight of waypoints
+                # and none are left after resampling
+                logger.info(
+                    f"flight_id: {candidate.flight_id}, "
+                    f"msg: skipping - empty flight "
+                )
+                continue
+
             # re-enforce datatypes
             # TODO: possible remove this
             # as this is currently necessary to re-cast timelike fields
