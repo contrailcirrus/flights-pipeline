@@ -10,7 +10,6 @@ from lib.handlers import (
     PubSubPublishHandler,
     BigQueryHandler,
     HealTrajectoryHandler,
-    ResampleHandler,
     RedisHandler,
     CloudStorageHandler,
 )
@@ -84,7 +83,6 @@ if __name__ == "__main__":
         validate_traj_handler = ValidateTrajectoryHandler()
         # this field is missing when pulling data from the Spire parquet file cache
         validate_traj_handler.SCHEMA.pop("ingestion_time")
-        resample_handler = ResampleHandler()
         gcs_handler = CloudStorageHandler()
         output_job_handler = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
@@ -96,7 +94,6 @@ if __name__ == "__main__":
             gcs_handler=gcs_handler,
             heal_traj_handler=heal_traj_handler,
             validate_traj_handler=validate_traj_handler,
-            resample_handler=resample_handler,
             job_out_handler=output_job_handler,
         )
 

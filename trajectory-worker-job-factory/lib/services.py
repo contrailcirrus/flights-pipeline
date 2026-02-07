@@ -18,7 +18,6 @@ from lib.handlers import (
     PubSubPublishHandler,
     BigQueryHandler,
     HealTrajectoryHandler,
-    ResampleHandler,
     RedisHandler,
     CloudStorageHandler,
 )
@@ -53,7 +52,6 @@ class TrajectoryBuilderSvc:
         gcs_handler: CloudStorageHandler,
         heal_traj_handler: HealTrajectoryHandler,
         validate_traj_handler: ValidateTrajectoryHandler,
-        resample_handler: ResampleHandler,
         job_out_handler: PubSubPublishHandler,
     ):
         self._cache_handler = cache_handler
@@ -61,7 +59,6 @@ class TrajectoryBuilderSvc:
         self._gcs_handler = gcs_handler
         self._traj_heal_handler = heal_traj_handler
         self._validate_traj_handler = validate_traj_handler
-        self._resample_handler = resample_handler
         self._job_out_handler = job_out_handler
 
     def _fetch_airline_day(
