@@ -402,7 +402,7 @@ class FlightInfoWide(SpireFlightInfo):
 
         # extract unique value from np.ndarray
         for k, v in attrs.items():
-            if v:
+            if v is not None:
                 attrs[k] = v[0]
 
         # handle timestamp formatting; FlightInfoWide & by ext SpireFlightInfo
