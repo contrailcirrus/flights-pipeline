@@ -57,7 +57,8 @@ CREATE INDEX idx_trajectory_filters_gin
         co2e_kg_bucket,
         co2e_kg_per_km_bucket,
         departure_airport_icao,
-        arrival_airport_icao
+        arrival_airport_icao,
+        is_eu_mrv
     );
 
 -- Add indices for sort options (and add time_start for deterministic sorting on equal values).
