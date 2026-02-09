@@ -1074,7 +1074,7 @@ class HealTrajectoryHandler:
         if len(self._df) != initial_length:
             logger.info(
                 f"flight_id: {self._candidate_info.flight_id}, "
-                f"msg: heal speed ejected {initial_length - len(self._df)} waypoints."
+                f"msg: heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}."
             )
         # --------------
         # Interpolate to one or both airports if needed.
