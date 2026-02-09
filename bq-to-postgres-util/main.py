@@ -9,7 +9,8 @@ from argparse import ArgumentParser
 import pandas as pd
 import numpy as np
 from google.cloud import storage
-from sqlalchemy import URL, and_, create_engine, func, insert, select, table, text, column
+from sqlalchemy import URL, and_, create_engine, func, select, table, text, column
+from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 import psycopg2  # noqa: F401
 
@@ -132,6 +133,8 @@ class GcsToPostgresLoader:
 
             with self.engine.connect() as conn:
                 for data_transformer in self.data_transformers:
+                    if not data_transformer.is_partitioned:
+                        continue
                     conn.execute(
                         text(
                             f"""
@@ -207,12 +210,18 @@ class GcsToPostgresLoader:
             schema=schema
         )
 
-        stmt = insert(target_table).values(records)
-        index_elements, set_args = data_transformer.on_conflict_do_update(target_table, stmt.excluded)
-        stmt = stmt.on_conflict_do_update(index_elements=index_elements, set_=set_args)
+        # Postgres limits the number of parameters to around 64k per request.
+        # Send the data in small enough chunks.
+        chunk_size = 30_000 //  len(df.columns)
 
-        with self.engine.begin() as conn:
-            conn.execute(stmt)
+        for i in range(0, len(records), chunk_size):
+            chunk = records[i : i + chunk_size]
+            stmt = insert(target_table).values(chunk)
+            index_elements, set_args = data_transformer.on_conflict_do_update(target_table, stmt.excluded)
+            stmt = stmt.on_conflict_do_update(index_elements=index_elements, set_=set_args)
+
+            with self.engine.begin() as conn:
+                conn.execute(stmt)
 
     def to_postgres(self, blob: storage.Blob) -> None:
         try:
@@ -238,9 +247,10 @@ class GcsToPostgresLoader:
 class DataTransformer:
     """Transforms data from the Parquet input format to the Postgres output format."""
 
-    def __init__(self, table_name: str, requires_upsert: bool, schema: str = "public") -> None:
+    def __init__(self, table_name: str, requires_upsert: bool, is_partitioned: bool, schema: str = "public") -> None:
         self.schema = schema
         self.table_name = table_name
+        self.is_partitioned = is_partitioned
         self.requires_upsert = requires_upsert
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -254,7 +264,7 @@ class MainTableDataTransformer(DataTransformer):
     """Transforms data from the Parquet input format to the Postgres output format for the main table."""
 
     def __init__(self, table_name: str) -> None:
-        super().__init__(table_name, requires_upsert=False)
+        super().__init__(table_name, requires_upsert=False, is_partitioned=True)
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -330,7 +340,7 @@ class MetadataTableDataTransformer(DataTransformer):
     """Transforms data from the Parquet input format to the Postgres output format for the metadata table."""
 
     def __init__(self, table_name: str) -> None:
-        super().__init__(table_name, requires_upsert=False)
+        super().__init__(table_name, requires_upsert=False, is_partitioned=True)
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -371,12 +381,19 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
     """
 
     def __init__(self, table_name: str) -> None:
-        super().__init__(table_name, requires_upsert=True)
+        super().__init__(table_name, requires_upsert=True, is_partitioned=False)
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
 
-        year_month = pd.to_datetime(df["time_start"]).dt.strftime("%Y-%m").rename("month")
+        # Always use the first date of a month to define the year and month key.
+        year_month = (
+            pd.to_datetime(df["time_start"])
+            .dt.to_period('M')
+            .dt.to_timestamp()
+            .dt.date
+            .rename("month")
+        )
 
         # Ignore negative energy forcing
         s = df["sum_ef_mj"].clip(lower=0)
@@ -394,22 +411,18 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
             ['count', 'sum']
         ).rename(
             columns={"count": "flight_count", "sum": "total_sum_ef_mj"}
+        ).reset_index()
+
+        agg = agg.assign(
+            # Set a bin ID that is equivalent for the same range across months and airlines.
+            bin_idx=agg['impact'].cat.codes,
+            # Split impact into lower and upper
+            lower_ef_mj=agg['impact'].apply(lambda x: x.left),
+            upper_ef_mj=agg['impact'].apply(lambda x: x.right),
         )
 
-        # Set a bin ID that is equivalent for the same range across months and airlines.
-        agg["bin_idx"] = agg.index.get_level_values(2).codes
-
-        # Reset index to make grouping keys normal columns
-        agg = agg.reset_index()
-
-        # Split impact into lower and upper
-        agg['lower_ef_mj'] = agg['impact'].apply(lambda x: x.left)
-        agg['upper_ef_mj'] = agg['impact'].apply(lambda x: x.right)
-        agg = agg.drop(columns=['impact'])
-
         # Drop rows that have now data and the original impact column to save database storage space.
-        agg = agg[agg["flight_count"] != 0]
-
+        agg = agg[agg["flight_count"] != 0].copy()
         features = [
             "airline_iata",
             "month",
@@ -421,6 +434,7 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
         ]
         # Only keep the relevant columns specified above.
         return agg[features]
+
 
     def on_conflict_do_update(self, target_table, stmt_excluded):
         index_elements = ["airline_iata", "month", "bin_idx"]
