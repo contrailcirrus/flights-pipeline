@@ -33,6 +33,7 @@ CREATE TABLE "trajectory-cocip"
     airline_iata            text,
     departure_airport_icao  text,
     arrival_airport_icao    text,
+    is_eu_mrv               boolean,
 
     flight_length_bucket    flight_length_bucket_enum,
     co2e_kg_bucket          co2e_bucket_enum,

@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 pandas = "==2.2.3"
 pyarrow = "==22.0.0"
+pycontrails = "==0.54.11"
 google-cloud-storage = "==3.7.0"
 numpy = "==2.4.1"
 sqlalchemy = "==2.0.36"

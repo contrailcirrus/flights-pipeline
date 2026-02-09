@@ -14,6 +14,8 @@ from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 import psycopg2  # noqa: F401
 
+from eu_mrv import is_eu_mrv
+
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
 TRAJECTORY_TABLE = table(
     TRAJECTORY_TABLE_NAME, column("flight_id"), column("time_start")
@@ -299,6 +301,7 @@ class MainTableDataTransformer(DataTransformer):
             include_lowest=True,
         ).astype(str)
 
+        vect_is_eu_mrv = np.vectorize(is_eu_mrv)
         df = df.assign(
             chunk_len_km=df["chunk_len_km"].astype(int),
             mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int),
@@ -306,6 +309,7 @@ class MainTableDataTransformer(DataTransformer):
             flight_length_bucket=flight_length_bucket,
             co2e_kg_bucket=co2e_kg_bucket,
             co2e_kg_per_km_bucket=co2e_kg_per_km_bucket,
+            is_eu_mrv=vect_is_eu_mrv(df['departure_airport_icao'], df['arrival_airport_icao']),
         )
         features = [
             "chunk_len_km",
@@ -329,6 +333,7 @@ class MainTableDataTransformer(DataTransformer):
             "airline_iata",
             "departure_airport_icao",
             "arrival_airport_icao",
+            "is_eu_mrv",
             "flight_length_bucket",
             "co2e_kg_bucket",
             "co2e_kg_per_km_bucket",
