@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 from google.cloud import storage
 from sqlalchemy import URL, and_, create_engine, func, select, table, text, column
+from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 import psycopg2  # noqa: F401
 
@@ -18,8 +19,9 @@ TRAJECTORY_TABLE = table(
     TRAJECTORY_TABLE_NAME, column("flight_id"), column("time_start")
 )
 TRAJECTORY_META_TABLE_NAME = "trajectory-cocip-meta"
+TRAJECTORY_HISTOGRAM_IMPACT_TABLE_NAME = "inventory_monthly_impact_histogram"
 
-CO2E_BINS = ["no_impact", "low_impact", "medium_impact", "high_impact"]
+CO2E_IMPACT_BINS = ["no_impact", "low_impact", "medium_impact", "high_impact"]
 
 
 def get_db_uri(
@@ -131,6 +133,8 @@ class GcsToPostgresLoader:
 
             with self.engine.connect() as conn:
                 for data_transformer in self.data_transformers:
+                    if not data_transformer.is_partitioned:
+                        continue
                     conn.execute(
                         text(
                             f"""
@@ -167,7 +171,7 @@ class GcsToPostgresLoader:
         return pd.read_parquet(io.BytesIO(data))
 
     def _upload_to_postgres(
-        self, df: pd.DataFrame, table_name: str, schema: str = "public"
+        self, df: pd.DataFrame, table_name: str, schema: str
     ) -> None:
         """Uploads a pandas DataFrame to Postgres using the efficient COPY command."""
 
@@ -194,6 +198,31 @@ class GcsToPostgresLoader:
             cur.close()
             connection.close()
 
+    def _upload_via_upsert(self, df: pd.DataFrame, data_transformer: DataTransformer, table_name: str, schema: str) -> None:
+        """Uploads a pandas DataFrame to Postgres using the INSERT ... ON CONFLICT DO UPDATE command."""
+
+        records = df.to_dict(orient='records')
+
+        # Define the table object dynamically for SQLAlchemy
+        target_table = table(
+            table_name,
+            *[column(c) for c in df.columns],
+            schema=schema
+        )
+
+        # Postgres limits the number of parameters to around 64k per request.
+        # Send the data in small enough chunks.
+        chunk_size = 30_000 //  len(df.columns)
+
+        for i in range(0, len(records), chunk_size):
+            chunk = records[i : i + chunk_size]
+            stmt = insert(target_table).values(chunk)
+            index_elements, set_args = data_transformer.on_conflict_do_update(target_table, stmt.excluded)
+            stmt = stmt.on_conflict_do_update(index_elements=index_elements, set_=set_args)
+
+            with self.engine.begin() as conn:
+                conn.execute(stmt)
+
     def to_postgres(self, blob: storage.Blob) -> None:
         try:
             df = self._read_parquet_blob(blob)
@@ -203,7 +232,14 @@ class GcsToPostgresLoader:
 
             for data_transformer in self.data_transformers:
                 df_table_data = data_transformer.parquet_data_to_postgres(df)
-                self._upload_to_postgres(df_table_data, data_transformer.table_name)
+                table_name = data_transformer.table_name
+                schema = data_transformer.schema
+                if df_table_data.empty:
+                    continue
+                if data_transformer.requires_upsert:
+                    self._upload_via_upsert(df_table_data, data_transformer, table_name, schema)
+                else:
+                    self._upload_to_postgres(df_table_data, table_name, schema)
         except Exception as e:
             print(f"Failed to process {blob.name}: {e}")
 
@@ -211,10 +247,16 @@ class GcsToPostgresLoader:
 class DataTransformer:
     """Transforms data from the Parquet input format to the Postgres output format."""
 
-    def __init__(self, table_name: str) -> None:
+    def __init__(self, table_name: str, requires_upsert: bool, is_partitioned: bool, schema: str = "public") -> None:
+        self.schema = schema
         self.table_name = table_name
+        self.is_partitioned = is_partitioned
+        self.requires_upsert = requires_upsert
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError()
+
+    def on_conflict_do_update(self, target_table, stmt_excluded):
         raise NotImplementedError()
 
 
@@ -222,7 +264,7 @@ class MainTableDataTransformer(DataTransformer):
     """Transforms data from the Parquet input format to the Postgres output format for the main table."""
 
     def __init__(self, table_name: str) -> None:
-        super().__init__(table_name)
+        super().__init__(table_name, requires_upsert=False, is_partitioned=True)
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -243,7 +285,7 @@ class MainTableDataTransformer(DataTransformer):
             df["sum_ef_mj"],
             # Buckets computed from CO2e GWP100 thresholds [0.0, 800.0, 7500.0]
             bins=[-np.inf, 0, 2696406.1, 25278807.1, np.inf],
-            labels=CO2E_BINS,
+            labels=CO2E_IMPACT_BINS,
             right=True,  # ensures that every bin is (start, end]
             include_lowest=True,
         ).astype(str)
@@ -252,7 +294,7 @@ class MainTableDataTransformer(DataTransformer):
             ef_mj_per_km,
             # Buckets computed from CO2e GWP100 thresholds [0.0, 2.8, 70.0]
             bins=[-np.inf, 0, 9437.4, 235935.5, np.inf],
-            labels=CO2E_BINS,
+            labels=CO2E_IMPACT_BINS,
             right=True,  # ensures that every bin is (start, end]
             include_lowest=True,
         ).astype(str)
@@ -298,7 +340,7 @@ class MetadataTableDataTransformer(DataTransformer):
     """Transforms data from the Parquet input format to the Postgres output format for the metadata table."""
 
     def __init__(self, table_name: str) -> None:
-        super().__init__(table_name)
+        super().__init__(table_name, requires_upsert=False, is_partitioned=True)
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -331,6 +373,80 @@ class MetadataTableDataTransformer(DataTransformer):
         return df[features]
 
 
+class ImpactHistogramTableDataTransformer(DataTransformer):
+    """Transforms data from the Parquet input format to the Postgres output format for the impact histogram table.
+
+    Note that the data is uploaded in batches. Two separate batches can hold data relevant to a monthly airline impact
+    bucket so update on insert needs to be used to keep the counts correct.
+    """
+
+    def __init__(self, table_name: str) -> None:
+        super().__init__(table_name, requires_upsert=True, is_partitioned=False)
+
+    def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+
+        # Always use the first date of a month to define the year and month key.
+        year_month = (
+            pd.to_datetime(df["time_start"])
+            .dt.to_period('M')
+            .dt.to_timestamp()
+            .dt.date
+            .rename("month")
+        )
+
+        # Ignore negative energy forcing
+        s = df["sum_ef_mj"].clip(lower=0)
+
+        # Reduce the flights histogram to a fixed set of bins (n=40).
+        # The distribution roughly follows a negative power law in the range [0, 1e7].
+        # Using log spaced bins and dropping negligible bins between [1e0, 1e2) to best represent the distribution.
+        bins = [0] + list(np.logspace(start=2, stop=7, num=38, base=10)) + [float('inf')]
+        binned = pd.cut(s, bins=bins, right=False).rename('impact')
+
+        # Group by airline, year_month, and bin
+        agg = s.groupby(
+            [df['airline_iata'], year_month, binned], observed=False
+        ).agg(
+            ['count', 'sum']
+        ).rename(
+            columns={"count": "flight_count", "sum": "total_sum_ef_mj"}
+        ).reset_index()
+
+        agg = agg.assign(
+            # Set a bin ID that is equivalent for the same range across months and airlines.
+            bin_idx=agg['impact'].cat.codes,
+            # Split impact into lower and upper
+            lower_ef_mj=agg['impact'].apply(lambda x: x.left),
+            upper_ef_mj=agg['impact'].apply(lambda x: x.right),
+        )
+
+        # Drop rows that have now data and the original impact column to save database storage space.
+        agg = agg[agg["flight_count"] != 0].copy()
+        features = [
+            "airline_iata",
+            "month",
+            "bin_idx",
+            "lower_ef_mj",
+            "upper_ef_mj",
+            "flight_count",
+            "total_sum_ef_mj",
+        ]
+        # Only keep the relevant columns specified above.
+        return agg[features]
+
+
+    def on_conflict_do_update(self, target_table, stmt_excluded):
+        index_elements = ["airline_iata", "month", "bin_idx"]
+        upsert_args = {
+                "flight_count": target_table.c.flight_count + stmt_excluded.flight_count,
+                "total_sum_ef_mj": target_table.c.total_sum_ef_mj + stmt_excluded.total_sum_ef_mj,
+                "lower_ef_mj": stmt_excluded.lower_ef_mj,
+                "upper_ef_mj": stmt_excluded.upper_ef_mj,
+            }
+        return index_elements, upsert_args
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
@@ -356,6 +472,12 @@ if __name__ == "__main__":
         dest="target_meta_table",
         default=TRAJECTORY_META_TABLE_NAME,
         help="Target metadata table name in Postgres database.",
+    )
+    parser.add_argument(
+        "--target_histogram_table",
+        dest="target_histogram_table",
+        default=TRAJECTORY_HISTOGRAM_IMPACT_TABLE_NAME,
+        help="Target impact histogram table name in Postgres database.",
     )
     parser.add_argument(
         "--db_host",
@@ -389,6 +511,7 @@ if __name__ == "__main__":
         data_transformers=[
             MainTableDataTransformer(args.target_table),
             MetadataTableDataTransformer(args.target_meta_table),
+            ImpactHistogramTableDataTransformer(args.target_histogram_table),
         ],
         db_uri=get_db_uri(
             args.db_host,
