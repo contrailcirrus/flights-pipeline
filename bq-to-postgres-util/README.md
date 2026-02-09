@@ -79,7 +79,7 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
    ```
 
 2. Ensure that the Postgres tables and views are defined. Otherwise run these in the following order:
-   1. `sql/trajectory_cocip.sql` and `sql/trajectory_cocip_meta.sql`
+   1. `sql/trajectory_cocip.sql`, `sql/trajectory_cocip_meta.sql` and `sql/inventory_monthly_impact_histogram.sql`
    2. `sql/inventory_monthly_airlines_stats.sql`, `sql/inventory_monthly_od_pair_airline_stats.sql`
 3. Run `main.py --gcs_paths=<path1,path2,...>` to export the Parquet shards to Postgres. If a different GCS bucket is used 
    in (1) change the default values here as well.
