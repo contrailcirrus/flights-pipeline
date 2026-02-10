@@ -33,6 +33,7 @@ CREATE TABLE "trajectory-cocip"
     airline_iata            text,
     departure_airport_icao  text,
     arrival_airport_icao    text,
+    is_eu_mrv               boolean,
 
     flight_length_bucket    flight_length_bucket_enum,
     co2e_kg_bucket          co2e_bucket_enum,
@@ -56,7 +57,8 @@ CREATE INDEX idx_trajectory_filters_gin
         co2e_kg_bucket,
         co2e_kg_per_km_bucket,
         departure_airport_icao,
-        arrival_airport_icao
+        arrival_airport_icao,
+        is_eu_mrv
     );
 
 -- Add indices for sort options (and add time_start for deterministic sorting on equal values).

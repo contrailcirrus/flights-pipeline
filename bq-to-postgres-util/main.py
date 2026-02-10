@@ -14,6 +14,8 @@ from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 import psycopg2  # noqa: F401
 
+from eu_mrv import is_eu_mrv
+
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
 TRAJECTORY_TABLE = table(
     TRAJECTORY_TABLE_NAME, column("flight_id"), column("time_start")
@@ -69,6 +71,15 @@ def extract_year_quarter_range(year_quarter_str: str) -> tuple[date, date]:
             f"Invalid old year detected prior to 2000. Got {year_quarter_str}"
         )
     return year_quarter_start, year_quarter_end
+
+
+def add_is_eu_mrv_column(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    vect_is_eu_mrv = np.vectorize(is_eu_mrv)
+    df = df.assign(
+        is_eu_mrv=vect_is_eu_mrv(df['departure_airport_icao'], df['arrival_airport_icao']),
+    )
+    return df
 
 
 class GcsPathReader:
@@ -307,6 +318,7 @@ class MainTableDataTransformer(DataTransformer):
             co2e_kg_bucket=co2e_kg_bucket,
             co2e_kg_per_km_bucket=co2e_kg_per_km_bucket,
         )
+        df = add_is_eu_mrv_column(df)
         features = [
             "chunk_len_km",
             "lat_start",
@@ -329,6 +341,7 @@ class MainTableDataTransformer(DataTransformer):
             "airline_iata",
             "departure_airport_icao",
             "arrival_airport_icao",
+            "is_eu_mrv",
             "flight_length_bucket",
             "co2e_kg_bucket",
             "co2e_kg_per_km_bucket",
@@ -385,6 +398,7 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
+        df = add_is_eu_mrv_column(df)
 
         # Always use the first date of a month to define the year and month key.
         year_month = (
@@ -406,9 +420,9 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
 
         # Group by airline, year_month, and bin
         agg = s.groupby(
-            [df['airline_iata'], year_month, binned], observed=False
+            [df["airline_iata"], year_month, df["is_eu_mrv"], binned], observed=False
         ).agg(
-            ['count', 'sum']
+            ["count", "sum"]
         ).rename(
             columns={"count": "flight_count", "sum": "total_sum_ef_mj"}
         ).reset_index()
@@ -426,6 +440,7 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
         features = [
             "airline_iata",
             "month",
+            "is_eu_mrv",
             "bin_idx",
             "lower_ef_mj",
             "upper_ef_mj",
@@ -437,7 +452,7 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
 
 
     def on_conflict_do_update(self, target_table, stmt_excluded):
-        index_elements = ["airline_iata", "month", "bin_idx"]
+        index_elements = ["airline_iata", "month", "is_eu_mrv", "bin_idx"]
         upsert_args = {
                 "flight_count": target_table.c.flight_count + stmt_excluded.flight_count,
                 "total_sum_ef_mj": target_table.c.total_sum_ef_mj + stmt_excluded.total_sum_ef_mj,

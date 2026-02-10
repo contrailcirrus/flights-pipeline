@@ -9,10 +9,12 @@ SELECT
     engine_uid,
     -- Distinct flight lengths: 2
     flight_length_bucket,
-    -- Distinct flight lengths: 4
+    -- Distinct total kg buckets: 4
     co2e_kg_bucket,
-    -- Distinct flight lengths: 4
+    -- Distinct kg/km buckets: 4
     co2e_kg_per_km_bucket,
+    -- Distinct options: 2
+    is_eu_mrv,
     COUNT(*) as flight_cnt,
     SUM(sum_ef_mj) as total_ef_mj,
     SUM(chunk_len_km) as total_len_km
@@ -24,7 +26,8 @@ GROUP BY
     engine_uid,
     flight_length_bucket,
     co2e_kg_bucket,
-    co2e_kg_per_km_bucket;
+    co2e_kg_per_km_bucket,
+    is_eu_mrv;
 
 
 -- Given that filters are optional any combination of them can be provided making standard B-Tree indices useless.
@@ -38,7 +41,8 @@ CREATE INDEX idx_mv_filters_gin
         engine_uid,
         flight_length_bucket,
         co2e_kg_bucket,
-        co2e_kg_per_km_bucket
+        co2e_kg_per_km_bucket,
+        is_eu_mrv
     );
 
 -- Use a standard B-Tree for the range filter.
