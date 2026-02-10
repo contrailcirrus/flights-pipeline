@@ -582,9 +582,6 @@ class CocipTrajectoryChunk:
                 raise TypeError(
                     "unhandled case. did not generate daytime/nighttime offsets."
                 )
-                logger.warning(
-                    "unhandled case. did not generate daytime/nighttime offsets."
-                )
         except ValueError as e:
             msg = str(e)
             even_offset_min = (24 * 60) / 2
