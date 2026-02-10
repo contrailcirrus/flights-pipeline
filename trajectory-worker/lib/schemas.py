@@ -22,6 +22,8 @@ from pycontrails.models.cocip import Cocip
 from lib.log import logger
 from lib import trajectory_pb2 as traj_pb
 
+DATETIME_STR_FMT = "%Y-%m-%dT%H:%M:%SZ"
+
 tf = TimezoneFinder()
 
 
@@ -152,7 +154,7 @@ class SpireWaypointsRecord:
             collection_type=None,
             altitude_baro=wp["altitude_ft"],
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
+                DATETIME_STR_FMT
             ),
             imputed=False,
         )
@@ -341,6 +343,7 @@ class FlightInfoWide(SpireFlightInfo):
     engine_uid: str | None  # icao edb engine uid identifier
 
 
+
 class MetSource(str, Enum):
     HRES = "hres"
     ERA5 = "era5"
@@ -357,6 +360,8 @@ class WaypointsRecord:
     records: list[SpireWaypointPositional]
     met_source: MetSource = MetSource.ERA5
     export_cocip_trajectory: bool = False
+    _start_time: datetime | None = None
+    _end_time: datetime | None = None
 
     def as_utf8_json(self) -> bytes:
         """
@@ -376,6 +381,26 @@ class WaypointsRecord:
             met_source=MetSource(json.loads(blob)["met_source"]),
             export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
+
+
+    def _to_logging_dict(self):
+        return {
+            "flight_id": self.flight_info.flight_id,
+            "airline_iata": self.flight_info.airline_iata,
+            "callsign": self.flight_info.callsign,
+            "flight_number": self.flight_info.flight_number,
+            "arrival_airport_icao": self.flight_info.arrival_airport_icao,
+            "departure_airport_icao": self.flight_info.departure_airport_icao,
+            "start_time": self._start_time.strftime(DATETIME_STR_FMT),
+            "end_time": self._end_time.strftime(DATETIME_STR_FMT),
+        }
+
+    def __str__(self):
+        # custom format to avoid JSON string literal confusion in logging
+        out = ""
+        for k, v in self._to_logging_dict().items():
+            out += f"{k}: {v}, "
+        return out
 
 
 @dataclass
@@ -576,9 +601,9 @@ class CocipTrajectoryChunk:
                 sr_offset_mins = -1 * even_offset_min
                 ss_offset_mins = even_offset_min
             else:
-                logger.warning("failed to generate daytime/nighttime offsets.")
-        except Exception as _:
-            logger.warning("failed to generate daytime/nighttime offsets.")
+                logger.info("failed to generate daytime/nighttime offsets.")
+        except Exception as e:
+            logger.warning(f"failed to generate daytime/nighttime offsets with exception {e}")
 
         return sr_offset_mins, ss_offset_mins
 

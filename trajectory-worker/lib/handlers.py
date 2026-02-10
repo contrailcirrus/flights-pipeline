@@ -116,7 +116,7 @@ class PubSubSubscriptionHandler:
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.info("zero messages received.")
+                logger.debug("zero messages received.")
                 continue
 
             pubsub_msg = resp.received_messages[0]
@@ -228,7 +228,7 @@ class PubSubSubscriptionHandler:
             for message in messages:
                 ack_id = message.ack_id
                 # compress and tumble ack_id w/ md5
-                logger.info(
+                logger.debug(
                     f"extending ack deadline on ack_id: "
                     f"{hashlib.md5(ack_id.encode('utf-8')).hexdigest()}..."
                 )
@@ -246,7 +246,7 @@ class PubSubSubscriptionHandler:
                         f"traceback: {format_traceback()}"
                     )
 
-        logger.info("terminated ack lease management worker")
+        logger.debug("terminated ack lease management worker")
 
 
 class PubSubPublishHandler:
@@ -430,7 +430,8 @@ class TrajectoryWorkerAP(AircraftPerformance):
 
         if not target:
             raise AircraftTypeUnrecognizedError(
-                f"aircraft of type {aircraft_type_icao} " f"not in performance lookup."
+                f"aircraft of type {aircraft_type_icao} " 
+                f"not in performance lookup."
             )
 
         engine_uid: str = target["engine_uid"]
@@ -749,7 +750,8 @@ class CocipTrajectoryHandler:
         """
         Run the cocip trajectory model.
         """
-        logger.debug("running cocip model.")
+        logger.debug(f"flight_id: {self._job.flight_info.flight_id}, "
+                     f"msg: running cocip model")
         if not self._met_dataset or not self._rad_dataset:
             raise ValueError(
                 "met dataset or rad dataset have not been loaded. Run load()."
@@ -763,8 +765,9 @@ class CocipTrajectoryHandler:
             )
         else:
             logger.info(
+                f"flight_id: {self._job.flight_info.flight_id}, "
                 f"using low-mem cocip implementation for flight "
-                f"w/ {len(self._job.records)} waypoints"
+                f"with {len(self._job.records)} waypoints"
             )
             self._model = Cocip(
                 met=self._met_dataset,
