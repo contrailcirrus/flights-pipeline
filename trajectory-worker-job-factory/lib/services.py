@@ -479,7 +479,7 @@ class TrajectoryBuilderSvc:
                 if violations and len(violations) > 0:
                     logger.info(
                         f"flight_id: {candidate.flight_id}, "
-                        f"msg: skipping - violations found "
+                        f"msg: skipping - violations found, "
                         f"reason: {violations}"
                     )
                     continue
@@ -487,7 +487,7 @@ class TrajectoryBuilderSvc:
                 if accepted_violations and len(accepted_violations) > 0:
                     logger.info(
                         f"flight_id: {candidate.flight_id}, "
-                        f"msg: keeping - acceptable violation(s) "
+                        f"msg: keeping - acceptable violation(s), "
                         f"reason: {accepted_violations}"
                     )
             except Exception as _:
