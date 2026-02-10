@@ -413,9 +413,10 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
         s = df["sum_ef_mj"].clip(lower=0)
 
         # Reduce the flights histogram to a fixed set of bins (n=40).
-        # The distribution roughly follows a negative power law in the range [0, 1e7].
-        # Using log spaced bins and dropping negligible bins between [1e0, 1e2) to best represent the distribution.
-        bins = [0] + list(np.logspace(start=2, stop=7, num=38, base=10)) + [float('inf')]
+        # The distribution roughly follows a negative power law in the range [0, 1e10].
+        # Note that the impact is based on ef_mj (and not CO2e kgs GWP20).
+        # Using log spaced bins and dropping negligible bins between [1e0, 1e5) to best represent the distribution.
+        bins = [0] + list(np.logspace(start=5, stop=10, num=38, base=10)) + [float('inf')]
         binned = pd.cut(s, bins=bins, right=False).rename('impact')
 
         # Group by airline, year_month, and bin
