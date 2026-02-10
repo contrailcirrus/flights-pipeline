@@ -45,15 +45,16 @@ def run(
             sys.exit(0)
 
         job = schemas.WaypointsRecord.from_utf8_json(message.data)
+        # Set start and end timestamps for logging purposes
+        job._start_time = job.records[0].timestamp
+        job._end_time = job.records[-1].timestampå
 
         if backup_job_publisher and message.delivery_attempt > 2:
             # pass message to backup queue to be processed by traj workers w/ more resources
             logger.info(
-                f"Too many delivery attempts ({message.delivery_attempt}). "
+                f"{job}"
+                f"msg: Too many delivery attempts ({message.delivery_attempt}). "
                 f"Forwarding to backup pipeline."
-                f"airline_iata: {job.flight_info.airline_iata}"
-                f"flight_id: {job.flight_info.flight_id}. "
-                f"got job with {len(job.records)} records."
             )
             backup_job_publisher.publish_async(
                 message.data,
@@ -64,10 +65,8 @@ def run(
             continue
 
         logger.info(
-            f"airline_iata: {job.flight_info.airline_iata} "
-            f"flight_id: {job.flight_info.flight_id}. "
-            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp} "
-            f"got job with {len(job.records)} records."
+            f"{job} "
+            f"msg: processing job with {len(job.records)} records."
         )
 
         # ===================
@@ -78,12 +77,10 @@ def run(
                 job, env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
             )
         except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
-            logger.warning(
-                f"airline_iata: {job.flight_info.airline_iata}. "
-                f"skipping {job.flight_info.flight_id}. "
-                f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}. "
-                f"could not run cocip. "
-                f"{e}"
+            logger.info(
+                f"flight_id: {job.flight_info.flight_id},å "
+                f"msg: skipping - could not run cocip, "
+                f"error: {e}"
             )
             job_handler.ack(message)
             continue
@@ -93,12 +90,9 @@ def run(
             cocip_result = trajectory_cocip_handler.run()
         except Exception:
             logger.error(
-                f"NACK'ing (pubsub retry)."
-                f"airline_iata: {job.flight_info.airline_iata}. "
-                f"flight_id: {job.flight_info.flight_id}. "
-                f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}. "
-                f"cocip failed. "
-                f"{format_traceback()}"
+                f"flight_id: {job.flight_info.flight_id}, "
+                f"msg: NACK'ing (pubsub retry) - cocip failed, "
+                f"error: {format_traceback()}"
             )
             job_handler.nack(message)
             continue
@@ -108,7 +102,8 @@ def run(
         # ===================
         # publish cocip outputs to BQ
         # ===================
-        logger.debug("publishing cocip outputs to BQ.")
+        logger.debug(f"flight_id: {job.flight_info.flight_id}, "
+                     f"msg: publishing cocip summary output to BQ")
 
         fq_zarr_uri: str
         # qualify the zarr uri with the source type
@@ -143,7 +138,8 @@ def run(
             # ===================
             # if enabled, publish all trajectory segments to BQ
             # ===================
-            logger.debug("exporting per-segment cocip outputs to BQ.")
+            logger.debug(f"flight_id: {job.flight_info.flight_id}, "
+                         f"msg: exporting per-segment cocip outputs to BQ")
             seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
                 source_id=SOURCE_ID,
                 git_sha=env.GIT_SHA,
@@ -189,7 +185,7 @@ def run(
 
 
 if __name__ == "__main__":
-    logger.info("starting trajectory-worker instance")
+    logger.debug("starting trajectory-worker instance")
 
     try:
         trajectory_cocip_bq_publisher = PubSubPublishHandler(
