@@ -329,7 +329,7 @@ class MainTableDataTransformer(DataTransformer):
             "time_end",
             "sum_ef_mj",
             "ef_mj_per_km",
-            "contrail_generating_kms_pct",
+            "contrail_generating_kms",
             "aircraft_type_icao",
             "engine_uid",
             "mean_aircraft_mass_kg",

@@ -17,7 +17,8 @@ SELECT
     is_eu_mrv,
     COUNT(*) as flight_cnt,
     SUM(sum_ef_mj) as total_ef_mj,
-    SUM(chunk_len_km) as total_len_km
+    SUM(chunk_len_km) as total_len_km,
+    SUM(contrail_generating_kms) as total_contrail_generating_km
 FROM "trajectory-cocip"
 GROUP BY
     month_bucket,

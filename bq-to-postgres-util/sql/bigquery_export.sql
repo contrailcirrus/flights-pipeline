@@ -10,7 +10,7 @@ overwrite = false) AS
 WITH segment_metrics AS (
   SELECT
     flight_id,
-    SUM(CASE WHEN sum_ef_mj != 0 THEN chunk_len_km ELSE 0 END) / NULLIF(SUM(chunk_len_km), 0) AS contrail_generating_kms_pct
+    SUM(CASE WHEN sum_ef_mj != 0 THEN chunk_len_km ELSE 0 END) AS contrail_generating_kms
   FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
   WHERE time_start BETWEEN export_start_time AND export_end_time
     AND seg_cnt = 1
@@ -47,7 +47,7 @@ SELECT main.chunk_len_km,
        main.zarr_uri,
        main.total_pos_ef_persistent_contrail_length_km,
        main.total_persistent_contrail_length_km,
-       sm.contrail_generating_kms_pct
+       sm.contrail_generating_kms
 FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod` AS main
 LEFT JOIN segment_metrics AS sm
   ON main.flight_id = sm.flight_id
