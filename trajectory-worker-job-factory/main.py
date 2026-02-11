@@ -3,6 +3,8 @@
 import sys
 import hashlib
 
+from dataclasses import asdict
+
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
 
 from lib.handlers import (
@@ -39,17 +41,17 @@ def run(
         job_hash = hashlib.shake_128(job.as_utf8_json()).hexdigest(
             8
         )  # useful for keying in logs
-        logger.info(f"got TWJD", extra={"job_hash": job_hash, "TWJD": job.dict()})
+        logger.info(f"got TWJD", extra={"job_hash": job_hash, "TWJD": asdict(job)})
 
         try:
             job_builder_svc.run(twjd=job)
-            logger.info(f"finished TWJD", extra={"job_hash": job_hash, "TWJD": job.dict()})
+            logger.info(f"finished TWJD", extra={"job_hash": job_hash, "TWJD": asdict(job)})
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
             logger.error(
                 "permanently failed to process TJWD - ack'ing msg", extra={
                     "job_hash": job_hash,
-                    "TWJD": job.dict(),
+                    "TWJD": asdict(job),
                     "traceback": format_traceback()}
             )
             input_job_handler.ack(message)
@@ -59,7 +61,7 @@ def run(
             logger.error(
                 "failed to process TJWD. nack'ing msg", extra={
                     "job_hash": job_hash,
-                    "TWJD": job.dict(),
+                    "TWJD": asdict(job),
                     "traceback": format_traceback()}
             )
             input_job_handler.nack(message)
