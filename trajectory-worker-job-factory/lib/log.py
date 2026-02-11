@@ -42,7 +42,7 @@ except KeyError:
 logger = logging.getLogger("trajectory-worker-job-factory")
 logger.setLevel(log_level)
 # Create a handler
-logHandler = logging.StreamHandler(sys.stdout)
+logHandler = logging.StreamHandler(sys.stderr)
 # Define the log format using standard LogRecord attributes
 # The format string defines the order and inclusion of fields
 log_format = '%(timestamp)s, %(levelname)s, %(message)s, %(process)d, %(thread)d, %(taskName)s'
