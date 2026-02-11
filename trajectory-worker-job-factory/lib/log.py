@@ -3,10 +3,13 @@ Module for configuring and managing application-wide logger.
 """
 
 import logging
+import sys
 import traceback
 import warnings
 
 import lib.environment as env
+
+from pythonjsonlogger import jsonlogger
 
 
 def format_traceback():
@@ -19,7 +22,6 @@ def format_traceback():
     return tb_fmt_str
 
 
-log_fmt = '{"timestamp":"%(asctime)s", "severity": "%(levelname)s", "textPayload": "%(message)s", "labels":{"pid":"%(process)d", "thread":"%(thread)d", "asyncio_taskname":"%(taskName)s"}}'
 log_level_map = {
     "DEBUG": logging.DEBUG,
     "INFO": logging.INFO,
@@ -35,10 +37,18 @@ except KeyError:
         f"Got: {env.LOG_LEVEL}"
     )
 
-
-logging.basicConfig(encoding="utf-8", level=log_level, format=log_fmt)
+# Get a logger instance
+# logging.basicConfig(encoding="utf-8", level=log_level)
 logger = logging.getLogger("trajectory-worker-job-factory")
-
+logger.setLevel(log_level)
+# Create a handler
+logHandler = logging.StreamHandler(sys.stderr)
+# Define the log format using standard LogRecord attributes
+# The format string defines the order and inclusion of fields
+log_format = '%(timestamp)s, %(levelname)s, %(message)s, %(process)d, %(thread)d, %(taskName)s'
+formatter = jsonlogger.JsonFormatter(log_format,rename_fields={"levelname": "severity", "process": "pid", "taskName": "asyncio_taskname"}, timestamp=True)
+logHandler.setFormatter(formatter)
+logger.addHandler(logHandler)
 
 # capture and redirect warnings from the `warn` pkg to our logger
 def log_warn(message, category, filename, lineno, file=None, line=None):

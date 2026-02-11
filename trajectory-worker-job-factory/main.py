@@ -39,24 +39,28 @@ def run(
         job_hash = hashlib.shake_128(job.as_utf8_json()).hexdigest(
             8
         )  # useful for keying in logs
-        logger.info(f"got TWJD {job_hash}: {job}")
+        logger.info(f"got TWJD", extra={"job_hash": job_hash, "TWJD": job.dict()})
 
         try:
             job_builder_svc.run(twjd=job)
-            logger.info(f"finished TWJD {job_hash}: {job}")
+            logger.info(f"finished TWJD", extra={"job_hash": job_hash, "TWJD": job.dict()})
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
             logger.error(
-                f"permanently failed to process TJWD. "
-                f"airline_iata: {job.airline_iata} "
-                f"ack'ing msg: {e}. {format_traceback()}"
+                "permanently failed to process TJWD - ack'ing msg", extra={
+                    "job_hash": job_hash,
+                    "TWJD": job.dict(),
+                    "traceback": format_traceback()}
             )
             input_job_handler.ack(message)
             continue
         except Exception as e:
             # nack message; expect pubsub to retry
             logger.error(
-                f"failed to proces TJWD. nack'ing msg: {e}. {format_traceback()}"
+                "failed to process TJWD. nack'ing msg", extra={
+                    "job_hash": job_hash,
+                    "TWJD": job.dict(),
+                    "traceback": format_traceback()}
             )
             input_job_handler.nack(message)
             continue
@@ -103,5 +107,5 @@ if __name__ == "__main__":
         )
 
     except Exception:
-        logger.error("Unhandled exception:" + format_traceback())
+        logger.error("Unhandled exception.", extra={"traceback": format_traceback()})
         sys.exit(0)
