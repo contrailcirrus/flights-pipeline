@@ -487,7 +487,7 @@ class TrajectoryBuilderSvc:
                         extra={
                             "flight_id": candidate.flight_id,
                             "detail": "violations found",
-                            "reason": {violations},
+                            "reason": violations,
                         }
                     )
                     continue
