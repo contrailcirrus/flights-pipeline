@@ -14,6 +14,7 @@ numcodecs = "==0.13.0"
 pycontrails = "==0.54.9"
 pycontrails-bada = {ref = "v0.7.5", git = "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git"}
 python-json-logger = "==4.0.0"
+pytz = "==2025.2"
 timezonefinder = "==6.5.2"
 xarray = "==2024.9.0"  # perf regression speculated w/ upgrade to 2025.4.0
 zarr = "==2.18.3"
