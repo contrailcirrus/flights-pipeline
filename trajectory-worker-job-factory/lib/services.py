@@ -276,11 +276,14 @@ class TrajectoryBuilderSvc:
             key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
             if resp := self._cache_handler.pull(key):
                 progress_marker = resp
-                logger.warning("resuming progress from a previous job", extra={
-                    "marker": progress_marker,
-                    "airline_iata": twjd.airline_iata,
-                    "TWJD": twjd
-                })
+                logger.warning(
+                    "resuming progress from a previous job",
+                    extra={
+                        "marker": progress_marker,
+                        "airline_iata": twjd.airline_iata,
+                        "TWJD": twjd,
+                    },
+                )
 
         counter = 0
         number_of_flight_candidates = len(flight_instances.groups)
@@ -356,8 +359,8 @@ class TrajectoryBuilderSvc:
                     extra={
                         "flight_id": candidate.flight_id,
                         "detail": "heal step failed",
-                        "traceback": format_traceback()
-                    }
+                        "traceback": format_traceback(),
+                    },
                 )
                 continue
 
@@ -396,10 +399,13 @@ class TrajectoryBuilderSvc:
                 if len(waypoints_pycontrail) == 0:
                     # possible case if healing handler left single endpoint
                     # and none are left after resampling
-                    logger.info("skipping", extra={
-                        "flight_id": candidate.flight_id,
-                        "detail": "empty flight"
-                    })
+                    logger.info(
+                        "skipping",
+                        extra={
+                            "flight_id": candidate.flight_id,
+                            "detail": "empty flight",
+                        },
+                    )
                     continue
 
                 # UNDO manipulations to telemetry data introduced by pycontrails.resample_and_fill
@@ -431,8 +437,8 @@ class TrajectoryBuilderSvc:
                     extra={
                         "flight_id": candidate.flight_id,
                         "detail": "resample step failed",
-                        "traceback": format_traceback()
-                    }
+                        "traceback": format_traceback(),
+                    },
                 )
                 continue
 
@@ -488,7 +494,7 @@ class TrajectoryBuilderSvc:
                             "flight_id": candidate.flight_id,
                             "detail": "violations found",
                             "reason": violations,
-                        }
+                        },
                     )
                     continue
 
@@ -499,7 +505,7 @@ class TrajectoryBuilderSvc:
                             "flight_id": candidate.flight_id,
                             "detail": "acceptable violations found",
                             "reason": accepted_violations,
-                        }
+                        },
                     )
             except Exception as _:
                 logger.error(
@@ -507,8 +513,8 @@ class TrajectoryBuilderSvc:
                     extra={
                         "flight_id": candidate.flight_id,
                         "detail": "validate step failed",
-                        "traceback": format_traceback()
-                    }
+                        "traceback": format_traceback(),
+                    },
                 )
                 continue
 
@@ -557,8 +563,8 @@ class TrajectoryBuilderSvc:
                     extra={
                         "flight_id": candidate.flight_id,
                         "detail": "job submit failed",
-                        "traceback": format_traceback()
-                    }
+                        "traceback": format_traceback(),
+                    },
                 )
 
         if self._cache_handler and twjd.airline_iata:
