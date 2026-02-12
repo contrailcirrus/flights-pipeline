@@ -45,8 +45,18 @@ logger.setLevel(log_level)
 logHandler = logging.StreamHandler(sys.stderr)
 # Define the log format using standard LogRecord attributes
 # The format string defines the order and inclusion of fields
-log_format = '%(timestamp)s, %(levelname)s, %(message)s, %(process)d, %(thread)d, %(taskName)s'
-formatter = jsonlogger.JsonFormatter(log_format,rename_fields={"levelname": "severity", "process": "pid", "taskName": "asyncio_taskname"}, timestamp=True)
+log_format = (
+    "%(timestamp)s, %(levelname)s, %(message)s, %(process)d, %(thread)d, %(taskName)s"
+)
+formatter = jsonlogger.JsonFormatter(
+    log_format,
+    rename_fields={
+        "levelname": "severity",
+        "process": "pid",
+        "taskName": "asyncio_taskname",
+    },
+    timestamp=True,
+)
 logHandler.setFormatter(formatter)
 logger.addHandler(logHandler)
 

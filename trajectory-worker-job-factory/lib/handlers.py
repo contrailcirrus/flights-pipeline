@@ -124,9 +124,11 @@ class PubSubSubscriptionHandler:
 
             pubsub_msg = resp.received_messages[0]
             logger.debug(
-                f"received 1 message from {self.subscription}.", extra={
-                f"published_time": pubsub_msg.message.publish_time,
-                f"message_id": pubsub_msg.message.message_id}
+                f"received 1 message from {self.subscription}.",
+                extra={
+                    "published_time": pubsub_msg.message.publish_time,
+                    "message_id": pubsub_msg.message.message_id,
+                },
             )
 
             message = Message(
@@ -160,7 +162,10 @@ class PubSubSubscriptionHandler:
                 yield message
                 # Guard against user failing to call ack() or nack()
                 if message in self._outstanding_messages:
-                    logger.warning(f"message was never ack'ed or nack'ed", extra={"message": message})
+                    logger.warning(
+                        "message was never ack'ed or nack'ed",
+                        extra={"message": message},
+                    )
                     self._outstanding_messages.discard(message)
         except GeneratorExit:
             pass
@@ -178,7 +183,9 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"message ack'ed or nack'ed multiple times", extra={"message": message})
+            logger.warning(
+                "message ack'ed or nack'ed multiple times", extra={"message": message}
+            )
 
         self._client.acknowledge(
             request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
@@ -207,7 +214,9 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"message ack'ed or nack'ed multiple times", extra={"message": message})
+            logger.warning(
+                "message ack'ed or nack'ed multiple times", extra={"message": message}
+            )
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """
@@ -223,7 +232,7 @@ class PubSubSubscriptionHandler:
             messages = self._outstanding_messages.copy()
             for message in messages:
                 ack_id = message.ack_id
-                logger.debug(f"extending ack deadline", extra={"ack_id": ack_id[0:-150]})
+                logger.debug("extending ack deadline", extra={"ack_id": ack_id[0:-150]})
                 try:
                     self._client.modify_ack_deadline(
                         request={
@@ -674,11 +683,10 @@ class HealTrajectoryHandler:
             Required for logging purposes.
         """
         if len(trajectory) == 0:
-            raise BadTrajectoryException(
-                f"flight trajectory is empty."
-            )
+            raise BadTrajectoryException("flight trajectory is empty.")
         if len(trajectory["flight_id"].unique()) > 1:
-            raise Exception("dataset passed to handler must be for a single flight instance ("
+            raise Exception(
+                "dataset passed to handler must be for a single flight instance ("
                 "flight_id)."
             )
         self._df = trajectory.copy(deep=True)
@@ -944,14 +952,15 @@ class HealTrajectoryHandler:
         interpolated_waypoints = []
         if interpolated_departure_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_departure_airport_waypoint)
-            logger.info(f"impute wp at departure - {departure_airport_icao}",
-                extra={"flight_id": candidate_info.flight_id}                
+            logger.info(
+                f"impute wp at departure - {departure_airport_icao}",
+                extra={"flight_id": candidate_info.flight_id},
             )
         if interpolated_arrival_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
-            logger.info(f"impute wp at arrival - {arrival_airport_icao}",
-                extra={"flight_id": candidate_info.flight_id}
-                
+            logger.info(
+                f"impute wp at arrival - {arrival_airport_icao}",
+                extra={"flight_id": candidate_info.flight_id},
             )
 
         if interpolated_waypoints:
@@ -1028,10 +1037,10 @@ class HealTrajectoryHandler:
                 drop_cnt = (~keep_filter).sum()
 
                 if drop_cnt:
-                    logger.info(f"dropped {drop_cnt} values out of "
-                        f"{total_number_before_drop} not matching {val} for field {col}.", 
-                        extra={"flight_id": self._candidate_info.flight_id}
-                        
+                    logger.info(
+                        f"dropped {drop_cnt} values out of "
+                        f"{total_number_before_drop} not matching {val} for field {col}.",
+                        extra={"flight_id": self._candidate_info.flight_id},
                     )
 
         len_before_duplicate_drop = len(self._df)
@@ -1039,8 +1048,9 @@ class HealTrajectoryHandler:
         self._df.drop_duplicates(["timestamp"], inplace=True)
         len_difference = len_before_duplicate_drop - len(self._df)
         if len_difference != 0:
-            logger.info(f"dropped {len_difference} duplicate timestamp records",
-                extra={"flight_id": self._candidate_info.flight_id}
+            logger.info(
+                f"dropped {len_difference} duplicate timestamp records",
+                extra={"flight_id": self._candidate_info.flight_id},
             )
 
         # --------------
@@ -1069,8 +1079,9 @@ class HealTrajectoryHandler:
             iterations -= 1
 
         if len(self._df) != initial_length:
-            logger.info(f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}.",
-                extra={"flight_id": self._candidate_info.flight_id}
+            logger.info(
+                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}.",
+                extra={"flight_id": self._candidate_info.flight_id},
             )
         # --------------
         # Interpolate to one or both airports if needed.
