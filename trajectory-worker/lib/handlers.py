@@ -571,7 +571,7 @@ class CocipTrajectoryHandler:
             longitude=[w.longitude for w in job.records],
             latitude=[w.latitude for w in job.records],
             altitude_ft=[w.altitude_baro for w in job.records],
-            time=[w.timestamp for w in job.records],
+            time=pd.to_datetime(pd.Series([w.timestamp for w in job.records])),
             attrs=dict(
                 flight_id=job.flight_info.flight_id,
                 aircraft_type=job.flight_info.aircraft_type_icao,
