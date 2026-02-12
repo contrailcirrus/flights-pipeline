@@ -47,7 +47,7 @@ def run(
         job = schemas.WaypointsRecord.from_utf8_json(message.data)
         # Set start and end timestamps for logging purposes
         job._start_time = job.records[0].timestamp
-        job._end_time = job.records[-1].timestampå
+        job._end_time = job.records[-1].timestamp
 
         if backup_job_publisher and message.delivery_attempt > 2:
             # pass message to backup queue to be processed by traj workers w/ more resources
