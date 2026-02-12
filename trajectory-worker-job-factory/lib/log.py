@@ -38,7 +38,6 @@ except KeyError:
     )
 
 # Get a logger instance
-# logging.basicConfig(encoding="utf-8", level=log_level)
 logger = logging.getLogger("trajectory-worker-job-factory")
 logger.setLevel(log_level)
 # Create a handler

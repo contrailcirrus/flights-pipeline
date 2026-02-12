@@ -1,4 +1,4 @@
-""" Data Object Models & Schemas"""
+"""Data Object Models & Schemas"""
 
 import hashlib
 import json
@@ -19,7 +19,7 @@ import numpy as np
 import pycontrails.core
 from pycontrails.models.cocip import Cocip
 
-from lib.log import logger
+from lib.log import logger, format_traceback
 from lib import trajectory_pb2 as traj_pb
 
 DATETIME_STR_FMT = "%Y-%m-%dT%H:%M:%SZ"
@@ -343,7 +343,6 @@ class FlightInfoWide(SpireFlightInfo):
     engine_uid: str | None  # icao edb engine uid identifier
 
 
-
 class MetSource(str, Enum):
     HRES = "hres"
     ERA5 = "era5"
@@ -381,7 +380,6 @@ class WaypointsRecord:
             met_source=MetSource(json.loads(blob)["met_source"]),
             export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
-
 
     def _to_logging_dict(self):
         return {
@@ -738,27 +736,36 @@ class CocipTrajectoryChunk:
             )
         except TypeError as te:
             logger.debug(
-                f"flight_id: {input_chunk.flight_info.flight_id}, "
-                f"msg: {te}"
+                "Error generating sunrise/sunset offsets",
+                extra={
+                    "flight_id": input_chunk.flight_info.flight_id,
+                    "error": str(te),
+                    "traceback": format_traceback(te),
+                },
             )
             time_start_sunrise_offset_mins = None
             time_start_sunset_offset_mins = None
-        except ValueError as ve:
+        except ValueError as _:
             logger.debug(
-                f"flight_id: {input_chunk.flight_info.flight_id}, "
-                f"msg: failed to generate daytime/nighttime offsets"
+                "failed to generate daytime/nighttime offsets",
+                extra={
+                    "flight_id": input_chunk.flight_info.flight_id,
+                },
             )
             time_start_sunrise_offset_mins = None
             time_start_sunset_offset_mins = None
         except Exception as e:
             logger.debug(
-                f"flight_id: {input_chunk.flight_info.flight_id}, "
-                f"msg: unhandled error in generating daytime/nighttime offsets, "
-                f" error: {e}"
+                "unhandled error in generating daytime/nighttime offsets",
+                extra={
+                    "flight_id": input_chunk.flight_info.flight_id,
+                    "error": str(e),
+                    "traceback": format_traceback(e),
+                },
             )
             time_start_sunrise_offset_mins = None
             time_start_sunset_offset_mins = None
-            
+
         def nan_to_null(x):
             if np.isnan(x):
                 return None
@@ -943,23 +950,35 @@ class CocipTrajectoryChunk:
                 )
             except TypeError as te:
                 logger.debug(
-                    f"flight_id: {input_chunk.flight_info.flight_id}, segment_ix: {seg_ix}, "
-                    f"msg: {te}"
+                    "Error generating sunrise/sunset offsets",
+                    extra={
+                        "flight_id": input_chunk.flight_info.flight_id,
+                        "segment_index": seg_ix,
+                        "error": str(te),
+                        "traceback": format_traceback(te),
+                    },
                 )
                 time_start_sunrise_offset_mins = None
                 time_start_sunset_offset_mins = None
-            except ValueError as ve:
+            except ValueError as _:
                 logger.debug(
-                    f"flight_id: {input_chunk.flight_info.flight_id}, segment_ix: {seg_ix}, "
-                    f"msg: failed to generate daytime/nighttime offsets"
+                    "failed to generate daytime/nighttime offsets",
+                    extra={
+                        "flight_id": input_chunk.flight_info.flight_id,
+                        "segment_index": seg_ix,
+                    },
                 )
                 time_start_sunrise_offset_mins = None
                 time_start_sunset_offset_mins = None
             except Exception as e:
                 logger.debug(
-                    f"flight_id: {input_chunk.flight_info.flight_id}, segment_ix: {seg_ix}, "
-                    f"msg: unhandled error in generating daytime/nighttime offsets, "
-                    f" error: {e}"
+                    "unhandled error in generating daytime/nighttime offsets",
+                    extra={
+                        "flight_id": input_chunk.flight_info.flight_id,
+                        "segment_index": seg_ix,
+                        "error": str(e),
+                        "traceback": format_traceback(e),
+                    },
                 )
                 time_start_sunrise_offset_mins = None
                 time_start_sunset_offset_mins = None
@@ -1138,7 +1157,14 @@ class CocipTrajectoryChunk:
         try:
             json_out = json.dumps(blob).encode("utf-8")
         except Exception as e:
-            logger.warning(f"could not JSON serialize output: {blob}")
+            logger.warning(
+                "could not JSON serialize output",
+                extra={
+                    "error": str(e),
+                    "traceback": format_traceback(e),
+                    "blob": blob,
+                },
+            )
             raise Exception from e
         return json_out
 
