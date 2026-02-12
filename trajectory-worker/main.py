@@ -52,9 +52,11 @@ def run(
         if backup_job_publisher and message.delivery_attempt > 2:
             # pass message to backup queue to be processed by traj workers w/ more resources
             logger.info(
-                f"{job}"
-                f"msg: Too many delivery attempts ({message.delivery_attempt}). "
-                f"Forwarding to backup pipeline."
+                "Too many delivery attempts - forwarding to backup pipeline.",
+                extra={
+                    "job": job,
+                    "delivery_attempt": message.delivery_attempt,
+                },
             )
             backup_job_publisher.publish_async(
                 message.data,
@@ -65,8 +67,10 @@ def run(
             continue
 
         logger.info(
-            f"{job} "
-            f"msg: processing job with {len(job.records)} records."
+            f"processing job with {len(job.records)} records.",
+            extra={
+                "job": job,
+            },
         )
 
         # ===================
@@ -78,9 +82,11 @@ def run(
             )
         except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
             logger.info(
-                f"flight_id: {job.flight_info.flight_id},å "
-                f"msg: skipping - could not run cocip, "
-                f"error: {e}"
+                "skipping - could not run cocip",
+                extra={
+                    "flight_id": {job.flight_info.flight_id},
+                    "error": str(e),
+                },
             )
             job_handler.ack(message)
             continue
@@ -90,9 +96,11 @@ def run(
             cocip_result = trajectory_cocip_handler.run()
         except Exception:
             logger.error(
-                f"flight_id: {job.flight_info.flight_id}, "
-                f"msg: NACK'ing (pubsub retry) - cocip failed, "
-                f"error: {format_traceback()}"
+                "NACK'ing (pubsub retry) - cocip failed",
+                extra={
+                    "flight_id": job.flight_info.flight_id,
+                    "error": format_traceback(),
+                },
             )
             job_handler.nack(message)
             continue
@@ -102,8 +110,12 @@ def run(
         # ===================
         # publish cocip outputs to BQ
         # ===================
-        logger.debug(f"flight_id: {job.flight_info.flight_id}, "
-                     f"msg: publishing cocip summary output to BQ")
+        logger.debug(
+            "publishing cocip summary output to BQ",
+            extra={
+                "flight_id": job.flight_info.flight_id,
+            },
+        )
 
         fq_zarr_uri: str
         # qualify the zarr uri with the source type
@@ -138,8 +150,13 @@ def run(
             # ===================
             # if enabled, publish all trajectory segments to BQ
             # ===================
-            logger.debug(f"flight_id: {job.flight_info.flight_id}, "
-                         f"msg: exporting per-segment cocip outputs to BQ")
+            logger.debug(
+                "exporting per-segment cocip outputs to BQ",
+                extra={
+                    "flight_id": job.flight_info.flight_id,
+                },
+            )
+
             seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
                 source_id=SOURCE_ID,
                 git_sha=env.GIT_SHA,
@@ -207,5 +224,5 @@ if __name__ == "__main__":
         )
 
     except Exception:
-        logger.error("Unhandled exception:" + format_traceback())
+        logger.error("Unhandled exception", extra={"traceback": format_traceback()})
         sys.exit(1)
