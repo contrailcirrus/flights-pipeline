@@ -1,81 +1,177 @@
 import os
-import io
 import pandas as pd
 import orjson # Faster than json, good for large logs
+from smart_open import open
+from datetime import datetime, timezone
 from google.cloud import storage
 from typing import Optional
 
-GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "nick-sandbox-public")
+GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "contrails-301217-fp-dev-trajectory-worker-job-factory")
 
 # Define severity levels (assuming standard GCP logging levels)
 SEVERITY_LEVELS = ["DEFAULT", "DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "CRITICAL", "ALERT", "EMERGENCY"]
 SEVERITY_RANK = {level: rank for rank, level in enumerate(SEVERITY_LEVELS)}
 
+GKE_LOG_FILENAME_DATETIME_FORMAT = "%H:%M:%S"
+
 class LogParser:
-    def __init__(self, bucket_name: str):
+    def __init__(self, bucket_name: str, start_time: Optional[str] = None, end_time: Optional[str] = None):
         """
         Initialize the parser with a specific GCS bucket.
+        Optionally specify start_time and end_time as ISO-formatted strings.
         Environment variable GOOGLE_APPLICATION_CREDENTIALS must be set.
         """
         self.bucket_name = bucket_name
         self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.bucket_name)
-        self.df: Optional[pd.DataFrame] = None  
+        self.df: Optional[pd.DataFrame] = None
+        self.start_time = datetime.fromisoformat(start_time) if start_time else None
+        self.end_time = datetime.fromisoformat(end_time) if end_time else None
 
-    def parse(self, file_path: str) -> pd.DataFrame:
+    @staticmethod
+    def convert_datetime_to_utc(dt: datetime) -> datetime:
         """
-        Reads a JSON file from GCS, parses jsonPayload and severity,
-        and returns a Pandas DataFrame.
+        Convert a datetime object to UTC timezone if it is timezone-aware.
+        If the datetime is naive (no timezone), it is returned as-is.
         """
-        print(f"Attempting to download: gs://{self.bucket_name}/{file_path}")
-        blob = self.bucket.blob(file_path)
+        # Only convert if timezone-aware
+        if dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) is not None:
+            return dt.astimezone(timezone.utc)
+        else:
+            return dt.replace(tzinfo=timezone.utc)
+        
+    @staticmethod
+    def gke_log_name_to_end_time(file_name: str) -> Optional[datetime]:
+        """
+        Extract a datetime object from a GKE log file name.
+        GKE log file names typically look like this:
+        `11:00:00_11:59:59_S0.json`
+        """
 
-        # Download as bytes. For extremely large files, we might want to 
-        # stream line by line using blob.open("r"), but download_as_bytes 
-        # is efficient for files fitting in memory.
+        hr_min_sec = file_name.split("_")[1]  # Extract the end time part
         try:
-            content_bytes = blob.download_as_bytes()
-        except Exception as e:
-            print(f"Error downloading file: {e}")
-            return pd.DataFrame()
+            return datetime.strptime(hr_min_sec, GKE_LOG_FILENAME_DATETIME_FORMAT)
+        except ValueError:
+            return None
 
-        processed_rows = []
 
-        # Split by newline for NDJSON format
-        for line in content_bytes.splitlines():
-            if not line.strip():
-                continue
-                
+    def construct_blob_paths_from_date_range(self, start_time: datetime, end_time: datetime) -> list[str]:
+        """
+        Construct GCS blob paths based on a given date range.
+        Assumes the default Google Cloud GKE log sink path structure.
+        Returns a list of blob paths for the specified date range.
+        All hourly blobs are included.
+
+        Note: Typical GKE log sink paths are in the format:
+        gs://<bucket_name>/stderr/<year>/<month>/<day>/
+        This function generates paths for all logs files within the specified date.
+        """
+        # TODO: could limit to specific hours to reduce the number of logs read in
+        # This could help ensure better performance when we're only interested in a
+        # specific subset during a dense set of logs.
+
+        # Ensure datetimes are UTC
+        start_time = LogParser.convert_datetime_to_utc(start_time)
+        end_time = LogParser.convert_datetime_to_utc(end_time)
+        
+        day_index = start_time.replace(minute=0, second=0, microsecond=0)  # Start at the beginning of the hour
+        blob_paths = []
+        while day_index <= end_time:
+            prefix = f"stderr/{day_index.year:04d}/{day_index.month:02d}/{day_index.day:02d}/"
+            blobs = list(self.bucket.list_blobs(prefix=prefix))
+            print(f"Found {len(blobs)} blobs for prefix: {prefix}")
+            if day_index.year == start_time.year and day_index.month == start_time.month and day_index.day == start_time.day:
+                # If we're on the first day, filter blobs to only include those starting from the start_time
+                try:
+                    print(f"Filtering blobs for start_time: {start_time.time()}")
+                    blobs = [blob for blob in blobs if LogParser.gke_log_name_to_end_time(blob.name).time() >= start_time.time()]
+                except Exception:
+                    # If any error occurs during filtering, keep all blobs for this day before start_time
+                    pass
+            if day_index.year == end_time.year and day_index.month == end_time.month and day_index.day == end_time.day:
+                # If we're on the last day, filter blobs to only include those up to the end_time
+                try:
+                    print(f"Filtering blobs for end_time: {end_time.time()}")
+                    blobs = [blob for blob in blobs if LogParser.gke_log_name_to_end_time(blob.name).time() <= end_time.time()]
+                except Exception:
+                    # If any error occurs during filtering, keep all blobs for this day after end_time
+                    pass
+
+            blob_paths.extend([blob.name for blob in blobs])
+            day_index += pd.Timedelta(days=1)
+
+        return blob_paths
+
+    def parse(self, start_time: Optional[str] = None, end_time: Optional[str] = None) -> pd.DataFrame:
+        """
+        Reads JSON files from GCS based on time range, parses jsonPayload and severity,
+        and returns a Pandas DataFrame.
+        Optionally specify start_time and end_time as ISO-formatted strings for this parse.
+
+        Parameters
+        ----------
+        start_time : Optional[str]
+            ISO-formatted string representing the start time for log parsing (e.g., "2024-06-01T10:00:00Z"). 
+            If not provided, uses the instance's start_time.
+        end_time : Optional[str]
+            ISO-formatted string representing the end time for log parsing (e.g., "2024-06-01T12:00:00Z"). 
+            If not provided, uses the instance's end_time.
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame containing the parsed log data, filtered by the specified date range 
+            if start_time and end_time are provided. 
+        """
+        # Allow override of instance start/end time
+        st = LogParser.convert_datetime_to_utc(datetime.fromisoformat(start_time) if start_time else self.start_time)
+        et = LogParser.convert_datetime_to_utc(datetime.fromisoformat(end_time) if end_time else self.end_time)
+
+        blobs = self.construct_blob_paths_from_date_range(st, et)
+        print(f"Found {len(blobs)} log files in the specified date range.")
+
+        for blob in blobs:
+            uri = f"gs://{self.bucket_name}/{blob}"
+            processed_rows = []
             try:
-                # Parse the raw JSON line
-                record = orjson.loads(line)
-                
-                # We are interested in flattening jsonPayload and adding severity
-                # 1. Start with the payload contents
-                flat_record = record.get("jsonPayload", {})
-                
-                # If jsonPayload is null or not a dict, handle gracefully
-                if flat_record is None:
-                    flat_record = {}
-                elif not isinstance(flat_record, dict):
-                    # Handle case where payload might be a simple string
-                    flat_record = {"message": str(flat_record)}
-                
-                # 2. Add severity (if it exists in the root object)
-                if "severity" in record:
-                    flat_record["severity"] = record["severity"]
-                
-                processed_rows.append(flat_record)
+                print(f"Streaming file: {uri}")
+                # Split by newline for NDJSON format
+                # Stream files with smart_open.
+                for line in open(uri):
 
-            except orjson.JSONDecodeError:
-                print(f"Skipping malformed JSON line")
-                continue
 
-        # Create DataFrame
-        # Pandas handles the "ragged" aspect automatically by filling missing keys with NaN
-        df = pd.DataFrame(processed_rows)
-        self.df = df 
-        return df
+                    # Process the data (line is a bytes object for binary mode)
+                    if not line.strip():
+                        continue
+                    try:
+                        record = orjson.loads(line)
+                        flat_record = record.get("jsonPayload", {})
+                        
+                        # If jsonPayload is null or not a dict, handle gracefully
+                        if flat_record is None:
+                            flat_record = {}
+                        elif not isinstance(flat_record, dict):
+                            # Handle case where payload might be a simple string
+                            flat_record = {"message": str(flat_record)}
+                        if "severity" in record:
+                            flat_record["severity"] = record["severity"]
+                        
+                        processed_rows.append(flat_record)
+
+                    except orjson.JSONDecodeError:
+                        print(f"Skipping malformed JSON line")
+                        continue
+
+                df = pd.DataFrame(processed_rows)
+
+                self.df = pd.concat([self.df, df], ignore_index=True) if self.df is not None else df
+
+            except Exception as e:
+                print(f"Error streaming file: {e}")
+                return pd.DataFrame()
+
+        # Filter the DataFrame by the specified date range if start_time and end_time are provided
+        self.df = self.df[self.df['timestamp'].apply(lambda x: st <= datetime.fromisoformat(x).astimezone(timezone.utc) <= et)] if st and et else self.df
+        return self.df
     
     def update_data(self, new_df: pd.DataFrame):
         """
@@ -191,10 +287,12 @@ class LogParser:
 # Example Usage logic for testing
 if __name__ == "__main__":
     # Configuration via Env Vars
-    FILE_PATH = os.getenv("GCS_FILE_PATH", "twjf-logs/12/10:00:00_10:59:59_S0.json")
+    START_TIME = os.getenv("LOG_START_TIME")  # e.g. "2024-06-01T10:00:00+00:00"
+    END_TIME = os.getenv("LOG_END_TIME")      # e.g. "2024-06-01T12:00:00+00:00"
+    PREFIX = os.getenv("GCS_LOG_PREFIX", "twjf-logs/")
 
-    parser = LogParser(GCS_BUCKET_NAME)
-    df = parser.parse(FILE_PATH)
+    parser = LogParser(GCS_BUCKET_NAME, start_time=START_TIME, end_time=END_TIME)
+    df = parser.parse_range(prefix=PREFIX)
 
     flights = parser.get_flight_ids()
     print(f"\nUnique flight_ids: {flights}")
