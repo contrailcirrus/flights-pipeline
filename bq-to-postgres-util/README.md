@@ -36,47 +36,10 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
      command was run against BQ
    - For the export range set the placeholders `export_start_time` (e.g. `2025-01-01T00:00:00`) and `export_end_time`
      (e.g. `2025-12-31T23:59:59`) in line with the desired `target_date_range` (e.g. `2025`) above.
-   - This is the export SQL command to run from the BigQuery prod instance:
-   ```
-    EXPORT DATA OPTIONS (
-    uri ="<URL pattern goes here>",
-    format ='PARQUET',
-    overwrite = false) AS
-    SELECT chunk_len_km,
-           lat_start,
-           lon_start,
-           lat_end,
-           lon_end,
-           time_start,
-           time_end,
-           sum_ef_mj,
-           aircraft_type_icao,
-           engine_uid,
-           mean_aircraft_mass_kg,
-           mean_overall_efficiency,
-           icao_address,
-           flight_id,
-           callsign,
-           tail_number,
-           flight_number,
-           airline_iata,
-           departure_airport_icao,
-           arrival_airport_icao,
-           _processed_at,
-           total_fuel_burn_kg,
-           pycontrails_ver,
-           perf_model_id,
-           nvpm_data_source,
-           git_sha,
-           zarr_uri,
-           total_pos_ef_persistent_contrail_length_km,
-           total_persistent_contrail_length_km
-    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
-    WHERE time_start BETWEEN "<export_start_time goes here>" AND "<export_end_time goes here>"
-      AND seg_cnt > 1
-      AND airline_iata IS NOT NULL
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY _processed_at DESC) = 1;
-   ```
+   - Here is the export SQL command to run from the BigQuery prod instance: `sql/bigquery_export.sql`.
+     - Note that you need to replace the placeholders at the top of the file and if you do not want to
+       use the prod instance you need to change the table name twice!
+   
 
 2. Ensure that the Postgres tables and views are defined. Otherwise run these in the following order:
    1. `sql/trajectory_cocip.sql`, `sql/trajectory_cocip_meta.sql` and `sql/inventory_monthly_impact_histogram.sql`

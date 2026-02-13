@@ -21,6 +21,7 @@ CREATE TABLE "trajectory-cocip"
     time_end                timestamp without time zone,
     sum_ef_mj               bigint,
     ef_mj_per_km            double precision,
+    contrail_generating_kms  smallint,
     aircraft_type_icao      text,
     engine_uid              text,
     mean_aircraft_mass_kg   integer,
