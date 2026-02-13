@@ -9,9 +9,11 @@
 
 # build
 __pycache__/
+*.egg-info
 
 # python virtual environments
 **/.venv
+**/venv
 
 # python tool caches
 .mypy_cache
