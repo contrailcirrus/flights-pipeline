@@ -313,6 +313,7 @@ class MainTableDataTransformer(DataTransformer):
         df = df.assign(
             chunk_len_km=df["chunk_len_km"].astype(int),
             mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int),
+            contrail_generating_kms=df["contrail_generating_kms"].astype(int),
             ef_mj_per_km=ef_mj_per_km,
             flight_length_bucket=flight_length_bucket,
             co2e_kg_bucket=co2e_kg_bucket,
