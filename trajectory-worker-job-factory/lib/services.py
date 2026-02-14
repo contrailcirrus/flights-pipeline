@@ -24,6 +24,7 @@ from lib.handlers import (
 from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
+    SpireCacheTooSmallException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
 from pycontrails.datalib.spire.exceptions import ROCDError
@@ -254,6 +255,10 @@ class TrajectoryBuilderSvc:
         except InvalidQueryException as e:
             raise PermanentFailureException(
                 f"ads-b request to bq not valid for TWJD: {twjd}"
+            ) from e
+        except SpireCacheTooSmallException as e:
+            raise PermanentFailureException(
+                f"missing spire cache for TWJD: {twjd}"
             ) from e
         except Exception as e:
             raise Exception(
