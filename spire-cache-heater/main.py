@@ -20,6 +20,7 @@ HEADERS = {"x-api-key": API_KEY}
 # SET START AND END TIME (INCLUSIVE) FOR CACHE WARMING
 CACHE_START = "2024-01-01T00"  # hour resolution
 CACHE_END = "2024-06-30T23"  # hour resolution
+SKIP_EXISTING = True  # skip any hours where a pq file is found in GCS already
 
 gcs_client = storage.Client()
 gcs_bucket = gcs_client.bucket(GCS_CACHE_BUCKET_NAME)
@@ -66,15 +67,16 @@ async def main():
     # list of date-hour strings e.g. "2025-01-01T01"
     cached_times = [p.split("/")[1] for p in cached_blobs.prefixes]
 
-    # remove cached times from target cache period
-    in_cache_cnt = 0
-    cache_periods_cnt = len(cache_periods)
-    for existing_time in cached_times:
-        et = pd.to_datetime(existing_time)
-        if et in cache_periods:
-            cache_periods = cache_periods.drop(et)
-            in_cache_cnt += 1
-    print(f"found {in_cache_cnt} of {cache_periods_cnt} times already cached")
+    if SKIP_EXISTING:
+        # remove cached times from target cache period
+        in_cache_cnt = 0
+        cache_periods_cnt = len(cache_periods)
+        for existing_time in cached_times:
+            et = pd.to_datetime(existing_time)
+            if et in cache_periods:
+                cache_periods = cache_periods.drop(et)
+                in_cache_cnt += 1
+        print(f"found {in_cache_cnt} of {cache_periods_cnt} times already cached")
 
     # heat cache
     max_concurrent_tasks = 25
