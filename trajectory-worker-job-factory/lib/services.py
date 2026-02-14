@@ -351,9 +351,13 @@ class TrajectoryBuilderSvc:
 
                 if len(waypoints) == 0:
                     # possible case if healing handler left no endpoint
-                    extras = candidate.to_dict()
-                    extras["detail"] = "empty flight"
-                    logger.info("skipping", extra=extras)
+                    logger.error(
+                        "skipping",
+                        extra={
+                            "flight_id": candidate.flight_id,
+                            "detail": "empty flight",
+                        },
+                    )
                     continue
 
                 # log state of flight post heal
