@@ -32,6 +32,7 @@ from typing import Any, Callable
 import lib.environment as env
 from lib.exceptions import (
     BadTrajectoryException,
+    SpireCacheTooSmallException,
 )
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
@@ -564,6 +565,7 @@ class CloudStorageHandler:
     """
 
     GCS_BUCKET_SPIRE_CACHE = "contrails-301217-spire-cache-prod"
+    MIN_SPIRE_CACHE_EXPORT_SIZE_BYTES = 100_000
 
     def __init__(self):
         self._client = storage.Client()
@@ -619,6 +621,11 @@ class CloudStorageHandler:
         for k, blob_lst in bq_blob_map.items():
             if not blob_lst:
                 raise FileNotFoundError(f"No ADS-B files found in GCS with prefix: {k}")
+            # confirm that files in prefix path are large enough
+            # to guarantee that cache isn't a partial export
+            blobs_size_bytes = sum([b.size for b in blob_lst])
+            if blobs_size_bytes < self.MIN_SPIRE_CACHE_EXPORT_SIZE_BYTES:
+                raise SpireCacheTooSmallException(f"spire cache too small at {k}")
 
         # fetch all ads-b data from target blobs, and subset to only the target airline_iata
         df_parts: list[pd.DataFrame] = []
@@ -629,7 +636,7 @@ class CloudStorageHandler:
             _,
         ) in bq_blob_map.items():  # load all pq shards in subdir at once into a df
             uri = f"gs://{self._bucket.name}/{k}"
-            logger.info("fetching " + uri)
+            logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
             df = df[df["airline_iata"] == airline_iata]
             df_parts.append(df)
