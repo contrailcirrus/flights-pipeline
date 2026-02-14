@@ -565,7 +565,12 @@ class CloudStorageHandler:
     """
 
     GCS_BUCKET_SPIRE_CACHE = "contrails-301217-spire-cache-prod"
-    MIN_SPIRE_CACHE_EXPORT_SIZE_BYTES = 100_000
+
+    # an hour of spire pq files with bytes lower than this is expected to be a corrupt/empty cache
+    SPIRE_CACHE_EMPTY_THRESHOLD = 25_000
+    # an hour of spire pq files with bytes lower than this is expected to be a partial cache
+    # (likely indicative of an issue with missing ads-b data in BigQuery)
+    SPIRE_CACHE_PARTIAL_THRESHOLD = 100_000
 
     def __init__(self):
         self._client = storage.Client()
@@ -624,9 +629,13 @@ class CloudStorageHandler:
             # confirm that files in prefix path are large enough
             # to guarantee that cache isn't a partial export
             blobs_size_bytes = sum([b.size for b in blob_lst])
-            if blobs_size_bytes < self.MIN_SPIRE_CACHE_EXPORT_SIZE_BYTES:
+            if blobs_size_bytes < self.SPIRE_CACHE_EMPTY_THRESHOLD:
                 raise SpireCacheTooSmallException(
-                    f"spire cache too small - found {blobs_size_bytes} bytes at {k}"
+                    f"spire cache present but empty - found {blobs_size_bytes} bytes at {k}"
+                )
+            if blobs_size_bytes < self.SPIRE_CACHE_PARTIAL_THRESHOLD:
+                logger.warning(
+                    f"spire cache appears partial - found {blobs_size_bytes} bytes at {k}"
                 )
 
         # fetch all ads-b data from target blobs, and subset to only the target airline_iata
