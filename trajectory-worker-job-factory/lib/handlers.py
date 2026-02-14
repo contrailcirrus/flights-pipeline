@@ -625,7 +625,9 @@ class CloudStorageHandler:
             # to guarantee that cache isn't a partial export
             blobs_size_bytes = sum([b.size for b in blob_lst])
             if blobs_size_bytes < self.MIN_SPIRE_CACHE_EXPORT_SIZE_BYTES:
-                raise SpireCacheTooSmallException(f"spire cache too small at {k}")
+                raise SpireCacheTooSmallException(
+                    f"spire cache too small - found {blobs_size_bytes} bytes at {k}"
+                )
 
         # fetch all ads-b data from target blobs, and subset to only the target airline_iata
         df_parts: list[pd.DataFrame] = []
