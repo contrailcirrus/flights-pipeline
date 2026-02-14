@@ -792,7 +792,7 @@ class CocipTrajectoryHandler:
                 **self.STATIC_PARAMS,
             )
         else:
-            logger.info(
+            logger.debug(
                 "using low-mem cocip implementation for flight",
                 extra={
                     "flight_id": self._job.flight_info.flight_id,
