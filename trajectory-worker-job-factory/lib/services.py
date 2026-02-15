@@ -333,6 +333,23 @@ class TrajectoryBuilderSvc:
                 df=waypoints,
             )
 
+            # -------------
+            # short circuit if no waypoints in the flight_id group
+            # are above 20,000 ft
+            # -
+            # motivation is to prune out general aviation flights when running
+            # the job factory for airline_iata=null
+            if (
+                len(candidate.airline_iata) == 1
+                and candidate.airline_iata[0] is None
+                and waypoints["altitude_baro"].max() < 20_000
+            ):
+                logger.debug(
+                    "presumed general aviation flight - no wps > 20k ft - skipping",
+                    extra=candidate.to_dict(),
+                )
+                continue
+
             logger.info("start work", extra=candidate.to_dict())
 
             # -------------
@@ -459,7 +476,10 @@ class TrajectoryBuilderSvc:
                 # save waypoints to disk
                 # CLI (local) use only
                 logger.info("writing waypoints to file", extra=candidate.to_dict())
-                base_path = f"out/{candidate.airline_iata[0]}"
+                airline_iata_path = candidate.airline_iata[0]
+                if airline_iata_path is None:
+                    airline_iata_path = "null"
+                base_path = f"out/{airline_iata_path}"
                 os.makedirs(base_path, exist_ok=True)
                 waypoints_pycontrail.to_csv(
                     f"{base_path}/{candidate.flight_id}.csv",
@@ -504,7 +524,7 @@ class TrajectoryBuilderSvc:
                     continue
 
                 if accepted_violations and len(accepted_violations) > 0:
-                    logger.info(
+                    logger.debug(
                         "keeping",
                         extra={
                             "flight_id": candidate.flight_id,

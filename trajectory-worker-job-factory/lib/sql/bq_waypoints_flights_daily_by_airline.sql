@@ -5,7 +5,7 @@
 WITH flights_sub_tb AS (SELECT *
                         FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
                         WHERE TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day_before, @target_day, @target_day_after)
-                          AND IF_NULL(airline_iata, 'null') = @airline),
+                          AND IFNULL(airline_iata, 'null') = @airline),
      candidate_flights_tb AS
          (SELECT timestamp, flight_id, icao_address
           FROM flights_sub_tb
