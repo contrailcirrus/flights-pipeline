@@ -368,7 +368,7 @@ class TrajectoryBuilderSvc:
 
                 if len(waypoints) == 0:
                     # possible case if healing handler left no endpoint
-                    logger.error(
+                    logger.info(
                         "skipping",
                         extra={
                             "flight_id": candidate.flight_id,

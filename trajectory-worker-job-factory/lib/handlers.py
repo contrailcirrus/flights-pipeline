@@ -639,7 +639,7 @@ class CloudStorageHandler:
                 )
 
         # fetch all ads-b data from target blobs, and subset to only the target airline_iata
-        df_parts: list[pd.DataFrame] = []
+        df_agg = pd.DataFrame()
         # iterate serially here (since we subset on airline iata to keep mem footprint low
         # on each iteration)
         for (
@@ -653,9 +653,8 @@ class CloudStorageHandler:
                 df = df[df["airline_iata"].isnull()]
             else:
                 df = df[df["airline_iata"] == airline_iata]
-            df_parts.append(df)
-        df = pd.concat(df_parts)
-        return df
+            df_agg = pd.concat([df_agg, df], ignore_index=True)
+        return df_agg
 
 
 class HealTrajectoryHandler:
