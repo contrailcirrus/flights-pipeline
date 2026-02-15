@@ -649,7 +649,10 @@ class CloudStorageHandler:
             uri = f"gs://{self._bucket.name}/{k}"
             logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
-            df = df[df["airline_iata"] == airline_iata]
+            if airline_iata == "null":
+                df = df[df["airline_iata"].isnull()]
+            else:
+                df = df[df["airline_iata"] == airline_iata]
             df_parts.append(df)
         df = pd.concat(df_parts)
         return df
