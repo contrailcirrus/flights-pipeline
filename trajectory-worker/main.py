@@ -85,7 +85,7 @@ def run(
             logger.info(
                 "skipping - could not run cocip",
                 extra={
-                    "flight_id": {job.flight_info.flight_id},
+                    "flight_id": job.flight_info.flight_id,
                     "reason": e,
                 },
             )
@@ -207,7 +207,7 @@ def run(
         logger.info(
             "end work",
             extra={
-                "flight_id": {job.flight_info.flight_id},
+                "flight_id": job.flight_info.flight_id,
             },
         )
 

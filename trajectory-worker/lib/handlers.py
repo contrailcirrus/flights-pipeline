@@ -223,7 +223,7 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message acked or nacked multiple times", extra={"message": message}
+                "message acked or nacked multiple times", extra={"pubsub_msg": message}
             )
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
@@ -405,7 +405,7 @@ class PubSubPublishHandler:
                 logger.error(
                     "publish future failed - unhandled exception",
                     extra={
-                        "msg": msg,
+                        "pubsub_msg": msg,
                         "reason": e,
                         "traceback": format_traceback(),
                     },

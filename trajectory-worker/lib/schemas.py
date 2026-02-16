@@ -952,8 +952,8 @@ class CocipTrajectoryChunk:
                     extra={
                         "flight_id": input_chunk.flight_info.flight_id,
                         "segment_index": seg_ix,
-                        "error": str(te),
-                        "traceback": format_traceback(te),
+                        "reason": str(te),
+                        "traceback": format_traceback(),
                     },
                 )
                 time_start_sunrise_offset_mins = None

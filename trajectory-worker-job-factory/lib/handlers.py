@@ -165,7 +165,7 @@ class PubSubSubscriptionHandler:
                 if message in self._outstanding_messages:
                     logger.warning(
                         "message was never acked or nacked",
-                        extra={"message": message},
+                        extra={"pubsub_msg": message},
                     )
                     self._outstanding_messages.discard(message)
         except GeneratorExit:
@@ -185,7 +185,7 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message acked or nacked multiple times", extra={"message": message}
+                "message acked or nacked multiple times", extra={"pubsub_msg": message}
             )
 
         self._client.acknowledge(
@@ -216,7 +216,7 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message acked or nacked multiple times", extra={"message": message}
+                "message acked or nacked multiple times", extra={"pubsub_msg": message}
             )
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
