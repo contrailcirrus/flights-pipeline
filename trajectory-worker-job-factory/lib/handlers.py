@@ -120,12 +120,12 @@ class PubSubSubscriptionHandler:
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.info("zero messages received.")
+                logger.info("zero messages received")
                 continue
 
             pubsub_msg = resp.received_messages[0]
             logger.debug(
-                f"received 1 message from {self.subscription}.",
+                f"received 1 message from {self.subscription}",
                 extra={
                     "published_time": pubsub_msg.message.publish_time,
                     "message_id": pubsub_msg.message.message_id,
@@ -164,7 +164,7 @@ class PubSubSubscriptionHandler:
                 # Guard against user failing to call ack() or nack()
                 if message in self._outstanding_messages:
                     logger.warning(
-                        "message was never ack'ed or nack'ed",
+                        "message was never acked or nacked",
                         extra={"message": message},
                     )
                     self._outstanding_messages.discard(message)
@@ -185,7 +185,7 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message ack'ed or nack'ed multiple times", extra={"message": message}
+                "message acked or nacked multiple times", extra={"message": message}
             )
 
         self._client.acknowledge(
@@ -203,7 +203,7 @@ class PubSubSubscriptionHandler:
                 ),
             ),
         )
-        logger.debug("successfully ack'ed message.")
+        logger.debug("successfully acked message")
 
     def nack(self, message: Message):
         """Not-acknowledge the message to stop extending ack deadline.
@@ -216,14 +216,14 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message ack'ed or nack'ed multiple times", extra={"message": message}
+                "message acked or nacked multiple times", extra={"message": message}
             )
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """
         Extends the ack deadline for the currently outstanding message.
         """
-        logger.debug("starting ack lease management worker...")
+        logger.debug("starting ack lease management worker")
         while True:
             should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
@@ -244,8 +244,8 @@ class PubSubSubscriptionHandler:
                     )
                 except Exception:
                     logger.warning(
-                        "failed to extend ack deadline for message. "
-                        f"traceback: {format_traceback()}"
+                        "failed to extend ack deadline for message",
+                        extra={"traceback": format_traceback()},
                     )
 
         logger.debug("terminated ack lease management worker")
@@ -358,7 +358,10 @@ class PubSubPublishHandler:
         #
         # Errors in child threads trigger a separate exit using a future done_callback.
         if not_done:
-            logger.error("Futures did not complete before timeout: %s", not_done)
+            logger.error(
+                "futures did not complete before timeout",
+                extra={"not_done": not_done},
+            )
             os._exit(1)
 
         # All futures completed without error, reset pending futures state.
@@ -386,10 +389,10 @@ class PubSubPublishHandler:
             """
             try:
                 future.result(timeout=0)
-            except Exception:
+            except Exception as e:
                 logger.error(
-                    f"Publish future failed: {msg}. Unhandled exception:"
-                    + format_traceback()
+                    "publish future failed",
+                    extra={"reason": e, "traceback": format_traceback()},
                 )
                 os._exit(1)
 
@@ -1100,7 +1103,7 @@ class HealTrajectoryHandler:
 
         if len(self._df) != initial_length:
             logger.info(
-                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}.",
+                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
                 extra={"flight_id": self._candidate_info.flight_id},
             )
         # --------------
