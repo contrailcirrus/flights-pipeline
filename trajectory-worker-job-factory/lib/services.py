@@ -45,6 +45,9 @@ class TrajectoryBuilderSvc:
     DAILY_FLIGHTS_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_airline.sql"
     FLIGHT_ID_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_flight_id.sql"
     FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT = 500
+    # minimum number of waypoints in a flight instance with null airline iata
+    # presumed a true null airline iata if above this threshold
+    MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
 
     def __init__(
         self,
@@ -334,6 +337,26 @@ class TrajectoryBuilderSvc:
             )
 
             # -------------
+            # when processing airline_iata is null case
+            # for TWJDs built on airline_iata<>day
+            # -------------
+            # prune cases where the number of waypoints in the flight_id group is very small
+            # these are likely spurious waypoints belonging to a flight_id
+            # that has another true non-null airline_iata
+            # --
+            # this does not guarantee that we won't have false null airline-iata cases
+            # pass thru, but will help prune otherwise spurious flight instances
+            if (
+                len(candidate.airline_iata == 1)
+                and candidate.airline_iata[0] is None
+                and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
+            ):
+                logger.debug(
+                    f"presumed spurious null airline iata "
+                    f"waypoints for flight {candidate.flight_id} - skipping"
+                )
+                continue
+
             # short circuit if no waypoints in the flight_id group
             # are above 20,000 ft
             # -
