@@ -33,8 +33,8 @@ try:
     log_level = log_level_map[env.LOG_LEVEL]
 except KeyError:
     raise Exception(
-        f"Log level must be specified as an env var, one of: {log_level_map.keys()}. "
-        f"Got: {env.LOG_LEVEL}"
+        f"log level must be specified as an env var, one of {log_level_map.keys()} - "
+        f"got - {env.LOG_LEVEL}"
     )
 
 # Get a logger instance
@@ -58,6 +58,7 @@ formatter = jsonlogger.JsonFormatter(
 )
 logHandler.setFormatter(formatter)
 logger.addHandler(logHandler)
+
 
 # capture and redirect warnings from the `warn` pkg to our logger
 def log_warn(message, category, filename, lineno, file=None, line=None):

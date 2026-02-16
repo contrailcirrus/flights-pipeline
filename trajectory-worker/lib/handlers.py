@@ -770,7 +770,7 @@ class CocipTrajectoryHandler:
             self._rad_dataset = rad
         else:
             raise ValueError(
-                "Unrecognized met source specified in trajectory worker job."
+                "unrecognized met source specified in trajectory worker job"
             )
 
     def run(self) -> Flight:
@@ -782,7 +782,7 @@ class CocipTrajectoryHandler:
         )
         if not self._met_dataset or not self._rad_dataset:
             raise ValueError(
-                "met dataset or rad dataset have not been loaded. Run load()."
+                "met dataset or rad dataset have not been loaded - run load"
             )
         if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
             self._model = Cocip(
@@ -825,8 +825,8 @@ class CocipTrajectoryHandler:
         Get CoCiP model object.
         """
         if not self._model:
-            raise Exception("CoCiP model must be instantiated.")
+            raise Exception("cocip model must be instantiated")
 
         if not hasattr(self._model, "source"):
-            raise Exception("eval() has not been run on the CoCiP model")
+            raise Exception("eval has not been run on the cocip model")
         return self._model
