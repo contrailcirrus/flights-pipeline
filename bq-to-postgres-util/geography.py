@@ -1,8 +1,21 @@
 
+import country_converter as coco
 from pycontrails.core import airports
 
-airport_df = airports.global_airport_database()
+cc = coco.CountryConverter()
+country_df = cc.data
+country_iso_to_continent = dict(zip(country_df["ISO2"], country_df["Continent_7"]))
+continent_name_to_iso = {
+    "Africa": "AF",
+    "Antarctica": "AN",
+    "Asia": "AS",
+    "Europe": "EU",
+    "North America": "NA",
+    "Oceania": "OC",
+    "South America": "SA",
+}
 
+airport_df = airports.global_airport_database()
 airport_icao_to_country = dict(zip(airport_df["icao_code"], airport_df["iso_country"]))
 
 # Country ISO codes of countries in the European Economic Area.
@@ -48,3 +61,15 @@ def is_eu_mrv(departure_airport_icao: str | None, arrival_airport_icao: str | No
         return False
 
     return True
+
+
+def airport_icao_to_iso_country(airport_icao: str | None) -> str | None:
+    """Map the airport ICAO code to the 2-letter ISO country code."""
+    return airport_icao_to_country.get(airport_icao)
+
+
+def airport_icao_to_iso_continent(airport_icao: str | None) -> str | None:
+    """Map the airport ICAO code to the 2-letter ISO continent code."""
+    iso_country = airport_icao_to_iso_country(airport_icao)
+    continent_name = country_iso_to_continent.get(iso_country)
+    return continent_name_to_iso.get(continent_name)

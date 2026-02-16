@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 import psycopg2  # noqa: F401
 
-from eu_mrv import is_eu_mrv
+from geography import airport_icao_to_iso_continent, airport_icao_to_iso_country, is_eu_mrv
 
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
 TRAJECTORY_TABLE = table(
@@ -318,6 +318,10 @@ class MainTableDataTransformer(DataTransformer):
             flight_length_bucket=flight_length_bucket,
             co2e_kg_bucket=co2e_kg_bucket,
             co2e_kg_per_km_bucket=co2e_kg_per_km_bucket,
+            departure_country_iso=df["departure_airport_icao"].map(airport_icao_to_iso_country),
+            departure_continent_iso=df["departure_airport_icao"].map(airport_icao_to_iso_continent),
+            arrival_country_iso=df["arrival_airport_icao"].map(airport_icao_to_iso_country),
+            arrival_continent_iso=df["arrival_airport_icao"].map(airport_icao_to_iso_continent),
         )
         df = add_is_eu_mrv_column(df)
         features = [
@@ -342,7 +346,11 @@ class MainTableDataTransformer(DataTransformer):
             "flight_number",
             "airline_iata",
             "departure_airport_icao",
+            "departure_country_iso",
+            "departure_continent_iso",
             "arrival_airport_icao",
+            "arrival_country_iso",
+            "arrival_continent_iso",
             "is_eu_mrv",
             "flight_length_bucket",
             "co2e_kg_bucket",

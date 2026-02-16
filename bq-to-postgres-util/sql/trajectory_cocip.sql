@@ -32,8 +32,18 @@ CREATE TABLE "trajectory-cocip"
     tail_number             text,
     flight_number           text,
     airline_iata            text,
+    -- 4-letter airport ICAO code of the departure airport
     departure_airport_icao  text,
+    -- 2-letter country ISO code of the departure country
+    departure_country_iso   text,
+    -- 2-letter continent ISO code of the departure continent
+    departure_continent_iso text,
+    -- 4 letter airport ICAO code of the arrival airport
     arrival_airport_icao    text,
+    -- 2-letter country ISO code of the arrival country
+    arrival_country_iso     text,
+    -- 2-letter continent ISO code of the arrival continent
+    arrival_continent_iso   text,
     is_eu_mrv               boolean,
 
     flight_length_bucket    flight_length_bucket_enum,
@@ -41,7 +51,15 @@ CREATE TABLE "trajectory-cocip"
     co2e_kg_per_km_bucket   co2e_bucket_enum,
 
     -- Must include time_start for partitioning
-    CONSTRAINT "trajectory-cocip_pk" PRIMARY KEY (flight_id, time_start)
+    CONSTRAINT "trajectory-cocip_pk" PRIMARY KEY (flight_id, time_start),
+
+    -- Add some data integrity checks
+    CONSTRAINT check_departure_airport_icao CHECK (departure_airport_icao ~ '^[A-Z]{4}$'),
+    CONSTRAINT check_arrival_airport_icao CHECK (arrival_airport_icao ~ '^[A-Z]{4}$'),
+    CONSTRAINT check_departure_country_iso CHECK (departure_country_iso ~ '^[A-Z]{2}$'),
+    CONSTRAINT check_arrival_country_iso CHECK (arrival_country_iso ~ '^[A-Z]{2}$'),
+    CONSTRAINT check_departure_continent_iso CHECK (departure_continent_iso ~ '^[A-Z]{2}$'),
+    CONSTRAINT check_arrival_continent_iso CHECK (arrival_continent_iso ~ '^[A-Z]{2}$')
 ) PARTITION BY RANGE (time_start);
 
 -- Given that filters are optional any combination of them can be provided making standard B-Tree indices useless.
@@ -59,6 +77,10 @@ CREATE INDEX idx_trajectory_filters_gin
         co2e_kg_per_km_bucket,
         departure_airport_icao,
         arrival_airport_icao,
+        departure_country_iso,
+        arrival_country_iso,
+        departure_continent_iso,
+        arrival_continent_iso,
         is_eu_mrv
     );
 
