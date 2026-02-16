@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+country-converter = "==1.3.2"
 pandas = "==2.2.3"
 pyarrow = "==22.0.0"
 pycontrails = "==0.54.11"
