@@ -117,5 +117,5 @@ if __name__ == "__main__":
         )
 
     except Exception:
-        logger.error("Unhandled exception.", extra={"traceback": format_traceback()})
+        logger.error("unhandled exception", extra={"traceback": format_traceback()})
         sys.exit(0)

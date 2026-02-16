@@ -111,14 +111,14 @@ class PubSubSubscriptionHandler:
                 )
             except Exception as e:
                 logger.warning(
-                    "failed to pull messages from subscription.", extra={"error": e}
+                    "failed to pull messages from subscription", extra={"reason": e}
                 )
                 continue
 
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.debug("zero messages received.")
+                logger.debug("zero messages received")
                 continue
 
             pubsub_msg = resp.received_messages[0]
@@ -162,7 +162,7 @@ class PubSubSubscriptionHandler:
                 # Guard against user failing to call ack() or nack()
                 if message in self._outstanding_messages:
                     logger.warning(
-                        "message was never ack'ed or nack'ed.",
+                        "message was never acked or nacked",
                         extra={"message": message},
                     )
                     self._outstanding_messages.discard(message)
@@ -183,7 +183,7 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message ack'ed or nack'ed multiple times.", extra={"message": message}
+                "message acked or nacked multiple times", extra={"message": message}
             )
 
         try:
@@ -207,10 +207,10 @@ class PubSubSubscriptionHandler:
             )
         except Exception as e:
             logger.warning(
-                "failed to ack message.", extra={"message": message, "error": e}
+                "failed to ack message", extra={"message": message, "reason": e}
             )
             return
-        logger.debug("successfully ack'ed message.")
+        logger.debug("successfully ack'ed message")
 
     def nack(self, message: PubSubMessage):
         """Not-acknowledge the message to stop extending ack deadline.
@@ -223,14 +223,14 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message ack'ed or nack'ed multiple times.", extra={"message": message}
+                "message acked or nacked multiple times", extra={"message": message}
             )
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """
         Extends the ack deadline for the currently outstanding message.
         """
-        logger.debug("starting ack lease management worker...")
+        logger.debug("starting ack lease management worker")
         while True:
             should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
@@ -257,8 +257,8 @@ class PubSubSubscriptionHandler:
                     )
                 except Exception as e:
                     logger.warning(
-                        "failed to extend ack deadline for message.",
-                        extra={"error": str(e), "traceback": format_traceback()},
+                        "failed to extend ack deadline for message",
+                        extra={"reason": e, "traceback": format_traceback()},
                     )
 
         logger.debug("terminated ack lease management worker")
@@ -372,7 +372,7 @@ class PubSubPublishHandler:
         # Errors in child threads trigger a separate exit using a future done_callback.
         if not_done:
             logger.error(
-                "Futures did not complete before timeout.", extra={"not_done": not_done}
+                "futures did not complete before timeout", extra={"not_done": not_done}
             )
             os._exit(1)
 
@@ -403,10 +403,10 @@ class PubSubPublishHandler:
                 future.result(timeout=0)
             except Exception as e:
                 logger.error(
-                    "Publish future failed - unhandled exception",
+                    "publish future failed - unhandled exception",
                     extra={
                         "msg": msg,
-                        "error": str(e),
+                        "reason": e,
                         "traceback": format_traceback(),
                     },
                 )
@@ -545,7 +545,7 @@ class CocipTrajectoryHandler:
         self._flight: pycontrails.Flight = self._create_flight(
             self._job, self._perf_model_handler
         )
-        logger.debug("instantiated cocip handler.")
+        logger.debug("instantiated cocip handler")
 
     @classmethod
     def _verify_altitude(cls, job: WaypointsRecord):
@@ -704,7 +704,7 @@ class CocipTrajectoryHandler:
         if self._job.met_source == MetSource.HRES:
             self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
             zarr_path = f"{self._hres_src}/{self._zarr_src_fn}"
-            logger.debug("opening HRES PL zarr store", extra={"zarr_path": zarr_path})
+            logger.debug("opening hres pl zarr store", extra={"zarr_path": zarr_path})
             pl = xr.open_zarr(
                 f"{zarr_path}/pl.zarr",
                 storage_options={"token": env.GCP_SVC_ACCT_KEY},
@@ -713,7 +713,7 @@ class CocipTrajectoryHandler:
             variables = Cocip.ecmwf_met_variables()
             met = met.standardize_variables(variables)
 
-            logger.debug("opening HRES SL zarr store", extra={"zarr_path": zarr_path})
+            logger.debug("opening hres sl zarr store", extra={"zarr_path": zarr_path})
             sl = xr.open_zarr(
                 f"{zarr_path}/sl.zarr",
                 storage_options={
@@ -734,7 +734,7 @@ class CocipTrajectoryHandler:
             for src_fn in self._zarr_src_fn:
                 zarr_path = f"{self._era5_src}/{src_fn}"
                 logger.debug(
-                    "opening ERA5 PL zarr store", extra={"zarr_path": zarr_path}
+                    "opening era5 pl zarr store", extra={"zarr_path": zarr_path}
                 )
                 pl = xr.open_zarr(
                     f"{zarr_path}_pl.zarr",
@@ -742,7 +742,7 @@ class CocipTrajectoryHandler:
                 )
                 pl_ds.append(pl)
                 logger.debug(
-                    "opening ERA5 SL zarr store", extra={"zarr_path": zarr_path}
+                    "opening era5 sl zarr store", extra={"zarr_path": zarr_path}
                 )
                 sl = xr.open_zarr(
                     f"{zarr_path}_sl.zarr",
@@ -806,9 +806,9 @@ class CocipTrajectoryHandler:
                 **self.STATIC_PARAMS,
                 preprocess_lowmem=True,
             )
-        logger.debug("evaluating cocip model.")
+        logger.debug("evaluating cocip model")
         result: Flight = self._model.eval(self._flight)
-        logger.debug("finished evaluating cocip model.")
+        logger.debug("finished evaluating cocip model")
         return result
 
     @property
