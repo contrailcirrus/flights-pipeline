@@ -1274,6 +1274,7 @@ class TrajectoryCandidateInfo:
     """
 
     flight_id: str
+    waypoint_count: int
     airline_iata: list[str | None] | None
     callsign: list[str | None] | None
     flight_number: list[str | None] | None
@@ -1287,6 +1288,7 @@ class TrajectoryCandidateInfo:
         """Build instance of self from pd dataframe of Spire waypoints."""
         return TrajectoryCandidateInfo(
             flight_id=flight_id,
+            waypoint_count=len(df),
             airline_iata=list(df["airline_iata"].unique()),
             callsign=list(df["callsign"].unique()),
             flight_number=list(df["flight_number"].unique()),
@@ -1299,6 +1301,7 @@ class TrajectoryCandidateInfo:
     def to_dict(self):
         return {
             "flight_id": self.flight_id,
+            "waypoint_count": self.waypoint_count,
             "airline_iata": self.airline_iata,
             "callsign": self.callsign,
             "flight_number": self.flight_number,
@@ -1313,10 +1316,3 @@ class TrajectoryCandidateInfo:
 
     def as_utf8_json(self):
         return self.to_json.encode("utf-8")
-
-    def __str__(self):
-        # custom format to avoid JSON string literal confusion in logging
-        out = ""
-        for k, v in self.to_dict().items():
-            out += f"{k}: {v}, "
-        return out
