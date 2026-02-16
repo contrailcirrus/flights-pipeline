@@ -69,8 +69,8 @@ def run(
         logger.info(
             "start work",
             extra={
-                "flight_id": {job.flight_info.flight_id},
-                "len_records": {len(job.records)},
+                "flight_id": job.flight_info.flight_id,
+                "len_records": len(job.records),
             },
         )
 
