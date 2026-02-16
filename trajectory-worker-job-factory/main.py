@@ -41,20 +41,20 @@ def run(
         job_hash = hashlib.shake_128(job.as_utf8_json()).hexdigest(
             8
         )  # useful for keying in logs
-        logger.info("got TWJD", extra={"job_hash": job_hash, "TWJD": asdict(job)})
+        logger.info("got twjd", extra={"job_hash": job_hash, "twjd": asdict(job)})
 
         try:
             job_builder_svc.run(twjd=job)
             logger.info(
-                "finished TWJD", extra={"job_hash": job_hash, "TWJD": asdict(job)}
+                "finished twjd", extra={"job_hash": job_hash, "twjd": asdict(job)}
             )
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
             logger.error(
-                "permanently failed to process TJWD - ack'ing msg",
+                "permanently failed to process twjd - acking msg",
                 extra={
                     "job_hash": job_hash,
-                    "TWJD": asdict(job),
+                    "twjd": asdict(job),
                     "errror": str(e),
                     "traceback": format_traceback(),
                 },
@@ -64,7 +64,7 @@ def run(
         except Exception as e:
             # nack message; expect pubsub to retry
             logger.error(
-                "failed to process TJWD. nack'ing msg",
+                "failed to process twjd - nacking msg",
                 extra={
                     "job_hash": job_hash,
                     "TWJD": asdict(job),

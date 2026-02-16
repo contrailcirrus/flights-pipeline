@@ -643,7 +643,7 @@ class CocipTrajectoryChunk:
                 sr_offset_mins = breakpts[2][1] - mins_per_day  # rotate to lhs
             else:
                 logger.warning(
-                    "unhandled case. did not generate daytime/nighttime offsets."
+                    "unhandled case - did not generate daytime nighttime offsets"
                 )
         except ValueError as e:
             msg = str(e)
@@ -664,9 +664,9 @@ class CocipTrajectoryChunk:
                 sr_offset_mins = -1 * even_offset_min
                 ss_offset_mins = even_offset_min
             else:
-                logger.warning("failed to generate daytime/nighttime offsets.")
+                logger.warning("failed to generate daytime nighttime offsets")
         except Exception as _:
-            logger.warning("failed to generate daytime/nighttime offsets.")
+            logger.warning("failed to generate daytime nighttime offsets")
 
         return sr_offset_mins, ss_offset_mins
 

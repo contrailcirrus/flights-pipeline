@@ -99,7 +99,7 @@ class TrajectoryBuilderSvc:
 
         match telemetry_src:
             case TelemetrySource.BIG_QUERY:
-                logger.debug("Fetching ADS-B from BigQuery.")
+                logger.debug("Fetching adsb from bigquery")
                 query = self._bq_handler.import_query(self.DAILY_FLIGHTS_QUERY_FILENAME)
                 cfg = bigquery.QueryJobConfig(
                     query_parameters=[
@@ -122,7 +122,7 @@ class TrajectoryBuilderSvc:
                 df = df[~df["flight_id"].isnull()]
 
             case TelemetrySource.GOOGLE_CLOUD_STORAGE:
-                logger.debug("Fetching ADS-B from Google Cloud Storage.")
+                logger.debug("fetching adsb from gcs")
                 df_all = self._gcs_handler.fetch_airline_days(
                     [previous_day, day, next_day], airline_iata, prune=True
                 )
@@ -307,7 +307,7 @@ class TrajectoryBuilderSvc:
 
             if (counter % self.FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT) == 0:
                 logger.info(
-                    f"progress: processing {counter}/{number_of_flight_candidates}"
+                    f"progress - processing {counter} of {number_of_flight_candidates}"
                 )
             # --------------
             # merge sat data into terrestrial data
@@ -368,7 +368,7 @@ class TrajectoryBuilderSvc:
                 and waypoints["altitude_baro"].max() < 20_000
             ):
                 logger.debug(
-                    "presumed general aviation flight - no wps > 20k ft - skipping",
+                    "presumed general aviation flight - no wps above 20k ft - skipping",
                     extra=candidate.to_dict(),
                 )
                 continue
@@ -521,9 +521,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(waypoints_pycontrail)
-                violations: None | list[Exception] = (
-                    self._validate_traj_handler.evaluate()
-                )
+                violations: None | list[
+                    Exception
+                ] = self._validate_traj_handler.evaluate()
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
