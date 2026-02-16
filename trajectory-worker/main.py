@@ -188,9 +188,13 @@ def run(
             )
             bytes_out = traj_proto.to_bytes()
             first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
+            if job.flight_info.airline_iata is None:
+                pq_uri_airline_iata = "null"
+            else:
+                pq_uri_airline_iata = job.flight_info.airline_iata
             destination_uri = GCS_PARQUET_URI_TEMPLATE.format(
                 start_datehour=first_waypoint_ts.strftime("%Y%m%d%H"),
-                airline_iata=job.flight_info.airline_iata,
+                airline_iata=pq_uri_airline_iata,
                 flight_id=job.flight_info.flight_id,
             )
             gcs_blob = gcs_bucket.blob(destination_uri)
