@@ -468,7 +468,7 @@ class SpireApiHandler:
 
         if len(days) < 2 and prune:
             raise NotImplementedError(
-                "cannot prune when number of days provided is fewer than 3."
+                "cannot prune when number of days provided is fewer than 3"
             )
 
         datetime_hourly_strs: list[str] = []
@@ -603,7 +603,7 @@ class CloudStorageHandler:
 
         if len(days) < 2 and prune:
             raise NotImplementedError(
-                "cannot prune when number of days provided is fewer than 3."
+                "cannot prune when number of days provided is fewer than 3"
             )
 
         datetime_hourly_strs: list[str] = []
@@ -628,7 +628,7 @@ class CloudStorageHandler:
         # confirm that all target data is available
         for k, blob_lst in bq_blob_map.items():
             if not blob_lst:
-                raise FileNotFoundError(f"No ADS-B files found in GCS with prefix: {k}")
+                raise FileNotFoundError(f"no adsb files found in gcs with prefix - {k}")
             # confirm that files in prefix path are large enough
             # to guarantee that cache isn't a partial export
             blobs_size_bytes = sum([b.size for b in blob_lst])
@@ -706,11 +706,10 @@ class HealTrajectoryHandler:
             Required for logging purposes.
         """
         if len(trajectory) == 0:
-            raise BadTrajectoryException("flight trajectory is empty.")
+            raise BadTrajectoryException("flight trajectory is empty")
         if len(trajectory["flight_id"].unique()) > 1:
             raise Exception(
-                "dataset passed to handler must be for a single flight instance ("
-                "flight_id)."
+                "dataset passed to handler must be for a single flight instance"
             )
         self._df = trajectory.copy(deep=True)
         self._candidate_info = candidate_info
@@ -1037,7 +1036,7 @@ class HealTrajectoryHandler:
             self._df = self._dataframe_convert_types(self._df)
         except KeyError as e:
             raise KeyError(
-                "flight trajectory dataframe is missing an expected column."
+                "flight trajectory dataframe is missing an expected column"
             ) from e
 
         # --------------

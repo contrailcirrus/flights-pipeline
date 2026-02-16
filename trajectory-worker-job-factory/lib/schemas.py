@@ -303,7 +303,7 @@ class WaypointCache:
                 extracted[ix[prefix]].update({key: v})
             except KeyError:
                 raise KeyError(
-                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"cannot marshal flatmap with key prefix - {prefix} "
                     f"expected one of {list(ix.keys())}"
                 )
 
@@ -397,7 +397,7 @@ class FlightInfoWide(SpireFlightInfo):
         for k, v in attrs.items():
             if v is not None and len(v) > 1:
                 raise Exception(
-                    f"cannot build FlightInfoWide. found multiple values for invariant field {k}"
+                    f"cannot build flight info wide class obj - found multiple values for invariant field {k}"
                 )
 
         # extract unique value from np.ndarray
@@ -1209,13 +1209,13 @@ class TrajectoryWorkerJobDescriptor:
 
         if not is_valid:
             raise ValueError(
-                "TWJD not valid. Must provide only one of ("
-                "1) flight_id or (2) airline_iata"
+                "twjd not valid - must provide only one of "
+                " flight_id or airline_iata"
             )
 
         if self.met_source not in MetSource:
             raise ValueError(
-                f"TWJD not valid. met_source must be one of {[i.value for i in MetSource]}"
+                f"twjd not valid - met_source must be one of {[i.value for i in MetSource]}"
             )
 
         # verify datestr parsing w/o exc

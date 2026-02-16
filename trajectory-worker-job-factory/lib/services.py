@@ -99,7 +99,7 @@ class TrajectoryBuilderSvc:
 
         match telemetry_src:
             case TelemetrySource.BIG_QUERY:
-                logger.debug("Fetching adsb from bigquery")
+                logger.debug("fetching adsb from bigquery")
                 query = self._bq_handler.import_query(self.DAILY_FLIGHTS_QUERY_FILENAME)
                 cfg = bigquery.QueryJobConfig(
                     query_parameters=[
@@ -166,7 +166,7 @@ class TrajectoryBuilderSvc:
 
             case _:
                 raise NotImplementedError(
-                    f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for airline_iata based TWJDs."
+                    f"specified telemetry source ({telemetry_src.value}) is not yet implemented for airline_iata based twjd"
                 )
         return df, df_satellite
 
@@ -202,7 +202,7 @@ class TrajectoryBuilderSvc:
 
         if telemetry_src != TelemetrySource.BIG_QUERY:
             raise NotImplementedError(
-                f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for flight_id based TWJDs."
+                f"specified telemetry source ({telemetry_src.value}) is not yet implemented for flight_id based twjd"
             )
 
         next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
@@ -254,18 +254,18 @@ class TrajectoryBuilderSvc:
                     telemetry_src=twjd.telemetry_source,
                 )
             else:
-                raise NotImplementedError(f"TWJD could not be processed {twjd}")
+                raise NotImplementedError(f"twjd could not be processed {twjd}")
         except InvalidQueryException as e:
             raise PermanentFailureException(
-                f"ads-b request to bq not valid for TWJD: {twjd}"
+                f"adsb request to bq not valid for twjd - {twjd}"
             ) from e
         except SpireCacheTooSmallException as e:
             raise PermanentFailureException(
-                f"missing spire cache for TWJD: {twjd}"
+                f"missing spire cache for twjd - {twjd}"
             ) from e
         except Exception as e:
             raise Exception(
-                f"failed to fetch ads-b data from data source for TWJD: {twjd}"
+                f"failed to fetch ads-b data from data source for twjd - {twjd}"
             ) from e
 
         # -----------
@@ -521,9 +521,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(waypoints_pycontrail)
-                violations: None | list[
-                    Exception
-                ] = self._validate_traj_handler.evaluate()
+                violations: None | list[Exception] = (
+                    self._validate_traj_handler.evaluate()
+                )
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
