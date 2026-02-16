@@ -346,7 +346,11 @@ class TrajectoryBuilderSvc:
             # --
             # this does not guarantee that we won't have false null airline-iata cases
             # pass thru, but will help prune otherwise spurious flight instances
-            if len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA:
+            if (
+                len(candidate.airline_iata == 1)
+                and candidate.airline_iata[0] is None
+                and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
+            ):
                 logger.debug(
                     f"presumed spurious null airline iata "
                     f"waypoints for flight {candidate.flight_id} - skipping"
