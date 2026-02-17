@@ -6,6 +6,7 @@ import io
 
 import asyncio
 import concurrent.futures
+import datetime
 import google.api_core.exceptions
 import google.api_core.retry
 import google.auth
@@ -18,7 +19,12 @@ import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
 from google.cloud import pubsub_v1, bigquery, storage  # type: ignore
+from math import isclose, isnan
 from pycontrails import Flight
+from pycontrails.datalib.spire.spire import (
+    _pointed_haversine_3d,
+    ValidateTrajectoryHandler,
+)
 from redis.backoff import ExponentialBackoff
 from redis.retry import Retry
 from typing import Any, Callable
@@ -26,10 +32,14 @@ from typing import Any, Callable
 import lib.environment as env
 from lib.exceptions import (
     BadTrajectoryException,
+    SpireCacheTooSmallException,
 )
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
-from lib.schemas import SpireWaypointPositional, AirlineDayFlightsProgressMarker
+from lib.schemas import (
+    AirlineDayFlightsProgressMarker,
+    TrajectoryCandidateInfo,
+)
 from lib.utils import sigterm_manager
 
 
@@ -110,14 +120,16 @@ class PubSubSubscriptionHandler:
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.info("zero messages received.")
+                logger.info("zero messages received")
                 continue
 
             pubsub_msg = resp.received_messages[0]
             logger.debug(
-                f"received 1 message from {self.subscription}. "
-                f"published_time: {pubsub_msg.message.publish_time}, "
-                f"message_id: {pubsub_msg.message.message_id}"
+                f"received 1 message from {self.subscription}",
+                extra={
+                    "published_time": pubsub_msg.message.publish_time,
+                    "message_id": pubsub_msg.message.message_id,
+                },
             )
 
             message = Message(
@@ -151,7 +163,10 @@ class PubSubSubscriptionHandler:
                 yield message
                 # Guard against user failing to call ack() or nack()
                 if message in self._outstanding_messages:
-                    logger.warning(f"message was never ack'ed or nack'ed: {message}")
+                    logger.warning(
+                        "message was never acked or nacked",
+                        extra={"pubsub_msg": message},
+                    )
                     self._outstanding_messages.discard(message)
         except GeneratorExit:
             pass
@@ -169,7 +184,9 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
+            logger.warning(
+                "message acked or nacked multiple times", extra={"pubsub_msg": message}
+            )
 
         self._client.acknowledge(
             request={"subscription": self.subscription, "ack_ids": [message.ack_id]},
@@ -186,7 +203,7 @@ class PubSubSubscriptionHandler:
                 ),
             ),
         )
-        logger.debug("successfully ack'ed message.")
+        logger.debug("successfully acked message")
 
     def nack(self, message: Message):
         """Not-acknowledge the message to stop extending ack deadline.
@@ -198,13 +215,15 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
+            logger.warning(
+                "message acked or nacked multiple times", extra={"pubsub_msg": message}
+            )
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """
         Extends the ack deadline for the currently outstanding message.
         """
-        logger.debug("starting ack lease management worker...")
+        logger.debug("starting ack lease management worker")
         while True:
             should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
@@ -214,7 +233,7 @@ class PubSubSubscriptionHandler:
             messages = self._outstanding_messages.copy()
             for message in messages:
                 ack_id = message.ack_id
-                logger.debug(f"extending ack deadline on ack_id: {ack_id[0:-150]}...")
+                logger.debug("extending ack deadline", extra={"ack_id": ack_id[0:-150]})
                 try:
                     self._client.modify_ack_deadline(
                         request={
@@ -225,8 +244,8 @@ class PubSubSubscriptionHandler:
                     )
                 except Exception:
                     logger.warning(
-                        "failed to extend ack deadline for message. "
-                        f"traceback: {format_traceback()}"
+                        "failed to extend ack deadline for message",
+                        extra={"traceback": format_traceback()},
                     )
 
         logger.debug("terminated ack lease management worker")
@@ -339,7 +358,10 @@ class PubSubPublishHandler:
         #
         # Errors in child threads trigger a separate exit using a future done_callback.
         if not_done:
-            logger.error("Futures did not complete before timeout: %s", not_done)
+            logger.error(
+                "futures did not complete before timeout",
+                extra={"not_done": not_done},
+            )
             os._exit(1)
 
         # All futures completed without error, reset pending futures state.
@@ -367,10 +389,10 @@ class PubSubPublishHandler:
             """
             try:
                 future.result(timeout=0)
-            except Exception:
+            except Exception as e:
                 logger.error(
-                    f"Publish future failed: {msg}. Unhandled exception:"
-                    + format_traceback()
+                    "publish future failed",
+                    extra={"reason": e, "traceback": format_traceback()},
                 )
                 os._exit(1)
 
@@ -446,7 +468,7 @@ class SpireApiHandler:
 
         if len(days) < 2 and prune:
             raise NotImplementedError(
-                "cannot prune when number of days provided is fewer than 3."
+                "cannot prune when number of days provided is fewer than 3"
             )
 
         datetime_hourly_strs: list[str] = []
@@ -547,6 +569,12 @@ class CloudStorageHandler:
 
     GCS_BUCKET_SPIRE_CACHE = "contrails-301217-spire-cache-prod"
 
+    # an hour of spire pq files with bytes lower than this is expected to be a corrupt/empty cache
+    SPIRE_CACHE_EMPTY_THRESHOLD = 25_000
+    # an hour of spire pq files with bytes lower than this is expected to be a partial cache
+    # (likely indicative of an issue with missing ads-b data in BigQuery)
+    SPIRE_CACHE_PARTIAL_THRESHOLD = 100_000
+
     def __init__(self):
         self._client = storage.Client()
         self._bucket = self._client.bucket(self.GCS_BUCKET_SPIRE_CACHE)
@@ -575,7 +603,7 @@ class CloudStorageHandler:
 
         if len(days) < 2 and prune:
             raise NotImplementedError(
-                "cannot prune when number of days provided is fewer than 3."
+                "cannot prune when number of days provided is fewer than 3"
             )
 
         datetime_hourly_strs: list[str] = []
@@ -600,10 +628,21 @@ class CloudStorageHandler:
         # confirm that all target data is available
         for k, blob_lst in bq_blob_map.items():
             if not blob_lst:
-                raise FileNotFoundError(f"No ADS-B files found in GCS with prefix: {k}")
+                raise FileNotFoundError(f"no adsb files found in gcs with prefix - {k}")
+            # confirm that files in prefix path are large enough
+            # to guarantee that cache isn't a partial export
+            blobs_size_bytes = sum([b.size for b in blob_lst])
+            if blobs_size_bytes < self.SPIRE_CACHE_EMPTY_THRESHOLD:
+                raise SpireCacheTooSmallException(
+                    f"spire cache present but empty - found {blobs_size_bytes} bytes at {k}"
+                )
+            if blobs_size_bytes < self.SPIRE_CACHE_PARTIAL_THRESHOLD:
+                logger.warning(
+                    f"spire cache appears partial - found {blobs_size_bytes} bytes at {k}"
+                )
 
         # fetch all ads-b data from target blobs, and subset to only the target airline_iata
-        df_parts: list[pd.DataFrame] = []
+        df_agg = pd.DataFrame()
         # iterate serially here (since we subset on airline iata to keep mem footprint low
         # on each iteration)
         for (
@@ -611,12 +650,14 @@ class CloudStorageHandler:
             _,
         ) in bq_blob_map.items():  # load all pq shards in subdir at once into a df
             uri = f"gs://{self._bucket.name}/{k}"
-            logger.info("fetching " + uri)
+            logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
-            df = df[df["airline_iata"] == airline_iata]
-            df_parts.append(df)
-        df = pd.concat(df_parts)
-        return df
+            if airline_iata == "null":
+                df = df[df["airline_iata"].isnull()]
+            else:
+                df = df[df["airline_iata"] == airline_iata]
+            df_agg = pd.concat([df_agg, df], ignore_index=True)
+        return df_agg
 
 
 class HealTrajectoryHandler:
@@ -625,10 +666,32 @@ class HealTrajectoryHandler:
     and applies a ruleset to heal quality issues with trajectories.
     """
 
-    def __init__(self):
-        self._df: pd.DataFrame | None = None
+    INVARIANT_FLIGHT_ATTRS = [
+        "icao_address",
+        "flight_id",
+        "callsign",
+        "tail_number",
+        "flight_number",
+        "aircraft_type_icao",
+        "airline_iata",
+        "departure_airport_icao",
+        "departure_scheduled_time",
+        "arrival_airport_icao",
+        "arrival_scheduled_time",
+    ]
 
-    def set(self, trajectory: pd.DataFrame):
+    def __init__(self, min_speed_m_s, max_speed_m_s):
+        self._df: pd.DataFrame | None = None
+        self._candidate_info: TrajectoryCandidateInfo | None = None
+        self._min_speed_m_s = min_speed_m_s
+        self._max_speed_m_s = max_speed_m_s
+        self._max_speed_filter_iterations = 5
+        self._min_interpolate_dist_km = 10.0
+        self._max_interpolate_dist_km = 400.0
+        self._max_interpolate_trip_frac = 0.1
+        self._interpolate_altitude_above_airport_ft = 1000.0
+
+    def set(self, trajectory: pd.DataFrame, candidate_info: TrajectoryCandidateInfo):
         """
         Sets a target trajectory into this handler's state.
 
@@ -638,21 +701,25 @@ class HealTrajectoryHandler:
             A dataset with one flight trajectory.
             Each trajectory is identified by its flight_id.
             Dataset must include columns matching those in the BQ table `spire_flights_raw_prod`
+        candidate_info
+            Data class containing pertinent information about specific flight `trajectory`.
+            Required for logging purposes.
         """
         if len(trajectory) == 0:
-            raise BadTrajectoryException("flight trajectory is empty.")
+            raise BadTrajectoryException("flight trajectory is empty")
         if len(trajectory["flight_id"].unique()) > 1:
             raise Exception(
-                "dataset passed to handler must be for a single flight instance ("
-                "flight_id)."
+                "dataset passed to handler must be for a single flight instance"
             )
         self._df = trajectory.copy(deep=True)
+        self._candidate_info = candidate_info
 
     def unset(self):
         """
         Pops a trajectory from this handler's state.
         """
         self._df = None
+        self._candidate_info = None
 
     @staticmethod
     def _get_priority_map(df: pd.DataFrame, cols: list) -> dict:
@@ -686,6 +753,7 @@ class HealTrajectoryHandler:
         Attempt to convert types for each dataframe column to expected type.
         Implicitly also checks for existence of expected columns.
         """
+        df = df.copy(deep=True)
         cols = {
             "icao_address": str,
             "flight_id": str,
@@ -704,7 +772,256 @@ class HealTrajectoryHandler:
             "collection_type": str,
             "altitude_baro": int,
         }
-        return df.astype(cols)
+        df = df.astype(cols)
+        df.replace("nan", None, inplace=True)
+        df.replace("None", None, inplace=True)
+        return df
+
+    @staticmethod
+    def _interpolate_to_airport(
+        waypoint: pd.Series,
+        airport_is_departure: bool,
+        airport_lon: float,
+        airport_lat: float,
+        airport_alt_ft: float,
+        speed_m_s: float,
+        airport_to_airport_dist_m: float,
+        min_interpolate_dist_km: float,
+        max_interpolate_dist_km: float,
+        max_interpolate_trip_frac: float,
+    ) -> tuple[pd.DataFrame | None, float]:
+        """
+        Return a one-row dataframe of an interpolated waypoint at an airport, or None if
+        interpolation conditions are not met. In both cases, also return the distance
+        from the waypoint to the airport as a fraction of the full airport-to-airport
+        trip length.
+        """
+        waypoint_to_airport_dist_m = _pointed_haversine_3d(
+            waypoint["longitude"],
+            waypoint["latitude"],
+            waypoint["altitude_baro"],
+            airport_lon,
+            airport_lat,
+            airport_alt_ft,
+        )
+        waypoint_to_airport_trip_frac = (
+            waypoint_to_airport_dist_m / airport_to_airport_dist_m
+        )
+
+        # don't interpolate beyond the allowed ranges
+        if waypoint_to_airport_dist_m < (min_interpolate_dist_km * 1000):
+            return None, waypoint_to_airport_trip_frac
+        if waypoint_to_airport_dist_m > (max_interpolate_dist_km * 1000):
+            return None, waypoint_to_airport_trip_frac
+        if waypoint_to_airport_trip_frac > max_interpolate_trip_frac:
+            return None, waypoint_to_airport_trip_frac
+
+        # avoid dividing by 0
+        if isclose(speed_m_s, 0):
+            return None, waypoint_to_airport_trip_frac
+
+        time_to_airport = waypoint_to_airport_dist_m / speed_m_s
+        if airport_is_departure:
+            imputed_time_at_airport = waypoint["timestamp"] - datetime.timedelta(
+                seconds=time_to_airport
+            )
+        else:
+            imputed_time_at_airport = waypoint["timestamp"] + datetime.timedelta(
+                seconds=time_to_airport
+            )
+
+        # copy the input series to keep the invariant fields; also convert it into a
+        # one-row dataframe
+        interpolated_airport_waypoint = pd.DataFrame([waypoint], columns=waypoint.index)
+
+        interpolated_airport_waypoint["timestamp"] = imputed_time_at_airport
+        interpolated_airport_waypoint["longitude"] = airport_lon
+        interpolated_airport_waypoint["latitude"] = airport_lat
+        interpolated_airport_waypoint["altitude_baro"] = airport_alt_ft
+        return interpolated_airport_waypoint, waypoint_to_airport_trip_frac
+
+    def _heal_too_far_airports(
+        df: pd.DataFrame,
+        min_interpolate_dist_km: float,
+        max_interpolate_dist_km: float,
+        max_interpolate_trip_frac: float,
+        interpolate_altitude_above_airport_ft: float,
+        candidate_info: TrajectoryCandidateInfo,
+    ) -> pd.DataFrame | None:
+        """
+        Attempt to estimate first and last waypoints at the departure and
+        arrival airports with appropriate times. Will not estimate if a
+        waypoint is too close to the airport (no need ) or too far from
+        the airport (don't want to "create" too much of the trip).
+
+        Parameters
+        ----------
+        df
+            Dataframe with a single flight trajectory.
+        min_interpolate_dist_km
+            Minimum distance from first/last waypoint to departure/arrival airport
+            to require estimation.
+        max_interpolate_dist_km
+            Maximum distance from first/last waypoint to departure/arrival airport
+            to allow estimation.
+        max_interpolate_trip_frac
+            Maximum fraction of the total airport-to-airport trip distance
+            from first/last waypoint to departure/arrival airport to allow
+            estimation.
+        interpolate_altitude_above_airport_ft
+            Altitude above the airport (in feet) to use for estimations, to
+            avoid estimating new locations at or below ground level in cases
+            where the airport altitude is not accurate.
+        candidate_info
+            Data class containing pertinent information about specific flight `df`.
+            Required for logging purposes.
+
+        Returns
+        -------
+            A dataframe with up to two rows representing
+        the estimated begining and end waypoints, or None if no imputed endpoints
+        were generated.
+        """
+        # need at least two data points to compute speed
+        if len(df) < 2:
+            return None
+
+        departure_airport_icao = df["departure_airport_icao"].iloc[0]
+        arrival_airport_icao = df["arrival_airport_icao"].iloc[0]
+
+        (
+            departure_airport_lon,
+            departure_airport_lat,
+            departure_airport_alt_ft,
+        ) = ValidateTrajectoryHandler._find_airport_coords(departure_airport_icao)
+        (
+            arrival_airport_lon,
+            arrival_airport_lat,
+            arrival_airport_alt_ft,
+        ) = ValidateTrajectoryHandler._find_airport_coords(arrival_airport_icao)
+
+        # need to successfully look up both airports
+        if isnan(departure_airport_lon) or isnan(arrival_airport_lon):
+            return None
+
+        # interpolate to some distance above the airport, not ground level
+        departure_airport_alt_ft += interpolate_altitude_above_airport_ft
+        arrival_airport_alt_ft += interpolate_altitude_above_airport_ft
+
+        airport_to_airport_dist_m = _pointed_haversine_3d(
+            departure_airport_lon,
+            departure_airport_lat,
+            departure_airport_alt_ft,
+            arrival_airport_lon,
+            arrival_airport_lat,
+            arrival_airport_alt_ft,
+        )
+        # avoid dividing by 0; this would happen if the departure and arrival airports
+        # are the same
+        if isclose(airport_to_airport_dist_m, 0):
+            return None
+
+        speed_df = df.rename(
+            columns={"timestamp": "time", "altitude_baro": "altitude_ft"}
+        )
+        ground_speed_m_s = Flight(speed_df).segment_groundspeed(smooth=True)
+        first_speed_m_s = ground_speed_m_s[0]
+        last_speed_m_s = ground_speed_m_s[-2]  # the last groundspeed is always nan
+
+        first_waypoint = df.iloc[0]
+        last_waypoint = df.iloc[-1]
+
+        (
+            interpolated_departure_airport_waypoint,
+            trip_frac_to_departure_airport,
+        ) = HealTrajectoryHandler._interpolate_to_airport(
+            first_waypoint,
+            airport_is_departure=True,
+            airport_lon=departure_airport_lon,
+            airport_lat=departure_airport_lat,
+            airport_alt_ft=departure_airport_alt_ft,
+            speed_m_s=first_speed_m_s,
+            airport_to_airport_dist_m=airport_to_airport_dist_m,
+            min_interpolate_dist_km=min_interpolate_dist_km,
+            max_interpolate_dist_km=max_interpolate_dist_km,
+            max_interpolate_trip_frac=max_interpolate_trip_frac,
+        )
+        (
+            interpolated_arrival_airport_waypoint,
+            trip_frac_to_arrival_airport,
+        ) = HealTrajectoryHandler._interpolate_to_airport(
+            last_waypoint,
+            airport_is_departure=False,
+            airport_lon=arrival_airport_lon,
+            airport_lat=arrival_airport_lat,
+            airport_alt_ft=arrival_airport_alt_ft,
+            speed_m_s=last_speed_m_s,
+            airport_to_airport_dist_m=airport_to_airport_dist_m,
+            min_interpolate_dist_km=min_interpolate_dist_km,
+            max_interpolate_dist_km=max_interpolate_dist_km,
+            max_interpolate_trip_frac=max_interpolate_trip_frac,
+        )
+
+        # Don't interpolate if the combined trip fraction from first/last waypoints to
+        # departure/arrival airports is too high. This would mean (1) the actual data
+        # segment from first to last waypoint is too short, or (2) one or both of the
+        # airport ICAO codes in the data don't match the trip actually flown.
+        if (trip_frac_to_departure_airport + trip_frac_to_arrival_airport) > (
+            2 * max_interpolate_trip_frac
+        ):
+            return None
+
+        interpolated_waypoints = []
+        if interpolated_departure_airport_waypoint is not None:
+            interpolated_waypoints.append(interpolated_departure_airport_waypoint)
+            logger.info(
+                f"impute wp at departure - {departure_airport_icao}",
+                extra={"flight_id": candidate_info.flight_id},
+            )
+        if interpolated_arrival_airport_waypoint is not None:
+            interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
+            logger.info(
+                f"impute wp at arrival - {arrival_airport_icao}",
+                extra={"flight_id": candidate_info.flight_id},
+            )
+
+        if interpolated_waypoints:
+            return pd.concat(interpolated_waypoints)
+        return None
+
+    @staticmethod
+    def _filter_speeds(
+        df: pd.DataFrame, min_speed_m_s: float, max_speed_m_s: float
+    ) -> pd.DataFrame:
+        """
+        Filter data points to keep only those with speeds between the allowed min and
+        max. Expects the "timestamp" column of the input df to be sorted and unique.
+        """
+        # create a new df for computing ground speed
+        speed_df = df[["timestamp", "latitude", "longitude"]]
+        speed_df.rename(columns={"timestamp": "time"}, inplace=True)
+        speed_df["altitude"] = None  # dummy, not used in ground speed calculation
+
+        # The `shift()` method is used to offset the "ground_speed_m_s" column by 1,
+        # so data points on both sides of an invalid speed will be dropped.
+        speed_df["ground_speed_m_s"] = Flight(speed_df).segment_groundspeed()
+        speed_df["ground_speed_m_s_shifted"] = speed_df["ground_speed_m_s"].shift(1)
+
+        # The last value of the "ground_speed_m_s" column will be NA, and the first
+        # value of the "ground_speed_m_s_shifted" column will be NA. These need to be
+        # filled, otherwise the first and last rows would always be dropped at the
+        # filtering step.
+        speed_df["ground_speed_m_s"] = speed_df["ground_speed_m_s"].ffill()
+        speed_df["ground_speed_m_s_shifted"] = speed_df[
+            "ground_speed_m_s_shifted"
+        ].bfill()
+
+        valid_speed_idx = speed_df["ground_speed_m_s"].between(
+            min_speed_m_s, max_speed_m_s, inclusive="neither"
+        ) & speed_df["ground_speed_m_s_shifted"].between(
+            min_speed_m_s, max_speed_m_s, inclusive="neither"
+        )
+        return df[valid_speed_idx]
 
     def heal(self) -> pd.DataFrame:
         """
@@ -717,25 +1034,16 @@ class HealTrajectoryHandler:
 
         try:
             self._df = self._dataframe_convert_types(self._df)
-            self._df.replace("nan", None, inplace=True)
-            self._df.replace("None", None, inplace=True)
         except KeyError as e:
             raise KeyError(
-                "flight trajectory dataframe is missing an expected column."
+                "flight trajectory dataframe is missing an expected column"
             ) from e
 
         # --------------
         # update dataset so the following target keys are uniform/distinct for a given flight
         # --------------
-        target_cols = [
-            "callsign",
-            "flight_number",
-            "arrival_airport_icao",
-            "departure_airport_icao",
-            "airline_iata",
-        ]
 
-        priority_values = self._get_priority_map(self._df, target_cols)
+        priority_values = self._get_priority_map(self._df, self.INVARIANT_FLIGHT_ATTRS)
 
         # fill any null values with our priority values
         for col, val in priority_values.items():
@@ -746,170 +1054,76 @@ class HealTrajectoryHandler:
         for col, val in priority_values.items():
             if val:
                 keep_filter = self._df[col] == val
+                total_number_before_drop = len(self._df[col])
                 self._df = self._df[keep_filter]
                 drop_cnt = (~keep_filter).sum()
+
                 if drop_cnt:
                     logger.info(
-                        f"dropping {drop_cnt} values not matching:{val} for field: {col}."
+                        f"dropped {drop_cnt} values out of "
+                        f"{total_number_before_drop} not matching {val} for field {col}.",
+                        extra={"flight_id": self._candidate_info.flight_id},
                     )
 
+        len_before_duplicate_drop = len(self._df)
         self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+        self._df.drop_duplicates(["timestamp"], inplace=True)
+        len_difference = len_before_duplicate_drop - len(self._df)
+        if len_difference != 0:
+            logger.info(
+                f"dropped {len_difference} duplicate timestamp records",
+                extra={"flight_id": self._candidate_info.flight_id},
+            )
+
+        # --------------
+        # Drop data points where computed ground speed is too slow or too fast. The
+        # "too slow" case is often taxiing. The "too fast" case is often caused by
+        # small misalignments between receiver timestamps.
+        # --------------
+
+        # Iteratively apply the speed filter, to cover cases where (for example) two
+        # points with invalid speeds have a third point between them. The middle point
+        # could have a valid speed in the first iteration, but then have an invalid
+        # speed in the second iteration, after its adjacent points are dropped.
+        iterations = self._max_speed_filter_iterations
+        initial_length = len(self._df)
+        while iterations:
+            prev_len = len(self._df)
+            # need at least 2 data points to compute a speed
+            if prev_len < 2:
+                break
+            self._df = self._filter_speeds(
+                self._df, self._min_speed_m_s, self._max_speed_m_s
+            )
+            # stop filtering once no data points are dropped
+            if len(self._df) == prev_len:
+                break
+            iterations -= 1
+
+        if len(self._df) != initial_length:
+            logger.info(
+                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                extra={"flight_id": self._candidate_info.flight_id},
+            )
+        # --------------
+        # Interpolate to one or both airports if needed.
+        # --------------
+        airport_waypoints_df = HealTrajectoryHandler._heal_too_far_airports(
+            self._df,
+            self._min_interpolate_dist_km,
+            self._max_interpolate_dist_km,
+            self._max_interpolate_trip_frac,
+            self._interpolate_altitude_above_airport_ft,
+            self._candidate_info,
+        )
+
+        if airport_waypoints_df is not None:
+            self._df = pd.concat([self._df, airport_waypoints_df])
+            self._df.sort_values(by="timestamp", ascending=True, inplace=True)
+
         self._df.reset_index(drop=True, inplace=True)
-        if len(self._df) == 0:
-            raise BadTrajectoryException("flight trajectory is empty.")
+
         return self._df
-
-
-class ResampleHandler:
-    """
-    Handles interpolation & data model coercing for a sequence of waypoints for a flight instance.
-    This handler takes:
-     (A) a sample of waypoints within a closed time window, and
-     (B) 1 or 2 waypoints** at some time prior to (A) (cached waypoints)
-         (**these are the waypoints from the right-hand-side of the previous window)
-
-     BB......................A.AA.AAA
-
-    Work includes:
-    - intra-window interpolation; i.e. interpolation within the window (A)
-    - inter-window interpolation; i.e. backward interpolation between A_0 and B
-    """
-
-    FLIGHT_LEVELS = [
-        200,
-        210,
-        220,
-        230,
-        240,
-        250,
-        260,
-        270,
-        280,
-        290,
-        300,
-        310,
-        320,
-        330,
-        340,
-        350,
-        360,
-        370,
-        380,
-        390,
-        400,
-        410,
-        420,
-        430,
-        440,
-    ]
-
-    def __init__(self):
-        self._min_records_ts: pd.Timestamp | None = None
-        self._waypoints_df: pd.DataFrame | None = None
-        self._waypoints_df_resampled: pd.DataFrame | None = None
-
-    def set(self, records_window: list[SpireWaypointPositional]):
-        """
-        sets the following into this handler's state:
-        - _min_records_ts
-        - _waypoints_df
-        """
-        df_records = pd.DataFrame(records_window)
-        df_records.rename(
-            columns={"altitude_baro": "altitude_ft", "timestamp": "time"}, inplace=True
-        )
-        df_records["time"] = pd.to_datetime(df_records["time"]).apply(
-            lambda r: r.tz_localize(None)
-        )
-
-        if df_records["time"].duplicated().sum():
-            df_records.drop_duplicates(["time"], inplace=True)
-
-        self._min_records_ts = df_records["time"].min()
-        self._waypoints_df = df_records
-
-    def unset(self):
-        """
-        pops the following from this handler's state:
-        - _waypoints_df_resampled
-        - _min_records_ts
-        - _waypoints_df
-        """
-        self._min_records_ts = None
-        self._waypoints_df = None
-        self._waypoints_df_resampled = None
-
-    def interpolate(self):
-        """
-        Run minute interpolation within the records time window, and backwards between
-        the first index of the records time window and the cached waypoints.
-        """
-        pyc_flight = Flight(self._waypoints_df)
-        flight_resampled: pd.DataFrame = pyc_flight.resample_and_fill().dataframe
-
-        # add imputation flags
-        # TODO add heuristics to appropriately apply imputation flag for full-trajectory resampling
-        flight_resampled["imputed"] = False
-
-        # compute the altitude_ft from altitude (note: pycontrails Flight operates on altitude [m])
-        flight_resampled.loc[:, "altitude_ft"] = (
-            flight_resampled["altitude"] * 3.28
-        ).astype(int)
-
-        flight_resampled["flight_level"] = flight_resampled["altitude_ft"].apply(
-            self.altitude_ft_to_flight_level
-        )
-
-        # flight_resampled at this point will include minute data
-        # the first row will match what was pulled from cache
-        # the last row will have a timestamp that is the bottom of the minute
-        # for the right-most minutes data in the spire waypoints record window ingested from pubsub
-        # -------------------
-
-        # Cleanup
-        flight_resampled.drop(columns=["altitude"], inplace=True)
-
-        self._waypoints_df_resampled = flight_resampled
-        return self
-
-    @property
-    def waypoints_resampled(self) -> list[SpireWaypointPositional]:
-        """
-        Returns
-        -------
-        List of SpireWaypointPositional objects, representing the resampled waypoints
-        between the cached waypoints and the records waypoints passed to this handler.
-        """
-        if not isinstance(self._waypoints_df_resampled, pd.DataFrame):
-            raise ValueError(
-                "interpolate() must be run before fetching the resampled waypoints."
-            )
-
-        waypoints: list[SpireWaypointPositional] = []
-        for _, r in self._waypoints_df_resampled.iterrows():
-            wp = SpireWaypointPositional(
-                ingestion_time=None,
-                timestamp=r["time"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                latitude=r["latitude"],
-                longitude=r["longitude"],
-                collection_type=None,
-                altitude_baro=r["altitude_ft"],
-                imputed=r["imputed"],
-                flight_level=r["flight_level"],
-            )
-            waypoints.append(wp)
-        return waypoints
-
-    @classmethod
-    def altitude_ft_to_flight_level(cls, alt_ft: int):
-        """
-        Converts altitude in feet MSL to flight level (100s of ft), snapped to the nearest level.
-        """
-        if alt_ft < (cls.FLIGHT_LEVELS[0] * 100) - 500:
-            return -999
-        diff = lambda i: abs(cls.FLIGHT_LEVELS[i] - alt_ft // 100)  # noqa:E731
-        min_ix = min(range(len(cls.FLIGHT_LEVELS)), key=diff)
-        return cls.FLIGHT_LEVELS[min_ix]
 
 
 class RedisHandler:

@@ -2,6 +2,9 @@
 
 import sys
 
+import pandas as pd
+from google.oauth2 import service_account
+
 import lib.environment as env
 from lib import schemas
 from lib.exceptions import FlightTooLowError, AircraftTypeUnrecognizedError
@@ -13,8 +16,17 @@ from lib.handlers import (
 )
 from lib.log import format_traceback, logger
 from datetime import UTC, datetime
+from google.cloud import storage
 
 SOURCE_ID = "flightsreport"
+GCS_PARQUET_URI_TEMPLATE = (
+    "trajectory-worker/trajectory-pq/{start_datehour}/{airline_iata}/{flight_id}.pq"
+)
+storage_credentials = service_account.Credentials.from_service_account_info(
+    env.GCP_SVC_ACCT_KEY
+)
+gcs_client = storage.Client(credentials=storage_credentials)
+gcs_bucket = gcs_client.bucket(env.GCS_BUCKET_NAME)
 
 
 def run(
@@ -33,15 +45,18 @@ def run(
             sys.exit(0)
 
         job = schemas.WaypointsRecord.from_utf8_json(message.data)
+        # Set start and end timestamps for logging purposes
+        job._start_time = job.records[0].timestamp
+        job._end_time = job.records[-1].timestamp
 
         if backup_job_publisher and message.delivery_attempt > 2:
             # pass message to backup queue to be processed by traj workers w/ more resources
             logger.info(
-                f"Too many delivery attempts ({message.delivery_attempt}). "
-                f"Forwarding to backup pipeline."
-                f"airline_iata: {job.flight_info.airline_iata}"
-                f"flight_id: {job.flight_info.flight_id}. "
-                f"got job with {len(job.records)} records."
+                "too many delivery attempts - forwarding to backup pipeline.",
+                extra={
+                    "flight_id": {job.flight_info.flight_id},
+                    "delivery_attempt": message.delivery_attempt,
+                },
             )
             backup_job_publisher.publish_async(
                 message.data,
@@ -52,10 +67,11 @@ def run(
             continue
 
         logger.info(
-            f"airline_iata: {job.flight_info.airline_iata}"
-            f"flight_id: {job.flight_info.flight_id}. "
-            f"spanning: {job.records[0].timestamp} to {job.records[-1].timestamp}"
-            f"got job with {len(job.records)} records."
+            "start work",
+            extra={
+                "flight_id": job.flight_info.flight_id,
+                "len_records": len(job.records),
+            },
         )
 
         # ===================
@@ -66,12 +82,12 @@ def run(
                 job, env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
             )
         except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
-            logger.warning(
-                f"airline_iata: {job.flight_info.airline_iata}. "
-                f"skipping {job.flight_info.flight_id}. "
-                f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}. "
-                f"could not run cocip. "
-                f"{e}"
+            logger.info(
+                "skipping - could not run cocip",
+                extra={
+                    "flight_id": job.flight_info.flight_id,
+                    "reason": e,
+                },
             )
             job_handler.ack(message)
             continue
@@ -81,12 +97,11 @@ def run(
             cocip_result = trajectory_cocip_handler.run()
         except Exception:
             logger.error(
-                f"NACK'ing (pubsub retry)."
-                f"airline_iata: {job.flight_info.airline_iata}. "
-                f"flight_id: {job.flight_info.flight_id}. "
-                f"aircraft_type_icao: {job.flight_info.aircraft_type_icao}. "
-                f"cocip failed. "
-                f"{format_traceback()}"
+                "nacking - cocip failed",
+                extra={
+                    "flight_id": job.flight_info.flight_id,
+                    "traceback": format_traceback(),
+                },
             )
             job_handler.nack(message)
             continue
@@ -96,7 +111,12 @@ def run(
         # ===================
         # publish cocip outputs to BQ
         # ===================
-        logger.debug("publishing cocip outputs to BQ.")
+        logger.debug(
+            "publishing cocip summary output to bq",
+            extra={
+                "flight_id": job.flight_info.flight_id,
+            },
+        )
 
         fq_zarr_uri: str
         # qualify the zarr uri with the source type
@@ -126,11 +146,18 @@ def run(
             ),
         )
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
-        # ===================
-        # if enabled, publish all trajectory segments to BQ
-        # ===================
+
         if job.export_cocip_trajectory:
-            logger.debug("exporting per-segment cocip outputs to BQ.")
+            # ===================
+            # if enabled, publish all trajectory segments to BQ
+            # ===================
+            logger.debug(
+                "exporting per-segment cocip outputs to bq",
+                extra={
+                    "flight_id": job.flight_info.flight_id,
+                },
+            )
+
             seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
                 source_id=SOURCE_ID,
                 git_sha=env.GIT_SHA,
@@ -149,12 +176,44 @@ def run(
                         time_start=output.time_start,
                     ),
                 )
+            del seg_outputs
+            # ===================
+            # if enabled, publish trajectory segments to protobuf in GCS
+            # ===================
+            traj_proto: schemas.CocipTrajectoryProto
+            traj_proto = schemas.CocipTrajectoryProto.from_cocip_result(
+                input_chunk=job,
+                result=cocip_result,
+                model=trajectory_cocip_handler.model,
+            )
+            bytes_out = traj_proto.to_bytes()
+            first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
+            if job.flight_info.airline_iata is None:
+                pq_uri_airline_iata = "null"
+            else:
+                pq_uri_airline_iata = job.flight_info.airline_iata
+            destination_uri = GCS_PARQUET_URI_TEMPLATE.format(
+                start_datehour=first_waypoint_ts.strftime("%Y%m%d%H"),
+                airline_iata=pq_uri_airline_iata,
+                flight_id=job.flight_info.flight_id,
+            )
+            gcs_blob = gcs_bucket.blob(destination_uri)
+            gcs_blob.upload_from_string(
+                bytes_out, content_type="application/x-protobuf"
+            )
+
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
         job_handler.ack(message)
+        logger.info(
+            "end work",
+            extra={
+                "flight_id": job.flight_info.flight_id,
+            },
+        )
 
 
 if __name__ == "__main__":
-    logger.info("starting trajectory-worker instance")
+    logger.debug("starting trajectory-worker instance")
 
     try:
         trajectory_cocip_bq_publisher = PubSubPublishHandler(
@@ -176,5 +235,5 @@ if __name__ == "__main__":
         )
 
     except Exception:
-        logger.error("Unhandled exception:" + format_traceback())
+        logger.error("unhandled exception", extra={"traceback": format_traceback()})
         sys.exit(1)

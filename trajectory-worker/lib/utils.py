@@ -18,7 +18,7 @@ class SigtermManager:
         signal.signal(signal.SIGTERM, self._handler)
 
     def _handler(self, *args, **kwargs):
-        logger.info("Received SIGTERM.")
+        logger.debug("received sigterm")
         self.should_exit = True
 
 

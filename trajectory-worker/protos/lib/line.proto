@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+import "lib/coordinate.proto";
+
+package lib;
+
+message Line {
+    // start position
+    lib.Coordinate coord_start = 1;
+    // end position of segment
+    lib.Coordinate coord_end = 2;
+}

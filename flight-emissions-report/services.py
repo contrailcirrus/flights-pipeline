@@ -42,7 +42,7 @@ class JobWorkerSubmitSvc(BaseSvc):
     Service backing calls to the flights submit parser.
     """
 
-    TWJD_TOPIC_ID = "projects/contrails-301217/topics/prod-fp-twjd-ingress"
+    TWJD_TOPIC_ID = "projects/contrails-301217/topics/dev-fp-twjd-ingress"
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -54,7 +54,6 @@ class JobWorkerSubmitSvc(BaseSvc):
             - airline
             - day; can be single day, or date range inclusive
             - flight_id
-            - icao_address
             - met_data_src
             - telemetry_src
             - full_traj
@@ -63,7 +62,6 @@ class JobWorkerSubmitSvc(BaseSvc):
         self._airline = input.airline
         self._day = input.day
         self._flight_id = input.flight_id
-        self._icao_address = input.icao_address
         self._met_data_src = input.met_data_src
         self._telemetry_src = input.telemetry_src
         self._full_traj = input.full_traj
@@ -77,7 +75,6 @@ class JobWorkerSubmitSvc(BaseSvc):
         valid_flag_combos = {
             (self._day, self._airline, self._met_data_src),
             (self._day, self._flight_id, self._met_data_src),
-            (self._day, self._icao_address, self._met_data_src),
         }
         is_valid = sum([all(itm) for itm in valid_flag_combos]) == 1
 
@@ -86,7 +83,6 @@ class JobWorkerSubmitSvc(BaseSvc):
                 "Must provide flags: "
                 "(1) --flight-id & --day & --met-data-src OR "
                 "(2) --airline & --day & --met-data-src OR "
-                "(3) --icao-address & --day & --met-data-src"
             )
 
         if self._met_data_src not in MetSource:
@@ -102,10 +98,6 @@ class JobWorkerSubmitSvc(BaseSvc):
         elif self._day and self._flight_id:
             logger.info(
                 f"🛠️submitting TWJDs with 🛂 flight_id: {self._flight_id} using met data source 📊{self._met_data_src}"
-            )
-        elif self._day and self._icao_address:
-            logger.info(
-                f"🛠️submitting TWJDs with 🏤 icao_address: {self._icao_address} using met data source 📊{self._met_data_src}"
             )
         else:
             raise NotImplementedError("unhandled runtime case.")
@@ -133,7 +125,6 @@ class JobWorkerSubmitSvc(BaseSvc):
                 full_traj=self._full_traj,
                 airline_iata=self._airline,
                 flight_id=self._flight_id,
-                icao_address=self._icao_address,
                 dry_run=self._dry_run,
                 export_waypoints=False,
             )
@@ -540,13 +531,12 @@ class FlightsReportFetchSvc(BaseSvc):
     def compute_eu_statistics_by_airports(self, df: pd.DataFrame) -> pd.DataFrame:
         """Compute EU statistics based on flights that originate and land in EU airports."""
         df = df.copy(deep=True)
-        
+
         eu_airports = self._eu_airports.get_airports_set()
-        
-        eu_flight_mask = (
-            df["departure_airport_icao"].isin(eu_airports) & 
-            df["arrival_airport_icao"].isin(eu_airports)
-        )
+
+        eu_flight_mask = df["departure_airport_icao"].isin(eu_airports) & df[
+            "arrival_airport_icao"
+        ].isin(eu_airports)
         df["in_eu_by_airports"] = eu_flight_mask
         df["in_eu_dist_km"] = df.apply(
             lambda row: row["chunk_len_km"] if row["in_eu_by_airports"] else 0, axis=1
@@ -555,15 +545,27 @@ class FlightsReportFetchSvc(BaseSvc):
             lambda row: row["sum_ef_mj"] if row["in_eu_by_airports"] else 0, axis=1
         )
         df["in_eu_contrail_dist_km"] = df.apply(
-            lambda row: row["total_persistent_contrail_length_km"] if row["in_eu_by_airports"] else 0, axis=1
+            lambda row: (
+                row["total_persistent_contrail_length_km"]
+                if row["in_eu_by_airports"]
+                else 0
+            ),
+            axis=1,
         )
         df["in_eu_warming_contrail_dist_km"] = df.apply(
-            lambda row: row["total_pos_ef_persistent_contrail_length_km"] if row["in_eu_by_airports"] else 0, axis=1
+            lambda row: (
+                row["total_pos_ef_persistent_contrail_length_km"]
+                if row["in_eu_by_airports"]
+                else 0
+            ),
+            axis=1,
         )
         df["in_eu_total_co2_kg"] = df.apply(
             lambda row: row["total_co2_kg"] if row["in_eu_by_airports"] else 0, axis=1
         )
-        df["in_eu_co2e50_kg"] = df["in_eu_sum_ef_mj"] * 10**6 * self.ERF_RF / self.AGWP50
+        df["in_eu_co2e50_kg"] = (
+            df["in_eu_sum_ef_mj"] * 10**6 * self.ERF_RF / self.AGWP50
+        )
         return df
 
     def run(self):
@@ -621,7 +623,7 @@ class FlightsReportFetchSvc(BaseSvc):
         logger.info("📨 received summary data from BigQuery. Augmenting dataset...")
         summary_df = self.augment_summary_df(summary_df)
         logger.info("🙌 finished augmenting dataset.")
-        
+
         # Compute EU statistics based on airport codes instead of geo-boxing
         logger.info("🇪🇺 computing EU statistics based on airport codes...")
         summary_df = self.compute_eu_statistics_by_airports(summary_df)

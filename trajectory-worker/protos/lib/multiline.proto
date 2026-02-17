@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "lib/coordinate.proto";
+
+package lib;
+
+message MultiLine {
+    // start position
+    repeated lib.Coordinate coords = 1;
+}

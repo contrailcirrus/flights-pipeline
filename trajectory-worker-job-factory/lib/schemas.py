@@ -1,4 +1,4 @@
-""" Data Object Models & Schemas"""
+"""Data Object Models & Schemas"""
 
 import hashlib
 import json
@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import TypedDict
 from uuid import UUID
+
+import pandas as pd
 import pytz
 from timezonefinder import TimezoneFinder
 from astral import LocationInfo
@@ -18,6 +20,36 @@ import pycontrails.core
 from lib.log import logger
 
 tf = TimezoneFinder()
+
+DATETIME_STR_FMT = "%Y-%m-%dT%H:%M:%SZ"
+
+FLIGHT_LEVELS = [
+    200,
+    210,
+    220,
+    230,
+    240,
+    250,
+    260,
+    270,
+    280,
+    290,
+    300,
+    310,
+    320,
+    330,
+    340,
+    350,
+    360,
+    370,
+    380,
+    390,
+    400,
+    410,
+    420,
+    430,
+    440,
+]
 
 
 @dataclass
@@ -225,8 +257,8 @@ class WaypointCache:
 
     class Waypoint(TypedDict):
         flight_id: bytes  # UUID
-        latitude: float  # WSG ESPG:4326
-        longitude: float  # WSG ESPG:4326
+        latitude: float  # WGS ESPG:4326
+        longitude: float  # WGS ESPG:4326
         altitude_ft: int  # feet MSL
         timestamp: int  # unixtime
 
@@ -271,7 +303,7 @@ class WaypointCache:
                 extracted[ix[prefix]].update({key: v})
             except KeyError:
                 raise KeyError(
-                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"cannot marshal flatmap with key prefix - {prefix} "
                     f"expected one of {list(ix.keys())}"
                 )
 
@@ -327,6 +359,68 @@ class FlightInfoWide(SpireFlightInfo):
     """
 
     engine_uid: str | None  # icao edb engine uid identifier
+
+    @staticmethod
+    def from_waypoints(df: pd.DataFrame):
+        """
+        Build instance of self from dataframe of Spire waypoints for a flight instance.
+
+        Many flight attributes for a flight instance are time/space invariant.
+        For instance, the callsign of a flight does not change over the course of a flight.
+        A dataframe of ADS-B Spire data will "flat map" these invariant fields,
+        resulting in a dataframe with the same invariant field repeated for every row.
+
+        The FlightInfoWide object is intended to capture those invariant fields, separate from the
+        time-varying telemetry data of a flight.
+
+        This builder method extracts those time invariant fields from a dataframe of Spire ADS-B data.
+        """
+        attrs = {}
+
+        if "engine_uid" in df.columns:
+            attrs["engine_uid"] = df["engine_uid"].unique()
+        else:
+            attrs["engine_uid"] = None
+        attrs["icao_address"] = df["icao_address"].unique()
+        attrs["flight_id"] = df["flight_id"].unique()
+        attrs["callsign"] = df["callsign"].unique()
+        attrs["tail_number"] = df["tail_number"].unique()
+        attrs["flight_number"] = df["flight_number"].unique()
+        attrs["aircraft_type_icao"] = df["aircraft_type_icao"].unique()
+        attrs["airline_iata"] = df["airline_iata"].unique()
+        attrs["departure_airport_icao"] = df["departure_airport_icao"].unique()
+        attrs["departure_scheduled_time"] = df["departure_scheduled_time"].unique()
+        attrs["arrival_airport_icao"] = df["arrival_airport_icao"].unique()
+        attrs["arrival_scheduled_time"] = df["arrival_scheduled_time"].unique()
+
+        # check invariance
+        for k, v in attrs.items():
+            if v is not None and len(v) > 1:
+                raise Exception(
+                    f"cannot build flight info wide class obj - found multiple values for invariant field {k}"
+                )
+
+        # extract unique value from np.ndarray
+        for k, v in attrs.items():
+            if v is not None:
+                attrs[k] = v[0]
+
+        # handle timestamp formatting; FlightInfoWide & by ext SpireFlightInfo
+        # expect timelike fields as string literal in iso fmt
+        if not pd.isnull(attrs["departure_scheduled_time"]):
+            attrs["departure_scheduled_time"] = attrs[
+                "departure_scheduled_time"
+            ].strftime(DATETIME_STR_FMT)
+        else:
+            attrs["departure_scheduled_time"] = None
+        if not pd.isnull(attrs["arrival_scheduled_time"]):
+            attrs["arrival_scheduled_time"] = attrs["arrival_scheduled_time"].strftime(
+                DATETIME_STR_FMT
+            )
+        else:
+            attrs["arrival_scheduled_time"] = None
+
+        return FlightInfoWide(**attrs)
 
 
 class MetSource(str, Enum):
@@ -549,7 +643,7 @@ class CocipTrajectoryChunk:
                 sr_offset_mins = breakpts[2][1] - mins_per_day  # rotate to lhs
             else:
                 logger.warning(
-                    "unhandled case. did not generate daytime/nighttime offsets."
+                    "unhandled case - did not generate daytime nighttime offsets"
                 )
         except ValueError as e:
             msg = str(e)
@@ -570,9 +664,9 @@ class CocipTrajectoryChunk:
                 sr_offset_mins = -1 * even_offset_min
                 ss_offset_mins = even_offset_min
             else:
-                logger.warning("failed to generate daytime/nighttime offsets.")
+                logger.warning("failed to generate daytime nighttime offsets")
         except Exception as _:
-            logger.warning("failed to generate daytime/nighttime offsets.")
+            logger.warning("failed to generate daytime nighttime offsets")
 
         return sr_offset_mins, ss_offset_mins
 
@@ -1076,9 +1170,8 @@ class TrajectoryWorkerJobDescriptor:
     full_traj: bool  # export per-seg cocip to bq
     airline_iata: str | None = None
     flight_id: str | None = None
-    icao_address: str | None = None
-    dry_run: bool = False  # cli (local) use only
-    export_waypoints: bool = False  # cli (local) use only
+    dry_run: bool = False  # local use only
+    export_waypoints: bool = False  # local use only
 
     @staticmethod
     def from_utf8_json(blob: bytes):
@@ -1092,7 +1185,6 @@ class TrajectoryWorkerJobDescriptor:
             full_traj=json.loads(blob)["full_traj"],
             airline_iata=json.loads(blob)["airline_iata"],
             flight_id=json.loads(blob)["flight_id"],
-            icao_address=json.loads(blob)["icao_address"],
             dry_run=json.loads(blob)["dry_run"],
             export_waypoints=json.loads(blob)["export_waypoints"],
         )
@@ -1112,23 +1204,25 @@ class TrajectoryWorkerJobDescriptor:
         valid_arg_combos = {
             (self.day, self.airline_iata, self.met_source),
             (self.day, self.flight_id, self.met_source),
-            (self.day, self.icao_address, self.met_source),
         }
         is_valid = sum([all(itm) for itm in valid_arg_combos]) == 1
 
         if not is_valid:
             raise ValueError(
-                "TWJD not valid. Must provide only one of ("
-                "1) flight_id, or (2) icao_address, or (3) airline_iata"
+                "twjd not valid - must provide only one of "
+                " flight_id or airline_iata"
             )
 
         if self.met_source not in MetSource:
             raise ValueError(
-                f"TWJD not valid. met_source must be one of {[i.value for i in MetSource]}"
+                f"twjd not valid - met_source must be one of {[i.value for i in MetSource]}"
             )
 
         # verify datestr parsing w/o exc
         _ = datetime.strptime(self.day, "%Y-%m-%d")
+
+    def __str__(self):
+        return str(self.as_utf8_json)
 
 
 @dataclass
@@ -1170,3 +1264,55 @@ class AirlineDayFlightsProgressMarker:
         """
         if resp:
             return int(resp.decode("utf-8"))
+
+
+@dataclass
+class TrajectoryCandidateInfo:
+    """
+    High level information about a candidate flight trajectory handled by
+    healing and validation within the Trajectory Worker Job Factory.
+    """
+
+    flight_id: str
+    waypoint_count: int
+    airline_iata: list[str | None] | None
+    callsign: list[str | None] | None
+    flight_number: list[str | None] | None
+    arrival_airport_icao: list[str | None]
+    departure_airport_icao: list[str | None]
+    start_time: datetime | None
+    end_time: datetime | None
+
+    @staticmethod
+    def from_waypoints(flight_id: str, df: pd.DataFrame):
+        """Build instance of self from pd dataframe of Spire waypoints."""
+        return TrajectoryCandidateInfo(
+            flight_id=flight_id,
+            waypoint_count=len(df),
+            airline_iata=list(df["airline_iata"].unique()),
+            callsign=list(df["callsign"].unique()),
+            flight_number=list(df["flight_number"].unique()),
+            arrival_airport_icao=list(df["arrival_airport_icao"].unique()),
+            departure_airport_icao=list(df["departure_airport_icao"].unique()),
+            start_time=df["timestamp"].min(),
+            end_time=df["timestamp"].max(),
+        )
+
+    def to_dict(self):
+        return {
+            "flight_id": self.flight_id,
+            "waypoint_count": self.waypoint_count,
+            "airline_iata": self.airline_iata,
+            "callsign": self.callsign,
+            "flight_number": self.flight_number,
+            "arrival_airport_icao": self.arrival_airport_icao,
+            "departure_airport_icao": self.departure_airport_icao,
+            "start_time": self.start_time.strftime(DATETIME_STR_FMT),
+            "end_time": self.end_time.strftime(DATETIME_STR_FMT),
+        }
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    def as_utf8_json(self):
+        return self.to_json.encode("utf-8")

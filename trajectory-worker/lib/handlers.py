@@ -110,20 +110,24 @@ class PubSubSubscriptionHandler:
                     ),
                 )
             except Exception as e:
-                logger.warning(f"failed to pull messages from subscription: {e}")
+                logger.warning(
+                    "failed to pull messages from subscription", extra={"reason": e}
+                )
                 continue
 
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.info("zero messages received.")
+                logger.debug("zero messages received")
                 continue
 
             pubsub_msg = resp.received_messages[0]
             logger.debug(
-                f"received 1 message from {self.subscription}. "
-                f"published_time: {pubsub_msg.message.publish_time}, "
-                f"message_id: {pubsub_msg.message.message_id}"
+                f"received 1 message from {self.subscription}",
+                extra={
+                    "published_time": pubsub_msg.message.publish_time,
+                    "message_id": pubsub_msg.message.message_id,
+                },
             )
             message = PubSubMessage(
                 data=pubsub_msg.message.data,
@@ -157,7 +161,10 @@ class PubSubSubscriptionHandler:
                 yield message
                 # Guard against user failing to call ack() or nack()
                 if message in self._outstanding_messages:
-                    logger.warning(f"message was never ack'ed or nack'ed: {message}")
+                    logger.warning(
+                        "message was never acked or nacked",
+                        extra={"message": message},
+                    )
                     self._outstanding_messages.discard(message)
         except GeneratorExit:
             pass
@@ -175,7 +182,9 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
+            logger.warning(
+                "message acked or nacked multiple times", extra={"message": message}
+            )
 
         try:
             self._client.acknowledge(
@@ -197,9 +206,11 @@ class PubSubSubscriptionHandler:
                 ),
             )
         except Exception as e:
-            logger.warning(f"failed to ack message: {message}. {e}")
+            logger.warning(
+                "failed to ack message", extra={"message": message, "reason": e}
+            )
             return
-        logger.debug("successfully ack'ed message.")
+        logger.debug("successfully ack'ed message")
 
     def nack(self, message: PubSubMessage):
         """Not-acknowledge the message to stop extending ack deadline.
@@ -211,13 +222,15 @@ class PubSubSubscriptionHandler:
         try:
             self._outstanding_messages.remove(message)
         except KeyError:
-            logger.warning(f"message ack'ed or nack'ed multiple times: {message}")
+            logger.warning(
+                "message acked or nacked multiple times", extra={"pubsub_msg": message}
+            )
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """
         Extends the ack deadline for the currently outstanding message.
         """
-        logger.debug("starting ack lease management worker...")
+        logger.debug("starting ack lease management worker")
         while True:
             should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
@@ -228,9 +241,11 @@ class PubSubSubscriptionHandler:
             for message in messages:
                 ack_id = message.ack_id
                 # compress and tumble ack_id w/ md5
-                logger.info(
-                    f"extending ack deadline on ack_id: "
-                    f"{hashlib.md5(ack_id.encode('utf-8')).hexdigest()}..."
+                logger.debug(
+                    "extending ack deadline",
+                    extra={
+                        "ack_id": f"{hashlib.md5(ack_id.encode('utf-8')).hexdigest()}..."
+                    },
                 )
                 try:
                     self._client.modify_ack_deadline(
@@ -240,13 +255,13 @@ class PubSubSubscriptionHandler:
                             "ack_deadline_seconds": self.ack_extension_sec,
                         }
                     )
-                except Exception:
+                except Exception as e:
                     logger.warning(
-                        "failed to extend ack deadline for message. "
-                        f"traceback: {format_traceback()}"
+                        "failed to extend ack deadline for message",
+                        extra={"reason": e, "traceback": format_traceback()},
                     )
 
-        logger.info("terminated ack lease management worker")
+        logger.debug("terminated ack lease management worker")
 
 
 class PubSubPublishHandler:
@@ -356,7 +371,9 @@ class PubSubPublishHandler:
         #
         # Errors in child threads trigger a separate exit using a future done_callback.
         if not_done:
-            logger.error("Futures did not complete before timeout: %s", not_done)
+            logger.error(
+                "futures did not complete before timeout", extra={"not_done": not_done}
+            )
             os._exit(1)
 
         # All futures completed without error, reset pending futures state.
@@ -384,10 +401,14 @@ class PubSubPublishHandler:
             """
             try:
                 future.result(timeout=0)
-            except Exception:
+            except Exception as e:
                 logger.error(
-                    f"Publish future failed: {msg}. Unhandled exception:"
-                    + format_traceback()
+                    "publish future failed - unhandled exception",
+                    extra={
+                        "pubsub_msg": msg,
+                        "reason": e,
+                        "traceback": format_traceback(),
+                    },
                 )
                 os._exit(1)
 
@@ -430,7 +451,7 @@ class TrajectoryWorkerAP(AircraftPerformance):
 
         if not target:
             raise AircraftTypeUnrecognizedError(
-                f"aircraft of type {aircraft_type_icao} " f"not in performance lookup."
+                f"aircraft of type {aircraft_type_icao} not in performance lookup."
             )
 
         engine_uid: str = target["engine_uid"]
@@ -520,10 +541,11 @@ class CocipTrajectoryHandler:
             fill_low_altitude_with_isa_temperature=True,
             fill_low_altitude_with_zero_wind=True,
         )
+        self._model: Cocip | None = None
         self._flight: pycontrails.Flight = self._create_flight(
             self._job, self._perf_model_handler
         )
-        logger.debug("instantiated cocip handler.")
+        logger.debug("instantiated cocip handler")
 
     @classmethod
     def _verify_altitude(cls, job: WaypointsRecord):
@@ -549,7 +571,7 @@ class CocipTrajectoryHandler:
             longitude=[w.longitude for w in job.records],
             latitude=[w.latitude for w in job.records],
             altitude_ft=[w.altitude_baro for w in job.records],
-            time=[w.timestamp for w in job.records],
+            time=pd.to_datetime(pd.Series([w.timestamp for w in job.records])),
             attrs=dict(
                 flight_id=job.flight_info.flight_id,
                 aircraft_type=job.flight_info.aircraft_type_icao,
@@ -618,10 +640,13 @@ class CocipTrajectoryHandler:
         if target_model_run_at > latest_model_run_at:
             # case when the job is very fresh, and we don't have the latest zarr store yet
             logger.warning(
-                f"target zarr store not available ({target_model_run_at}). "
-                f"fall back to latest ({latest_model_run_at}). "
-                f"icao_address {job.flight_info.icao_address}, "
-                f"job first waypoint {earliest_waypoint}"
+                "target zarr store not available",
+                extra={
+                    "target_model_run_at": target_model_run_at,
+                    "fallback_run": latest_model_run_at,
+                    "icao_address": job.flight_info.icao_address,
+                    "first_waypoint": earliest_waypoint,
+                },
             )
             target_model_run_at = latest_model_run_at
 
@@ -679,7 +704,7 @@ class CocipTrajectoryHandler:
         if self._job.met_source == MetSource.HRES:
             self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
             zarr_path = f"{self._hres_src}/{self._zarr_src_fn}"
-            logger.debug(f"opening HRES PL zarr store at: {zarr_path}")
+            logger.debug("opening hres pl zarr store", extra={"zarr_path": zarr_path})
             pl = xr.open_zarr(
                 f"{zarr_path}/pl.zarr",
                 storage_options={"token": env.GCP_SVC_ACCT_KEY},
@@ -688,7 +713,7 @@ class CocipTrajectoryHandler:
             variables = Cocip.ecmwf_met_variables()
             met = met.standardize_variables(variables)
 
-            logger.debug(f"opening HRES SL zarr store at: {zarr_path}")
+            logger.debug("opening hres sl zarr store", extra={"zarr_path": zarr_path})
             sl = xr.open_zarr(
                 f"{zarr_path}/sl.zarr",
                 storage_options={
@@ -708,13 +733,17 @@ class CocipTrajectoryHandler:
             sl_ds: list[xr.Dataset] = []
             for src_fn in self._zarr_src_fn:
                 zarr_path = f"{self._era5_src}/{src_fn}"
-                logger.debug(f"opening ERA5 PL zarr store at: {zarr_path}")
+                logger.debug(
+                    "opening era5 pl zarr store", extra={"zarr_path": zarr_path}
+                )
                 pl = xr.open_zarr(
                     f"{zarr_path}_pl.zarr",
                     storage_options={"token": env.GCP_SVC_ACCT_KEY},
                 )
                 pl_ds.append(pl)
-                logger.debug(f"opening ERA5 SL zarr store at: {zarr_path}")
+                logger.debug(
+                    "opening era5 sl zarr store", extra={"zarr_path": zarr_path}
+                )
                 sl = xr.open_zarr(
                     f"{zarr_path}_sl.zarr",
                     storage_options={
@@ -741,40 +770,45 @@ class CocipTrajectoryHandler:
             self._rad_dataset = rad
         else:
             raise ValueError(
-                "Unrecognized met source specified in trajectory worker job."
+                "unrecognized met source specified in trajectory worker job"
             )
 
     def run(self) -> Flight:
         """
         Run the cocip trajectory model.
         """
-        logger.debug("running cocip model.")
+        logger.debug(
+            "running cocip model", extra={"flight_id": self._job.flight_info.flight_id}
+        )
         if not self._met_dataset or not self._rad_dataset:
             raise ValueError(
-                "met dataset or rad dataset have not been loaded. Run load()."
+                "met dataset or rad dataset have not been loaded - run load"
             )
         if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
-            model = Cocip(
+            self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
                 aircraft_performance=self._perf_model_handler,
                 **self.STATIC_PARAMS,
             )
         else:
-            logger.info(
-                f"using low-mem cocip implementation for flight "
-                f"w/ {len(self._job.records)} waypoints"
+            logger.debug(
+                "using low-mem cocip implementation for flight",
+                extra={
+                    "flight_id": self._job.flight_info.flight_id,
+                    "waypoint_count": len(self._job.records),
+                },
             )
-            model = Cocip(
+            self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
                 aircraft_performance=self._perf_model_handler,
                 **self.STATIC_PARAMS,
                 preprocess_lowmem=True,
             )
-        logger.debug("evaluating cocip model.")
-        result: Flight = model.eval(self._flight)
-        logger.debug("finished evaluating cocip model.")
+        logger.debug("evaluating cocip model")
+        result: Flight = self._model.eval(self._flight)
+        logger.debug("finished evaluating cocip model")
         return result
 
     @property
@@ -784,3 +818,15 @@ class CocipTrajectoryHandler:
         and uniquely identifies the store based on the model_run_at time.
         """
         return self._zarr_src_fn
+
+    @property
+    def model(self) -> Cocip | None:
+        """
+        Get CoCiP model object.
+        """
+        if not self._model:
+            raise Exception("cocip model must be instantiated")
+
+        if not hasattr(self._model, "source"):
+            raise Exception("eval has not been run on the cocip model")
+        return self._model

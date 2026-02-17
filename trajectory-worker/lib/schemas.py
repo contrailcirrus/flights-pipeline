@@ -1,4 +1,4 @@
-""" Data Object Models & Schemas"""
+"""Data Object Models & Schemas"""
 
 import hashlib
 import json
@@ -7,15 +7,22 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import TypedDict
 from uuid import UUID
+
+import pandas as pd
 import pytz
 from timezonefinder import TimezoneFinder
 from astral import LocationInfo
 from astral.sun import sun
+from google.protobuf import json_format
 
 import numpy as np
 import pycontrails.core
+from pycontrails.models.cocip import Cocip
 
-from lib.log import logger
+from lib.log import logger, format_traceback
+from lib import trajectory_pb2 as traj_pb
+
+DATETIME_STR_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 tf = TimezoneFinder()
 
@@ -147,7 +154,7 @@ class SpireWaypointsRecord:
             collection_type=None,
             altitude_baro=wp["altitude_ft"],
             timestamp=datetime.fromtimestamp(wp["timestamp"], UTC).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
+                DATETIME_STR_FMT
             ),
             imputed=False,
         )
@@ -232,8 +239,8 @@ class WaypointCache:
 
     class Waypoint(TypedDict):
         flight_id: bytes  # UUID
-        latitude: float  # WSG ESPG:4326
-        longitude: float  # WSG ESPG:4326
+        latitude: float  # WGS ESPG:4326
+        longitude: float  # WGS ESPG:4326
         altitude_ft: int  # feet MSL
         timestamp: int  # unixtime
 
@@ -278,7 +285,7 @@ class WaypointCache:
                 extracted[ix[prefix]].update({key: v})
             except KeyError:
                 raise KeyError(
-                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"cannot marshal flatmap with key prefix - {prefix} "
                     f"expected one of {list(ix.keys())}"
                 )
 
@@ -352,6 +359,8 @@ class WaypointsRecord:
     records: list[SpireWaypointPositional]
     met_source: MetSource = MetSource.ERA5
     export_cocip_trajectory: bool = False
+    _start_time: datetime | None = None
+    _end_time: datetime | None = None
 
     def as_utf8_json(self) -> bytes:
         """
@@ -371,6 +380,25 @@ class WaypointsRecord:
             met_source=MetSource(json.loads(blob)["met_source"]),
             export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
         )
+
+    def _to_logging_dict(self):
+        return {
+            "flight_id": self.flight_info.flight_id,
+            "airline_iata": self.flight_info.airline_iata,
+            "callsign": self.flight_info.callsign,
+            "flight_number": self.flight_info.flight_number,
+            "arrival_airport_icao": self.flight_info.arrival_airport_icao,
+            "departure_airport_icao": self.flight_info.departure_airport_icao,
+            "start_time": self._start_time.strftime(DATETIME_STR_FMT),
+            "end_time": self._end_time.strftime(DATETIME_STR_FMT),
+        }
+
+    def __str__(self):
+        # custom format to avoid JSON string literal confusion in logging
+        out = ""
+        for k, v in self._to_logging_dict().items():
+            out += f"{k}: {v}, "
+        return out
 
 
 @dataclass
@@ -549,13 +577,13 @@ class CocipTrajectoryChunk:
                 ss_offset_mins = breakpts[1][1]
                 sr_offset_mins = breakpts[2][1] - mins_per_day  # rotate to lhs
             else:
-                logger.warning(
-                    "unhandled case. did not generate daytime/nighttime offsets."
+                raise TypeError(
+                    "unhandled case - did not generate daytime nighttime offsets"
                 )
         except ValueError as e:
             msg = str(e)
             even_offset_min = (24 * 60) / 2
-            if msg == "Sun is always below the horizon on this day, at this location.":
+            if msg == "sun is always below the horizon on this day at this location":
                 # nighttime
                 # ---------
                 # by convention, nighttime means positive offset to sunset
@@ -563,17 +591,13 @@ class CocipTrajectoryChunk:
                 # that meets our sign convention
                 sr_offset_mins = even_offset_min
                 ss_offset_mins = -1 * even_offset_min
-            elif (
-                msg == "Sun is always above the horizon on this day, at this location."
-            ):
+            elif msg == "sun is always above the horizon on this day at this location":
                 # daytime
                 # -------
                 sr_offset_mins = -1 * even_offset_min
                 ss_offset_mins = even_offset_min
             else:
-                logger.warning("failed to generate daytime/nighttime offsets.")
-        except Exception as _:
-            logger.warning("failed to generate daytime/nighttime offsets.")
+                raise e
 
         return sr_offset_mins, ss_offset_mins
 
@@ -698,15 +722,47 @@ class CocipTrajectoryChunk:
             input_chunk.records[0].latitude,
         )
 
-        (
-            time_start_sunrise_offset_mins,
-            time_start_sunset_offset_mins,
-        ) = cls.sunrise_sunset_mins_offset(
-            input_chunk.records[0].timestamp,
-            tz_start_str,
-            input_chunk.records[0].latitude,
-            input_chunk.records[0].longitude,
-        )
+        try:
+            (
+                time_start_sunrise_offset_mins,
+                time_start_sunset_offset_mins,
+            ) = cls.sunrise_sunset_mins_offset(
+                input_chunk.records[0].timestamp,
+                tz_start_str,
+                input_chunk.records[0].latitude,
+                input_chunk.records[0].longitude,
+            )
+        except TypeError as te:
+            logger.debug(
+                "error generating sunrise sunset offsets",
+                extra={
+                    "flight_id": input_chunk.flight_info.flight_id,
+                    "reason": te,
+                    "traceback": format_traceback(),
+                },
+            )
+            time_start_sunrise_offset_mins = None
+            time_start_sunset_offset_mins = None
+        except ValueError as _:
+            logger.debug(
+                "failed to generate daytime nighttime offsets",
+                extra={
+                    "flight_id": input_chunk.flight_info.flight_id,
+                },
+            )
+            time_start_sunrise_offset_mins = None
+            time_start_sunset_offset_mins = None
+        except Exception as e:
+            logger.debug(
+                "unhandled error in generating daytime nighttime offsets",
+                extra={
+                    "flight_id": input_chunk.flight_info.flight_id,
+                    "reason": e,
+                    "traceback": format_traceback(),
+                },
+            )
+            time_start_sunrise_offset_mins = None
+            time_start_sunset_offset_mins = None
 
         def nan_to_null(x):
             if np.isnan(x):
@@ -883,12 +939,47 @@ class CocipTrajectoryChunk:
             time_start_str = ds["time"].isoformat() + "Z"
             lat_start = float(ds["latitude"])
             lon_start = float(ds["longitude"])
-            (
-                time_start_sunrise_offset_mins,
-                time_start_sunset_offset_mins,
-            ) = cls.sunrise_sunset_mins_offset(
-                time_start_str, tz_start_str, lat_start, lon_start
-            )
+            try:
+                (
+                    time_start_sunrise_offset_mins,
+                    time_start_sunset_offset_mins,
+                ) = cls.sunrise_sunset_mins_offset(
+                    time_start_str, tz_start_str, lat_start, lon_start
+                )
+            except TypeError as te:
+                logger.debug(
+                    "error generating sunrise sunset offsets",
+                    extra={
+                        "flight_id": input_chunk.flight_info.flight_id,
+                        "segment_index": seg_ix,
+                        "reason": str(te),
+                        "traceback": format_traceback(),
+                    },
+                )
+                time_start_sunrise_offset_mins = None
+                time_start_sunset_offset_mins = None
+            except ValueError as _:
+                logger.debug(
+                    "failed to generate daytime nighttime offsets",
+                    extra={
+                        "flight_id": input_chunk.flight_info.flight_id,
+                        "segment_index": seg_ix,
+                    },
+                )
+                time_start_sunrise_offset_mins = None
+                time_start_sunset_offset_mins = None
+            except Exception as e:
+                logger.debug(
+                    "unhandled error in generating daytime nighttime offsets",
+                    extra={
+                        "flight_id": input_chunk.flight_info.flight_id,
+                        "segment_index": seg_ix,
+                        "reason": e,
+                        "traceback": format_traceback(),
+                    },
+                )
+                time_start_sunrise_offset_mins = None
+                time_start_sunset_offset_mins = None
 
             seg = CocipTrajectoryChunk(
                 seg_cnt=1,
@@ -1064,6 +1155,306 @@ class CocipTrajectoryChunk:
         try:
             json_out = json.dumps(blob).encode("utf-8")
         except Exception as e:
-            logger.warning(f"could not JSON serialize output: {blob}")
+            logger.warning(
+                "could not json serialize output",
+                extra={
+                    "reason": e,
+                    "traceback": format_traceback(),
+                    "blob": blob,
+                },
+            )
             raise Exception from e
         return json_out
+
+
+@dataclass
+class CocipTrajectoryProto:
+    """
+    Object that encapsulates data transfer methods for a cocip trajectory protobuf object.
+
+    The trajectory proto object includes both per-segment summary values and per-segment
+    contrail evolution values.
+
+    Cocip model outputs are downsampled (as documented below), and compressed (as documented below).
+    """
+
+    trajectory: traj_pb.Trajectory
+
+    @classmethod
+    def _get_traj_contrail_freq_ix(
+        cls,
+        df: pd.DataFrame,
+        freq: str = "10min",
+    ) -> pd.core.indexes.base.Index:
+        """
+        Get indexes for a freq resample of df.
+        Given a dataframe with the per-segment cocip outputs,
+        get the indexes at the fixed frequency resample.
+
+        Parameters
+        ----------
+        df
+            dataframe from result.dataframe where result is an output of a cocip model() run
+        freq
+            frequency indicator for resampling; must be a string value recognized by pandas resample
+
+        Returns
+        -------
+        pd.core.indexes.base.Index
+            list of indexes of df that fall on a frequency interval
+        """
+        df_tmp = df[["waypoint", "time"]]
+        df_tmp.set_index("time", inplace=True)
+        df_tmp_resample = df_tmp.resample(freq).first()
+        df_tmp_resample = df_tmp_resample.set_index("waypoint")
+        df_tmp_resample.index.name = None
+        resample_index = df_tmp_resample.index
+        # add in rhs index to close upper bound
+        max_ix = df.index.max()
+        resample_index = resample_index.union(pd.Index([max_ix]))
+        return resample_index
+
+    @classmethod
+    def _get_traj_contrail_boundary_ix(
+        cls, df: pd.DataFrame
+    ) -> pd.core.indexes.base.Index:
+        """
+        Find indexes in df where contrails are formed.
+        Given a dataframe with the per-segment cocip model output,
+        find the boundaries where the `cocip` value is non-zero.
+
+        Parameters
+        ----------
+        df
+            dataframe from result.dataframe where result is an output of a cocip model() run
+
+        Returns
+        -------
+        pandas.core.indexes.base.Index
+            The list of pandas indexes matching start and ends of contrail segments.
+            Each row of df represents values for a forward-looking segment from geo-position ix -> ix+1.
+            The indexes returned here represent the first occurrence index
+            and last occurrence _slice_ index of a non-zero cocip value in
+            each continuous sequence of contrail segments.
+        """
+
+        contrail = df["cocip"] != 0
+        starts = (contrail == True) & (contrail.shift(1) == False)  # noqa:E712
+        ends = (contrail == True) & (contrail.shift(-1) == False)  # noqa:E712
+        starts_ix = (starts[starts == True]).index  # noqa:E712
+        ends_ix = (ends[ends == True]).index  # noqa:E712
+        ends_ix += (
+            1  # set index to slice (non-inclusive) index for right hand side of range
+        )
+        boundaries_ix = starts_ix.union(ends_ix)
+        boundaries_ix = boundaries_ix.drop_duplicates()
+        return boundaries_ix
+
+    @classmethod
+    def _resample_cocip_result(cls, result: pycontrails.core.Flight) -> pd.DataFrame:
+        """
+        Resample the per-segment cocip result.
+
+        Resamples to 10min fixed frequency, but preserves contrail start and stop boundaries.
+
+        Parameters
+        ----------
+        result
+            a pandas dataframe as returned from a pycontrails model.eval()
+
+        Returns
+        -------
+        pd.DataFrame
+            a pandas dataframe with resampled data.
+            fields included in the return dataframe encompass those itemized in the
+            `sum_fields` and `first_fields` lists below
+        """
+        df = result.dataframe
+        contrail_boundaries_ix = cls._get_traj_contrail_boundary_ix(df)
+        freq_boundaries_ix = cls._get_traj_contrail_freq_ix(df)
+        all_resample_boundaries = freq_boundaries_ix.union(contrail_boundaries_ix)
+
+        bin_ranges = pd.cut(
+            df.index, all_resample_boundaries, include_lowest=True, right=False
+        )
+        # fields of dataframe to resample with sum() method
+        sum_fields = ["ef"]
+
+        # fields of dataframe to resample with first() method
+        first_fields = [
+            "time",
+            "altitude_ft",
+            "longitude",
+            "latitude",
+            "waypoint",
+        ]
+
+        df_first = df[first_fields]
+        df_first = df_first.groupby(bin_ranges, observed=False).first()
+        df_sum = df[sum_fields]
+        df_sum = df_sum.groupby(bin_ranges, observed=False).sum()
+        df_all = pd.merge(df_sum, df_first, left_index=True, right_index=True)
+
+        # convert ef -> sum_ef_mj
+        df_all["sum_ef_mj"] = df_all["ef"] / 10**6
+        df_all = df_all.drop(columns=["ef"])
+
+        # append positional information for second to last waypoint
+        # (that included in the open-bounded range of the last resampling interval)
+        # so we can create segments for each row
+        last_waypoint = pd.DataFrame(
+            [[np.nan] * len(df_all.columns)], columns=df_all.columns
+        )
+        last_waypoint["time"] = df.iloc[-2]["time"]
+        last_waypoint["latitude"] = df.iloc[-2]["latitude"]
+        last_waypoint["longitude"] = df.iloc[-2]["longitude"]
+        last_waypoint["altitude_ft"] = df.iloc[-2]["altitude_ft"]
+        df_all = pd.concat([df_all, last_waypoint], ignore_index=True)
+        return df_all
+
+    @classmethod
+    def _group_contrails(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Group continuous ranges of waypoints into contrail instances.
+
+        Given a pandas dataframe representing a group of waypoints
+        for a contrail evolution at a given time,
+        append a column (waypoint_bin) where each bin represents a continuous linestring
+        for a given contrail.
+
+        Parameters
+        ----------
+        df
+            a dataframe from a pycontrails CoCiP result (model.contrail) grouped by `time`
+
+        Return
+        ------
+        pd.DataFrame
+            mirror of input dataframe, with a `waypoint_bin`
+        """
+        df = df.copy()
+        # extract each continuous multiline from evolution step
+        df.sort_values(
+            "waypoint", ascending=True, inplace=True
+        )  # guarantee waypoints are ordered
+        # find breaks in continuous contrail segments
+        df["waypoint_bin"] = (df["waypoint"].diff() > 1).cumsum()
+        return df
+
+    @classmethod
+    def from_cocip_result(
+        cls, input_chunk: WaypointsRecord, result: pycontrails.core.Flight, model: Cocip
+    ):
+        """
+        Build a trajectory protobuf object from a cocip result.
+
+        Parameters
+        ----------
+        input_chunk
+            the flight trajectory and flight metadata
+        result
+            the pycontrails Flight model output from running CoCiP
+        model
+            instance of a CoCiP model from which result is generated
+
+        Returns
+        -------
+        CocipTrajectoryProto
+            an instance of this dataclass, with a protobuf trajectory built from the inputs
+        """
+        df = cls._resample_cocip_result(result)
+
+        traj = traj_pb.Trajectory()
+        traj.flight_id = input_chunk.flight_info.flight_id
+
+        # ----------
+        # package PER SEGMENT CoCiP outputs
+        # ----------
+        for seg_ix in range(0, len(df) - 1):
+            # segments are forward looking in the dataframe
+            # the table has N_waypoints
+            # thus N_segs = N_waypoints - 1 and the last seg spans [-2:]
+            ds = df.iloc[seg_ix, :]
+            ds_next = df.iloc[seg_ix + 1, :]
+
+            seg = traj.path.add()
+            seg.time_start = ds["time"]
+            seg.duration_start_to_end = ds_next["time"] - ds["time"]
+            seg.geometry.coord_start.lon = int(ds["longitude"] * 20)
+            seg.geometry.coord_start.lat = int(ds["latitude"] * 20)
+            alt_ft_start = ds["altitude_ft"]
+            if alt_ft_start < 0:
+                alt_ft_start = 0
+            seg.geometry.coord_start.alt_ft = int(alt_ft_start / 16)
+            seg.geometry.coord_end.lon = int(ds_next["longitude"] * 20)
+            seg.geometry.coord_end.lat = int(ds_next["latitude"] * 20)
+            alt_ft_end = ds_next["altitude_ft"]
+            if alt_ft_end < 0:
+                alt_ft_end = 0
+            seg.geometry.coord_end.alt_ft = int(alt_ft_end / 16)
+            seg.sum_ef_mj = int(ds["sum_ef_mj"] / 100)
+
+        # ----------
+        # package CONTRAIL EVOLUTION CoCiP outputs
+        # ----------
+        contrail_evol = model.contrail
+        if contrail_evol is None:
+            # if model.contrail is set but None, then no contrail was formed on model.eval()
+            return CocipTrajectoryProto(trajectory=traj)
+
+        contrail_evol_tm_grps = contrail_evol.groupby("time")
+        evolution_timestep = pd.Timedelta(model.params["dt_integration"])
+
+        # handle each evolution timestep independently
+        for ts, grp in contrail_evol_tm_grps:
+            # identify continuous contrail line-strings within timestep of evolution
+            grp = cls._group_contrails(grp)
+            contrails_in_grp = grp.groupby("waypoint_bin", observed=True)
+            for wp_bin, contrail_df in contrails_in_grp:
+                if len(contrail_df) == 1:
+                    # this is always the case for the single waypoint
+                    # which coincides with the t_0 of contrail evolution for a given timestamp
+                    # and that waypoint will always have the column `continuous` w/ value False
+                    continue
+                # -------
+                # construct multi-line object from sequence of waypoints
+                # --
+                # by convention, the values in a given row are left-handed
+                # i.e. the line formed by coords defined in row[i] -> row[i+1]
+                # take the values defined in row[i].
+                # by extension, the last row is expected to provide the right-hand
+                # coords for the last line object, and that row's values are expected to be null
+                # (these "points of discontinuity" are also identifiable by having the col `continuous`== False)
+                contrail = traj.contrails.add()
+                contrail.avg_age = contrail_df.age.mean().round("s")
+                # by convention, the timestamp is that following the evolution timestep
+                contrail.time_start = contrail_df.iloc[0]["time"] - evolution_timestep
+                contrail.duration_start_to_end = evolution_timestep
+                # sum of ef across all segments of multi-line contrails FOR THE EVOLUTION TIMESTEP
+                sum_ef_mj = contrail_df.ef.sum() / 10**6
+                contrail.sum_ef_mj = int(sum_ef_mj / 100)
+                # build multi-line geometry
+                for _, row in contrail_df.iterrows():
+                    coord = contrail.geometry.coords.add()
+                    coord.lon = int(row["longitude"] * 20)
+                    coord.lat = int(row["latitude"] * 20)
+                    alt_ft = row["altitude"] * 3.28
+                    if alt_ft < 0:
+                        alt_ft = 0
+                    coord.alt_ft = int(alt_ft / 16)
+        return CocipTrajectoryProto(trajectory=traj)
+
+    def to_bytes(self) -> bytes:
+        """Serialize the protobuf trajectory belonging to an instance of this class."""
+        return self.trajectory.SerializeToString()
+
+    @classmethod
+    def from_bytes(cls, traj_bytes: bytes):
+        """Decode a protobuf trajectory into an object of this class."""
+        trajectory = traj_pb.Trajectory()
+        trajectory.ParseFromString(traj_bytes)
+        return CocipTrajectoryProto(trajectory=trajectory)
+
+    def as_dict(self) -> dict:
+        """Convert the protobuf trajectory in an instance of this class to a python dict."""
+        return json_format.MessageToDict(self.trajectory)
