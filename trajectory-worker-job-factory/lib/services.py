@@ -347,7 +347,7 @@ class TrajectoryBuilderSvc:
             # this does not guarantee that we won't have false null airline-iata cases
             # pass thru, but will help prune otherwise spurious flight instances
             if (
-                len(candidate.airline_iata == 1)
+                len(candidate.airline_iata) == 1
                 and candidate.airline_iata[0] is None
                 and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
             ):
