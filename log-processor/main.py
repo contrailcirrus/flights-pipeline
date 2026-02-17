@@ -102,6 +102,48 @@ class LogParser:
 
         return blob_paths
 
+    @staticmethod
+    def read_json_log_file(uri: str) -> list[dict[str: str]]:
+        """ Read json log file streaming line by line.
+        
+        Assumes logs are newline delimited JSON formatted. Uses smart_open to 
+        stream file line by line.
+        
+        Parameters
+        ----------
+        uri: str
+            Valid uri to blob in bucket, or local file path.
+        
+        Returns:
+            List of key-value pairs of elements parsed from the JSON logs.        
+        """
+
+        processed_rows = []
+        for line in open(uri):
+            # Process the data (line is a bytes object for binary mode)
+            if not line.strip():
+                continue
+            try:
+                record = orjson.loads(line)
+                flat_record = record.get("jsonPayload", {})
+                
+                # If jsonPayload is null or not a dict, handle gracefully
+                if flat_record is None:
+                    flat_record = {}
+                elif not isinstance(flat_record, dict):
+                    # Handle case where payload might be a simple string
+                    flat_record = {"message": str(flat_record)}
+                if "severity" in record:
+                    flat_record["severity"] = record["severity"]
+                
+                processed_rows.append(flat_record)
+
+            except orjson.JSONDecodeError:
+                print(f"Skipping malformed JSON line")
+                continue
+        return processed_rows
+    
+
     def parse(self, start_time: Optional[str] = None, end_time: Optional[str] = None) -> pd.DataFrame:
         """
         Reads JSON files from GCS based on time range, parses jsonPayload and severity,
@@ -131,35 +173,9 @@ class LogParser:
 
         for blob in blobs:
             uri = f"gs://{self.bucket_name}/{blob}"
-            processed_rows = []
             try:
-                print(f"Streaming file: {uri}")
-                # Split by newline for NDJSON format
-                # Stream files with smart_open.
-                for line in open(uri):
-
-
-                    # Process the data (line is a bytes object for binary mode)
-                    if not line.strip():
-                        continue
-                    try:
-                        record = orjson.loads(line)
-                        flat_record = record.get("jsonPayload", {})
-                        
-                        # If jsonPayload is null or not a dict, handle gracefully
-                        if flat_record is None:
-                            flat_record = {}
-                        elif not isinstance(flat_record, dict):
-                            # Handle case where payload might be a simple string
-                            flat_record = {"message": str(flat_record)}
-                        if "severity" in record:
-                            flat_record["severity"] = record["severity"]
-                        
-                        processed_rows.append(flat_record)
-
-                    except orjson.JSONDecodeError:
-                        print(f"Skipping malformed JSON line")
-                        continue
+                print(f"Opening file: {uri}")
+                processed_rows = LogParser.read_json_log_file(uri)
 
                 df = pd.DataFrame(processed_rows)
 
