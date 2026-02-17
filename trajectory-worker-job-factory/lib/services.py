@@ -352,8 +352,8 @@ class TrajectoryBuilderSvc:
                 and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
             ):
                 logger.debug(
-                    f"presumed spurious null airline iata "
-                    f"waypoints for flight {candidate.flight_id} - skipping"
+                    "presumed spurious null airline iata - skipping",
+                    extra=candidate.to_dict(),
                 )
                 continue
 
