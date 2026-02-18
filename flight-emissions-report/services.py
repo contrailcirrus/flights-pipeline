@@ -117,7 +117,7 @@ class JobWorkerSubmitSvc(BaseSvc):
 
         # submit twjds for dates in date range
         for dt_str in dt_rg_strs:
-            logger.info(f"🛠️TWJD created for 🗓️day: {dt_str}")
+            # logger.info(f"🛠️TWJD created for 🗓️day: {dt_str}")
             twjd = TrajectoryWorkerJobDescriptor(
                 day=dt_str,
                 met_source=MetSource(self._met_data_src),
