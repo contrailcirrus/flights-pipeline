@@ -24,6 +24,7 @@ from lib.handlers import (
 from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
+    SpireCacheTooSmallException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
 from pycontrails.datalib.spire.exceptions import ROCDError
@@ -44,6 +45,9 @@ class TrajectoryBuilderSvc:
     DAILY_FLIGHTS_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_airline.sql"
     FLIGHT_ID_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_flight_id.sql"
     FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT = 500
+    # minimum number of waypoints in a flight instance with null airline iata
+    # presumed a true null airline iata if above this threshold
+    MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
 
     def __init__(
         self,
@@ -95,7 +99,7 @@ class TrajectoryBuilderSvc:
 
         match telemetry_src:
             case TelemetrySource.BIG_QUERY:
-                logger.debug("Fetching ADS-B from BigQuery.")
+                logger.debug("fetching adsb from bigquery")
                 query = self._bq_handler.import_query(self.DAILY_FLIGHTS_QUERY_FILENAME)
                 cfg = bigquery.QueryJobConfig(
                     query_parameters=[
@@ -118,7 +122,7 @@ class TrajectoryBuilderSvc:
                 df = df[~df["flight_id"].isnull()]
 
             case TelemetrySource.GOOGLE_CLOUD_STORAGE:
-                logger.debug("Fetching ADS-B from Google Cloud Storage.")
+                logger.debug("fetching adsb from gcs")
                 df_all = self._gcs_handler.fetch_airline_days(
                     [previous_day, day, next_day], airline_iata, prune=True
                 )
@@ -162,7 +166,7 @@ class TrajectoryBuilderSvc:
 
             case _:
                 raise NotImplementedError(
-                    f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for airline_iata based TWJDs."
+                    f"specified telemetry source ({telemetry_src.value}) is not yet implemented for airline_iata based twjd"
                 )
         return df, df_satellite
 
@@ -198,7 +202,7 @@ class TrajectoryBuilderSvc:
 
         if telemetry_src != TelemetrySource.BIG_QUERY:
             raise NotImplementedError(
-                f"Specified telemetry source ({telemetry_src.value}) is not yet implemented for flight_id based TWJDs."
+                f"specified telemetry source ({telemetry_src.value}) is not yet implemented for flight_id based twjd"
             )
 
         next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
@@ -250,14 +254,18 @@ class TrajectoryBuilderSvc:
                     telemetry_src=twjd.telemetry_source,
                 )
             else:
-                raise NotImplementedError(f"TWJD could not be processed {twjd}")
+                raise NotImplementedError(f"twjd could not be processed {twjd}")
         except InvalidQueryException as e:
             raise PermanentFailureException(
-                f"ads-b request to bq not valid for TWJD: {twjd}"
+                f"adsb request to bq not valid for twjd - {twjd}"
+            ) from e
+        except SpireCacheTooSmallException as e:
+            raise PermanentFailureException(
+                f"missing spire cache for twjd - {twjd}"
             ) from e
         except Exception as e:
             raise Exception(
-                f"failed to fetch ads-b data from data source for TWJD: {twjd}"
+                f"failed to fetch ads-b data from data source for twjd - {twjd}"
             ) from e
 
         # -----------
@@ -299,7 +307,7 @@ class TrajectoryBuilderSvc:
 
             if (counter % self.FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT) == 0:
                 logger.info(
-                    f"progress: processing {counter}/{number_of_flight_candidates}"
+                    f"progress - processing {counter} of {number_of_flight_candidates}"
                 )
             # --------------
             # merge sat data into terrestrial data
@@ -328,6 +336,43 @@ class TrajectoryBuilderSvc:
                 df=waypoints,
             )
 
+            # -------------
+            # when processing airline_iata is null case
+            # for TWJDs built on airline_iata<>day
+            # -------------
+            # prune cases where the number of waypoints in the flight_id group is very small
+            # these are likely spurious waypoints belonging to a flight_id
+            # that has another true non-null airline_iata
+            # --
+            # this does not guarantee that we won't have false null airline-iata cases
+            # pass thru, but will help prune otherwise spurious flight instances
+            if (
+                len(candidate.airline_iata) == 1
+                and candidate.airline_iata[0] is None
+                and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
+            ):
+                logger.debug(
+                    "presumed spurious null airline iata - skipping",
+                    extra=candidate.to_dict(),
+                )
+                continue
+
+            # short circuit if no waypoints in the flight_id group
+            # are above 20,000 ft
+            # -
+            # motivation is to prune out general aviation flights when running
+            # the job factory for airline_iata=null
+            if (
+                len(candidate.airline_iata) == 1
+                and candidate.airline_iata[0] is None
+                and waypoints["altitude_baro"].max() < 20_000
+            ):
+                logger.debug(
+                    "presumed general aviation flight - no wps above 20k ft - skipping",
+                    extra=candidate.to_dict(),
+                )
+                continue
+
             logger.info("start work", extra=candidate.to_dict())
 
             # -------------
@@ -346,9 +391,13 @@ class TrajectoryBuilderSvc:
 
                 if len(waypoints) == 0:
                     # possible case if healing handler left no endpoint
-                    extras = candidate.to_dict()
-                    extras["detail"] = "empty flight"
-                    logger.info("skipping", extra=extras)
+                    logger.info(
+                        "skipping",
+                        extra={
+                            "flight_id": candidate.flight_id,
+                            "detail": "empty flight",
+                        },
+                    )
                     continue
 
                 # log state of flight post heal
@@ -454,7 +503,10 @@ class TrajectoryBuilderSvc:
                 # save waypoints to disk
                 # CLI (local) use only
                 logger.info("writing waypoints to file", extra=candidate.to_dict())
-                base_path = f"out/{candidate.airline_iata[0]}"
+                airline_iata_path = candidate.airline_iata[0]
+                if airline_iata_path is None:
+                    airline_iata_path = "null"
+                base_path = f"out/{airline_iata_path}"
                 os.makedirs(base_path, exist_ok=True)
                 waypoints_pycontrail.to_csv(
                     f"{base_path}/{candidate.flight_id}.csv",
@@ -499,7 +551,7 @@ class TrajectoryBuilderSvc:
                     continue
 
                 if accepted_violations and len(accepted_violations) > 0:
-                    logger.info(
+                    logger.debug(
                         "keeping",
                         extra={
                             "flight_id": candidate.flight_id,

@@ -82,26 +82,23 @@ class SpireAPIClient:
         while retry_count <= max_retry_count:
             logger.info(f"Calling Spire API: {start_at_fmt} to {end_at_fmt}")
             try:
-                # Use a persistent client with HTTP/2 and increased limits
-                limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
-                with httpx.Client(http2=True, limits=limits) as client:
-                    with client.stream(
-                        "GET",
+                with httpx.Client() as client:
+                    response = client.get(
                         self._airsafe_url,
                         params=params,
                         headers=headers,
-                        timeout=httpx.Timeout(180.0, read=300.0),
-                    ) as response:
-                        response.raise_for_status()
+                        timeout=180,
+                    )
+                response.raise_for_status()
 
-                        target_records = []
-                        for line in response.iter_lines():
-                            record = json.loads(line)
-                            target_record = record.get("target")
-                            if target_record is not None:
-                                target_records.append(target_record)
+                target_records = []
+                for line in response.iter_lines():
+                    record = json.loads(line)
+                    target_record = record.get("target")
+                    if target_record is not None:
+                        target_records.append(target_record)
 
-                        return target_records
+                return target_records
 
             except (httpx.HTTPError, httpx.RemoteProtocolError) as e:
                 error_type = type(e).__name__

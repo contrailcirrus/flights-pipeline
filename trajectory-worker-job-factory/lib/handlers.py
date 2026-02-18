@@ -32,6 +32,7 @@ from typing import Any, Callable
 import lib.environment as env
 from lib.exceptions import (
     BadTrajectoryException,
+    SpireCacheTooSmallException,
 )
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
@@ -119,12 +120,12 @@ class PubSubSubscriptionHandler:
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.info("zero messages received.")
+                logger.info("zero messages received")
                 continue
 
             pubsub_msg = resp.received_messages[0]
             logger.debug(
-                f"received 1 message from {self.subscription}.",
+                f"received 1 message from {self.subscription}",
                 extra={
                     "published_time": pubsub_msg.message.publish_time,
                     "message_id": pubsub_msg.message.message_id,
@@ -163,8 +164,8 @@ class PubSubSubscriptionHandler:
                 # Guard against user failing to call ack() or nack()
                 if message in self._outstanding_messages:
                     logger.warning(
-                        "message was never ack'ed or nack'ed",
-                        extra={"message": message},
+                        "message was never acked or nacked",
+                        extra={"pubsub_msg": message},
                     )
                     self._outstanding_messages.discard(message)
         except GeneratorExit:
@@ -184,7 +185,7 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message ack'ed or nack'ed multiple times", extra={"message": message}
+                "message acked or nacked multiple times", extra={"pubsub_msg": message}
             )
 
         self._client.acknowledge(
@@ -202,7 +203,7 @@ class PubSubSubscriptionHandler:
                 ),
             ),
         )
-        logger.debug("successfully ack'ed message.")
+        logger.debug("successfully acked message")
 
     def nack(self, message: Message):
         """Not-acknowledge the message to stop extending ack deadline.
@@ -215,14 +216,14 @@ class PubSubSubscriptionHandler:
             self._outstanding_messages.remove(message)
         except KeyError:
             logger.warning(
-                "message ack'ed or nack'ed multiple times", extra={"message": message}
+                "message acked or nacked multiple times", extra={"pubsub_msg": message}
             )
 
     def _ack_management_worker(self, exit_when_set: threading.Event):
         """
         Extends the ack deadline for the currently outstanding message.
         """
-        logger.debug("starting ack lease management worker...")
+        logger.debug("starting ack lease management worker")
         while True:
             should_exit = exit_when_set.wait(self.ack_extension_sec / 2)
             if should_exit:
@@ -243,8 +244,8 @@ class PubSubSubscriptionHandler:
                     )
                 except Exception:
                     logger.warning(
-                        "failed to extend ack deadline for message. "
-                        f"traceback: {format_traceback()}"
+                        "failed to extend ack deadline for message",
+                        extra={"traceback": format_traceback()},
                     )
 
         logger.debug("terminated ack lease management worker")
@@ -357,7 +358,10 @@ class PubSubPublishHandler:
         #
         # Errors in child threads trigger a separate exit using a future done_callback.
         if not_done:
-            logger.error("Futures did not complete before timeout: %s", not_done)
+            logger.error(
+                "futures did not complete before timeout",
+                extra={"not_done": not_done},
+            )
             os._exit(1)
 
         # All futures completed without error, reset pending futures state.
@@ -385,10 +389,10 @@ class PubSubPublishHandler:
             """
             try:
                 future.result(timeout=0)
-            except Exception:
+            except Exception as e:
                 logger.error(
-                    f"Publish future failed: {msg}. Unhandled exception:"
-                    + format_traceback()
+                    "publish future failed",
+                    extra={"reason": e, "traceback": format_traceback()},
                 )
                 os._exit(1)
 
@@ -464,7 +468,7 @@ class SpireApiHandler:
 
         if len(days) < 2 and prune:
             raise NotImplementedError(
-                "cannot prune when number of days provided is fewer than 3."
+                "cannot prune when number of days provided is fewer than 3"
             )
 
         datetime_hourly_strs: list[str] = []
@@ -565,6 +569,12 @@ class CloudStorageHandler:
 
     GCS_BUCKET_SPIRE_CACHE = "contrails-301217-spire-cache-prod"
 
+    # an hour of spire pq files with bytes lower than this is expected to be a corrupt/empty cache
+    SPIRE_CACHE_EMPTY_THRESHOLD = 25_000
+    # an hour of spire pq files with bytes lower than this is expected to be a partial cache
+    # (likely indicative of an issue with missing ads-b data in BigQuery)
+    SPIRE_CACHE_PARTIAL_THRESHOLD = 100_000
+
     def __init__(self):
         self._client = storage.Client()
         self._bucket = self._client.bucket(self.GCS_BUCKET_SPIRE_CACHE)
@@ -593,7 +603,7 @@ class CloudStorageHandler:
 
         if len(days) < 2 and prune:
             raise NotImplementedError(
-                "cannot prune when number of days provided is fewer than 3."
+                "cannot prune when number of days provided is fewer than 3"
             )
 
         datetime_hourly_strs: list[str] = []
@@ -618,10 +628,21 @@ class CloudStorageHandler:
         # confirm that all target data is available
         for k, blob_lst in bq_blob_map.items():
             if not blob_lst:
-                raise FileNotFoundError(f"No ADS-B files found in GCS with prefix: {k}")
+                raise FileNotFoundError(f"no adsb files found in gcs with prefix - {k}")
+            # confirm that files in prefix path are large enough
+            # to guarantee that cache isn't a partial export
+            blobs_size_bytes = sum([b.size for b in blob_lst])
+            if blobs_size_bytes < self.SPIRE_CACHE_EMPTY_THRESHOLD:
+                raise SpireCacheTooSmallException(
+                    f"spire cache present but empty - found {blobs_size_bytes} bytes at {k}"
+                )
+            if blobs_size_bytes < self.SPIRE_CACHE_PARTIAL_THRESHOLD:
+                logger.warning(
+                    f"spire cache appears partial - found {blobs_size_bytes} bytes at {k}"
+                )
 
         # fetch all ads-b data from target blobs, and subset to only the target airline_iata
-        df_parts: list[pd.DataFrame] = []
+        df_agg = pd.DataFrame()
         # iterate serially here (since we subset on airline iata to keep mem footprint low
         # on each iteration)
         for (
@@ -629,12 +650,14 @@ class CloudStorageHandler:
             _,
         ) in bq_blob_map.items():  # load all pq shards in subdir at once into a df
             uri = f"gs://{self._bucket.name}/{k}"
-            logger.info("fetching " + uri)
+            logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
-            df = df[df["airline_iata"] == airline_iata]
-            df_parts.append(df)
-        df = pd.concat(df_parts)
-        return df
+            if airline_iata == "null":
+                df = df[df["airline_iata"].isnull()]
+            else:
+                df = df[df["airline_iata"] == airline_iata]
+            df_agg = pd.concat([df_agg, df], ignore_index=True)
+        return df_agg
 
 
 class HealTrajectoryHandler:
@@ -683,11 +706,10 @@ class HealTrajectoryHandler:
             Required for logging purposes.
         """
         if len(trajectory) == 0:
-            raise BadTrajectoryException("flight trajectory is empty.")
+            raise BadTrajectoryException("flight trajectory is empty")
         if len(trajectory["flight_id"].unique()) > 1:
             raise Exception(
-                "dataset passed to handler must be for a single flight instance ("
-                "flight_id)."
+                "dataset passed to handler must be for a single flight instance"
             )
         self._df = trajectory.copy(deep=True)
         self._candidate_info = candidate_info
@@ -1014,7 +1036,7 @@ class HealTrajectoryHandler:
             self._df = self._dataframe_convert_types(self._df)
         except KeyError as e:
             raise KeyError(
-                "flight trajectory dataframe is missing an expected column."
+                "flight trajectory dataframe is missing an expected column"
             ) from e
 
         # --------------
@@ -1080,7 +1102,7 @@ class HealTrajectoryHandler:
 
         if len(self._df) != initial_length:
             logger.info(
-                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}.",
+                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
                 extra={"flight_id": self._candidate_info.flight_id},
             )
         # --------------

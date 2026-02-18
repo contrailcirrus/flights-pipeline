@@ -285,7 +285,7 @@ class WaypointCache:
                 extracted[ix[prefix]].update({key: v})
             except KeyError:
                 raise KeyError(
-                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"cannot marshal flatmap with key prefix - {prefix} "
                     f"expected one of {list(ix.keys())}"
                 )
 
@@ -578,12 +578,12 @@ class CocipTrajectoryChunk:
                 sr_offset_mins = breakpts[2][1] - mins_per_day  # rotate to lhs
             else:
                 raise TypeError(
-                    "unhandled case. did not generate daytime/nighttime offsets."
+                    "unhandled case - did not generate daytime nighttime offsets"
                 )
         except ValueError as e:
             msg = str(e)
             even_offset_min = (24 * 60) / 2
-            if msg == "Sun is always below the horizon on this day, at this location.":
+            if msg == "sun is always below the horizon on this day at this location":
                 # nighttime
                 # ---------
                 # by convention, nighttime means positive offset to sunset
@@ -591,9 +591,7 @@ class CocipTrajectoryChunk:
                 # that meets our sign convention
                 sr_offset_mins = even_offset_min
                 ss_offset_mins = -1 * even_offset_min
-            elif (
-                msg == "Sun is always above the horizon on this day, at this location."
-            ):
+            elif msg == "sun is always above the horizon on this day at this location":
                 # daytime
                 # -------
                 sr_offset_mins = -1 * even_offset_min
@@ -736,18 +734,18 @@ class CocipTrajectoryChunk:
             )
         except TypeError as te:
             logger.debug(
-                "Error generating sunrise/sunset offsets",
+                "error generating sunrise sunset offsets",
                 extra={
                     "flight_id": input_chunk.flight_info.flight_id,
-                    "error": str(te),
-                    "traceback": format_traceback(te),
+                    "reason": te,
+                    "traceback": format_traceback(),
                 },
             )
             time_start_sunrise_offset_mins = None
             time_start_sunset_offset_mins = None
         except ValueError as _:
             logger.debug(
-                "failed to generate daytime/nighttime offsets",
+                "failed to generate daytime nighttime offsets",
                 extra={
                     "flight_id": input_chunk.flight_info.flight_id,
                 },
@@ -756,11 +754,11 @@ class CocipTrajectoryChunk:
             time_start_sunset_offset_mins = None
         except Exception as e:
             logger.debug(
-                "unhandled error in generating daytime/nighttime offsets",
+                "unhandled error in generating daytime nighttime offsets",
                 extra={
                     "flight_id": input_chunk.flight_info.flight_id,
-                    "error": str(e),
-                    "traceback": format_traceback(e),
+                    "reason": e,
+                    "traceback": format_traceback(),
                 },
             )
             time_start_sunrise_offset_mins = None
@@ -950,19 +948,19 @@ class CocipTrajectoryChunk:
                 )
             except TypeError as te:
                 logger.debug(
-                    "Error generating sunrise/sunset offsets",
+                    "error generating sunrise sunset offsets",
                     extra={
                         "flight_id": input_chunk.flight_info.flight_id,
                         "segment_index": seg_ix,
-                        "error": str(te),
-                        "traceback": format_traceback(te),
+                        "reason": str(te),
+                        "traceback": format_traceback(),
                     },
                 )
                 time_start_sunrise_offset_mins = None
                 time_start_sunset_offset_mins = None
             except ValueError as _:
                 logger.debug(
-                    "failed to generate daytime/nighttime offsets",
+                    "failed to generate daytime nighttime offsets",
                     extra={
                         "flight_id": input_chunk.flight_info.flight_id,
                         "segment_index": seg_ix,
@@ -972,12 +970,12 @@ class CocipTrajectoryChunk:
                 time_start_sunset_offset_mins = None
             except Exception as e:
                 logger.debug(
-                    "unhandled error in generating daytime/nighttime offsets",
+                    "unhandled error in generating daytime nighttime offsets",
                     extra={
                         "flight_id": input_chunk.flight_info.flight_id,
                         "segment_index": seg_ix,
-                        "error": str(e),
-                        "traceback": format_traceback(e),
+                        "reason": e,
+                        "traceback": format_traceback(),
                     },
                 )
                 time_start_sunrise_offset_mins = None
@@ -1158,10 +1156,10 @@ class CocipTrajectoryChunk:
             json_out = json.dumps(blob).encode("utf-8")
         except Exception as e:
             logger.warning(
-                "could not JSON serialize output",
+                "could not json serialize output",
                 extra={
-                    "error": str(e),
-                    "traceback": format_traceback(e),
+                    "reason": e,
+                    "traceback": format_traceback(),
                     "blob": blob,
                 },
             )

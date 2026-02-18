@@ -303,7 +303,7 @@ class WaypointCache:
                 extracted[ix[prefix]].update({key: v})
             except KeyError:
                 raise KeyError(
-                    f"cannot marshal flatmap with key prefix: {prefix}. "
+                    f"cannot marshal flatmap with key prefix - {prefix} "
                     f"expected one of {list(ix.keys())}"
                 )
 
@@ -397,7 +397,7 @@ class FlightInfoWide(SpireFlightInfo):
         for k, v in attrs.items():
             if v is not None and len(v) > 1:
                 raise Exception(
-                    f"cannot build FlightInfoWide. found multiple values for invariant field {k}"
+                    f"cannot build flight info wide class obj - found multiple values for invariant field {k}"
                 )
 
         # extract unique value from np.ndarray
@@ -643,7 +643,7 @@ class CocipTrajectoryChunk:
                 sr_offset_mins = breakpts[2][1] - mins_per_day  # rotate to lhs
             else:
                 logger.warning(
-                    "unhandled case. did not generate daytime/nighttime offsets."
+                    "unhandled case - did not generate daytime nighttime offsets"
                 )
         except ValueError as e:
             msg = str(e)
@@ -664,9 +664,9 @@ class CocipTrajectoryChunk:
                 sr_offset_mins = -1 * even_offset_min
                 ss_offset_mins = even_offset_min
             else:
-                logger.warning("failed to generate daytime/nighttime offsets.")
+                logger.warning("failed to generate daytime nighttime offsets")
         except Exception as _:
-            logger.warning("failed to generate daytime/nighttime offsets.")
+            logger.warning("failed to generate daytime nighttime offsets")
 
         return sr_offset_mins, ss_offset_mins
 
@@ -1209,13 +1209,13 @@ class TrajectoryWorkerJobDescriptor:
 
         if not is_valid:
             raise ValueError(
-                "TWJD not valid. Must provide only one of ("
-                "1) flight_id or (2) airline_iata"
+                "twjd not valid - must provide only one of "
+                " flight_id or airline_iata"
             )
 
         if self.met_source not in MetSource:
             raise ValueError(
-                f"TWJD not valid. met_source must be one of {[i.value for i in MetSource]}"
+                f"twjd not valid - met_source must be one of {[i.value for i in MetSource]}"
             )
 
         # verify datestr parsing w/o exc
@@ -1274,6 +1274,7 @@ class TrajectoryCandidateInfo:
     """
 
     flight_id: str
+    waypoint_count: int
     airline_iata: list[str | None] | None
     callsign: list[str | None] | None
     flight_number: list[str | None] | None
@@ -1287,6 +1288,7 @@ class TrajectoryCandidateInfo:
         """Build instance of self from pd dataframe of Spire waypoints."""
         return TrajectoryCandidateInfo(
             flight_id=flight_id,
+            waypoint_count=len(df),
             airline_iata=list(df["airline_iata"].unique()),
             callsign=list(df["callsign"].unique()),
             flight_number=list(df["flight_number"].unique()),
@@ -1299,6 +1301,7 @@ class TrajectoryCandidateInfo:
     def to_dict(self):
         return {
             "flight_id": self.flight_id,
+            "waypoint_count": self.waypoint_count,
             "airline_iata": self.airline_iata,
             "callsign": self.callsign,
             "flight_number": self.flight_number,
@@ -1313,10 +1316,3 @@ class TrajectoryCandidateInfo:
 
     def as_utf8_json(self):
         return self.to_json.encode("utf-8")
-
-    def __str__(self):
-        # custom format to avoid JSON string literal confusion in logging
-        out = ""
-        for k, v in self.to_dict().items():
-            out += f"{k}: {v}, "
-        return out

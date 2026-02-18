@@ -52,9 +52,9 @@ def run(
         if backup_job_publisher and message.delivery_attempt > 2:
             # pass message to backup queue to be processed by traj workers w/ more resources
             logger.info(
-                "Too many delivery attempts - forwarding to backup pipeline.",
+                "too many delivery attempts - forwarding to backup pipeline.",
                 extra={
-                    "job": job,
+                    "flight_id": {job.flight_info.flight_id},
                     "delivery_attempt": message.delivery_attempt,
                 },
             )
@@ -67,9 +67,10 @@ def run(
             continue
 
         logger.info(
-            f"processing job with {len(job.records)} records.",
+            "start work",
             extra={
-                "job": job,
+                "flight_id": job.flight_info.flight_id,
+                "len_records": len(job.records),
             },
         )
 
@@ -84,8 +85,8 @@ def run(
             logger.info(
                 "skipping - could not run cocip",
                 extra={
-                    "flight_id": {job.flight_info.flight_id},
-                    "error": str(e),
+                    "flight_id": job.flight_info.flight_id,
+                    "reason": e,
                 },
             )
             job_handler.ack(message)
@@ -96,10 +97,10 @@ def run(
             cocip_result = trajectory_cocip_handler.run()
         except Exception:
             logger.error(
-                "NACK'ing (pubsub retry) - cocip failed",
+                "nacking - cocip failed",
                 extra={
                     "flight_id": job.flight_info.flight_id,
-                    "error": format_traceback(),
+                    "traceback": format_traceback(),
                 },
             )
             job_handler.nack(message)
@@ -111,7 +112,7 @@ def run(
         # publish cocip outputs to BQ
         # ===================
         logger.debug(
-            "publishing cocip summary output to BQ",
+            "publishing cocip summary output to bq",
             extra={
                 "flight_id": job.flight_info.flight_id,
             },
@@ -151,7 +152,7 @@ def run(
             # if enabled, publish all trajectory segments to BQ
             # ===================
             logger.debug(
-                "exporting per-segment cocip outputs to BQ",
+                "exporting per-segment cocip outputs to bq",
                 extra={
                     "flight_id": job.flight_info.flight_id,
                 },
@@ -187,9 +188,13 @@ def run(
             )
             bytes_out = traj_proto.to_bytes()
             first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
+            if job.flight_info.airline_iata is None:
+                pq_uri_airline_iata = "null"
+            else:
+                pq_uri_airline_iata = job.flight_info.airline_iata
             destination_uri = GCS_PARQUET_URI_TEMPLATE.format(
                 start_datehour=first_waypoint_ts.strftime("%Y%m%d%H"),
-                airline_iata=job.flight_info.airline_iata,
+                airline_iata=pq_uri_airline_iata,
                 flight_id=job.flight_info.flight_id,
             )
             gcs_blob = gcs_bucket.blob(destination_uri)
@@ -199,6 +204,12 @@ def run(
 
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
         job_handler.ack(message)
+        logger.info(
+            "end work",
+            extra={
+                "flight_id": job.flight_info.flight_id,
+            },
+        )
 
 
 if __name__ == "__main__":
@@ -224,5 +235,5 @@ if __name__ == "__main__":
         )
 
     except Exception:
-        logger.error("Unhandled exception", extra={"traceback": format_traceback()})
+        logger.error("unhandled exception", extra={"traceback": format_traceback()})
         sys.exit(1)
