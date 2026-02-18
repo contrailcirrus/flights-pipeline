@@ -36,6 +36,7 @@ def test_get_data_between_success(spire_client, sample_api_response):
         mock_response.raise_for_status = MagicMock()
 
         mock_client_instance = MagicMock()
+        # Mock get() implementation
         mock_client_instance.__enter__.return_value.get.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
