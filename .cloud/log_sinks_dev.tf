@@ -57,7 +57,7 @@ resource "google_logging_project_sink" "tw_logs_sink_dev" {
   name        = "trajectory-worker-gaia-dev-skipped-logs"
   description = "TRAJECTORY-WORKER: Saves logs for flights handled by the trajectory-worker in the development environment."
   destination = "storage.googleapis.com/${google_storage_bucket.tw_logs_bucket_dev.name}"
-  filter      = "resource.type=\"k8s_container\" AND resource.labels.project_id=\"contrails-301217\" AND resource.labels.location=\"us-east1\" AND resource.labels.cluster_name=\"contrails-gke-general\" AND resource.labels.namespace_name=\"flights-pipeline-prod\" AND labels.k8s-pod/app=\"trajectory-worker-gaia\" AND severity>=INFO"
+  filter      = "resource.type=\"k8s_container\" AND resource.labels.project_id=\"contrails-301217\" AND resource.labels.location=\"us-east1\" AND resource.labels.cluster_name=\"contrails-gke-general\" AND resource.labels.namespace_name=\"flights-pipeline-dev\" AND labels.k8s-pod/app=\"trajectory-worker-gaia\" AND severity>=INFO"
 
   disabled = false
   unique_writer_identity = true
