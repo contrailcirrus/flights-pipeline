@@ -17,9 +17,9 @@ SELECT
     is_eu_mrv,
     COUNT(*) as flight_cnt,
     COUNT(*) FILTER (
-        WHERE flight_number IS NOT NULL AND flight_number != 'None'
-        AND departure_airport_icao IS NOT NULL AND departure_airport_icao != 'None'
-        AND arrival_airport_icao IS NOT NULL AND arrival_airport_icao != 'None'
+        WHERE flight_number IS NOT NULL
+        AND departure_airport_icao IS NOT NULL
+        AND arrival_airport_icao IS NOT NULL
     ) as inventory_flight_cnt,
     SUM(sum_ef_mj) as total_ef_mj,
     SUM(chunk_len_km) as total_len_km,
