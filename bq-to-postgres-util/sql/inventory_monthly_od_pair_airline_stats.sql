@@ -4,7 +4,11 @@ SELECT
     -- Distinct airlines from 2024: 478
     airline_iata,
     arrival_airport_icao,
+    arrival_country_iso,
+    arrival_continent_iso,
     departure_airport_icao,
+    departure_country_iso,
+    departure_continent_iso,
     is_eu_mrv,
     aircraft_type_icao,
     COUNT(*) as flight_cnt,
@@ -12,7 +16,18 @@ SELECT
     SUM(chunk_len_km) as total_len_km,
     SUM(contrail_generating_kms) as total_contrail_generating_km
 FROM "trajectory-cocip"
-GROUP BY month_bucket, airline_iata, is_eu_mrv, arrival_airport_icao, departure_airport_icao, aircraft_type_icao;
+GROUP BY (
+    month_bucket,
+    airline_iata,
+    is_eu_mrv,
+    arrival_airport_icao,
+    arrival_country_iso,
+    arrival_continent_iso,
+    departure_airport_icao,
+    departure_country_iso,
+    departure_continent_iso,
+    aircraft_type_icao
+);
 
 -- Create an index for instant access from the FER endpoints.
 CREATE UNIQUE INDEX idx_mv_monthly_od_pair_airline_stats ON inventory_monthly_od_pair_airline_stats (
