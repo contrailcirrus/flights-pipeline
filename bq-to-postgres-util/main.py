@@ -282,6 +282,8 @@ class MainTableDataTransformer(DataTransformer):
 
         df.loc[:, "time_start"] = pd.to_datetime(df["time_start"])
         df.loc[:, "time_end"] = pd.to_datetime(df["time_end"])
+        
+        df = df.replace('None', np.nan)
 
         ef_mj_per_km = (
             df["sum_ef_mj"].div(df["chunk_len_km"].replace(0, np.nan)).astype(float)
