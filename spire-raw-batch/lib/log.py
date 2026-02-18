@@ -11,7 +11,7 @@ from lib import environment
 def format_traceback() -> str:
     """Format current exception traceback as string."""
     tb_fmt_str = traceback.format_exc()
-    return tb_fmt_str.replace("\n", " ")
+    return tb_fmt_str
 
 
 log_fmt = '{"timestamp":"%(asctime)s", "severity": "%(levelname)s", "textPayload": "%(message)s", "labels":{"pid":"%(process)d", "thread":"%(thread)d", "asyncio_taskname":"%(taskName)s"}}'
