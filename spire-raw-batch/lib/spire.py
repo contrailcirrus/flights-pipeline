@@ -102,18 +102,17 @@ class SpireAPIClient:
 
             except (httpx.HTTPError, httpx.RemoteProtocolError) as e:
                 error_type = type(e).__name__
+                logger.warning(
+                    f"Spire request/response failed ({error_type}): "
+                    + format_traceback()
+                )
+
                 can_retry = retry_count < max_retry_count
                 if can_retry:
-                    logger.info(
-                        f"Spire request/response failed ({error_type}). "
-                        f"Retrying request after {backoff_seconds}s delay..."
-                    )
+                    logger.info(f"Retrying request after {backoff_seconds}s delay...")
                     time.sleep(backoff_seconds)
                     backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
                     retry_count += 1
                 else:
-                    logger.error(
-                        f"Spire request/response failed after {max_retry_count} retries ({error_type}): "
-                        + format_traceback()
-                    )
+                    logger.warning("Retry limit exceeded")
                     raise e

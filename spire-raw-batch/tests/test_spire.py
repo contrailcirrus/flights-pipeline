@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from lib import spire
@@ -90,7 +91,7 @@ def test_get_data_between_retry_on_remote_protocol_error(spire_client, sample_ap
     with patch("lib.spire.httpx.Client") as mock_client:
         mock_response_fail = MagicMock()
         # Raise error during iteration
-        mock_response_fail.iter_lines.side_effect = spire.httpx.RemoteProtocolError(
+        mock_response_fail.iter_lines.side_effect = httpx.RemoteProtocolError(
             "incomplete chunked read"
         )
         mock_response_fail.raise_for_status = MagicMock()
@@ -101,7 +102,10 @@ def test_get_data_between_retry_on_remote_protocol_error(spire_client, sample_ap
 
         mock_client_instance = MagicMock()
         # First call fails during streaming, second call succeeds
-        mock_client_instance.__enter__.return_value.get.side_effect = [mock_response_fail, mock_response_success]
+        mock_client_instance.__enter__.return_value.get.side_effect = [
+            mock_response_fail,
+            mock_response_success,
+        ]
         mock_client.return_value = mock_client_instance
 
         with patch("time.sleep"):
