@@ -52,5 +52,6 @@ This example query will (TL;DR):
 - create a final summary output, joining the skipped and passed data
 
 The output of this query looks like:
-![](bq_load_example.sh)
+
+![](example_analysis_query.png)
 
