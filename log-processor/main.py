@@ -6,11 +6,16 @@ from datetime import datetime, timezone
 from google.cloud import storage
 from typing import Optional
 
-GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "contrails-301217-fp-dev-trajectory-worker-job-factory")
+GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "contrails-301217-fp-prod-trajectory-worker-job-factory")
 
 # Define severity levels (assuming standard GCP logging levels)
 SEVERITY_LEVELS = ["DEFAULT", "DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "CRITICAL", "ALERT", "EMERGENCY"]
 SEVERITY_RANK = {level: rank for rank, level in enumerate(SEVERITY_LEVELS)}
+
+TWJF_START_WORK_MSG = 'start work'
+TWJF_SKIP_MSG_KEYWORD = 'skipping'
+TWJF_LAST_MOD_MSG = 'resample step done'
+
 
 GKE_LOG_FILENAME_DATETIME_FORMAT = "%H:%M:%S"
 
@@ -185,8 +190,14 @@ class LogParser:
                 print(f"Error streaming file: {e}")
                 return pd.DataFrame()
 
+        # convert timestamps
+        self.df['timestamp'] = pd.to_datetime(self.df['timestamp'], format='ISO8601')
+        self.df['start_time'] = pd.to_datetime(self.df['start_time'])
+        self.df['end_time'] = pd.to_datetime(self.df['end_time'])
+
         # Filter the DataFrame by the specified date range if start_time and end_time are provided
-        self.df = self.df[self.df['timestamp'].apply(lambda x: st <= datetime.fromisoformat(x).astimezone(timezone.utc) <= et)] if st and et else self.df
+        self.df = self.df[self.df['timestamp'].apply(lambda x: st <= x <= et)] if st and et else self.df
+
         return self.df
     
     def update_data(self, new_df: pd.DataFrame):
@@ -299,6 +310,56 @@ class LogParser:
         dirty_flight_ids = pd.concat([pd.DataFrame({'flight_id': failed_flight_ids}), pd.DataFrame({'flight_id': skipped_flight_ids})])
         
         return dirty_flight_ids['flight_id'].dropna().unique()
+    
+    def save_data(self, output_filename: str):
+        """
+        Save dataframe of parsed logs to file.
+        
+        Parameters
+        ----------
+            output_filename: 
+        Filename to save the dataframe to.
+        """
+
+        if not self.df or len(self.df) == 0:
+            print("No data to save.")
+
+        self.df.to_csv(output_filename, compression="gzip")
+
+    def process_per_flight_timing_stats(self) -> pd.DataFrame:
+        """
+        Get a dataframe with one row per `flight_id`, containing:
+        included (bool), 
+        initial_flight_time (float, minutes), 
+        submitted flight_time (float, minutes), 
+        start_time (timestamp), 
+        end_time (timestamp)
+
+        The start_time and end_time are the initial values at ingestion into the pipeline, not the
+        values that are submitted as jobs.
+        """
+        columns = ["flight_id", "included", "flight_time", "submitted_flight_time", "start_time", "end_time"]
+        output = pd.DataFrame(columns=columns)
+
+        groups = self.df.groupby("flight_id")
+
+        for flight_id, group in groups:
+            included = ~ (group['message'].str.contains(TWJF_SKIP_MSG_KEYWORD).any() or 
+                          group['severity'].apply(lambda x: SEVERITY_RANK.get(x, -1) >= SEVERITY_RANK["WARNING"]).any())
+            flight_time = None
+            start_line = group[group['message'] == TWJF_START_WORK_MSG]
+            if len(start_line) == 1:
+                flight_time = (start_line['end_time'] - start_line['start_time']).iloc[0].total_seconds()/60.0
+            submitted_flight_time = None
+            last_mod_line = group[group['message'] == TWJF_LAST_MOD_MSG]
+            if len(last_mod_line) == 1:
+                submitted_flight_time = (last_mod_line['end_time'] - last_mod_line['start_time']).iloc[0].total_seconds()/60.0
+
+            row = [flight_id, included, flight_time, submitted_flight_time, start_line["start_time"], start_line['end_time']]
+
+            output = pd.concat([output, pd.DataFrame(dict(zip(columns, row)))])
+
+        return output
 
 # Example Usage logic for testing
 if __name__ == "__main__":
