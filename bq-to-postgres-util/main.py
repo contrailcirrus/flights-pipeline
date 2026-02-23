@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Utility to load trajectory cocip Parquet shards from GCS and write them to Postgres."""
 
 from datetime import date, datetime, timedelta
@@ -14,7 +15,11 @@ from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 import psycopg2  # noqa: F401
 
-from geography import airport_icao_to_iso_continent, airport_icao_to_iso_country, is_eu_mrv
+from geography import (
+    airport_icao_to_iso_continent,
+    airport_icao_to_iso_country,
+    is_eu_mrv,
+)
 
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
 TRAJECTORY_TABLE = table(
@@ -77,9 +82,33 @@ def add_is_eu_mrv_column(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     vect_is_eu_mrv = np.vectorize(is_eu_mrv)
     df = df.assign(
-        is_eu_mrv=vect_is_eu_mrv(df['departure_airport_icao'], df['arrival_airport_icao']),
+        is_eu_mrv=vect_is_eu_mrv(
+            df["departure_airport_icao"], df["arrival_airport_icao"]
+        ),
     )
     return df
+
+
+class DataTransformer:
+    """Transforms data from the Parquet input format to the Postgres output format."""
+
+    def __init__(
+        self,
+        table_name: str,
+        requires_upsert: bool,
+        is_partitioned: bool,
+        schema: str = "public",
+    ) -> None:
+        self.schema = schema
+        self.table_name = table_name
+        self.is_partitioned = is_partitioned
+        self.requires_upsert = requires_upsert
+
+    def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError()
+
+    def on_conflict_do_update(self, target_table, stmt_excluded):
+        raise NotImplementedError()
 
 
 class GcsPathReader:
@@ -209,27 +238,35 @@ class GcsToPostgresLoader:
             cur.close()
             connection.close()
 
-    def _upload_via_upsert(self, df: pd.DataFrame, data_transformer: DataTransformer, table_name: str, schema: str) -> None:
+    def _upload_via_upsert(
+        self,
+        df: pd.DataFrame,
+        data_transformer: DataTransformer,
+        table_name: str,
+        schema: str,
+    ) -> None:
         """Uploads a pandas DataFrame to Postgres using the INSERT ... ON CONFLICT DO UPDATE command."""
 
-        records = df.to_dict(orient='records')
+        records = df.to_dict(orient="records")
 
         # Define the table object dynamically for SQLAlchemy
         target_table = table(
-            table_name,
-            *[column(c) for c in df.columns],
-            schema=schema
+            table_name, *[column(c) for c in df.columns], schema=schema
         )
 
         # Postgres limits the number of parameters to around 64k per request.
         # Send the data in small enough chunks.
-        chunk_size = 30_000 //  len(df.columns)
+        chunk_size = 30_000 // len(df.columns)
 
         for i in range(0, len(records), chunk_size):
             chunk = records[i : i + chunk_size]
             stmt = insert(target_table).values(chunk)
-            index_elements, set_args = data_transformer.on_conflict_do_update(target_table, stmt.excluded)
-            stmt = stmt.on_conflict_do_update(index_elements=index_elements, set_=set_args)
+            index_elements, set_args = data_transformer.on_conflict_do_update(
+                target_table, stmt.excluded
+            )
+            stmt = stmt.on_conflict_do_update(
+                index_elements=index_elements, set_=set_args
+            )
 
             with self.engine.begin() as conn:
                 conn.execute(stmt)
@@ -248,27 +285,13 @@ class GcsToPostgresLoader:
                 if df_table_data.empty:
                     continue
                 if data_transformer.requires_upsert:
-                    self._upload_via_upsert(df_table_data, data_transformer, table_name, schema)
+                    self._upload_via_upsert(
+                        df_table_data, data_transformer, table_name, schema
+                    )
                 else:
                     self._upload_to_postgres(df_table_data, table_name, schema)
         except Exception as e:
             print(f"Failed to process {blob.name}: {e}")
-
-
-class DataTransformer:
-    """Transforms data from the Parquet input format to the Postgres output format."""
-
-    def __init__(self, table_name: str, requires_upsert: bool, is_partitioned: bool, schema: str = "public") -> None:
-        self.schema = schema
-        self.table_name = table_name
-        self.is_partitioned = is_partitioned
-        self.requires_upsert = requires_upsert
-
-    def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
-        raise NotImplementedError()
-
-    def on_conflict_do_update(self, target_table, stmt_excluded):
-        raise NotImplementedError()
 
 
 class MainTableDataTransformer(DataTransformer):
@@ -282,8 +305,8 @@ class MainTableDataTransformer(DataTransformer):
 
         df.loc[:, "time_start"] = pd.to_datetime(df["time_start"])
         df.loc[:, "time_end"] = pd.to_datetime(df["time_end"])
-        
-        df = df.replace('None', np.nan)
+
+        df = df.replace("None", np.nan)
 
         ef_mj_per_km = (
             df["sum_ef_mj"].div(df["chunk_len_km"].replace(0, np.nan)).astype(float)
@@ -320,10 +343,18 @@ class MainTableDataTransformer(DataTransformer):
             flight_length_bucket=flight_length_bucket,
             co2e_kg_bucket=co2e_kg_bucket,
             co2e_kg_per_km_bucket=co2e_kg_per_km_bucket,
-            departure_country_iso=df["departure_airport_icao"].map(airport_icao_to_iso_country),
-            departure_continent_iso=df["departure_airport_icao"].map(airport_icao_to_iso_continent),
-            arrival_country_iso=df["arrival_airport_icao"].map(airport_icao_to_iso_country),
-            arrival_continent_iso=df["arrival_airport_icao"].map(airport_icao_to_iso_continent),
+            departure_country_iso=df["departure_airport_icao"].map(
+                airport_icao_to_iso_country
+            ),
+            departure_continent_iso=df["departure_airport_icao"].map(
+                airport_icao_to_iso_continent
+            ),
+            arrival_country_iso=df["arrival_airport_icao"].map(
+                airport_icao_to_iso_country
+            ),
+            arrival_continent_iso=df["arrival_airport_icao"].map(
+                airport_icao_to_iso_continent
+            ),
         )
         df = add_is_eu_mrv_column(df)
         features = [
@@ -415,10 +446,9 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
         # Always use the first date of a month to define the year and month key.
         year_month = (
             pd.to_datetime(df["time_start"])
-            .dt.to_period('M')
+            .dt.to_period("M")
             .dt.to_timestamp()
-            .dt.date
-            .rename("month")
+            .dt.date.rename("month")
         )
 
         # Ignore negative energy forcing
@@ -428,24 +458,28 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
         # The distribution roughly follows a negative power law in the range [0, 1e10].
         # Note that the impact is based on ef_mj (and not CO2e kgs GWP20).
         # Using log spaced bins and dropping negligible bins between [1e0, 1e5) to best represent the distribution.
-        bins = [0] + list(np.logspace(start=5, stop=10, num=38, base=10)) + [float('inf')]
-        binned = pd.cut(s, bins=bins, right=False).rename('impact')
+        bins = (
+            [0] + list(np.logspace(start=5, stop=10, num=38, base=10)) + [float("inf")]
+        )
+        binned = pd.cut(s, bins=bins, right=False).rename("impact")
 
         # Group by airline, year_month, and bin
-        agg = s.groupby(
-            [df["airline_iata"], year_month, df["is_eu_mrv"], binned], observed=False
-        ).agg(
-            ["count", "sum"]
-        ).rename(
-            columns={"count": "flight_count", "sum": "total_sum_ef_mj"}
-        ).reset_index()
+        agg = (
+            s.groupby(
+                [df["airline_iata"], year_month, df["is_eu_mrv"], binned],
+                observed=False,
+            )
+            .agg(["count", "sum"])
+            .rename(columns={"count": "flight_count", "sum": "total_sum_ef_mj"})
+            .reset_index()
+        )
 
         agg = agg.assign(
             # Set a bin ID that is equivalent for the same range across months and airlines.
-            bin_idx=agg['impact'].cat.codes,
+            bin_idx=agg["impact"].cat.codes,
             # Split impact into lower and upper
-            lower_ef_mj=agg['impact'].apply(lambda x: x.left),
-            upper_ef_mj=agg['impact'].apply(lambda x: x.right),
+            lower_ef_mj=agg["impact"].apply(lambda x: x.left),
+            upper_ef_mj=agg["impact"].apply(lambda x: x.right),
         )
 
         # Drop rows that have now data and the original impact column to save database storage space.
@@ -463,15 +497,15 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
         # Only keep the relevant columns specified above.
         return agg[features]
 
-
     def on_conflict_do_update(self, target_table, stmt_excluded):
         index_elements = ["airline_iata", "month", "is_eu_mrv", "bin_idx"]
         upsert_args = {
-                "flight_count": target_table.c.flight_count + stmt_excluded.flight_count,
-                "total_sum_ef_mj": target_table.c.total_sum_ef_mj + stmt_excluded.total_sum_ef_mj,
-                "lower_ef_mj": stmt_excluded.lower_ef_mj,
-                "upper_ef_mj": stmt_excluded.upper_ef_mj,
-            }
+            "flight_count": target_table.c.flight_count + stmt_excluded.flight_count,
+            "total_sum_ef_mj": target_table.c.total_sum_ef_mj
+            + stmt_excluded.total_sum_ef_mj,
+            "lower_ef_mj": stmt_excluded.lower_ef_mj,
+            "upper_ef_mj": stmt_excluded.upper_ef_mj,
+        }
         return index_elements, upsert_args
 
 
