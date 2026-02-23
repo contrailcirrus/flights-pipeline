@@ -4,7 +4,7 @@ This describes our process for loading log files from the Trajectory Worker Job 
 GCS file sync into BigQuery, and how we use BQ tooling to do some/all of our (pre-)aggregation analysis.
 
 ## Data
-The logs are set up to copy to a GCS bucket via the Google Cloud Log Sink mechanism which copies logs every hour for the previous hour. After the Fev. 2026 run through of the 2024 Spire data, we saved the logs [here](gs://contrails-301217-sandbox-internal/flights-pipeline/flights-pipeline/inventory_2024_run_feb2026).
+The logs are set up to copy to a GCS bucket via the Google Cloud Log Sink mechanism which copies logs every hour for the previous hour. These logs end up [here](contrails-301217-fp-prod-trajectory-worker-job-factory/stderr). After the Feb. 2026 run through of the 2024 Spire data, we saved the logs [here](gs://contrails-301217-sandbox-internal/flights-pipeline/flights-pipeline/inventory_2024_run_feb2026). There were two runs (run1, and run2), which had `airline_iata not null` and `airline_iata null` respectively.
 
 ## Limitations
 There is one known hard-block limitation.
@@ -37,24 +37,32 @@ Here is an example flow.
 Load all the newline JSON log files for a given run into a BQ table.
 See this [bq load command](bq_load_example.sh).
 
-Note that we use the `twjd_logs_bq_schema_lean.json`, which drops several of the `jsonPayload` fields (those affected by [#Limitations](#limitations)).
+Note that we use the `twjd_logs_bq_schema.json`, which drops several of the `jsonPayload` fields (those affected by [#Limitations](#limitations)).
 
 Even with those fields missing, we can do some powerful initial analysis (and if those fields were added in the future, we could extend BQ to handle those fields).
 
-### Step 2: jiujitsu
+### Step 2: Querying the logs
 
-The [example_analysis.sql](example_analysis.sql) query will build from this table of logs.
+The [total_time_and_skipped.sql](../sql/total_time_and_skipped.sql) SQL query pulls the total flight time in minutes binned by month, and provides skipped time both from the TWJF and TW by linking results with those from the final results table which has outputs from the TW. Here's what those results look like:
 
-This example query will (TL;DR):
-- create a CTE with a record of the initial state of all flights entering the TWJF (`start work`), calculating the initial flight duration from the raw ADS-B
+[](total_minutes_skipped.png)
+
+This example query:
+- creates a CTE with a record of the initial state of all flights entering the TWJF (`start work`), calculating the initial flight duration from the raw ADS-B
 - create a CTE with a record of the flights post-resample, with a calculation of the final duration of the flight
 - create a CTE segregating the flights that were ejected/skipped
-- create a CTE with those flights that passed (i.e. were present entering the TWJF, and _not_ found in the skipped records)
-- create a CTE, calculating and binning the total ejected flight time per month, based on the skipped flights CTE & the initial duration of those flights
-- create a CTE, calculating and binning the total passed flight time per month, based on the passed flights CTE & the post-resample duration of those flights
-- create a final summary output, joining the skipped and passed data
+- create a CTE segregation flights from the results BQ table (TW output) with appropriate time bounds and binned by month
+- create a CTE with those flights that passed the TWJF (i.e. were present entering the TWJF, and _not_ found in the skipped records)
+- create a CTE calculating and binning the total ejected flight time per month, based on the skipped flights CTE & the initial duration of those flights
+- create a CTE calculating and binning the total passed flight time per month, based on the passed flights CTE & the post-resample duration of those flights
+- create a final summary output, joining the skipped, passed, and final results data along with fractions dropped/skipped at each step.
 
-The output of this query looks like:
+The output of this query looks like this:
 
 ![](example_analysis_query.png)
 
+Another SQL query helps disambiguate the reasons for TWJF skipping: [skipped_reasons_by_month.sql](../sql/skipped_reasons_by_month.sql). This query uses the logs and separates out skipped flights, then bins them by skip type and month.
+
+The first month of skip reasons for the Feb. 2026 run of the 2024 Spire data looks like this:
+
+[](skip_reasons.png)
