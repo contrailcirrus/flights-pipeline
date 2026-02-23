@@ -296,8 +296,6 @@ class TrajectoryBuilderSvc:
         counter = 0
         number_of_flight_candidates = len(flight_instances.groups)
         for flight_id, terr_waypoints in flight_instances:
-            if flight_id == "98f61f0b-025c-4156-b2ed-d2c4c9c793d7":
-                print("got target flight")
             if sigterm_manager.should_exit:
                 sys.exit(0)
 
@@ -523,9 +521,9 @@ class TrajectoryBuilderSvc:
             ]
             try:
                 self._validate_traj_handler.set(waypoints_pycontrail)
-                violations: None | list[
-                    Exception
-                ] = self._validate_traj_handler.evaluate()
+                violations: None | list[Exception] = (
+                    self._validate_traj_handler.evaluate()
+                )
                 self._validate_traj_handler.unset()
 
                 # log instances of accepted violations
