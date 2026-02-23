@@ -12,14 +12,21 @@
 # if exactly all logs for a given run can't be referenced with a single glob
 # then this command may need to be executed several times over a list of globs
 # that completely and exactly target logs for a given run
-URI_GLOB="gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2026/02/*"
+RUN1_URI_GLOB="contrails-301217-sandbox-internal/flights-pipeline/inventory_2024_run_feb2026/twjf-logs/run1/*"
+RUN2_URI_GLOB="contrails-301217-sandbox-internal/flights-pipeline/inventory_2024_run_feb2026/twjf-logs/run2/*"
 
 # TARGET TABLE
 # ---
 # table in BigQuery where the raw TWJF logs are uploaded
 # -
 # format should be similar to twjf_{inventory_period}_logs_{run_date}
-TARGET_TABLE="twjf_2024_logs_feb2026_EXAMPLE"
+TARGET_TABLE="twjf_2024_logs_feb2026"
 
+
+# Load run 1 data (those with airline_iata not null) into BQ
 bq load --schema_update_option=ALLOW_FIELD_ADDITION --ignore_unknown_values --source_format=NEWLINE_DELIMITED_JSON \
---schema=twjd_logs_bq_schema_lean.json flights_pipeline_prod.${TARGET_TABLE} "${URI_GLOB}"
+--schema=twjd_logs_bq_schema.json flights_pipeline_prod.${TARGET_TABLE} "${RUN_1_URI_GLOB}"
+
+# Load run 2 data (those with airline_iata null) into BQ
+bq load --ignore_unknown_values --source_format=NEWLINE_DELIMITED_JSON \
+--schema=twjd_logs_bq_schema.json flights_pipeline_prod.${TARGET_TABLE} "${RUN_2_URI_GLOB}"

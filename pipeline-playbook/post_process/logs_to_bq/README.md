@@ -1,10 +1,13 @@
 # (TWJF) logs to BQ
 
-Some initial exploration work looking at how we could load log files from the Trajectory Worker Job Factory
-GCS file sync into BQ, and use BQ tooling to do some/all of our (pre-)aggregation analysis.
+This describes our process for loading log files from the Trajectory Worker Job Factory
+GCS file sync into BigQuery, and how we use BQ tooling to do some/all of our (pre-)aggregation analysis.
+
+## Data
+The logs are set up to copy to a GCS bucket via the Google Cloud Log Sink mechanism which copies logs every hour for the previous hour. After the Fev. 2026 run through of the 2024 Spire data, we saved the logs [here](gs://contrails-301217-sandbox-internal/flights-pipeline/flights-pipeline/inventory_2024_run_feb2026).
 
 ## Limitations
-There is one know hard-block limitation.
+There is one known hard-block limitation.
 The logs we generated in the Feb16-Feb20 run of 2024 flight data packages several output fields as arrays.
 For instance, `airline_iata`, `callsign`, etc...
 ```text
