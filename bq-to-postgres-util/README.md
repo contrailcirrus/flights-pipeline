@@ -26,7 +26,15 @@ This table is 1:1 with `trajectory-cocip`, and holds additional attributes for a
 
 ## Data Sync'ing
 The source-of-truth for flight CoCiP data lives in BigQuery.
-Those data sync'ed to the postgres instance originate in the BigQuery `flights_pipeline_prod.trajectory_cocip_prod`.
+Those data sync'ed to the postgres instance originate in a BigQuery table.
+
+During a BigQuery to Postgres data sync run, you will need to first determine the source BQ table
+intended for the sync.
+This will generally be an archived/static BQ dataset, resulting from a given run of the flights-pipeline.
+See reference documentation [here](https://github.com/contrailcirrus/flights-pipeline/tree/develop/pipeline-playbook/playbook) for how those BQ datasets are archived, with an example in this table (`contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary`) 
+as documented in the Feb2026 run of the 2024 flights inventory ([ref](contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary))
+
+### Steps
 
 1. Export the BigQuery data into Parquet shards under the following URL pattern:
    `gs://contrails-301217-sandbox-internal/flights-pipeline/emissions-export/<target_date_range>/<process_time>/*.pq`
@@ -34,12 +42,7 @@ Those data sync'ed to the postgres instance originate in the BigQuery `flights_p
      optional. Valid entries include e.g. 2025 or 2025Q2.
    - Where `process_time` is the time at which the export was run. This is %Y%m%d, the date (utc) on which the export
      command was run against BQ
-   - For the export range set the placeholders `export_start_time` (e.g. `2025-01-01T00:00:00`) and `export_end_time`
-     (e.g. `2025-12-31T23:59:59`) in line with the desired `target_date_range` (e.g. `2025`) above.
-   - Here is the export SQL command to run from the BigQuery prod instance: `sql/bigquery_export.sql`.
-     - Note that you need to replace the placeholders at the top of the file and if you do not want to
-       use the prod instance you need to change the table name twice!
-   
+   - Here is the export SQL command to run from the BigQuery prod instance: [`sql/bigquery_export.sql`](sql/bigquery_export.sql).
 
 2. Ensure that the Postgres tables and views are defined. Otherwise run these in the following order:
    1. `sql/trajectory_cocip.sql`, `sql/trajectory_cocip_meta.sql` and `sql/inventory_monthly_impact_histogram.sql`
