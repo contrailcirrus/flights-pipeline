@@ -27,7 +27,8 @@ This is important later on when fetching the correct & complete log files for th
 TODO
 
 ## Document
-TODO
+
+In the `../notes_archive` directory, add a new directory for the run in the format `inventory_<date>_run_<run_date>`, and create a README.md there documenting the steps taken to run the flights pipeline: what data were run through, where the outputs and logs were stored, notes on when each piece was kicked off, what changes were made to run things through efficiently, observations, notes, etc.
 
 ## Archive
 ### Archive Log Files
@@ -153,9 +154,41 @@ Lastly, the logs of all three will identify cases where we may have ejected a fl
 
 #### Post Processing Logs
 ##### Upload to BQ
-TODO
+Modify and use the [bq_load_example.sh](../post_process/logs_to_bq/bq_load_example.sh) script to upload all JSON log sink files to BQ. This script will push all NDJSON files from specified buckets into a BQ table using [a trimimed schema](../post_process/logs_to_bq/twjd_logs_bq_schema_lean.json), and creating the BQ table if it does not already exist. When pushing logs from a new run, use a new BW table name to ensure log processing is as straightforward as possible.
 ##### Structure & Derive Stats
-TODO
+We have some example queries to get some basic statistics about how flights fared going through the pipeline. All of the trajectory manipulations and validations happen in the TWJF, so that's where our log analysis is focused. To get a top level view of where flights were ejected from the pipeline, we can run:
+
+```sql
+DECLARE total_flights INT64;
+
+SET total_flights = (SELECT COUNT(DISTINCT jsonPayload.flight_id)
+                     FROM `contrails-301217.flights_pipeline_prod.twjf_2024_logs_feb2026`);
+
+WITH skipped_tb AS (SELECT *
+                    FROM `contrails-301217.flights_pipeline_prod.twjf_2024_logs_feb2026`
+                    WHERE jsonPayload.message = "skipping"
+                    -- This excludes a couple of pre-heal ejections due to low altitude or presumed null iata
+                    QUALIFY ROW_NUMBER() OVER (PARTITION BY jsonPayload.flight_id) = 1)
+
+SELECT jsonPayload.detail AS detail, COUNT(jsonPayload.detail) AS counts, COUNT(jsonPayload.detail)*100.0/total_flights AS pct 
+FROM skipped_tb 
+  GROUP BY detail 
+  ORDER BY counts DESC;
+```
+
+This breaks down flights skipped in the TWJF by where in the pipeline the flights were skipped: 
+* after the healing step due to empty flight after dropping ADS-B lines with non-mode airline_iata, airport_icao, etc. (`empty flight` message)
+* after validation step, which puts bounds on flight altitude, speed, closeness to airports etc. (`violations found` message)
+* resampling step, where data are re-interpolated to 1-minute intervals along the trajectory (`resample step failed`).
+
+We keep track of the minutes of flight time that enter the pipeline, are ejected at each stage, and ultimately make it through the pipeline. To get the full picture, we use both the logs BQ table as well as the results BQ table so we get the full end-to-end picture of where flight minutes go. The [total_time_and_skipped.sql](../post_process/sql/total_time_and_skipped.sql) query gets minutes of flight time at each stage of the pipeline, and gives fractions ejected at each stage. It can be modified to point to the appropriate logs and results tables and time ranges to ensure the analysis uses the appropriate range.
+
+We also are interested in looking at the breakdown of flights skipped by reason. To get that breakdown from the TWJF, run the [skipped_reasons_by_month.sql](../post_process/sql/skipped_reasons_by_month.sql) query, which provides the breakdown of number of flights skipped for each reason by month of analysis. Modify the BQ table to point to the appropriate logs table for analysis.
+
+Another comparison we have run is to compare the flights-pipeline output with the GAIA analyses Roger has done. The [compare_with_gaia.sql](../post_process/sql/compare_with_gaia.sql) query compares the flight minutes and energy forcing (in megajoules) by month between a flights-pipeline results table and one of Roger's GAIA output summary tables.
+
+At present, looking for unrecoverable errors in the logs is best done in the logs explorer, where it's a bit easier to filter on log severity, and where we have access to the full logs, rather than a limited subset of the log that we ingest into BQ.
 
 #### Archiving Post Processed Logs
+
 TODO
