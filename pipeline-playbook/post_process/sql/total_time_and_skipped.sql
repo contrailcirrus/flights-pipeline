@@ -8,7 +8,7 @@ DECLARE date_range_end TIMESTAMP DEFAULT '2024-12-31T11:59:59';
 -- Set the logs table for the specific run
 WITH 
 logs_tb AS (SELECT *
-           FROM `contrails-301217.flights_pipeline_prod.twjf_2024_logs_feb2026_EXAMPLE`
+           FROM `contrails-301217.flights_pipeline_prod.twjf_2024_logs_feb2026`
            WHERE jsonPayload.flight_id IS NOT NULL),
 
 results_tb AS (SELECT * FROM `contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary`),
@@ -83,6 +83,8 @@ summary_tb
 SELECT *,
        twjf_skipped_flight_time_minutes / (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) *
        100                                                                    AS skipped_perc,
+       (twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
+       (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) AS tw_dropped_perc,
        (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
        (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) AS total_dropped_perc
 FROM summary_tb

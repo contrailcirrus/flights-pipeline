@@ -3,7 +3,7 @@
 -- Adjust logs table name to point to specific run logs
 WITH 
     logs_tb AS (SELECT *
-               FROM `contrails-301217.flights_pipeline_prod.twjf_2024_logs_feb2026_EXAMPLE` AS t
+               FROM `contrails-301217.flights_pipeline_prod.twjf_2024_logs_feb2026` AS t
                WHERE t.jsonPayload.flight_id IS NOT NULL),
 
     skipped_tb AS (SELECT *

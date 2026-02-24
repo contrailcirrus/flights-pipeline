@@ -37,7 +37,7 @@ Here is an example flow.
 Load all the newline JSON log files for a given run into a BQ table.
 See this [bq load command](bq_load_example.sh).
 
-Note that we use the `twjd_logs_bq_schema.json`, which drops several of the `jsonPayload` fields (those affected by [#Limitations](#limitations)).
+Note that we use the `twjd_logs_bq_schema_lean.json`, which drops several of the `jsonPayload` fields (those affected by [#Limitations](#limitations)).
 
 Even with those fields missing, we can do some powerful initial analysis (and if those fields were added in the future, we could extend BQ to handle those fields).
 

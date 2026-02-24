@@ -173,11 +173,20 @@ to hold the per-flight summary values.
 
 The [raw output stats](#raw-output-stats) section above was generated from the initial export to this table.
 
-Next, the dataset was dedupes with Step 1 and Step 2 of [post_process/sql/dedupe.sql](../../post_process/sql/dedupe.sql).
+Next, the dataset was deduped with Step 1 and Step 2 of [post_process/sql/dedupe.sql](../../post_process/sql/dedupe.sql).
 As noted in the [playbook/README.md](../../playbook/README.md), Step 1 will have no effect
 with future updates to the TWJF, and Step 2 will only remove normal dupes (not airline_iata conflicts).
 
 ## Log Archiving
 As per instructions in the [playbook/README.md](../../playbook/README.md).
 
-TWJF, TW and TW-backup logs were selectively copied to `contrails-301217-sandbox-internal/flights-pipeline/inventory_2024_run_feb2026`
+TWJF, TW and TW-backup logs were selectively copied to `contrails-301217-sandbox-internal/flights-pipeline/inventory_2024_run_feb2026`. Using the [bq_load_example.sh](../../post_process/logs_to_bq/bq_load_example.sh) script, we created a logs table in BQ (`contrails-301217.flights_pipeline_prod.twjf_2024_logs_feb2026`) containing both run 1 and run 2 data (with `airline_iata` not null, and null respectively). That 
+
+# Initial analysis queries
+
+To get the total minutes of flight time processed and skipped by TWJF and TW, run [total_time_and_skipped.sql](../../post_process/sql/total_time_and_skipped.sql) as described in the [logs_to_bq README](../../post_process/logs_to_bq/README.md).
+
+To check on TWJF skip reasons, binned by reason and month, run 
+[skipped_reasons_by_month.sql](../../post_process/sql/skipped_reasons_by_month.sql) as described in the [logs_to_bq README](../../post_process/logs_to_bq/README.md).
+
+To compare the flights-pipleine results with Roger's GAIA analysis, run [compare_with_gaia.sql](../../post_process/sql/compare_with_gaia.sql).
