@@ -82,7 +82,7 @@ summary_tb
 
 SELECT *,
        twjf_skipped_flight_time_minutes / (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) *
-       100                                                                    AS skipped_perc,
+       100                                                                    AS twjf_skipped_perc,
        (twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
        (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) AS tw_dropped_perc,
        (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
