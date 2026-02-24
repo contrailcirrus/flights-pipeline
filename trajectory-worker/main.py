@@ -83,9 +83,10 @@ def run(
             )
         except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
             logger.info(
-                "skipping - could not run cocip",
+                "skipping",
                 extra={
                     "flight_id": job.flight_info.flight_id,
+                    "detail": "could not run cocip",
                     "reason": e,
                 },
             )
@@ -97,10 +98,11 @@ def run(
             cocip_result = trajectory_cocip_handler.run()
         except Exception:
             logger.error(
-                "nacking - cocip failed",
+                "nacking",
                 extra={
                     "flight_id": job.flight_info.flight_id,
                     "traceback": format_traceback(),
+                    "detail": "cocip failed",
                 },
             )
             job_handler.nack(message)
