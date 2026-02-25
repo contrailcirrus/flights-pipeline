@@ -123,6 +123,9 @@ class TrajectoryBuilderSvc:
 
             case TelemetrySource.GOOGLE_CLOUD_STORAGE:
                 logger.debug("fetching adsb from gcs")
+                # df_all comes with:
+                # 1) waypoints for flight_ids observed to have the target airline_iata
+                # 2) all waypoints with null flight_id (sat data) in target timerange
                 df_all = self._gcs_handler.fetch_airline_days(
                     [previous_day, day, next_day], airline_iata, prune=True
                 )
@@ -133,9 +136,12 @@ class TrajectoryBuilderSvc:
                 is_on_day = (first_by_fid["timestamp"] >= pd.to_datetime(day)) & (
                     first_by_fid["timestamp"] < pd.to_datetime(next_day)
                 )
+                # flight ids with trajectories originating on the target day
                 first_by_fid = first_by_fid[is_on_day]
-
-                is_fid = df_all["flight_id"].isin(first_by_fid.index)
+                target_fids = set(first_by_fid.index)
+                # remove None as a possible target flight id
+                target_fids.discard(None)
+                is_fid = df_all["flight_id"].isin(target_fids)
                 df = df_all[is_fid]
 
                 is_icao_w_null_fid = (

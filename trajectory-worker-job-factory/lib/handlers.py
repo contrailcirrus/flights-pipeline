@@ -656,7 +656,9 @@ class CloudStorageHandler:
             if airline_iata == "null":
                 fids = df[df["airline_iata"].isnull()]["flight_id"].unique()
             else:
-                fids = df[df["airline_iata"] == airline_iata]
+                fids = df[df["airline_iata"] == airline_iata]["flight_id"].unique()
+            # note: a null flight_id in the target airline_iata dataset
+            # will pull in sat data for all global flights in the target
             df = df[df["flight_id"].isin(fids)]
 
             df_agg = pd.concat([df_agg, df], ignore_index=True)
