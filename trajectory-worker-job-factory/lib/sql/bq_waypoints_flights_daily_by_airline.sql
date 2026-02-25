@@ -2,12 +2,11 @@
 -- find all flights for an airline with a non-null flight_id originating on the target day
 -- pull extra data (needing pruning downstream), but guaranteeing capture of null flight_id values needing imputing
 
-WITH all_waypoints_tb AS (
-                        SELECT *
-                        FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
-                        WHERE TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day_before, @target_day, @target_day_after)
-)
-flights_sub_tb AS (SELECT *
+WITH all_waypoints_tb AS (SELECT *
+                          FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
+                          WHERE
+                              TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day_before, @target_day, @target_day_after)),
+     flights_sub_tb AS (SELECT *
                         FROM all_waypoints_tb
                         WHERE IFNULL(airline_iata, 'null') = @airline),
      ranked_candidate_flights_tb AS
