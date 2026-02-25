@@ -284,6 +284,7 @@ class TrajectoryBuilderSvc:
             key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
             if resp := self._cache_handler.pull(key):
                 progress_marker = resp
+                # TODO: add SMS alert on this event
                 logger.warning(
                     "resuming progress from a previous job",
                     extra={
@@ -370,7 +371,9 @@ class TrajectoryBuilderSvc:
                 and waypoints["altitude_baro"].max() < 20_000
             ):
                 extra_log = candidate.to_dict()
-                extra_log["detail"] = "presumed general aviation flight - no wps above 20k ft"
+                extra_log["detail"] = (
+                    "presumed general aviation flight - no wps above 20k ft"
+                )
                 logger.debug(
                     "skipping",
                     extra=extra_log,
