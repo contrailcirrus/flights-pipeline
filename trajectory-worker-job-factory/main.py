@@ -64,10 +64,11 @@ def run(
         except Exception as e:
             # nack message; expect pubsub to retry
             logger.error(
-                "failed to process twjd - nacking msg",
+                "nacking",
                 extra={
                     "job_hash": job_hash,
-                    "TWJD": asdict(job),
+                    "detail": "failed to process twjd",
+                    "twjd": asdict(job),
                     "error": str(e),
                     "traceback": format_traceback(),
                 },

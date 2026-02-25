@@ -289,7 +289,7 @@ class TrajectoryBuilderSvc:
                     extra={
                         "marker": progress_marker,
                         "airline_iata": twjd.airline_iata,
-                        "TWJD": twjd,
+                        "twjd": twjd,
                     },
                 )
 
@@ -351,9 +351,11 @@ class TrajectoryBuilderSvc:
                 and candidate.airline_iata[0] is None
                 and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
             ):
+                extra_log = candidate.to_dict()
+                extra_log["detail"] = "presumed spurious null airline iata"
                 logger.debug(
-                    "presumed spurious null airline iata - skipping",
-                    extra=candidate.to_dict(),
+                    "skipping",
+                    extra=extra_log,
                 )
                 continue
 
@@ -367,9 +369,11 @@ class TrajectoryBuilderSvc:
                 and candidate.airline_iata[0] is None
                 and waypoints["altitude_baro"].max() < 20_000
             ):
+                extra_log = candidate.to_dict()
+                extra_log["detail"] = "presumed general aviation flight - no wps above 20k ft"
                 logger.debug(
-                    "presumed general aviation flight - no wps above 20k ft - skipping",
-                    extra=candidate.to_dict(),
+                    "skipping",
+                    extra=extra_log,
                 )
                 continue
 
