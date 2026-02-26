@@ -6,14 +6,14 @@ WITH flights_sub_tb AS (SELECT *
                         FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
                         WHERE TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day_before, @target_day, @target_day_after)
                           AND IFNULL(airline_iata, 'null') = @airline),
-     candidate_flights_tb AS
-         (SELECT timestamp, flight_id, icao_address
+     ranked_candidate_flights_tb AS
+         (SELECT timestamp,
+                 flight_id,
+                 icao_address,
+                 ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY timestamp ASC) as row_number
           FROM flights_sub_tb
           WHERE TIMESTAMP_TRUNC(timestamp, DAY) IN (@target_day_before, @target_day)
             AND flight_id IS NOT NULL),
-     ranked_candidate_flights_tb AS
-         (SELECT ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY timestamp ASC) as row_number, *
-          FROM candidate_flights_tb),
      target_flight_id_tb AS
          (SELECT flight_id, icao_address
           FROM ranked_candidate_flights_tb
