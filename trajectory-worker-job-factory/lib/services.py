@@ -347,15 +347,39 @@ class TrajectoryBuilderSvc:
             # when processing airline_iata is null case
             # for TWJDs built on airline_iata<>day
             # -------------
-            # prune cases where the number of waypoints in the flight_id group is very small
-            # these are likely spurious waypoints belonging to a flight_id
-            # that has another true non-null airline_iata
-            # --
-            # this does not guarantee that we won't have false null airline-iata cases
-            # pass thru, but will help prune otherwise spurious flight instances
+            # we need to consider true null airline-iata flights
+            # and false null airline-iata flights
+            # -
+            # a true null airline iata flight is one in which no waypoints
+            # for a given flight are reported with an airline_iata
+            # thus the flight is truly with no airline_iata
+            # -
+            # a false null airline iata flight is one in which the flight
+            # is in truth associated with an airline_iata but some waypoints
+            # are missing the airline_iata field
+            # -
+            # this is a consideration unique to the null airline iata case
+            # as we are effectively disambiguating between interpreting
+            # the meaning of single waypoint with a null airline iata
+            # as being missing data for that waypoint versus truthfully
+            # missing for the flight
+            # ---------
+            # we apply two null airline-iata case specific filters
+            # (1) skip a flight if we observe any non-null airline iata waypoints
+            #     for a null airline-iata job
+            # (2) skip very short null airline-iata flights (this is likely extraneous with
+            #     the addition of (1) ).
+            if twjd.airline_iata == "null" and len(candidate.airline_iata) > 1:
+                extra_log = candidate.to_dict()
+                extra_log["detail"] = "presumed false null airline iata"
+                logger.debug(
+                    "skipping",
+                    extra=extra_log,
+                )
+                continue
+
             if (
-                len(candidate.airline_iata) == 1
-                and candidate.airline_iata[0] is None
+                twjd.airline_iata == "null"
                 and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
             ):
                 extra_log = candidate.to_dict()
