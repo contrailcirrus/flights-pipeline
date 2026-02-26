@@ -653,13 +653,18 @@ class CloudStorageHandler:
             logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
             # identify all flight_ids appearing with the target airline_iata
+            # and exclude instances of null flight_ids not belonging to target airline_iata
             if airline_iata == "null":
                 fids = df[df["airline_iata"].isnull()]["flight_id"].unique()
+                null_fids_to_holdout = (
+                    df["flight_id"].isna() & ~df["airline_iata"].isnull()
+                )
             else:
                 fids = df[df["airline_iata"] == airline_iata]["flight_id"].unique()
-            # note: a null flight_id in the target airline_iata dataset
-            # will pull in sat data for all global flights in the target
-            df = df[df["flight_id"].isin(fids)]
+                null_fids_to_holdout = df["flight_id"].isna() & ~(
+                    df["airline_iata"] == airline_iata
+                )
+            df = df[df["flight_id"].isin(fids) & ~null_fids_to_holdout]
 
             df_agg = pd.concat([df_agg, df], ignore_index=True)
         return df_agg
