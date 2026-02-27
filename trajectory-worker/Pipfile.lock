@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "5b612631c597d98b21b4625150296326d5efb3dad8f7f2ec6f926cf7c834427d"
+            "sha256": "ab34ece8904e65dd6c3edc0b15119ba5ee80a8d8a2c3934590d4a2ace52d396c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -1817,27 +1817,27 @@
         },
         "pycontrails": {
             "hashes": [
-                "sha256:0884654642fbd92303b3d9f78a6e17252eb3d7cc5008b176feca56df08400f45",
-                "sha256:16b182512e807eb646635ae3bd1c9f42cdaf249c9853d0f41e922894442068a9",
-                "sha256:31913de97a42f187df9c1b70f5d57c8b07bf2f7df7b7911ca915c12eca458eb6",
-                "sha256:3b6487d5af068ba3d45949c2fe000347f703a32373d0da81edbc9f9307b207c5",
-                "sha256:3d83e68417946988d7429a68d0c37ab58bcc1ebcfac0150520e3867b8fb736b0",
-                "sha256:44984d3fbdf9a98daf5ac26c3f188dd1fb5727998075b22bab2052e504ff7332",
-                "sha256:6220cc43b719d4de275c1d7310af65574dd4febe6cbe9e7be9fbea5d6adc45da",
-                "sha256:697a0132908b079222b2fc3433d551cb252c1306775bbacb863ba5900f7bd730",
-                "sha256:6eb7820a3aea3897de75e3e7eb7a806bfee9c5d16685d538dffa7e2d1a6c89c8",
-                "sha256:6f0f4c1027b8f49840932cc4d53c860e78d60aaccb8dec86baef3571d0419156",
-                "sha256:884adeea9ee557e02efff38b87386e0dc4c1a5ec35763b7449dd4504525c2712",
-                "sha256:b889399448196e5085d85862c2cf5ffc22d7406c9b40c14267bf0ba4fd2358c6",
-                "sha256:bfe3f8244d7dc71f0662d24bfe81a4ba4d763b9e4258c1014f4228cc2851dfec",
-                "sha256:cb104c30e568e6279aeff7b502368238d9cde208b24d72f9bb167370309a1d82",
-                "sha256:d06550ce16062e9a9b7093417a7fb9189da5ac144a6aef168d612e705bd06cb5",
-                "sha256:e66b2a32c334ea38acc5374859b107a994ee4ed7a0118f4172960518573a9ad8",
-                "sha256:f208c75d4976d490f2d36a80f5399c19fee3f6cd47820d20ebd6fcb21defab76"
+                "sha256:0223c2a2684f7c0c93409be552a45f681b79703852cc9ae226e843b9adabbf34",
+                "sha256:08ab9ba53044aca663295eb623cdd78025407230a4d201d5c63f4f26c9388bd1",
+                "sha256:0a8aa342837b802c64d142080059c874f4afa9a0f58f884a4354ece17ab00691",
+                "sha256:44944940ae144bc0d38f825a786f1de6c0d47e39cb210f1b7e3037b4120d35f5",
+                "sha256:4df32865653ecaa6ce8a3f969acdd1bb2658f80af44f844fce9b3ae229ebe3c2",
+                "sha256:5529c3913fdbd6287ebd996bae1399c9aa7acb508388950a474ac3b3d84bef25",
+                "sha256:5dd5db4a27f0cbfbebc97577abd17cb69cdeb756e649718ec09742d26ca4df0a",
+                "sha256:5fd6d5bd44070527b009df6ccb95d7aade6e3d3f50fd306c9e3f22faa3ee3656",
+                "sha256:880c650b8d86dd3db54eb5f156393ead0a879dc6b8bc3a2e55dfe75aabb4ddcd",
+                "sha256:a2c682303f7c28bd21367ece67bffadd30cc8ea1f636ffc579926e3c45fa804a",
+                "sha256:adc5f191a9b64f7e10149640e28545435b297a112ffbf24ea7648e30a6b765f0",
+                "sha256:b66a93f4ce1a5b8294a4938f8d9312f4cfec91f0cf2f25916aee18f1b5e42cfe",
+                "sha256:bcf91e070f107a345a5063efb6b8f0feff7d2d12efe1ec925efeaaa4dc43589e",
+                "sha256:c14547de2f291128d82f4f7a2a7f6052ae9431eb3a57b6c3173ccd416eada571",
+                "sha256:d1c84062c8de59e733f8735baa10afc7f9d11929de7aa57a0c5a5985a8572874",
+                "sha256:f89fe4304da2a08f3d50eeb24321405a847d3e2ca56e81f703671754d0bca358",
+                "sha256:fe5f4bb0f6dd52ff4d2a1d445db4271e287bba74fc6de507fbe0430eb6a0b059"
             ],
             "index": "pypi",
-            "markers": "python_version >= '3.10'",
-            "version": "==0.54.9"
+            "markers": "python_version >= '3.11'",
+            "version": "==0.60.3"
         },
         "pycontrails-bada": {
             "git": "git+ssh://git@github.com/contrailcirrus/pycontrails-bada.git",

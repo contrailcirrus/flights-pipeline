@@ -14,3 +14,5 @@ terraform {
    prefix  = "terraform/state/flights-pipeline"
  }
 }
+
+data "google_project" "project" {}
