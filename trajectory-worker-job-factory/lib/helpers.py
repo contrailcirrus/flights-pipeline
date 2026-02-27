@@ -2,16 +2,18 @@
 Helper funcs.
 """
 
+import pandas as pd
 from lib.schemas import FLIGHT_LEVELS
 
 
-def key_max_value_count(dfx, column_name):
+def key_max_value_count(dfx: pd.DataFrame, column_name: str):
     """
-    If multiple unique values exist in a column, return the value with the highest count.
-    Note that null values are not considered in the stack rank.
+    This is effectively a wrapper around Pandas.mode() to handle some of the oddities around strings.
+    If multiple unique values exist in a column, return the value with the highest count (mode).
+    Null values are not considered in the stack rank.
     """
-    keys = list(dfx[column_name].value_counts().sort_values(ascending=False).keys())
-    val = keys[0] if keys else None
+    keys = dfx[column_name].mode()
+    val = keys[0] if not pd.isna(keys).all() else None
     return val
 
 
