@@ -722,7 +722,7 @@ class HealTrajectoryHandler:
         self._candidate_info = None
 
     @staticmethod
-    def _get_priority_map(df: pd.DataFrame, cols: list) -> dict[str, object]:
+    def _get_priority_map(df: pd.DataFrame, cols: list) -> dict:
         """
         Given a dataframe and list of columns,
         return a mapping of the column name to the value of highest count in the column.
@@ -740,7 +740,12 @@ class HealTrajectoryHandler:
         e.g.
         {"callsign": None, "airline_iata": AA}
         """
-        return {col: key_max_value_count(df, col) for col in cols}
+
+        resp = {}
+        for col in cols:
+            prio_val = key_max_value_count(df, col)
+            resp.update({col: prio_val})
+        return resp
 
     @staticmethod
     def _dataframe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
@@ -748,34 +753,29 @@ class HealTrajectoryHandler:
         Attempt to convert types for each dataframe column to expected type.
         Implicitly also checks for existence of expected columns.
         """
-        try:
-            df = df.copy(deep=True)
-            cols = {
-                "icao_address": str,
-                "flight_id": str,
-                "callsign": str,
-                "tail_number": str,
-                "flight_number": str,
-                "aircraft_type_icao": str,
-                "airline_iata": str,
-                "departure_airport_icao": str,
-                "departure_scheduled_time": "datetime64[ns, UTC]",
-                "arrival_airport_icao": str,
-                "arrival_scheduled_time": "datetime64[ns, UTC]",
-                "timestamp": "datetime64[ns, UTC]",
-                "latitude": float,
-                "longitude": float,
-                "collection_type": str,
-                "altitude_baro": int,
-            }
-            df = df.astype(cols)
-            df.replace("nan", None, inplace=True)
-            df.replace("None", None, inplace=True)
-            return df
-        except KeyError as e:
-            raise KeyError(
-                "flight trajectory dataframe is missing an expected column"
-            ) from e
+        df = df.copy(deep=True)
+        cols = {
+            "icao_address": str,
+            "flight_id": str,
+            "callsign": str,
+            "tail_number": str,
+            "flight_number": str,
+            "aircraft_type_icao": str,
+            "airline_iata": str,
+            "departure_airport_icao": str,
+            "departure_scheduled_time": "datetime64[ns, UTC]",
+            "arrival_airport_icao": str,
+            "arrival_scheduled_time": "datetime64[ns, UTC]",
+            "timestamp": "datetime64[ns, UTC]",
+            "latitude": float,
+            "longitude": float,
+            "collection_type": str,
+            "altitude_baro": int,
+        }
+        df = df.astype(cols)
+        df.replace("nan", None, inplace=True)
+        df.replace("None", None, inplace=True)
+        return df
 
     @staticmethod
     def _interpolate_to_airport(
@@ -1032,7 +1032,12 @@ class HealTrajectoryHandler:
         Dataset mirroring initiated dataset, with manipulations applied.
         """
 
-        self._df = HealTrajectoryHandler._dataframe_convert_types(self._df)
+        try:
+            self._df = self._dataframe_convert_types(self._df)
+        except KeyError as e:
+            raise KeyError(
+                "flight trajectory dataframe is missing an expected column"
+            ) from e
 
         # --------------
         # update dataset so the following target keys are uniform/distinct for a given flight
@@ -1047,7 +1052,7 @@ class HealTrajectoryHandler:
 
         # drop any rows where our column values don't match the priority value
         for col, val in priority_values.items():
-            if not pd.isna(val):
+            if val:
                 keep_filter = self._df[col] == val
                 total_number_before_drop = len(self._df[col])
                 self._df = self._df[keep_filter]
@@ -1118,7 +1123,6 @@ class HealTrajectoryHandler:
 
         self._df.reset_index(drop=True, inplace=True)
 
-        self._df = self._dataframe_convert_types(self._df)
         return self._df
 
 

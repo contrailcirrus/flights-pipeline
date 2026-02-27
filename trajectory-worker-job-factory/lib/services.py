@@ -48,7 +48,6 @@ class TrajectoryBuilderSvc:
     # minimum number of waypoints in a flight instance with null airline iata
     # presumed a true null airline iata if above this threshold
     MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
-    MAX_NOMINAL_ALT_GEN_AVIATION_FT = 20000
 
     def __init__(
         self,
@@ -368,13 +367,10 @@ class TrajectoryBuilderSvc:
             if (
                 len(candidate.airline_iata) == 1
                 and candidate.airline_iata[0] is None
-                and waypoints["altitude_baro"].max()
-                < self.MAX_NOMINAL_ALT_GEN_AVIATION_FT
+                and waypoints["altitude_baro"].max() < 20_000
             ):
                 extra_log = candidate.to_dict()
-                extra_log["detail"] = (
-                    "presumed general aviation flight - no wps above 20k ft"
-                )
+                extra_log["detail"] = "presumed general aviation flight - no wps above 20k ft"
                 logger.debug(
                     "skipping",
                     extra=extra_log,

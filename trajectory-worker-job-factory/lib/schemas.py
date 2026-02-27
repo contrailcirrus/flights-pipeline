@@ -1209,7 +1209,8 @@ class TrajectoryWorkerJobDescriptor:
 
         if not is_valid:
             raise ValueError(
-                "twjd not valid - must provide only one of  flight_id or airline_iata"
+                "twjd not valid - must provide only one of "
+                " flight_id or airline_iata"
             )
 
         if self.met_source not in MetSource:
