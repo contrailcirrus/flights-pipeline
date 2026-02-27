@@ -652,10 +652,20 @@ class CloudStorageHandler:
             uri = f"gs://{self._bucket.name}/{k}"
             logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
+            # identify all flight_ids appearing with the target airline_iata
+            # and exclude instances of null flight_ids not belonging to target airline_iata
             if airline_iata == "null":
-                df = df[df["airline_iata"].isnull()]
+                fids = df[df["airline_iata"].isnull()]["flight_id"].unique()
+                null_fids_to_holdout = (
+                    df["flight_id"].isna() & ~df["airline_iata"].isnull()
+                )
             else:
-                df = df[df["airline_iata"] == airline_iata]
+                fids = df[df["airline_iata"] == airline_iata]["flight_id"].unique()
+                null_fids_to_holdout = df["flight_id"].isna() & ~(
+                    df["airline_iata"] == airline_iata
+                )
+            df = df[df["flight_id"].isin(fids) & ~null_fids_to_holdout]
+
             df_agg = pd.concat([df_agg, df], ignore_index=True)
         return df_agg
 
