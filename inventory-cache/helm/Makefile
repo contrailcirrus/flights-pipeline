@@ -1,6 +1,6 @@
 .PHONY: deploy
 deploy: --check-env
-	helm upgrade --install flight-emissions-report-cache . \
+	helm upgrade --install inventory-cache . \
 		--namespace=$(NAMESPACE) \
 		--set image=$(IMAGE) \
 		--set logLevel=$(LOG_LEVEL) \
