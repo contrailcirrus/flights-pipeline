@@ -1,11 +1,11 @@
-# Flight Emissions Report Cache
+# Inventory Cache
 
 ## Description
 This subdirectory holds resources and services used to maintain 
-a cache of flight emissions report data.
+a cache of the impact inventory data, mirroring the SOT records in BigQuery to a Postgres instance..
 
 Specifically, data from BigQuery (`flights_pipeline_prod.trajectory_cocip_prod`) is selectively 
-mirrored to a postgres database (`contrails-default-<dev/prod>.flights-pipeline.fer-cache`).
+mirrored to a postgres database (`contrails-default-<dev/prod>.flights-pipeline-fer-cache`).
 The postgres database serves as a cache backing APIs and other internal services that
 require high volume/low latency access to the flights pipeline data residing in Big Query.
 
@@ -23,7 +23,7 @@ The postgres instance is accessed by talking with the Cloud SQL Proxy that is de
 
 ### Initial Setup
 The postgres databases are codified in [.cloud/psdb_prod.tf](../.cloud/psdb_prod.tf).
-These definitions provide initial instantiation of the resources owned by the `flight-emissions-report-cache` service.
+These definitions provide initial instantiation of the resources owned by the `inventory-cache` service.
 
 See this reference for [database instance settings](https://cloud.google.com/sql/docs/postgres/instance-settings).
 
@@ -32,7 +32,7 @@ The following additional steps are carried out manually to:
 
 **Add `trajectory-cocip` table**
 The SQL scripting [HERE](.docs/sql/create_cocip_trajectory_table.sql) is run to create 
-a `trajectory-cocip` table in the `flight-emissions-report-<dev/prod>.flights-pipeline` database.
+a `trajectory-cocip` table in the `contrails-default-<dev/prod>.flights-pipeline-fer-cache` database.
 This scripting also configures access control for our read-only and read-write user credentials.
 
 ## Environment Variables
