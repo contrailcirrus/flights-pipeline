@@ -1,12 +1,12 @@
-name: flight-emissions-report-cache-deploy-dev
+name: inventory-cache-deploy-dev
 
 on:
   push:
     branches:
       - develop
     paths:
-      - flight-emissions-report-cache/**
-      - .github/workflows/flight-emissions-report-cache-deploy-dev.yaml
+      - inventory-cache/**
+      - .github/workflows/inventory-cache-deploy-dev.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -45,20 +45,20 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: flight-emissions-report-cache/
+          context: inventory-cache/
           push: true
           tags: |
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-cache-dev:${{ github.sha }}
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-cache-dev:latest
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/inventory-cache-dev:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/inventory-cache-dev:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Deploy helm resources
-        working-directory: flight-emissions-report-cache/helm
+        working-directory: inventory-cache/helm
         run: make deploy
         env:
           NAMESPACE: flights-pipeline-dev
-          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/flight-emissions-report-cache-dev:${{ github.sha }}
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/inventory-cache-dev:${{ github.sha }}
           LOG_LEVEL: INFO
           PSDB_USER: internal_user_rw
           PSDB_PROXY_HOST: psdb-contrails-default-proxy.flights-pipeline-dev.svc.cluster.local
