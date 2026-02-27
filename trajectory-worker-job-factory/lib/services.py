@@ -123,6 +123,9 @@ class TrajectoryBuilderSvc:
 
             case TelemetrySource.GOOGLE_CLOUD_STORAGE:
                 logger.debug("fetching adsb from gcs")
+                # df_all comes with:
+                # 1) waypoints for flight_ids observed to have the target airline_iata
+                # 2) all waypoints with null flight_id (sat data) in target timerange
                 df_all = self._gcs_handler.fetch_airline_days(
                     [previous_day, day, next_day], airline_iata, prune=True
                 )
@@ -133,9 +136,12 @@ class TrajectoryBuilderSvc:
                 is_on_day = (first_by_fid["timestamp"] >= pd.to_datetime(day)) & (
                     first_by_fid["timestamp"] < pd.to_datetime(next_day)
                 )
+                # flight ids with trajectories originating on the target day
                 first_by_fid = first_by_fid[is_on_day]
-
-                is_fid = df_all["flight_id"].isin(first_by_fid.index)
+                target_fids = set(first_by_fid.index)
+                # remove None as a possible target flight id
+                target_fids.discard(None)
+                is_fid = df_all["flight_id"].isin(target_fids)
                 df = df_all[is_fid]
 
                 is_icao_w_null_fid = (
@@ -284,6 +290,7 @@ class TrajectoryBuilderSvc:
             key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
             if resp := self._cache_handler.pull(key):
                 progress_marker = resp
+                # TODO: add SMS alert on this event
                 logger.warning(
                     "resuming progress from a previous job",
                     extra={
@@ -340,15 +347,39 @@ class TrajectoryBuilderSvc:
             # when processing airline_iata is null case
             # for TWJDs built on airline_iata<>day
             # -------------
-            # prune cases where the number of waypoints in the flight_id group is very small
-            # these are likely spurious waypoints belonging to a flight_id
-            # that has another true non-null airline_iata
-            # --
-            # this does not guarantee that we won't have false null airline-iata cases
-            # pass thru, but will help prune otherwise spurious flight instances
+            # we need to consider true null airline-iata flights
+            # and false null airline-iata flights
+            # -
+            # a true null airline iata flight is one in which no waypoints
+            # for a given flight are reported with an airline_iata
+            # thus the flight is truly with no airline_iata
+            # -
+            # a false null airline iata flight is one in which the flight
+            # is in truth associated with an airline_iata but some waypoints
+            # are missing the airline_iata field
+            # -
+            # this is a consideration unique to the null airline iata case
+            # as we are effectively disambiguating between interpreting
+            # the meaning of single waypoint with a null airline iata
+            # as being missing data for that waypoint versus truthfully
+            # missing for the flight
+            # ---------
+            # we apply two null airline-iata case specific filters
+            # (1) skip a flight if we observe any non-null airline iata waypoints
+            #     for a null airline-iata job
+            # (2) skip very short null airline-iata flights (this is likely extraneous with
+            #     the addition of (1) ).
+            if twjd.airline_iata == "null" and len(candidate.airline_iata) > 1:
+                extra_log = candidate.to_dict()
+                extra_log["detail"] = "presumed false null airline iata"
+                logger.debug(
+                    "skipping",
+                    extra=extra_log,
+                )
+                continue
+
             if (
-                len(candidate.airline_iata) == 1
-                and candidate.airline_iata[0] is None
+                twjd.airline_iata == "null"
                 and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
             ):
                 extra_log = candidate.to_dict()
@@ -370,7 +401,9 @@ class TrajectoryBuilderSvc:
                 and waypoints["altitude_baro"].max() < 20_000
             ):
                 extra_log = candidate.to_dict()
-                extra_log["detail"] = "presumed general aviation flight - no wps above 20k ft"
+                extra_log["detail"] = (
+                    "presumed general aviation flight - no wps above 20k ft"
+                )
                 logger.debug(
                     "skipping",
                     extra=extra_log,

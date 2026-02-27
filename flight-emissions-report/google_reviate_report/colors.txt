@@ -1,7 +1,0 @@
-Colors:
-Dark blue #2C2857
-Medium blue #4285F4
-Light blue #D3E3FD
-Yellow #F7CA45
-Yellow transparent #F7CA45, 50% Alpha
-Medium grey #C4C7C5
