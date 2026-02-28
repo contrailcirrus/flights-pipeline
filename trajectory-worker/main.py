@@ -94,7 +94,7 @@ def run(
             continue
 
         try:
-            trajectory_cocip_handler.load()
+            trajectory_cocip_handler.load_gcs_zarr()
             cocip_result = trajectory_cocip_handler.run()
         except Exception:
             logger.error(

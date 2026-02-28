@@ -693,7 +693,7 @@ class CocipTrajectoryHandler:
 
         return [dt.strftime("%Y%m%d") for dt in date_range]
 
-    def load(self):
+    def load_gcs_zarr(self):
         """
         Open met data zarr stores and build pycontrails Metdataset objects for HRES and ERA5 stores.
 
