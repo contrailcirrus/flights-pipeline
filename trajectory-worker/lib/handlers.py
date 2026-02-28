@@ -701,13 +701,21 @@ class CocipTrajectoryHandler:
         ERA5: Will choose and concat those store(s)
               that overlap entire flight traj + contrail evolution time.
         """
+
         if self._job.met_source == MetSource.HRES:
             self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
             zarr_path = f"{self._hres_src}/{self._zarr_src_fn}"
+            # inject explicit gcs token for fs access to gcs
+            if "gs://" in zarr_path:
+                xr_storage_options = {"token": env.GCP_SVC_ACCT_KEY}
+            else:
+                xr_storage_options = {}
+
             logger.debug("opening hres pl zarr store", extra={"zarr_path": zarr_path})
+
             pl = xr.open_zarr(
                 f"{zarr_path}/pl.zarr",
-                storage_options={"token": env.GCP_SVC_ACCT_KEY},
+                storage_options={**xr_storage_options},
             )
             met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
             variables = Cocip.ecmwf_met_variables()
@@ -716,9 +724,7 @@ class CocipTrajectoryHandler:
             logger.debug("opening hres sl zarr store", extra={"zarr_path": zarr_path})
             sl = xr.open_zarr(
                 f"{zarr_path}/sl.zarr",
-                storage_options={
-                    "token": env.GCP_SVC_ACCT_KEY,
-                },
+                storage_options={**xr_storage_options},
             )
             rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
             variables = Cocip.ecmwf_rad_variables()
@@ -733,12 +739,17 @@ class CocipTrajectoryHandler:
             sl_ds: list[xr.Dataset] = []
             for src_fn in self._zarr_src_fn:
                 zarr_path = f"{self._era5_src}/{src_fn}"
+                # inject explicit gcs token for fs access to gcs
+                if "gs://" in zarr_path:
+                    xr_storage_options = {"token": env.GCP_SVC_ACCT_KEY}
+                else:
+                    xr_storage_options = {}
                 logger.debug(
                     "opening era5 pl zarr store", extra={"zarr_path": zarr_path}
                 )
                 pl = xr.open_zarr(
                     f"{zarr_path}_pl.zarr",
-                    storage_options={"token": env.GCP_SVC_ACCT_KEY},
+                    storage_options={**xr_storage_options},
                 )
                 pl_ds.append(pl)
                 logger.debug(
@@ -746,9 +757,7 @@ class CocipTrajectoryHandler:
                 )
                 sl = xr.open_zarr(
                     f"{zarr_path}_sl.zarr",
-                    storage_options={
-                        "token": env.GCP_SVC_ACCT_KEY,
-                    },
+                    storage_options={**xr_storage_options},
                 )
                 sl_ds.append(sl)
             pl_ds_agg = xr.concat(pl_ds, dim="time")
