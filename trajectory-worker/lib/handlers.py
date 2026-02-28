@@ -511,28 +511,19 @@ class CocipTrajectoryHandler:
         max_age=np.timedelta64(12, "h"),
     )
 
-    def __init__(self, job: WaypointsRecord, hres_src: str, era5_src: str):
+    def __init__(self, job: WaypointsRecord):
         """
         Parameters
         ----------
         job
             A WaypointsRecord job (flight instance) to process
-        hres_src
-            Fully-qualified uri for the source path the hres zarr store.
-            e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
-        era5_src
-            Fully-qualified uri for the source path the era5 zarr store.
-            e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
         """
         # aggregate and hash the ids for all messages received by the handler
         # on instantiation.
         # this serves as a unique identifier of the unit of work handled by
         # the handler instance.
-        self._hres_src = hres_src
-        self._era5_src = era5_src
         self._job = job
 
-        self._zarr_src_fn: str | list[str] | None = None
         self._met_dataset: MetDataset | None = None
         self._rad_dataset: MetDataset | None = None
 
@@ -693,18 +684,27 @@ class CocipTrajectoryHandler:
 
         return [dt.strftime("%Y%m%d") for dt in date_range]
 
-    def load_gcs_zarr(self):
+    def load_gcs_zarr(self, hres_src: str, era5_src: str):
         """
         Open met data zarr stores and build pycontrails Metdataset objects for HRES and ERA5 stores.
+        Parameters
+        ---------
+        hres_src
+            Fully-qualified uri for the source path the hres zarr store.
+            e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
+        era5_src
+            Fully-qualified uri for the source path the era5 zarr store.
+            e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
 
         HRES: Will choose the most recent _usable_ forecast for jobs needing HRES.
         ERA5: Will choose and concat those store(s)
               that overlap entire flight traj + contrail evolution time.
         """
+        zarr_src_fn: str | list[str] | None = None
 
         if self._job.met_source == MetSource.HRES:
-            self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
-            zarr_path = f"{self._hres_src}/{self._zarr_src_fn}"
+            zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
+            zarr_path = f"{hres_src}/{zarr_src_fn}"
             # inject explicit gcs token for fs access to gcs
             if "gs://" in zarr_path:
                 xr_storage_options = {"token": env.GCP_SVC_ACCT_KEY}
@@ -733,12 +733,12 @@ class CocipTrajectoryHandler:
             self._rad_dataset = rad
 
         elif self._job.met_source == MetSource.ERA5:
-            self._zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
+            zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
 
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []
-            for src_fn in self._zarr_src_fn:
-                zarr_path = f"{self._era5_src}/{src_fn}"
+            for src_fn in zarr_src_fn:
+                zarr_path = f"{era5_src}/{src_fn}"
                 # inject explicit gcs token for fs access to gcs
                 if "gs://" in zarr_path:
                     xr_storage_options = {"token": env.GCP_SVC_ACCT_KEY}
