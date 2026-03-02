@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: era5-zarr-gcs-pvc
+  namespace: flights-pipeline-prod
+spec:
+  accessModes:
+  - ReadOnlyMany
+  storageClassName: hyperdisk-ml-single-zone-useast1c
+  resources:
+    requests:
+      storage: 400Gi
+  dataSourceRef:
+    apiGroup: datalayer.gke.io
+    kind: GCPDataSource
+    name: gcs-era5-zarr-datasource
