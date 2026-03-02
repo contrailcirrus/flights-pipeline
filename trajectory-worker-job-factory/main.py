@@ -41,13 +41,11 @@ def run(
         job_hash = hashlib.shake_128(job.as_utf8_json()).hexdigest(
             8
         )  # useful for keying in logs
-        logger.info("got twjd", extra={"job_hash": job_hash, "twjd": asdict(job)})
+        logger.info("start twjd", extra={"job_hash": job_hash, "twjd": asdict(job)})
 
         try:
             job_builder_svc.run(twjd=job)
-            logger.info(
-                "finished twjd", extra={"job_hash": job_hash, "twjd": asdict(job)}
-            )
+            logger.info("end twjd", extra={"job_hash": job_hash, "twjd": asdict(job)})
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
             logger.error(
@@ -80,7 +78,7 @@ def run(
 
 
 if __name__ == "__main__":
-    logger.info("starting trajectory-worker-job-factory instance")
+    logger.debug("starting trajectory-worker-job-factory instance")
 
     try:
         cache_handler = RedisHandler(

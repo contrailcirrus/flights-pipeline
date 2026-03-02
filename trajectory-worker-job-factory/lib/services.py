@@ -314,7 +314,7 @@ class TrajectoryBuilderSvc:
                 continue
 
             if (counter % self.FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT) == 0:
-                logger.info(
+                logger.debug(
                     f"progress - processing {counter} of {number_of_flight_candidates}"
                 )
             # --------------
@@ -433,14 +433,12 @@ class TrajectoryBuilderSvc:
                     logger.info(
                         "skipping",
                         extra={
-                            "flight_id": candidate.flight_id,
                             "detail": "empty flight",
+                            "flight_id": candidate.flight_id,
                         },
                     )
                     continue
 
-                # log state of flight post heal
-                logger.info("heal step done", extra=candidate.to_dict())
             except Exception as _:
                 logger.error(
                     "skipping",
@@ -490,8 +488,8 @@ class TrajectoryBuilderSvc:
                     logger.info(
                         "skipping",
                         extra={
-                            "flight_id": candidate.flight_id,
                             "detail": "empty flight",
+                            "flight_id": candidate.flight_id,
                         },
                     )
                     continue
@@ -535,8 +533,6 @@ class TrajectoryBuilderSvc:
                 flight_id=flight_id,
                 df=waypoints_pycontrail,
             )
-            # log state of flight post resample
-            logger.info("resample step done", extra=candidate.to_dict())
 
             if twjd.export_waypoints:
                 # save waypoints to disk
@@ -582,8 +578,8 @@ class TrajectoryBuilderSvc:
                     logger.info(
                         "skipping",
                         extra={
-                            "flight_id": candidate.flight_id,
                             "detail": "violations found",
+                            "flight_id": candidate.flight_id,
                             "reason": violations,
                         },
                     )
@@ -602,8 +598,8 @@ class TrajectoryBuilderSvc:
                 logger.error(
                     "skipping",
                     extra={
-                        "flight_id": candidate.flight_id,
                         "detail": "validate step failed",
+                        "flight_id": candidate.flight_id,
                         "traceback": format_traceback(),
                     },
                 )
@@ -652,11 +648,13 @@ class TrajectoryBuilderSvc:
                 logger.error(
                     "skipping",
                     extra={
-                        "flight_id": candidate.flight_id,
                         "detail": "job submit failed",
+                        "flight_id": candidate.flight_id,
                         "traceback": format_traceback(),
                     },
                 )
+            # log state of flight submitted to TW
+            logger.info("end work", extra=candidate.to_dict())
 
         if self._cache_handler and twjd.airline_iata:
             self._cache_handler.pop(
