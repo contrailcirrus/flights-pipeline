@@ -16,6 +16,6 @@ spec:
       - mountPath: /ecmwf-zarr-v2
         name: ecmwf-zarr-v2
   volumes:
-  - name: ecmwf-zarr-v2
-    persistentVolumeClaim:
-      claimName: era5-zarr-gcs-pvc
+    - name: ecmwf-zarr-v2
+      persistentVolumeClaim:
+        claimName: era5-zarr-gcs-pvc
