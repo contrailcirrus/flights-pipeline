@@ -78,9 +78,7 @@ def run(
         # apply CoCip Trajectory model
         # ===================
         try:
-            trajectory_cocip_handler = CocipTrajectoryHandler(
-                job, env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
-            )
+            trajectory_cocip_handler = CocipTrajectoryHandler(job)
         except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
             logger.info(
                 "skipping",
@@ -94,7 +92,9 @@ def run(
             continue
 
         try:
-            trajectory_cocip_handler.load()
+            trajectory_cocip_handler.load_gcs_zarr(
+                env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
+            )
             cocip_result = trajectory_cocip_handler.run()
         except Exception:
             logger.error(
