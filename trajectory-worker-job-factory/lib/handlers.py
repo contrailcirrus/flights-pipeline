@@ -1125,7 +1125,7 @@ class HealTrajectoryHandler:
             logger.info(
                 "healing",
                 extra={
-                    "detail": f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "detail": f"speed filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
                     "flight_id": self._candidate_info.flight_id,
                 },
             )
