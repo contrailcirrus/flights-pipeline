@@ -2,7 +2,7 @@ apiVersion: datalayer.gke.io/v1
 kind: GCPDataSource
 metadata:
   name: gcs-era5-zarr-datasource
-  namespace: flights-pipeline-prod
+  namespace: flights-pipeline-dev
 spec:
   cloudStorage:
     serviceAccountName: flights-pipeline-default-sa

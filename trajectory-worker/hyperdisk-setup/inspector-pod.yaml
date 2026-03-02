@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: zarr-hyperdisk-inspector
-  namespace: flights-pipeline-prod
+  namespace: flights-pipeline-dev
 spec:
   nodeSelector:
     cloud.google.com/compute-class: gcs-to-hdml-compute-class
