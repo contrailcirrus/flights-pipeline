@@ -15,12 +15,9 @@ spec:
         app: trajectory-worker-gaia
     spec:
       serviceAccountName: flights-pipeline-default-sa
-      # terminationGracePeriodSeconds should be greater than the time to
-      # perform a single job iteration. When a SIGTERM is received, the job
-      # has this much time to gracefully exit before being killed.
       terminationGracePeriodSeconds: 15
       nodeSelector:
-     #   cloud.google.com/gke-spot: "true"
+        cloud.google.com/gke-spot: "true"
         cloud.google.com/machine-family: "c3"
       volumes:
         - name: ecmwf-zarr-v2
