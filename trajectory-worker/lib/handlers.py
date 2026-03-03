@@ -524,6 +524,7 @@ class CocipTrajectoryHandler:
         # the handler instance.
         self._job = job
 
+        self._zarr_src_fn: str | list[str] | None = None
         self._met_dataset: MetDataset | None = None
         self._rad_dataset: MetDataset | None = None
 
@@ -700,11 +701,10 @@ class CocipTrajectoryHandler:
         ERA5: Will choose and concat those store(s)
               that overlap entire flight traj + contrail evolution time.
         """
-        zarr_src_fn: str | list[str] | None = None
 
         if self._job.met_source == MetSource.HRES:
-            zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
-            zarr_path = f"{hres_src}/{zarr_src_fn}"
+            self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
+            zarr_path = f"{hres_src}/{self._zarr_src_fn}"
             # inject explicit gcs token for fs access to gcs
             if "gs://" in zarr_path:
                 xr_storage_options = {"token": env.GCP_SVC_ACCT_KEY}
@@ -733,11 +733,11 @@ class CocipTrajectoryHandler:
             self._rad_dataset = rad
 
         elif self._job.met_source == MetSource.ERA5:
-            zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
+            self._zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
 
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []
-            for src_fn in zarr_src_fn:
+            for src_fn in self._zarr_src_fn:
                 zarr_path = f"{era5_src}/{src_fn}"
                 # inject explicit gcs token for fs access to gcs
                 if "gs://" in zarr_path:

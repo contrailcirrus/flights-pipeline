@@ -120,7 +120,7 @@ class PubSubSubscriptionHandler:
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.info("zero messages received")
+                logger.debug("zero messages received")
                 continue
 
             pubsub_msg = resp.received_messages[0]
@@ -985,14 +985,20 @@ class HealTrajectoryHandler:
         if interpolated_departure_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_departure_airport_waypoint)
             logger.info(
-                f"impute wp at departure - {departure_airport_icao}",
-                extra={"flight_id": candidate_info.flight_id},
+                "healing",
+                extra={
+                    "flight_id": candidate_info.flight_id,
+                    "detail": f"impute wp at departure - {departure_airport_icao}",
+                },
             )
         if interpolated_arrival_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
             logger.info(
-                f"impute wp at arrival - {arrival_airport_icao}",
-                extra={"flight_id": candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"impute wp at arrival - {arrival_airport_icao}",
+                    "flight_id": candidate_info.flight_id,
+                },
             )
 
         if interpolated_waypoints:
@@ -1065,9 +1071,11 @@ class HealTrajectoryHandler:
 
                 if drop_cnt:
                     logger.info(
-                        f"dropped {drop_cnt} values out of "
-                        f"{total_number_before_drop} not matching {val} for field {col}.",
-                        extra={"flight_id": self._candidate_info.flight_id},
+                        "healing",
+                        extra={
+                            "detail": f"dropped {drop_cnt} values out of {total_number_before_drop} not matching {val} for field {col}",
+                            "flight_id": self._candidate_info.flight_id,
+                        },
                     )
 
         len_before_duplicate_drop = len(self._df)
@@ -1076,8 +1084,11 @@ class HealTrajectoryHandler:
         len_difference = len_before_duplicate_drop - len(self._df)
         if len_difference != 0:
             logger.info(
-                f"dropped {len_difference} duplicate timestamp records",
-                extra={"flight_id": self._candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"dropped {len_difference} duplicate timestamp records",
+                    "flight_id": self._candidate_info.flight_id,
+                },
             )
 
         # --------------
@@ -1107,8 +1118,11 @@ class HealTrajectoryHandler:
 
         if len(self._df) != initial_length:
             logger.info(
-                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
-                extra={"flight_id": self._candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"speed filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "flight_id": self._candidate_info.flight_id,
+                },
             )
         # --------------
         # Interpolate to one or both airports if needed.

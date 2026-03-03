@@ -15,17 +15,20 @@ spec:
         app: trajectory-worker-gaia
     spec:
       serviceAccountName: flights-pipeline-default-sa
-      # terminationGracePeriodSeconds should be greater than the time to
-      # perform a single job iteration. When a SIGTERM is received, the job
-      # has this much time to gracefully exit before being killed.
       terminationGracePeriodSeconds: 15
       nodeSelector:
         cloud.google.com/gke-spot: "true"
-    #    cloud.google.com/compute-class: "Performance"
-    #    cloud.google.com/machine-family: "c4"
+        cloud.google.com/machine-family: "c3"
+      volumes:
+        - name: ecmwf-zarr-v2
+          persistentVolumeClaim:
+            claimName: era5-zarr-gcs-pvc
       containers:
       - name: trajectory-worker-gaia
         image: {{ .Values.image | required ".Values.image is required" | quote }}
+        volumeMounts:
+          - mountPath: /ecmwf-zarr-v2
+            name: ecmwf-zarr-v2
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
             value: {{ .Values.trajectoryChunkGaiaSubscriptionId | required ".Values.trajectoryChunkGaiaSubscriptionId is required" | quote }}
@@ -52,8 +55,6 @@ spec:
           limits:
             cpu: "0.25"
             memory: "0.5Gi"
-            ephemeral-storage: "0.05Gi"
           requests:
             cpu: "0.25"
             memory: "0.5Gi"
-            ephemeral-storage: "0.05Gi"
