@@ -20,7 +20,7 @@ spec:
       # has this much time to gracefully exit before being killed.
       terminationGracePeriodSeconds: 15
       nodeSelector:
-        cloud.google.com/gke-spot: "true"
+#        cloud.google.com/gke-spot: "true"
         cloud.google.com/machine-family: "c3"
       containers:
       - name: trajectory-worker-gaia-backup
