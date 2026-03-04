@@ -2,7 +2,6 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: era5-zarr-gcs-pvc
-  namespace: flights-pipeline-dev
 spec:
   accessModes:
   - ReadOnlyMany
