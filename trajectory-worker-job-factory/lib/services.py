@@ -32,6 +32,7 @@ from lib.utils import sigterm_manager
 
 from google.cloud import bigquery
 import pandas as pd
+import numpy as np
 
 from lib.log import logger, format_traceback
 
@@ -49,6 +50,8 @@ class TrajectoryBuilderSvc:
     # presumed a true null airline iata if above this threshold
     MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
     MAX_NOMINAL_ALT_GEN_AVIATION_FT = 20000
+
+    TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S = 60  # seconds; used to mark resampled waypoints as imputed if the gap between them and the previous raw waypoint is above this threshold
 
     def __init__(
         self,
@@ -475,6 +478,7 @@ class TrajectoryBuilderSvc:
                     lambda r: r.tz_localize(None)
                 )
                 # ensure no timestamp dupes, as expected by pycontrails.resample_and_fill
+                # TODO: remove: I think this is already handled in the heal step
                 waypoints_pycontrail.drop_duplicates(["time"], inplace=True)
 
                 # resample waypoints
@@ -511,11 +515,35 @@ class TrajectoryBuilderSvc:
                 flight_attrs = HealTrajectoryHandler.INVARIANT_FLIGHT_ATTRS
                 for attr in flight_attrs:
                     waypoints_pycontrail[attr] = waypoints[attr].iloc[0]
-                # TODO: implement the following
-                # add a flag indicating which waypoints are due to interpolation
-                # across one or more minutes of telemetry not present in the raw spire data
-                # waypoints_pycontrail["imputed"] = ...
-                waypoints_pycontrail["imputed"] = False
+
+                # Find discontinuities in the raw data and mark waypoints on either side as "imputed"
+                wp_diff = waypoints["timestamp"].diff()
+                imputed_markers = wp_diff > pd.Timedelta(seconds=self.TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S) 
+                waypoints["imputed"] = imputed_markers
+                waypoints["imputed"][np.where(imputed_markers)[0]-1] = True # mark before and after the discontinuity
+
+                # merge datasets and sort, so resampled times fall between gap boundaries
+                joined_times = pd.merge(waypoints[["timestamp", "imputed"]],
+                    waypoints_pycontrail["timestamp"].dt.tz_localize("UTC"),
+                    left_on="timestamp",
+                    right_on="timestamp",
+                    how="outer",
+                    indicator=True,
+                )
+                joined_times.sort_values("timestamp", inplace=True)
+
+                imputed_range_markers = (joined_times["imputed"] == True).cumsum() # Ticks up at each gap boundary
+                impute_indices = imputed_range_markers % 2 == 1 # stretches between imputed flags marked True in resampled data
+
+                joined_times["imputed"] = impute_indices
+
+                # pull out the resampled data only
+                imputed = joined_times["imputed"][(joined_times["_merge"] == "right_only") | (joined_times["_merge"] == "both")]
+                imputed.fillna(False, inplace=True) # Likely be unnecessary
+                # reindex to match waypoints_pycontrail and mark imputed waypoints
+                imputed.reset_index(drop=True, inplace=True)
+                waypoints_pycontrail["imputed"] = imputed
+
                 del waypoints
             except Exception as _:
                 logger.error(
