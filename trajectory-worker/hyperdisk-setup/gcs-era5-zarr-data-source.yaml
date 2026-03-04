@@ -1,0 +1,8 @@
+apiVersion: datalayer.gke.io/v1
+kind: GCPDataSource
+metadata:
+  name: gcs-era5-zarr-datasource
+spec:
+  cloudStorage:
+    serviceAccountName: flights-pipeline-default-sa
+    uri: gs://contrails-301217-ecmwf-era5-zarr-v2-staging/
