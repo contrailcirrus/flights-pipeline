@@ -95,7 +95,8 @@ def run(
             trajectory_cocip_handler.load_gcs_zarr(
                 env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
             )
-            cocip_result = trajectory_cocip_handler.run()
+            cocip_fleet_result = trajectory_cocip_handler.run()
+            target_flight_result = cocip_fleet_result[0]
         except Exception:
             logger.error(
                 "nacking",
@@ -134,7 +135,7 @@ def run(
             git_sha=env.GIT_SHA,
             input_chunk=job,
             zarr_uri=fq_zarr_uri,
-            result=cocip_result,
+            result=target_flight_result,
         )
 
         trajectory_cocip_bq_publisher.publish_async(
@@ -165,7 +166,7 @@ def run(
                 git_sha=env.GIT_SHA,
                 input_chunk=job,
                 zarr_uri=fq_zarr_uri,
-                result=cocip_result,
+                result=target_flight_result,
             )
             for seg in seg_outputs:
                 trajectory_cocip_bq_publisher.publish_async(
@@ -185,7 +186,7 @@ def run(
             traj_proto: schemas.CocipTrajectoryProto
             traj_proto = schemas.CocipTrajectoryProto.from_cocip_result(
                 input_chunk=job,
-                result=cocip_result,
+                result=target_flight_result,
                 model=trajectory_cocip_handler.model,
             )
             bytes_out = traj_proto.to_bytes()

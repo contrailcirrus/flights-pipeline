@@ -22,6 +22,31 @@ from pycontrails.models.cocip import Cocip
 from lib.log import logger, format_traceback
 from lib import trajectory_pb2 as traj_pb
 
+FLIGHT_LEVELS = [
+    230,
+    240,
+    250,
+    260,
+    270,
+    280,
+    290,
+    300,
+    310,
+    320,
+    330,
+    340,
+    350,
+    360,
+    370,
+    380,
+    390,
+    400,
+    410,
+    420,
+    430,
+    440,
+]
+
 DATETIME_STR_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 tf = TimezoneFinder()
