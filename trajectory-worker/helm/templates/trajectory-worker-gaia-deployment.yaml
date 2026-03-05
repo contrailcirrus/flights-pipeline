@@ -19,16 +19,16 @@ spec:
       nodeSelector:
         cloud.google.com/gke-spot: "true"
         cloud.google.com/machine-family: "c3"
-      volumes:
-        - name: ecmwf-zarr-v2
-          persistentVolumeClaim:
-            claimName: era5-zarr-gcs-pvc
+#      volumes:
+#        - name: ecmwf-zarr-v2
+#          persistentVolumeClaim:
+#            claimName: era5-zarr-gcs-pvc
       containers:
       - name: trajectory-worker-gaia
         image: {{ .Values.image | required ".Values.image is required" | quote }}
-        volumeMounts:
-          - mountPath: /ecmwf-zarr-v2
-            name: ecmwf-zarr-v2
+#        volumeMounts:
+#          - mountPath: /ecmwf-zarr-v2
+#            name: ecmwf-zarr-v2
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
             value: {{ .Values.trajectoryChunkGaiaSubscriptionId | required ".Values.trajectoryChunkGaiaSubscriptionId is required" | quote }}
@@ -52,9 +52,11 @@ spec:
                 name: gcp-service-account-key
                 key: GCP_SVC_ACCT_KEY
         resources:
+        # bursting supported when machine-family is specified https://docs.cloud.google.com/kubernetes-engine/docs/how-to/pod-bursting-gke#availability-in-gke
+        # ref: https://docs.cloud.google.com/kubernetes-engine/docs/how-to/pod-bursting-gke#availability-in-gke
           limits:
-            cpu: "0.25"
+            cpu: "1"
             memory: "0.5Gi"
           requests:
-            cpu: "0.25"
-            memory: "0.5Gi"
+            cpu: "0.4"
+            memory: "2Gi"
