@@ -96,7 +96,10 @@ def run(
                 env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
             )
             cocip_fleet_result = trajectory_cocip_handler.run()
-            target_flight_result = cocip_fleet_result[0]
+            cocip_fleet_result_lookup = {
+                flight.attrs["flight_id"]: flight for flight in cocip_fleet_result
+            }
+            target_flight_result = cocip_fleet_result_lookup[job.flight_info.flight_id]
         except Exception:
             logger.error(
                 "nacking",
