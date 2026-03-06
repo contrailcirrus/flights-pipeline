@@ -6,5 +6,5 @@ import "lib/segment_reference.proto";
 
 message VerticalProfile {
     uint32 alt_ft = 1;  // encoded as (alt_ft / 16) -- 12bit space
-    repeated SegmentReference segment_ref = 2;
+    repeated SegmentReference segment_references = 2;
 }
