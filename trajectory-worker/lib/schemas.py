@@ -1395,10 +1395,10 @@ class CocipTrajectoryProto:
         return df
 
     @classmethod
-    def from_cocip_result(
+    def from_cocip_results(
         cls,
         input_chunk: WaypointsRecord,
-        fleet_results: list[pycontrails.core.Flight],
+        fleet_results_lookup: dict[str, pycontrails.core.Flight],
         model: Cocip,
     ):
         """
@@ -1408,10 +1408,12 @@ class CocipTrajectoryProto:
         ----------
         input_chunk
             the flight trajectory and flight metadata
-        fleet_results
+        fleet_results_lookup
             the pycontrails Flight model output from running CoCiP for the target job flight,
             plus Flight objects for each altitude variant of the alt vertical profile along
             the target job flight's lat,lon trajectory.
+            structured as a lookup of <flight_id>: Flight() where flight_id is either the
+            target job's flight_id, or the modified flight_id variant ({flight_id}-alt-{alt_ft})
         model
             instance of a CoCiP model from which result is generated
 
@@ -1420,7 +1422,7 @@ class CocipTrajectoryProto:
         CocipTrajectoryProto
             an instance of this dataclass, with a protobuf trajectory built from the inputs
         """
-        target_flight_result = fleet_results[0]
+        target_flight_result = fleet_results_lookup[input_chunk.flight_info.flight_id]
         df = cls._resample_cocip_result(target_flight_result)
 
         traj = traj_pb.Trajectory()
@@ -1504,8 +1506,10 @@ class CocipTrajectoryProto:
         # ----------
         # package VERTICAL PROFILE CoCiP outputs
         # ----------
-        vert_profile_results: list[pycontrails.Flight] = fleet_results[1:]
-        for profile_flight in vert_profile_results:
+        for flight_id, profile_flight in fleet_results_lookup.items():
+            if flight_id == input_chunk.flight_info.flight_id:
+                # skip target flight; only capture vert profile flights
+                continue
             vert_profile_pb = traj.vertical_profiles.add()
             profile_df = profile_flight.dataframe
             # fetch static altitude for the vert profile trajectory

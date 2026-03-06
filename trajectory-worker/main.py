@@ -187,7 +187,7 @@ def run(
             # if enabled, publish trajectory segments to protobuf in GCS
             # ===================
             traj_proto: schemas.CocipTrajectoryProto
-            traj_proto = schemas.CocipTrajectoryProto.from_cocip_result(
+            traj_proto = schemas.CocipTrajectoryProto.from_cocip_results(
                 input_chunk=job,
                 result=target_flight_result,
                 model=trajectory_cocip_handler.model,
