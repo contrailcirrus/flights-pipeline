@@ -8,6 +8,7 @@ from enum import Enum
 from typing import TypedDict
 from uuid import UUID
 
+import pandas
 import pandas as pd
 import pytz
 from timezonefinder import TimezoneFinder
@@ -1276,6 +1277,33 @@ class CocipTrajectoryProto:
         return boundaries_ix
 
     @classmethod
+    def _mirror_resample(
+        cls, target_df: pandas.DataFrame, reference_df: pandas.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Mirrors the resampling of reference_df to target_df.
+
+        reference_df and target_df must both have a datelike column `time`.
+
+        The response dataframe will contain resampled columns (see sum_fields) of target_df
+        at the temporal binning of reference_df.
+        """
+        bin_ranges = pd.cut(
+            target_df["time"], reference_df["time"], include_lowest=True, right=False
+        )
+
+        sum_fields = ["ef"]
+        first_fields = ["time"]
+
+        df_first = target_df[first_fields]
+        df_first = df_first.groupby(bin_ranges, observed=False).first()
+        df_sum = target_df[sum_fields]
+        df_sum = df_sum.groupby(bin_ranges, observed=False).sum()
+        df_all = pd.merge(df_sum, df_first, left_index=True, right_index=True)
+        df_all.reset_index(drop=True, inplace=True)
+        return df_all
+
+    @classmethod
     def _resample_cocip_result(cls, result: pycontrails.core.Flight) -> pd.DataFrame:
         """
         Resample the per-segment cocip result.
@@ -1367,8 +1395,11 @@ class CocipTrajectoryProto:
         return df
 
     @classmethod
-    def from_cocip_result(
-        cls, input_chunk: WaypointsRecord, result: pycontrails.core.Flight, model: Cocip
+    def from_cocip_results(
+        cls,
+        input_chunk: WaypointsRecord,
+        fleet_results_lookup: dict[str, pycontrails.core.Flight],
+        model: Cocip,
     ):
         """
         Build a trajectory protobuf object from a cocip result.
@@ -1377,8 +1408,12 @@ class CocipTrajectoryProto:
         ----------
         input_chunk
             the flight trajectory and flight metadata
-        result
-            the pycontrails Flight model output from running CoCiP
+        fleet_results_lookup
+            the pycontrails Flight model output from running CoCiP for the target job flight,
+            plus Flight objects for each altitude variant of the alt vertical profile along
+            the target job flight's lat,lon trajectory.
+            structured as a lookup of <flight_id>: Flight() where flight_id is either the
+            target job's flight_id, or the modified flight_id variant ({flight_id}-alt-{alt_ft})
         model
             instance of a CoCiP model from which result is generated
 
@@ -1387,7 +1422,8 @@ class CocipTrajectoryProto:
         CocipTrajectoryProto
             an instance of this dataclass, with a protobuf trajectory built from the inputs
         """
-        df = cls._resample_cocip_result(result)
+        target_flight_result = fleet_results_lookup[input_chunk.flight_info.flight_id]
+        df = cls._resample_cocip_result(target_flight_result)
 
         traj = traj_pb.Trajectory()
         traj.flight_id = input_chunk.flight_info.flight_id
@@ -1467,6 +1503,27 @@ class CocipTrajectoryProto:
                     if alt_ft < 0:
                         alt_ft = 0
                     coord.alt_ft = int(alt_ft / 16)
+        # ----------
+        # package VERTICAL PROFILE CoCiP outputs
+        # ----------
+        for flight_id, profile_flight in fleet_results_lookup.items():
+            if flight_id == input_chunk.flight_info.flight_id:
+                # skip target flight; only capture vert profile flights
+                continue
+            vert_profile_pb = traj.vertical_profiles.add()
+            profile_df = profile_flight.dataframe
+            # fetch static altitude for the vert profile trajectory
+            alt_ft = profile_df["altitude"].iloc[0] * 3.28
+            vert_profile_pb.alt_ft = int(alt_ft / 16)
+
+            # resample each of the vertical profile flights to the same
+            # resampling bins as our target flight
+            profile_df = cls._mirror_resample(profile_df, df)
+            for _, row in profile_df.iterrows():
+                seg_ref = vert_profile_pb.segment_references.add()
+                seg_ref.time_start = row["time"]
+                seg_ref.sum_ef_mj = int((row["ef"] / 10**6) / 100)
+
         return CocipTrajectoryProto(trajectory=traj)
 
     def to_bytes(self) -> bytes:
