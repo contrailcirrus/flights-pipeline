@@ -189,7 +189,7 @@ def run(
             traj_proto: schemas.CocipTrajectoryProto
             traj_proto = schemas.CocipTrajectoryProto.from_cocip_results(
                 input_chunk=job,
-                result=target_flight_result,
+                fleet_results_lookup=cocip_fleet_result_lookup,
                 model=trajectory_cocip_handler.model,
             )
             bytes_out = traj_proto.to_bytes()
