@@ -1289,7 +1289,11 @@ class CocipTrajectoryProto:
         at the temporal binning of reference_df.
         """
         bin_ranges = pd.cut(
-            target_df["time"], reference_df["time"], include_lowest=True, right=False
+            target_df["time"],
+            reference_df["time"],
+            include_lowest=True,
+            right=False,
+            duplicates="drop",
         )
 
         sum_fields = ["ef"]
