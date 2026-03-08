@@ -1288,12 +1288,13 @@ class CocipTrajectoryProto:
         The response dataframe will contain resampled columns (see sum_fields) of target_df
         at the temporal binning of reference_df.
         """
+        ref_df_ix = reference_df["time"]
+        ref_df_ix.drop_duplicates(inplace=True)
         bin_ranges = pd.cut(
             target_df["time"],
-            reference_df["time"],
+            ref_df_ix,
             include_lowest=True,
             right=False,
-            duplicates="drop",
         )
 
         sum_fields = ["ef"]
