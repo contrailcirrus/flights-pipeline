@@ -1544,4 +1544,6 @@ class CocipTrajectoryProto:
 
     def as_dict(self) -> dict:
         """Convert the protobuf trajectory in an instance of this class to a python dict."""
-        return json_format.MessageToDict(self.trajectory)
+        return json_format.MessageToDict(
+            self.trajectory, always_print_fields_with_no_presence=False
+        )
