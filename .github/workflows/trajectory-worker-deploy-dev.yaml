@@ -56,7 +56,7 @@ jobs:
       #    gcloud storage cp --quiet --recursive --no-clobber gs://contrails-301217-bada/bada/bada4 trajectory-worker/.
 
       - name: Build and push image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: trajectory-worker/
           push: true
