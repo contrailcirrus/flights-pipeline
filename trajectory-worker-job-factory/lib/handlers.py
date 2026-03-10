@@ -120,7 +120,7 @@ class PubSubSubscriptionHandler:
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.info("zero messages received")
+                logger.debug("zero messages received")
                 continue
 
             pubsub_msg = resp.received_messages[0]
@@ -652,10 +652,20 @@ class CloudStorageHandler:
             uri = f"gs://{self._bucket.name}/{k}"
             logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
+            # identify all flight_ids appearing with the target airline_iata
+            # and exclude instances of null flight_ids not belonging to target airline_iata
             if airline_iata == "null":
-                df = df[df["airline_iata"].isnull()]
+                fids = df[df["airline_iata"].isnull()]["flight_id"].unique()
+                null_fids_to_holdout = (
+                    df["flight_id"].isna() & ~df["airline_iata"].isnull()
+                )
             else:
-                df = df[df["airline_iata"] == airline_iata]
+                fids = df[df["airline_iata"] == airline_iata]["flight_id"].unique()
+                null_fids_to_holdout = df["flight_id"].isna() & ~(
+                    df["airline_iata"] == airline_iata
+                )
+            df = df[df["flight_id"].isin(fids) & ~null_fids_to_holdout]
+
             df_agg = pd.concat([df_agg, df], ignore_index=True)
         return df_agg
 
@@ -722,7 +732,7 @@ class HealTrajectoryHandler:
         self._candidate_info = None
 
     @staticmethod
-    def _get_priority_map(df: pd.DataFrame, cols: list) -> dict:
+    def _get_priority_map(df: pd.DataFrame, cols: list) -> dict[str, object]:
         """
         Given a dataframe and list of columns,
         return a mapping of the column name to the value of highest count in the column.
@@ -740,12 +750,7 @@ class HealTrajectoryHandler:
         e.g.
         {"callsign": None, "airline_iata": AA}
         """
-
-        resp = {}
-        for col in cols:
-            prio_val = key_max_value_count(df, col)
-            resp.update({col: prio_val})
-        return resp
+        return {col: key_max_value_count(df, col) for col in cols}
 
     @staticmethod
     def _dataframe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
@@ -753,29 +758,34 @@ class HealTrajectoryHandler:
         Attempt to convert types for each dataframe column to expected type.
         Implicitly also checks for existence of expected columns.
         """
-        df = df.copy(deep=True)
-        cols = {
-            "icao_address": str,
-            "flight_id": str,
-            "callsign": str,
-            "tail_number": str,
-            "flight_number": str,
-            "aircraft_type_icao": str,
-            "airline_iata": str,
-            "departure_airport_icao": str,
-            "departure_scheduled_time": "datetime64[ns, UTC]",
-            "arrival_airport_icao": str,
-            "arrival_scheduled_time": "datetime64[ns, UTC]",
-            "timestamp": "datetime64[ns, UTC]",
-            "latitude": float,
-            "longitude": float,
-            "collection_type": str,
-            "altitude_baro": int,
-        }
-        df = df.astype(cols)
-        df.replace("nan", None, inplace=True)
-        df.replace("None", None, inplace=True)
-        return df
+        try:
+            df = df.copy(deep=True)
+            cols = {
+                "icao_address": str,
+                "flight_id": str,
+                "callsign": str,
+                "tail_number": str,
+                "flight_number": str,
+                "aircraft_type_icao": str,
+                "airline_iata": str,
+                "departure_airport_icao": str,
+                "departure_scheduled_time": "datetime64[ns, UTC]",
+                "arrival_airport_icao": str,
+                "arrival_scheduled_time": "datetime64[ns, UTC]",
+                "timestamp": "datetime64[ns, UTC]",
+                "latitude": float,
+                "longitude": float,
+                "collection_type": str,
+                "altitude_baro": int,
+            }
+            df = df.astype(cols)
+            df.replace("nan", None, inplace=True)
+            df.replace("None", None, inplace=True)
+            return df
+        except KeyError as e:
+            raise KeyError(
+                "flight trajectory dataframe is missing an expected column"
+            ) from e
 
     @staticmethod
     def _interpolate_to_airport(
@@ -975,14 +985,20 @@ class HealTrajectoryHandler:
         if interpolated_departure_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_departure_airport_waypoint)
             logger.info(
-                f"impute wp at departure - {departure_airport_icao}",
-                extra={"flight_id": candidate_info.flight_id},
+                "healing",
+                extra={
+                    "flight_id": candidate_info.flight_id,
+                    "detail": f"impute wp at departure - {departure_airport_icao}",
+                },
             )
         if interpolated_arrival_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
             logger.info(
-                f"impute wp at arrival - {arrival_airport_icao}",
-                extra={"flight_id": candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"impute wp at arrival - {arrival_airport_icao}",
+                    "flight_id": candidate_info.flight_id,
+                },
             )
 
         if interpolated_waypoints:
@@ -1032,12 +1048,7 @@ class HealTrajectoryHandler:
         Dataset mirroring initiated dataset, with manipulations applied.
         """
 
-        try:
-            self._df = self._dataframe_convert_types(self._df)
-        except KeyError as e:
-            raise KeyError(
-                "flight trajectory dataframe is missing an expected column"
-            ) from e
+        self._df = HealTrajectoryHandler._dataframe_convert_types(self._df)
 
         # --------------
         # update dataset so the following target keys are uniform/distinct for a given flight
@@ -1052,7 +1063,7 @@ class HealTrajectoryHandler:
 
         # drop any rows where our column values don't match the priority value
         for col, val in priority_values.items():
-            if val:
+            if not pd.isna(val):
                 keep_filter = self._df[col] == val
                 total_number_before_drop = len(self._df[col])
                 self._df = self._df[keep_filter]
@@ -1060,9 +1071,11 @@ class HealTrajectoryHandler:
 
                 if drop_cnt:
                     logger.info(
-                        f"dropped {drop_cnt} values out of "
-                        f"{total_number_before_drop} not matching {val} for field {col}.",
-                        extra={"flight_id": self._candidate_info.flight_id},
+                        "healing",
+                        extra={
+                            "detail": f"dropped {drop_cnt} values out of {total_number_before_drop} not matching {val} for field {col}",
+                            "flight_id": self._candidate_info.flight_id,
+                        },
                     )
 
         len_before_duplicate_drop = len(self._df)
@@ -1071,8 +1084,11 @@ class HealTrajectoryHandler:
         len_difference = len_before_duplicate_drop - len(self._df)
         if len_difference != 0:
             logger.info(
-                f"dropped {len_difference} duplicate timestamp records",
-                extra={"flight_id": self._candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"dropped {len_difference} duplicate timestamp records",
+                    "flight_id": self._candidate_info.flight_id,
+                },
             )
 
         # --------------
@@ -1102,8 +1118,11 @@ class HealTrajectoryHandler:
 
         if len(self._df) != initial_length:
             logger.info(
-                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
-                extra={"flight_id": self._candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"speed filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "flight_id": self._candidate_info.flight_id,
+                },
             )
         # --------------
         # Interpolate to one or both airports if needed.
@@ -1123,6 +1142,7 @@ class HealTrajectoryHandler:
 
         self._df.reset_index(drop=True, inplace=True)
 
+        self._df = self._dataframe_convert_types(self._df)
         return self._df
 
 

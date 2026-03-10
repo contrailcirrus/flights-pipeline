@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TypedDict
+from typing import TypedDict, Any
 from uuid import UUID
 
 import pandas as pd
@@ -1209,8 +1209,7 @@ class TrajectoryWorkerJobDescriptor:
 
         if not is_valid:
             raise ValueError(
-                "twjd not valid - must provide only one of "
-                " flight_id or airline_iata"
+                "twjd not valid - must provide only one of  flight_id or airline_iata"
             )
 
         if self.met_source not in MetSource:
@@ -1284,16 +1283,35 @@ class TrajectoryCandidateInfo:
     end_time: datetime | None
 
     @staticmethod
-    def from_waypoints(flight_id: str, df: pd.DataFrame):
+    def null_to_str(list_in: list[Any]):
+        """
+        Helper func that ensures that a list does not contain any None values.
+
+        Any None values are converted to string literal "null".
+        """
+        list_out = []
+        for itm in list_in:
+            if itm is None:
+                list_out.append("null")
+            else:
+                list_out.append(itm)
+        return list_out
+
+    @classmethod
+    def from_waypoints(cls, flight_id: str, df: pd.DataFrame):
         """Build instance of self from pd dataframe of Spire waypoints."""
         return TrajectoryCandidateInfo(
             flight_id=flight_id,
             waypoint_count=len(df),
-            airline_iata=list(df["airline_iata"].unique()),
-            callsign=list(df["callsign"].unique()),
-            flight_number=list(df["flight_number"].unique()),
-            arrival_airport_icao=list(df["arrival_airport_icao"].unique()),
-            departure_airport_icao=list(df["departure_airport_icao"].unique()),
+            airline_iata=cls.null_to_str(list(df["airline_iata"].unique())),
+            callsign=cls.null_to_str(list(df["callsign"].unique())),
+            flight_number=cls.null_to_str(list(df["flight_number"].unique())),
+            arrival_airport_icao=cls.null_to_str(
+                list(df["arrival_airport_icao"].unique())
+            ),
+            departure_airport_icao=cls.null_to_str(
+                list(df["departure_airport_icao"].unique())
+            ),
             start_time=df["timestamp"].min(),
             end_time=df["timestamp"].max(),
         )

@@ -15,7 +15,6 @@ import google.api_core.exceptions
 import google.api_core.retry
 import numpy as np
 import pandas as pd  # type: ignore
-import pycontrails
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
@@ -35,7 +34,7 @@ from lib.exceptions import (
     FlightTooLowError,
 )
 from lib.log import format_traceback, logger
-from lib.schemas import WaypointsRecord, MetSource, PubSubMessage
+from lib.schemas import WaypointsRecord, MetSource, PubSubMessage, FLIGHT_LEVELS
 import lib.environment as env
 from lib.utils import sigterm_manager
 
@@ -589,25 +588,17 @@ class CocipTrajectoryHandler:
         max_age=np.timedelta64(12, "h"),
     )
 
-    def __init__(self, job: WaypointsRecord, hres_src: str, era5_src: str):
+    def __init__(self, job: WaypointsRecord):
         """
         Parameters
         ----------
         job
             A WaypointsRecord job (flight instance) to process
-        hres_src
-            Fully-qualified uri for the source path the hres zarr store.
-            e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
-        era5_src
-            Fully-qualified uri for the source path the era5 zarr store.
-            e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
         """
         # aggregate and hash the ids for all messages received by the handler
         # on instantiation.
         # this serves as a unique identifier of the unit of work handled by
         # the handler instance.
-        self._hres_src = hres_src
-        self._era5_src = era5_src
         self._job = job
 
         self._zarr_src_fn: str | list[str] | None = None
@@ -620,7 +611,7 @@ class CocipTrajectoryHandler:
             fill_low_altitude_with_zero_wind=True,
         )
         self._model: Cocip | None = None
-        self._flight: pycontrails.Flight = self._create_flight(
+        self._fleet: list[Flight] = self._create_fleet(
             self._job, self._perf_model_handler
         )
         logger.debug("instantiated cocip handler")
@@ -636,26 +627,61 @@ class CocipTrajectoryHandler:
                 f"of {cls.MET_MIN_ALTITUDE_FT} feet."
             )
 
+    @classmethod
+    def _create_fleet(
+        cls, job: WaypointsRecord, perf_handler: TrajectoryWorkerAP
+    ) -> list[Flight]:
+        """
+        Create Fleet from job waypoints.
+
+        A fleet is composed of the target flight from the job,
+        plus artificial flights, each artificial flight being the trajectory
+        of the target flight, but snapped to a given flight level.
+
+        The artificial flights in the fleet are used to build the vertical profile
+        of contrail-forming zones along the job's flight path.
+
+        Aircraft and engine type are associated with the flight here.
+        """
+        # add target flight at top of list
+        flights = [cls._create_flight(job, perf_handler)]
+        # append all artificial flights thereafter
+        flight_level_alt_ft = [100.0 * alt for alt in FLIGHT_LEVELS]
+        flights.extend(
+            [
+                cls._create_flight(job, perf_handler, fixed_alt_ft)
+                for fixed_alt_ft in flight_level_alt_ft
+            ]
+        )
+        return flights
+
     @staticmethod
     def _create_flight(
-        job: WaypointsRecord, perf_handler: TrajectoryWorkerAP
+        job: WaypointsRecord,
+        perf_handler: TrajectoryWorkerAP,
+        alt_ft: int | None = None,
     ) -> Flight:
-        """Create Flight from job waypoints.
+        """
+        Create Flight from job waypoints.
 
         Aircraft and engine type are associated with the flight here.
         """
         _, engine_uid = perf_handler.perf_lookup(
             job.flight_info.icao_address,
-            job.flight_info.flight_number,
+            job.flight_info.tail_number,
             job.flight_info.aircraft_type_icao,
         )
+        flight_id = job.flight_info.flight_id
+        if alt_ft:
+            flight_id += f"-alt-{alt_ft}"
+
         return Flight(
             longitude=[w.longitude for w in job.records],
             latitude=[w.latitude for w in job.records],
-            altitude_ft=[w.altitude_baro for w in job.records],
+            altitude_ft=[alt_ft if alt_ft else w.altitude_baro for w in job.records],
             time=pd.to_datetime(pd.Series([w.timestamp for w in job.records])),
             attrs=dict(
-                flight_id=job.flight_info.flight_id,
+                flight_id=flight_id,
                 aircraft_type=job.flight_info.aircraft_type_icao,
                 engine_uid=engine_uid,
             ),
@@ -775,21 +801,37 @@ class CocipTrajectoryHandler:
 
         return [dt.strftime("%Y%m%d") for dt in date_range]
 
-    def load(self):
+    def load_gcs_zarr(self, hres_src: str, era5_src: str):
         """
         Open met data zarr stores and build pycontrails Metdataset objects for HRES and ERA5 stores.
+        Parameters
+        ---------
+        hres_src
+            Fully-qualified uri for the source path the hres zarr store.
+            e.g. 'gs://contrails-301217-ecmwf-hres-forecast-v2-short-term'
+        era5_src
+            Fully-qualified uri for the source path the era5 zarr store.
+            e.g. 'gs://contrails-301217-ecmwf-era5-zarr-v2'
 
         HRES: Will choose the most recent _usable_ forecast for jobs needing HRES.
         ERA5: Will choose and concat those store(s)
               that overlap entire flight traj + contrail evolution time.
         """
+
         if self._job.met_source == MetSource.HRES:
             self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
-            zarr_path = f"{self._hres_src}/{self._zarr_src_fn}"
+            zarr_path = f"{hres_src}/{self._zarr_src_fn}"
+            # inject explicit gcs token for fs access to gcs
+            if "gs://" in zarr_path:
+                xr_storage_options = {"token": env.GCP_SVC_ACCT_KEY}
+            else:
+                xr_storage_options = {}
+
             logger.debug("opening hres pl zarr store", extra={"zarr_path": zarr_path})
+
             pl = xr.open_zarr(
                 f"{zarr_path}/pl.zarr",
-                storage_options={"token": env.GCP_SVC_ACCT_KEY},
+                storage_options={**xr_storage_options},
             )
             met = MetDataset(pl, provider="ECMWF", dataset="HRES", product="forecast")
             variables = Cocip.ecmwf_met_variables()
@@ -798,9 +840,7 @@ class CocipTrajectoryHandler:
             logger.debug("opening hres sl zarr store", extra={"zarr_path": zarr_path})
             sl = xr.open_zarr(
                 f"{zarr_path}/sl.zarr",
-                storage_options={
-                    "token": env.GCP_SVC_ACCT_KEY,
-                },
+                storage_options={**xr_storage_options},
             )
             rad = MetDataset(sl, provider="ECMWF", dataset="HRES", product="forecast")
             variables = Cocip.ecmwf_rad_variables()
@@ -814,13 +854,18 @@ class CocipTrajectoryHandler:
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []
             for src_fn in self._zarr_src_fn:
-                zarr_path = f"{self._era5_src}/{src_fn}"
+                zarr_path = f"{era5_src}/{src_fn}"
+                # inject explicit gcs token for fs access to gcs
+                if "gs://" in zarr_path:
+                    xr_storage_options = {"token": env.GCP_SVC_ACCT_KEY}
+                else:
+                    xr_storage_options = {}
                 logger.debug(
                     "opening era5 pl zarr store", extra={"zarr_path": zarr_path}
                 )
                 pl = xr.open_zarr(
                     f"{zarr_path}_pl.zarr",
-                    storage_options={"token": env.GCP_SVC_ACCT_KEY},
+                    storage_options={**xr_storage_options},
                 )
                 pl_ds.append(pl)
                 logger.debug(
@@ -828,9 +873,7 @@ class CocipTrajectoryHandler:
                 )
                 sl = xr.open_zarr(
                     f"{zarr_path}_sl.zarr",
-                    storage_options={
-                        "token": env.GCP_SVC_ACCT_KEY,
-                    },
+                    storage_options={**xr_storage_options},
                 )
                 sl_ds.append(sl)
             pl_ds_agg = xr.concat(pl_ds, dim="time")
@@ -855,7 +898,7 @@ class CocipTrajectoryHandler:
                 "unrecognized met source specified in trajectory worker job"
             )
 
-    def run(self) -> Flight:
+    def run(self) -> list[Flight]:
         """
         Run the cocip trajectory model.
         """
@@ -889,7 +932,7 @@ class CocipTrajectoryHandler:
                 preprocess_lowmem=True,
             )
         logger.debug("evaluating cocip model")
-        result: Flight = self._model.eval(self._flight)
+        result: list[Flight] = self._model.eval(self._fleet)
         logger.debug("finished evaluating cocip model")
         return result
 
