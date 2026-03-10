@@ -9,13 +9,12 @@ import os
 import sys
 import threading
 from collections.abc import Iterator
-from typing import Any, Callable
+from typing import Any, Callable, override
 
 import google.api_core.exceptions
 import google.api_core.retry
 import numpy as np
 import pandas as pd  # type: ignore
-import pycontrails
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
@@ -35,7 +34,7 @@ from lib.exceptions import (
     FlightTooLowError,
 )
 from lib.log import format_traceback, logger
-from lib.schemas import WaypointsRecord, MetSource, PubSubMessage
+from lib.schemas import WaypointsRecord, MetSource, PubSubMessage, FLIGHT_LEVELS
 import lib.environment as env
 from lib.utils import sigterm_manager
 
@@ -424,9 +423,87 @@ class TrajectoryWorkerAP(AircraftPerformance):
     long_name = "Trajectory Worker Aircraft Performance"
 
     PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
+    PERF_MODEL_LOOKUP_TABLE = "data/aircraft_lookup.csv"
     BADA3_DATASET_FP = "bada3"
 
-    def perf_lookup(self, aircraft_type_icao: str) -> tuple[AircraftPerformance, str]:
+    # Load static lookups at class initialization time, so they are only read from disk once per instance.
+    with open(PERF_MODEL_LOOKUP_FP, "r") as fp:
+        _perf_model_lookup = json.load(fp)
+
+    _perf_model_lookup_table = pd.read_csv(PERF_MODEL_LOOKUP_TABLE)
+
+    def perf_lookup(
+        self, icao_address: str, tail_number: str | None, aircraft_type_icao: str | None
+    ) -> tuple[AircraftPerformance, str]:
+        """
+        Look up performance model and engine type for a job's aircraft.
+
+        We provide a static, manually maintained lookup that maps one-to-one,
+        between an aircraft (icao_address or tail_number), and
+        1. an engine identifier (icao uid),
+        2. an aircraft performance model (e.g. PSFlight, BADAFlight).
+
+        If the specific aircraft lookup fails, we fall back to looking up by aircraft type icao code,
+        which provides a default engine_uid.
+        When all lookups fail (aircraft and aircraft typenot found), we raise an error since pycontrails expects an engine_uid to be available
+        for performance and emissions calculations.
+        """
+
+        perf_model: AircraftPerformance | None = None
+        engine_uid: str | None = None
+
+        aircraft_target = self._perf_model_lookup_table[
+            self._perf_model_lookup_table["icao_address"] == icao_address
+        ]
+
+        if len(aircraft_target) == 1:
+            engine_uid = aircraft_target["engine_uid"].values[0]
+
+        if engine_uid is None and tail_number is not None:
+            aircraft_target = self._perf_model_lookup_table[
+                self._perf_model_lookup_table["tail_number"] == tail_number
+            ]
+            engine_uid = (
+                aircraft_target["engine_uid"].values[0]
+                if len(aircraft_target) == 1
+                else None
+            )
+
+        if len(aircraft_target) > 1:
+            raise AircraftTypeUnrecognizedError(
+                f"multiple aircraft with icao_address {icao_address} and tail_number {tail_number} found performance lookup."
+            )
+
+        try:
+            perf_model: AircraftPerformance | None = PSFlight(params=self.params)
+            # Check PS model availability:
+            if not perf_model.check_aircraft_type_availability(
+                aircraft_type=aircraft_type_icao
+            ):
+                perf_model = BADAFlight(
+                    params=self.params,
+                    bada3_path=self.BADA3_DATASET_FP,
+                    bada_priority=3,
+                )
+                _ = perf_model.get_bada(
+                    aircraft_type=aircraft_type_icao
+                )  # checks for aircraft type availability and raises if not available
+        except Exception as e:
+            raise PerfModelUnsupportedError(
+                f"Error generating perf model lookup for aircraft with icao_address {icao_address} and tail_number {tail_number}: {e}"
+            )
+
+        # Default to static json lookup of engine or performance model by aircraft type if specific aircraft lookup fails
+        if perf_model is None or engine_uid is None and aircraft_type_icao is not None:
+            aircraft_target = self.default_perf_lookup(aircraft_type_icao)
+            perf_model = aircraft_target[0] if perf_model is None else perf_model
+            engine_uid = aircraft_target[1] if engine_uid is None else engine_uid
+
+        return perf_model, engine_uid
+
+    def default_perf_lookup(
+        self, aircraft_type_icao: str
+    ) -> tuple[AircraftPerformance, str]:
         """
         Look up performance model and engine type for a job's aircraft type.
 
@@ -444,10 +521,7 @@ class TrajectoryWorkerAP(AircraftPerformance):
         for emissions calculations (emission calculations being separate from the perf model output)
         """
 
-        with open(self.PERF_MODEL_LOOKUP_FP, "r") as fp:
-            lookup = json.load(fp)
-
-        target: dict[str, str] | None = lookup.get(aircraft_type_icao)
+        target: dict[str, str] | None = self._perf_model_lookup.get(aircraft_type_icao)
 
         if not target:
             raise AircraftTypeUnrecognizedError(
@@ -473,9 +547,12 @@ class TrajectoryWorkerAP(AircraftPerformance):
                 )
         return perf_model, engine_uid
 
+    @override
     def eval_flight(self, fl: Flight):
         aircraft_type_icao = fl.attrs.get("aircraft_type")
-        _perf_model, _ = self.perf_lookup(aircraft_type_icao)
+        icao_address = fl.attrs.get("icao_address", None)
+        tail_number = fl.attrs.get("tail_number", None)
+        _perf_model, _ = self.perf_lookup(icao_address, tail_number, aircraft_type_icao)
         return _perf_model.eval_flight(fl)
 
     def calculate_aircraft_performance(*args, **kwargs):
@@ -534,7 +611,7 @@ class CocipTrajectoryHandler:
             fill_low_altitude_with_zero_wind=True,
         )
         self._model: Cocip | None = None
-        self._flight: pycontrails.Flight = self._create_flight(
+        self._fleet: list[Flight] = self._create_fleet(
             self._job, self._perf_model_handler
         )
         logger.debug("instantiated cocip handler")
@@ -550,22 +627,61 @@ class CocipTrajectoryHandler:
                 f"of {cls.MET_MIN_ALTITUDE_FT} feet."
             )
 
-    @staticmethod
-    def _create_flight(
-        job: WaypointsRecord, perf_handler: TrajectoryWorkerAP
-    ) -> Flight:
-        """Create Flight from job waypoints.
+    @classmethod
+    def _create_fleet(
+        cls, job: WaypointsRecord, perf_handler: TrajectoryWorkerAP
+    ) -> list[Flight]:
+        """
+        Create Fleet from job waypoints.
+
+        A fleet is composed of the target flight from the job,
+        plus artificial flights, each artificial flight being the trajectory
+        of the target flight, but snapped to a given flight level.
+
+        The artificial flights in the fleet are used to build the vertical profile
+        of contrail-forming zones along the job's flight path.
 
         Aircraft and engine type are associated with the flight here.
         """
-        _, engine_uid = perf_handler.perf_lookup(job.flight_info.aircraft_type_icao)
+        # add target flight at top of list
+        flights = [cls._create_flight(job, perf_handler)]
+        # append all artificial flights thereafter
+        flight_level_alt_ft = [100.0 * alt for alt in FLIGHT_LEVELS]
+        flights.extend(
+            [
+                cls._create_flight(job, perf_handler, fixed_alt_ft)
+                for fixed_alt_ft in flight_level_alt_ft
+            ]
+        )
+        return flights
+
+    @staticmethod
+    def _create_flight(
+        job: WaypointsRecord,
+        perf_handler: TrajectoryWorkerAP,
+        alt_ft: int | None = None,
+    ) -> Flight:
+        """
+        Create Flight from job waypoints.
+
+        Aircraft and engine type are associated with the flight here.
+        """
+        _, engine_uid = perf_handler.perf_lookup(
+            job.flight_info.icao_address,
+            job.flight_info.tail_number,
+            job.flight_info.aircraft_type_icao,
+        )
+        flight_id = job.flight_info.flight_id
+        if alt_ft:
+            flight_id += f"-alt-{alt_ft}"
+
         return Flight(
             longitude=[w.longitude for w in job.records],
             latitude=[w.latitude for w in job.records],
-            altitude_ft=[w.altitude_baro for w in job.records],
+            altitude_ft=[alt_ft if alt_ft else w.altitude_baro for w in job.records],
             time=pd.to_datetime(pd.Series([w.timestamp for w in job.records])),
             attrs=dict(
-                flight_id=job.flight_info.flight_id,
+                flight_id=flight_id,
                 aircraft_type=job.flight_info.aircraft_type_icao,
                 engine_uid=engine_uid,
             ),
@@ -782,7 +898,7 @@ class CocipTrajectoryHandler:
                 "unrecognized met source specified in trajectory worker job"
             )
 
-    def run(self) -> Flight:
+    def run(self) -> list[Flight]:
         """
         Run the cocip trajectory model.
         """
@@ -816,7 +932,7 @@ class CocipTrajectoryHandler:
                 preprocess_lowmem=True,
             )
         logger.debug("evaluating cocip model")
-        result: Flight = self._model.eval(self._flight)
+        result: list[Flight] = self._model.eval(self._fleet)
         logger.debug("finished evaluating cocip model")
         return result
 

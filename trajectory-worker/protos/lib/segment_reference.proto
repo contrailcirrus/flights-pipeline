@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message SegmentReference {
+    google.protobuf.Timestamp time_start = 1;
+    sint32 sum_ef_mj = 2;  // encoded as (sum_ef_mJ / 100) -- 1 unit ~= 0.3 kg CO2e GWP100
+}
