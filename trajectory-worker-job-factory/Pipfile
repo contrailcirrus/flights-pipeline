@@ -14,7 +14,7 @@ httpx = "==0.28.1"
 pandas = "==2.2.2"
 pyproj = "==3.6.1"
 platformdirs = "==4.2.2"
-pycontrails = {git = "https://github.com/contrailcirrus/pycontrails.git", ref = "d475c406b5037621540fa8f1561148972d474ce2"}
+pycontrails = "==0.60.3"
 redis = "==5.0.2"
 timezonefinder = "==6.5.2"
 zarr = "==2.18.3"
