@@ -427,6 +427,12 @@ class TrajectoryWorkerAP(AircraftPerformance):
     PERF_MODEL_LOOKUP_TABLE = "data/aircraft_lookup.csv"
     BADA3_DATASET_FP = "bada3"
 
+    # Load static lookups at class initialization time, so they are only read from disk once per instance.
+    with open(PERF_MODEL_LOOKUP_FP, "r") as fp:
+        _perf_model_lookup = json.load(fp)
+
+    _perf_model_lookup_table = pd.read_csv(PERF_MODEL_LOOKUP_TABLE)
+
     def perf_lookup(
         self, icao_address: str, tail_number: str | None, aircraft_type_icao: str | None
     ) -> tuple[AircraftPerformance, str]:
@@ -444,30 +450,24 @@ class TrajectoryWorkerAP(AircraftPerformance):
         for performance and emissions calculations.
         """
 
-        lookup = pd.read_csv(self.PERF_MODEL_LOOKUP_TABLE)
+        perf_model: AircraftPerformance | None = None
+        engine_uid: str | None = None
 
-        # target: dict[str, str] | None = lookup.get(aircraft_type_icao)
+        aircraft_target = self._perf_model_lookup_table[
+            self._perf_model_lookup_table["icao_address"] == icao_address
+        ]
 
-        aircraft_target = lookup[lookup["icao_address"] == icao_address]
+        if len(aircraft_target) == 1:
+            engine_uid = aircraft_target["engine_uid"].values[0]
 
-        if len(aircraft_target) == 0:
-            aircraft_target = lookup[lookup["tail_number"] == tail_number]
-
-        if len(aircraft_target) == 0 and aircraft_type_icao is not None:
-            target: tuple[AircraftPerformance, str] | None = self.default_perf_lookup(
-                aircraft_type_icao
-            )
-            engine_uid = target[1] if target else None
-        else:
+        if engine_uid is None and tail_number is not None:
+            aircraft_target = self._perf_model_lookup_table[
+                self._perf_model_lookup_table["tail_number"] == tail_number
+            ]
             engine_uid = (
                 aircraft_target["engine_uid"].values[0]
-                if len(aircraft_target) > 0
+                if len(aircraft_target) == 1
                 else None
-            )
-
-        if len(aircraft_target) == 0 and target is None:
-            raise AircraftTypeUnrecognizedError(
-                f"aircraft with icao_address {icao_address} and tail_number {tail_number} not in performance lookup."
             )
 
         if len(aircraft_target) > 1:
@@ -484,17 +484,21 @@ class TrajectoryWorkerAP(AircraftPerformance):
                 perf_model = BADAFlight(
                     params=self.params,
                     bada3_path=self.BADA3_DATASET_FP,
+                    bada_priority=3,
                 )
-                if not perf_model.check_aircraft_type_availability(
+                _ = perf_model.get_bada(
                     aircraft_type=aircraft_type_icao
-                ):
-                    raise PerfModelUnsupportedError(
-                        f"perf model lookup failed for aircraft with icao_address {icao_address} and tail_number {tail_number}."
-                    )
+                )  # checks for aircraft type availability and raises if not available
         except Exception as e:
             raise PerfModelUnsupportedError(
                 f"Error generating perf model lookup for aircraft with icao_address {icao_address} and tail_number {tail_number}: {e}"
             )
+
+        # Default to static json lookup of engine or performance model by aircraft type if specific aircraft lookup fails
+        if perf_model is None or engine_uid is None and aircraft_type_icao is not None:
+            aircraft_target = self.default_perf_lookup(aircraft_type_icao)
+            perf_model = aircraft_target[0] if perf_model is None else perf_model
+            engine_uid = aircraft_target[1] if engine_uid is None else engine_uid
 
         return perf_model, engine_uid
 
@@ -518,10 +522,7 @@ class TrajectoryWorkerAP(AircraftPerformance):
         for emissions calculations (emission calculations being separate from the perf model output)
         """
 
-        with open(self.PERF_MODEL_LOOKUP_FP, "r") as fp:
-            lookup = json.load(fp)
-
-        target: dict[str, str] | None = lookup.get(aircraft_type_icao)
+        target: dict[str, str] | None = self._perf_model_lookup.get(aircraft_type_icao)
 
         if not target:
             raise AircraftTypeUnrecognizedError(
