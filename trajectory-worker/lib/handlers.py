@@ -477,9 +477,14 @@ class TrajectoryWorkerAP(AircraftPerformance):
         try:
             perf_model: AircraftPerformance | None = PSFlight(params=self.params)
             # Check PS model availability:
-            if not perf_model.check_aircraft_type_availability(
-                aircraft_type=aircraft_type_icao
-            ):
+            _ = perf_model.check_aircraft_type_availability(
+                aircraft_type=aircraft_type_icao)
+        except KeyError as e: 
+            # PS doesn't support this aircraft type, try BADA
+            perf_model = None
+
+        if perf_model is None:      
+            try:
                 perf_model = BADAFlight(
                     params=self.params,
                     bada3_path=self.BADA3_DATASET_FP,
@@ -488,13 +493,14 @@ class TrajectoryWorkerAP(AircraftPerformance):
                 _ = perf_model.get_bada(
                     aircraft_type=aircraft_type_icao
                 )  # checks for aircraft type availability and raises if not available
-        except Exception as e:
-            raise PerfModelUnsupportedError(
-                f"Error generating perf model lookup for aircraft with icao_address {icao_address} and tail_number {tail_number}: {e}"
-            )
+
+            except Exception as e:
+                raise PerfModelUnsupportedError(
+                    f"Error generating perf model lookup for aircraft_type_icao {aircraft_type_icao}: {e}"
+                )
 
         # Default to static json lookup of engine or performance model by aircraft type if specific aircraft lookup fails
-        if perf_model is None or engine_uid is None and aircraft_type_icao is not None:
+        if perf_model is None or engine_uid is None:
             aircraft_target = self.default_perf_lookup(aircraft_type_icao)
             perf_model = aircraft_target[0] if perf_model is None else perf_model
             engine_uid = aircraft_target[1] if engine_uid is None else engine_uid
