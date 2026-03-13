@@ -2,7 +2,9 @@
 The following instructions are for the Captain of a flights-pipeline run.
 
 ## Setup
-TODO
+Before running the flights-pipeline, we copy needed Met data to the `gs://contrails-301217-ecmwf-era5-zarr-v2-staging/` GCS bucket so that it can be copied into a GKE Hyperdisk for the large batch run.
+
+Follow the instructions in [the pre_process README.md](../pre_process/README.md) for getting that staging GCS bucket set up with the necessary Met data.
 
 ## Initiate
 TODO
