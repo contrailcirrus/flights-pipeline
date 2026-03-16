@@ -1,6 +1,7 @@
 import json
 import signal
 
+import pandas as pd
 from pycontrails.models.ps_model import PSFlight
 from pycontrails_bada.bada_model import BADAFlight
 
@@ -8,7 +9,9 @@ from lib.log import logger
 from pycontrails.core.aircraft_performance import AircraftPerformance
 
 DEFAULT_ENGINE_UID_LOOKUP_FP = "lib/default_engine_uid_lookup_041824.json"
+ENGINE_UID_LOOKUP_FP = "lib/engine_uid_lookup_032026.csv"
 
+# default engine uid lookup, based on aircraft type
 with open(DEFAULT_ENGINE_UID_LOOKUP_FP, "r") as fp:
     default_engine_uid_lookup = json.load(fp)
 
@@ -72,3 +75,29 @@ class SigtermManager:
 
 
 sigterm_manager = SigtermManager()
+
+
+def import_engine_uid_lookup() -> (dict[str, str], dict[str, str]):
+    """
+    Import and build mappings for icao address and tail number to engine uid.
+
+    Mappings for icao address to engine uid take priority.
+    Mappings for tail number to engine uid are only provided for aircraft where the
+    icao address is unknown.
+    """
+    # TODO: refactor; have the mappings already in JSON format in file
+    df_lk = pd.read_csv(ENGINE_UID_LOOKUP_FP)
+
+    has_icao_addr = ~df_lk["icao_address"].isna()
+    df_icao_addr = df_lk[has_icao_addr]
+    df_icao_addr.set_index("icao_address", inplace=True)
+    df_tail_num = df_lk[~has_icao_addr]
+    df_tail_num.set_index("tail_number", inplace=True)
+
+    return df_icao_addr["engine_uid"].to_dict(), df_tail_num["engine_uid"].to_dict()
+
+
+# engine uid lookup, based on icao address or tail number
+tail_num_engine_uid_lookup: dict[str, str]
+icao_addr_engine_uid_lookup: dict[str, str]
+icao_addr_engine_uid_lookup, tail_num_engine_uid_lookup = import_engine_uid_lookup()
