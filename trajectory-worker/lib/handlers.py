@@ -4,7 +4,6 @@ Application handlers.
 
 import concurrent.futures
 import hashlib
-import json
 import os
 import sys
 import threading
@@ -25,8 +24,6 @@ from pycontrails.models.cocip import Cocip
 from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
 )
-from pycontrails.models.ps_model import PSFlight
-from pycontrails_bada.bada_model import BADAFlight
 
 from lib.exceptions import (
     AircraftTypeUnrecognizedError,
@@ -36,7 +33,7 @@ from lib.exceptions import (
 from lib.log import format_traceback, logger
 from lib.schemas import WaypointsRecord, MetSource, PubSubMessage, FLIGHT_LEVELS
 import lib.environment as env
-from lib.utils import sigterm_manager
+from lib.utils import sigterm_manager, get_default_perf_model, get_default_engine_uid
 
 
 class PubSubSubscriptionHandler:
@@ -422,60 +419,14 @@ class TrajectoryWorkerAP(AircraftPerformance):
     name = "trajectory_worker_ap"
     long_name = "Trajectory Worker Aircraft Performance"
 
-    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
-    BADA3_DATASET_FP = "bada3"
-
-    def perf_lookup(self, aircraft_type_icao: str) -> tuple[AircraftPerformance, str]:
-        """
-        Look up performance model and engine type for a job's aircraft type.
-
-        We provide a static, manually maintained lookup that maps one-to-one,
-        between an aircraft type (icao identifier), and
-        1. an aircraft performance model,
-        2. an engine identifier (icao uid)
-
-        At present, we have only implemented the PSFlight performance model.
-        The BADA model may or may not be supported in the future.
-
-        Futhermore, please note that the engine_uid is not used in running the PS perf model
-        (it is for BADA). However, we still return a single, default engine_uid for aircraft
-        associated with the PS model, since the engine_uid is used in setting emission indexes
-        for emissions calculations (emission calculations being separate from the perf model output)
-        """
-
-        with open(self.PERF_MODEL_LOOKUP_FP, "r") as fp:
-            lookup = json.load(fp)
-
-        target: dict[str, str] | None = lookup.get(aircraft_type_icao)
-
-        if not target:
-            raise AircraftTypeUnrecognizedError(
-                f"aircraft of type {aircraft_type_icao} not in performance lookup."
-            )
-
-        engine_uid: str = target["engine_uid"]
-
-        perf_model: AircraftPerformance
-        match target["perf_model_id"]:
-            case "PS":
-                perf_model = PSFlight(params=self.params)
-            case "BADA3":
-                perf_model = BADAFlight(
-                    params=self.params,
-                    bada3_path=self.BADA3_DATASET_FP,
-                )
-            case _:
-                raise PerfModelUnsupportedError(
-                    f"perf model lookup returned an unsupported "
-                    f"perf_model_id of {target['perf_model_id']} "
-                    f"for aircraft_type_icao of {aircraft_type_icao}"
-                )
-        return perf_model, engine_uid
-
     def eval_flight(self, fl: Flight):
         aircraft_type_icao = fl.attrs.get("aircraft_type")
-        _perf_model, _ = self.perf_lookup(aircraft_type_icao)
-        return _perf_model.eval_flight(fl)
+        perf_model = get_default_perf_model(aircraft_type_icao, **self.params)
+        if not perf_model:
+            raise PerfModelUnsupportedError(
+                f"could not identify perf model for {aircraft_type_icao}"
+            )
+        return perf_model.eval_flight(fl)
 
     def calculate_aircraft_performance(*args, **kwargs):
         raise
@@ -533,9 +484,7 @@ class CocipTrajectoryHandler:
             fill_low_altitude_with_zero_wind=True,
         )
         self._model: Cocip | None = None
-        self._fleet: list[Flight] = self._create_fleet(
-            self._job, self._perf_model_handler
-        )
+        self._fleet: list[Flight] = self._create_fleet(self._job)
         logger.debug("instantiated cocip handler")
 
     @classmethod
@@ -551,7 +500,8 @@ class CocipTrajectoryHandler:
 
     @classmethod
     def _create_fleet(
-        cls, job: WaypointsRecord, perf_handler: TrajectoryWorkerAP
+        cls,
+        job: WaypointsRecord,
     ) -> list[Flight]:
         """
         Create Fleet from job waypoints.
@@ -566,12 +516,12 @@ class CocipTrajectoryHandler:
         Aircraft and engine type are associated with the flight here.
         """
         # add target flight at top of list
-        flights = [cls._create_flight(job, perf_handler)]
+        flights = [cls._create_flight(job)]
         # append all artificial flights thereafter
         flight_level_alt_ft = [100.0 * alt for alt in FLIGHT_LEVELS]
         flights.extend(
             [
-                cls._create_flight(job, perf_handler, fixed_alt_ft)
+                cls._create_flight(job, fixed_alt_ft)
                 for fixed_alt_ft in flight_level_alt_ft
             ]
         )
@@ -580,7 +530,6 @@ class CocipTrajectoryHandler:
     @staticmethod
     def _create_flight(
         job: WaypointsRecord,
-        perf_handler: TrajectoryWorkerAP,
         alt_ft: int | None = None,
     ) -> Flight:
         """
@@ -588,7 +537,11 @@ class CocipTrajectoryHandler:
 
         Aircraft and engine type are associated with the flight here.
         """
-        _, engine_uid = perf_handler.perf_lookup(job.flight_info.aircraft_type_icao)
+        engine_uid = get_default_engine_uid(job.flight_info.aircraft_type_icao)
+        if not engine_uid:
+            raise AircraftTypeUnrecognizedError(
+                f"aircraft of type {job.flight_info.aircraft_type_icao} not in default engine uid lookup."
+            )
         flight_id = job.flight_info.flight_id
         if alt_ft:
             flight_id += f"-alt-{alt_ft}"
