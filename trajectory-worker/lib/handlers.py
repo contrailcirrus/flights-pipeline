@@ -30,7 +30,7 @@ from lib.exceptions import (
 from lib.log import format_traceback, logger
 from lib.schemas import WaypointsRecord, MetSource, PubSubMessage, FLIGHT_LEVELS
 import lib.environment as env
-from lib.utils import sigterm_manager, get_default_perf_model, get_default_engine_uid
+from lib.utils import sigterm_manager, get_perf_model, get_engine_uid
 
 
 class PubSubSubscriptionHandler:
@@ -510,10 +510,10 @@ class CocipTrajectoryHandler:
 
         Aircraft and engine type are associated with the flight here.
         """
-        engine_uid = get_default_engine_uid(job.flight_info.aircraft_type_icao)
+        engine_uid = get_engine_uid(job.flight_info.aircraft_type_icao)
         if not engine_uid:
             raise AircraftUnrecognizedError(
-                f"aircraft of type {job.flight_info.aircraft_type_icao} not in default engine uid lookup."
+                f"could not find engine uid for aircraft type {job.flight_info.aircraft_type_icao}"
             )
         flight_id = job.flight_info.flight_id
         if alt_ft:
@@ -750,7 +750,7 @@ class CocipTrajectoryHandler:
             "running cocip model", extra={"flight_id": self._job.flight_info.flight_id}
         )
         aircraft_type_icao = self._job.flight_info.aircraft_type_icao
-        perf_model = get_default_perf_model(aircraft_type_icao)
+        perf_model = get_perf_model(aircraft_type_icao)
         if not perf_model:
             raise PerfModelUnsupportedError(
                 f"could not identify perf model for {aircraft_type_icao}"
