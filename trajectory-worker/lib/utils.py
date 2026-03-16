@@ -25,9 +25,7 @@ def get_default_engine_uid(aircraft_type_icao: str) -> str | None:
     return engine_uid
 
 
-def get_default_perf_model(
-    aircraft_type_icao: str, **perf_kwargs
-) -> AircraftPerformance | None:
+def get_default_perf_model(aircraft_type_icao: str) -> AircraftPerformance | None:
     """
     Find a default performance model for a given aircraft type, and return instance of that model.
     """
@@ -39,10 +37,14 @@ def get_default_perf_model(
 
     match perf_model_id:
         case "PS":
-            perf_model = PSFlight(params=perf_kwargs)
+            perf_model = PSFlight(
+                fill_low_altitude_with_isa_temperature=True,
+                fill_low_altitude_with_zero_wind=True,
+            )
         case "BADA3":
             perf_model = BADAFlight(
-                params=perf_kwargs,
+                fill_low_altitude_with_isa_temperature=True,
+                fill_low_altitude_with_zero_wind=True,
                 bada3_path="bada3",
             )
         case _:
