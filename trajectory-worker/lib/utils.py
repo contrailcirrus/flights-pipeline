@@ -5,7 +5,7 @@ from pycontrails.models.ps_model import PSFlight
 from pycontrails_bada.bada_model import BADAFlight
 
 from lib.log import logger
-from lib.exceptions import AircraftTypeUnrecognizedError
+from lib.exceptions import AircraftUnrecognizedError
 from pycontrails.core.aircraft_performance import AircraftPerformance
 
 DEFAULT_ENGINE_UID_LOOKUP_FP = "lib/default_engine_uid_lookup_041824.json"
@@ -52,7 +52,7 @@ def get_default_perf_model(aircraft_type_icao: str) -> AircraftPerformance | Non
         bada3_model.get_bada(aircraft_type=aircraft_type_icao)
         return bada3_model
     except Exception as e:
-        raise AircraftTypeUnrecognizedError(
+        raise AircraftUnrecognizedError(
             f"could not find aircraft type {aircraft_type_icao} in ps flights or bada lookup"
         ) from e
 
