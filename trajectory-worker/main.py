@@ -7,7 +7,7 @@ from google.oauth2 import service_account
 
 import lib.environment as env
 from lib import schemas
-from lib.exceptions import FlightTooLowError, AircraftTypeUnrecognizedError
+from lib.exceptions import FlightTooLowError, AircraftUnrecognizedError
 from lib.utils import sigterm_manager
 from lib.handlers import (
     CocipTrajectoryHandler,
@@ -79,7 +79,7 @@ def run(
         # ===================
         try:
             trajectory_cocip_handler = CocipTrajectoryHandler(job)
-        except (FlightTooLowError, AircraftTypeUnrecognizedError) as e:
+        except (FlightTooLowError, AircraftUnrecognizedError) as e:
             logger.info(
                 "skipping",
                 extra={
