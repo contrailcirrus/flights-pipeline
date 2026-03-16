@@ -438,7 +438,7 @@ class TrajectoryWorkerAP(AircraftPerformance):
         self._engine_uid: str | None = None
 
     def perf_lookup(
-        self, icao_address: str, tail_number: str | None, aircraft_type_icao: str | None, engine_uid: str | None
+        self, icao_address: str, tail_number: str | None, aircraft_type_icao: str | None
     ) -> tuple[AircraftPerformance, str]:
         """
         Look up performance model and engine type for a job's aircraft.
@@ -464,9 +464,6 @@ class TrajectoryWorkerAP(AircraftPerformance):
             The tail number (aka registration number) of the aircraft, if available.
         aircraft_type_icao: str | None
             The ICAO code representing the aircraft type, if available.
-        engine_uid: str | None
-            The ICAO engine type code, if available. If this is unknown, it will be looked up based on
-             the icao_address, tail_number or aircraft_type_icao (in that order of priority) using the static lookups provided in this class.
 
         Returns
         -------
@@ -581,8 +578,7 @@ class TrajectoryWorkerAP(AircraftPerformance):
         aircraft_type_icao = fl.attrs.get("aircraft_type")
         icao_address = fl.attrs.get("icao_address", None)
         tail_number = fl.attrs.get("tail_number", None)
-        engine_uid = fl.attrs.get("engine_uid", None)
-        _perf_model, _ = self.perf_lookup(icao_address, tail_number, aircraft_type_icao, engine_uid)
+        _perf_model, _ = self.perf_lookup(icao_address, tail_number, aircraft_type_icao)
         return _perf_model.eval_flight(fl)
 
     def calculate_aircraft_performance(*args, **kwargs):
@@ -700,7 +696,6 @@ class CocipTrajectoryHandler:
             job.flight_info.icao_address,
             job.flight_info.tail_number,
             job.flight_info.aircraft_type_icao,
-            engine_uid=None,  # looking up engine uid
         )
         flight_id = job.flight_info.flight_id
         if alt_ft:
