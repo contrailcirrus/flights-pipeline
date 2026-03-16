@@ -422,7 +422,7 @@ class TrajectoryWorkerAP(AircraftPerformance):
     name = "trajectory_worker_ap"
     long_name = "Trajectory Worker Aircraft Performance"
 
-    PERF_MODEL_LOOKUP_FP = "lib/perf_model_aircraft_lookup_041824.json"
+    PERF_MODEL_LOOKUP_FP = "lib/default_engine_uid_lookup_041824.json"
     BADA3_DATASET_FP = "bada3"
 
     def perf_lookup(self, aircraft_type_icao: str) -> tuple[AircraftPerformance, str]:
