@@ -70,7 +70,7 @@ class SigtermManager:
 sigterm_manager = SigtermManager()
 
 
-def import_engine_uid_lookup() -> (dict[str, str], dict[str, str]):
+def import_engine_uid_lookup() -> tuple[dict[str, str], dict[str, str]]:
     """
     Import and build mappings for icao address and tail number to engine uid.
 
@@ -84,10 +84,11 @@ def import_engine_uid_lookup() -> (dict[str, str], dict[str, str]):
     has_icao_addr = ~df_lk["icao_address"].isna()
     df_icao_addr = df_lk[has_icao_addr]
     df_icao_addr.set_index("icao_address", inplace=True)
+    icao_to_engine_dict = df_icao_addr["engine_uid"].to_dict()
     df_tail_num = df_lk[~has_icao_addr]
     df_tail_num.set_index("tail_number", inplace=True)
-
-    return df_icao_addr["engine_uid"].to_dict(), df_tail_num["engine_uid"].to_dict()
+    tail_num_to_engine_dict = df_tail_num["engine_uid"].to_dict()
+    return icao_to_engine_dict, tail_num_to_engine_dict
 
 
 # engine uid lookup, based on icao address or tail number
@@ -96,14 +97,32 @@ icao_addr_engine_uid_lookup: dict[str, str]
 icao_addr_engine_uid_lookup, tail_num_engine_uid_lookup = import_engine_uid_lookup()
 
 
-def get_engine_uid(aircraft_type_icao: str) -> str | None:
+def get_engine_uid(
+    icao_address: str, tail_number: str, aircraft_type_icao: str
+) -> str | None:
     """
-    Find an engine uid for a given aircraft type.
+    Find an engine uid for a given aircraft by icao_adddress, or tail_number as a fallback.
+
+    Parameters
+    ----------
+    icao_address: str
+        ICAO address for an aircraft.
+    tail_number: str
+        Tail nubmer for an aircraft.
+    aircraft_type_icao: str
+        Aircraft type ICAO designator.
+
+    Returns
+    -------
+    str | None
+        Engine UID for the aircraft if found, otherwise None. Lookups prefer icao_address, tail_number, then
+         aircraft_type_icao in that order, falling back only if lookups for the more preferred designators
+         miss.
     """
-    if engine_uid := icao_addr_engine_uid_lookup.get(aircraft_type_icao):
+    if engine_uid := icao_addr_engine_uid_lookup.get(icao_address):
         return engine_uid
 
-    if engine_uid := tail_num_engine_uid_lookup.get(aircraft_type_icao):
+    if engine_uid := tail_num_engine_uid_lookup.get(tail_number):
         return engine_uid
 
     if engine_uid := default_engine_uid_lookup.get(aircraft_type_icao):

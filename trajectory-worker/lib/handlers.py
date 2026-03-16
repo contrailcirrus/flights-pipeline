@@ -510,7 +510,11 @@ class CocipTrajectoryHandler:
 
         Aircraft and engine type are associated with the flight here.
         """
-        engine_uid = get_engine_uid(job.flight_info.aircraft_type_icao)
+        engine_uid = get_engine_uid(
+            job.flight_info.icao_address,
+            job.flight_info.tail_number,
+            job.flight_info.aircraft_type_icao,
+        )
         if not engine_uid:
             raise AircraftUnrecognizedError(
                 f"could not find engine uid for aircraft type {job.flight_info.aircraft_type_icao}"
