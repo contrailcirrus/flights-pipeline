@@ -23,7 +23,7 @@ from pycontrails.models.humidity_scaling import (
 )
 
 from lib.exceptions import (
-    AircraftTypeUnrecognizedError,
+    AircraftUnrecognizedError,
     PerfModelUnsupportedError,
     FlightTooLowError,
 )
@@ -512,7 +512,7 @@ class CocipTrajectoryHandler:
         """
         engine_uid = get_default_engine_uid(job.flight_info.aircraft_type_icao)
         if not engine_uid:
-            raise AircraftTypeUnrecognizedError(
+            raise AircraftUnrecognizedError(
                 f"aircraft of type {job.flight_info.aircraft_type_icao} not in default engine uid lookup."
             )
         flight_id = job.flight_info.flight_id

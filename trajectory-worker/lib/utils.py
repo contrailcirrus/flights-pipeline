@@ -6,9 +6,10 @@ from pycontrails.models.ps_model import PSFlight
 from pycontrails_bada.bada_model import BADAFlight
 
 from lib.log import logger
+from lib.exceptions import AircraftUnrecognizedError
 from pycontrails.core.aircraft_performance import AircraftPerformance
 
-DEFAULT_ENGINE_UID_LOOKUP_FP = "lib/default_engine_uid_lookup_041824.json"
+DEFAULT_ENGINE_UID_LOOKUP_FP = "lib/default_engine_uid_lookup_0326.json"
 ENGINE_UID_LOOKUP_FP = "lib/engine_uid_lookup_032026.csv"
 
 # default engine uid lookup, based on aircraft type
@@ -20,39 +21,38 @@ def get_default_engine_uid(aircraft_type_icao: str) -> str | None:
     """
     Find a default engine uid for a given aircraft type.
     """
-    target = default_engine_uid_lookup.get(aircraft_type_icao)
-    if target:
-        engine_uid = target["engine_uid"]
-    else:
-        return None
-    return engine_uid
+    return default_engine_uid_lookup.get(aircraft_type_icao)
 
 
 def get_default_perf_model(aircraft_type_icao: str) -> AircraftPerformance | None:
     """
     Find a default performance model for a given aircraft type, and return instance of that model.
     """
-    target = default_engine_uid_lookup.get(aircraft_type_icao)
-    if target:
-        perf_model_id = target["perf_model_id"]
-    else:
-        return None
+    # default to PS Flights model, if supported for the aircraft type
+    ps_model = PSFlight(
+        fill_low_altitude_with_isa_temperature=True,
+        fill_low_altitude_with_zero_wind=True,
+    )
+    if ps_model.check_aircraft_type_availability(
+        aircraft_type=aircraft_type_icao, raise_error=False
+    ):
+        return ps_model
 
-    match perf_model_id:
-        case "PS":
-            perf_model = PSFlight(
-                fill_low_altitude_with_isa_temperature=True,
-                fill_low_altitude_with_zero_wind=True,
-            )
-        case "BADA3":
-            perf_model = BADAFlight(
-                fill_low_altitude_with_isa_temperature=True,
-                fill_low_altitude_with_zero_wind=True,
-                bada3_path="bada3",
-            )
-        case _:
-            return None
-    return perf_model
+    # use BADA3 otherwise, if supported
+    bada3_model = BADAFlight(
+        fill_low_altitude_with_isa_temperature=True,
+        fill_low_altitude_with_zero_wind=True,
+        bada3_path="bada3",
+        bada_priority=3,
+    )
+
+    try:
+        bada3_model.get_bada(aircraft_type=aircraft_type_icao)
+        return bada3_model
+    except Exception as e:
+        raise AircraftUnrecognizedError(
+            f"could not find aircraft type {aircraft_type_icao} in ps flights or bada lookup"
+        ) from e
 
 
 class SigtermManager:

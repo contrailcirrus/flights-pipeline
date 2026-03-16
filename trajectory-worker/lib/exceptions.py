@@ -4,7 +4,7 @@ class FlightTooLowError(Exception):
     """
 
 
-class AircraftTypeUnrecognizedError(Exception):
+class AircraftUnrecognizedError(Exception):
     """
     Flight icao type is not recognized.
     """
