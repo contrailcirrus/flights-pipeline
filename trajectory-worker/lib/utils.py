@@ -8,7 +8,7 @@ from lib.log import logger
 from lib.exceptions import AircraftUnrecognizedError
 from pycontrails.core.aircraft_performance import AircraftPerformance
 
-DEFAULT_ENGINE_UID_LOOKUP_FP = "lib/default_engine_uid_lookup_041824.json"
+DEFAULT_ENGINE_UID_LOOKUP_FP = "lib/default_engine_uid_lookup_0326.json"
 
 with open(DEFAULT_ENGINE_UID_LOOKUP_FP, "r") as fp:
     default_engine_uid_lookup = json.load(fp)
@@ -18,12 +18,7 @@ def get_default_engine_uid(aircraft_type_icao: str) -> str | None:
     """
     Find a default engine uid for a given aircraft type.
     """
-    target = default_engine_uid_lookup.get(aircraft_type_icao)
-    if target:
-        engine_uid = target["engine_uid"]
-    else:
-        return None
-    return engine_uid
+    return default_engine_uid_lookup.get(aircraft_type_icao)
 
 
 def get_default_perf_model(aircraft_type_icao: str) -> AircraftPerformance | None:
