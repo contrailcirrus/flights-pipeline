@@ -17,9 +17,6 @@ import pandas as pd  # type: ignore
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
-from pycontrails.core.aircraft_performance import (
-    AircraftPerformance,
-)
 from pycontrails.models.cocip import Cocip
 from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
@@ -409,27 +406,6 @@ class PubSubPublishHandler:
                 os._exit(1)
 
         return _exit_on_error
-
-
-class TrajectoryWorkerAP(AircraftPerformance):
-    """
-    Wrapper class to modulate which aircraft performance model we use with CoCiP.
-    """
-
-    name = "trajectory_worker_ap"
-    long_name = "Trajectory Worker Aircraft Performance"
-
-    def eval_flight(self, fl: Flight):
-        aircraft_type_icao = fl.attrs.get("aircraft_type")
-        perf_model = get_default_perf_model(aircraft_type_icao, **self.params)
-        if not perf_model:
-            raise PerfModelUnsupportedError(
-                f"could not identify perf model for {aircraft_type_icao}"
-            )
-        return perf_model.eval_flight(fl)
-
-    def calculate_aircraft_performance(*args, **kwargs):
-        raise
 
 
 class CocipTrajectoryHandler:
