@@ -17,16 +17,9 @@ with open(DEFAULT_ENGINE_UID_LOOKUP_FP, "r") as fp:
     default_engine_uid_lookup = json.load(fp)
 
 
-def get_default_engine_uid(aircraft_type_icao: str) -> str | None:
+def get_perf_model(aircraft_type_icao: str) -> AircraftPerformance | None:
     """
-    Find a default engine uid for a given aircraft type.
-    """
-    return default_engine_uid_lookup.get(aircraft_type_icao)
-
-
-def get_default_perf_model(aircraft_type_icao: str) -> AircraftPerformance | None:
-    """
-    Find a default performance model for a given aircraft type, and return instance of that model.
+    Find a performance model for a given aircraft type, and return instance of that model.
     """
     # default to PS Flights model, if supported for the aircraft type
     ps_model = PSFlight(
@@ -101,3 +94,17 @@ def import_engine_uid_lookup() -> (dict[str, str], dict[str, str]):
 tail_num_engine_uid_lookup: dict[str, str]
 icao_addr_engine_uid_lookup: dict[str, str]
 icao_addr_engine_uid_lookup, tail_num_engine_uid_lookup = import_engine_uid_lookup()
+
+
+def get_engine_uid(aircraft_type_icao: str) -> str | None:
+    """
+    Find an engine uid for a given aircraft type.
+    """
+    if engine_uid := icao_addr_engine_uid_lookup.get(aircraft_type_icao):
+        return engine_uid
+
+    if engine_uid := tail_num_engine_uid_lookup.get(aircraft_type_icao):
+        return engine_uid
+
+    if engine_uid := default_engine_uid_lookup.get(aircraft_type_icao):
+        return engine_uid
