@@ -479,10 +479,7 @@ class CocipTrajectoryHandler:
         self._rad_dataset: MetDataset | None = None
 
         self._verify_altitude(self._job)
-        self._perf_model_handler: TrajectoryWorkerAP = TrajectoryWorkerAP(
-            fill_low_altitude_with_isa_temperature=True,
-            fill_low_altitude_with_zero_wind=True,
-        )
+
         self._model: Cocip | None = None
         self._fleet: list[Flight] = self._create_fleet(self._job)
         logger.debug("instantiated cocip handler")
@@ -776,6 +773,13 @@ class CocipTrajectoryHandler:
         logger.debug(
             "running cocip model", extra={"flight_id": self._job.flight_info.flight_id}
         )
+        aircraft_type_icao = self._job.flight_info.aircraft_type_icao
+        perf_model = get_default_perf_model(aircraft_type_icao)
+        if not perf_model:
+            raise PerfModelUnsupportedError(
+                f"could not identify perf model for {aircraft_type_icao}"
+            )
+
         if not self._met_dataset or not self._rad_dataset:
             raise ValueError(
                 "met dataset or rad dataset have not been loaded - run load"
@@ -784,7 +788,7 @@ class CocipTrajectoryHandler:
             self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=self._perf_model_handler,
+                aircraft_performance=perf_model,
                 **self.STATIC_PARAMS,
             )
         else:
@@ -798,7 +802,7 @@ class CocipTrajectoryHandler:
             self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=self._perf_model_handler,
+                aircraft_performance=perf_model,
                 **self.STATIC_PARAMS,
                 preprocess_lowmem=True,
             )
