@@ -518,12 +518,17 @@ class TrajectoryBuilderSvc:
 
                 # Find discontinuities in the raw data and mark waypoints on either side as "imputed"
                 wp_diff = waypoints["timestamp"].diff()
-                imputed_markers = wp_diff > pd.Timedelta(seconds=self.TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S) 
+                imputed_markers = wp_diff > pd.Timedelta(
+                    seconds=self.TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S
+                )
                 waypoints["imputed"] = imputed_markers
-                waypoints["imputed"][np.where(imputed_markers)[0]-1] = True # mark before and after the discontinuity
+                waypoints["imputed"][np.where(imputed_markers)[0] - 1] = (
+                    True  # mark before and after the discontinuity
+                )
 
                 # merge datasets and sort, so resampled times fall between gap boundaries
-                joined_times = pd.merge(waypoints[["timestamp", "imputed"]],
+                joined_times = pd.merge(
+                    waypoints[["timestamp", "imputed"]],
                     waypoints_pycontrail["timestamp"].dt.tz_localize("UTC"),
                     left_on="timestamp",
                     right_on="timestamp",
@@ -532,14 +537,21 @@ class TrajectoryBuilderSvc:
                 )
                 joined_times.sort_values("timestamp", inplace=True)
 
-                imputed_range_markers = (joined_times["imputed"] == True).cumsum() # Ticks up at each gap boundary
-                impute_indices = imputed_range_markers % 2 == 1 # stretches between imputed flags marked True in resampled data
+                imputed_range_markers = (
+                    joined_times["imputed"] == True
+                ).cumsum()  # Ticks up at each gap boundary
+                impute_indices = (
+                    imputed_range_markers % 2 == 1
+                )  # stretches between imputed flags marked True in resampled data
 
                 joined_times["imputed"] = impute_indices
 
                 # pull out the resampled data only
-                imputed = joined_times["imputed"][(joined_times["_merge"] == "right_only") | (joined_times["_merge"] == "both")]
-                imputed.fillna(False, inplace=True) # Likely be unnecessary
+                imputed = joined_times["imputed"][
+                    (joined_times["_merge"] == "right_only")
+                    | (joined_times["_merge"] == "both")
+                ]
+                imputed.fillna(False, inplace=True)  # Likely be unnecessary
                 # reindex to match waypoints_pycontrail and mark imputed waypoints
                 imputed.reset_index(drop=True, inplace=True)
                 waypoints_pycontrail["imputed"] = imputed
