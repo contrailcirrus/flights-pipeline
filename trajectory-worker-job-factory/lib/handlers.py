@@ -1145,7 +1145,8 @@ class HealTrajectoryHandler:
             )
         # --------------
         # Drop data points where altitude is outside the plausible range for a commercial flight.
-        # This is to filter out erroneous altitude readings, which can ADS-B data and can trigger airspeed validation failures.
+        # This filters out erroneous altitude readings which can occur in ADS-B data and 
+        # can trigger airspeed validation failures.
         # --------------
         initial_length = len(self._df)
         self._df = self._filter_altitudes(
