@@ -70,6 +70,7 @@ def run(
             "start work",
             extra={
                 "flight_id": job.flight_info.flight_id,
+                "start_time": job._start_time,
                 "len_records": len(job.records),
             },
         )

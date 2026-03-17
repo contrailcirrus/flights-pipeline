@@ -108,7 +108,7 @@ def get_engine_uid(
     icao_address: str
         ICAO address for an aircraft.
     tail_number: str
-        Tail nubmer for an aircraft.
+        Tail number for an aircraft.
     aircraft_type_icao: str
         Aircraft type ICAO designator.
 
@@ -120,10 +120,13 @@ def get_engine_uid(
          miss.
     """
     if engine_uid := icao_addr_engine_uid_lookup.get(icao_address):
+        logger.debug("set engine_uid from icao address")
         return engine_uid
 
     if engine_uid := tail_num_engine_uid_lookup.get(tail_number):
+        logger.debug("set engine_uid from tail number")
         return engine_uid
 
     if engine_uid := default_engine_uid_lookup.get(aircraft_type_icao):
+        logger.debug("set engine_uid from aircraft type icao")
         return engine_uid
