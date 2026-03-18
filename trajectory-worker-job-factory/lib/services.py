@@ -50,8 +50,9 @@ class TrajectoryBuilderSvc:
     # presumed a true null airline iata if above this threshold
     MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
     MAX_NOMINAL_ALT_GEN_AVIATION_FT = 20000
-
     TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S = 60  # seconds; used to mark resampled waypoints as imputed if the gap between them and the previous raw waypoint is above this threshold
+    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 85 # m/s - patching the default value in pycontrails ValidateTrajectoryHandler based on analysis of 2024 flights
+
 
     def __init__(
         self,
