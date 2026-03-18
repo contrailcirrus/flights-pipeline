@@ -27,7 +27,7 @@ from lib.exceptions import (
     SpireCacheTooSmallException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
-from pycontrails.datalib.spire.exceptions import ROCDError
+from pycontrails.datalib.spire.exceptions import ROCDError, UnknownAirportLocationError
 from lib.utils import sigterm_manager
 
 from google.cloud import bigquery
@@ -51,8 +51,7 @@ class TrajectoryBuilderSvc:
     MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
     MAX_NOMINAL_ALT_GEN_AVIATION_FT = 20000
     TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S = 60  # seconds; used to mark resampled waypoints as imputed if the gap between them and the previous raw waypoint is above this threshold
-    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 85 # m/s - patching the default value in pycontrails ValidateTrajectoryHandler based on analysis of 2024 flights
-
+    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 85  # m/s - patching the default value in pycontrails ValidateTrajectoryHandler based on analysis of 2024 flights
 
     def __init__(
         self,
@@ -523,9 +522,9 @@ class TrajectoryBuilderSvc:
                     seconds=self.TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S
                 )
                 waypoints["imputed"] = imputed_markers
-                waypoints["imputed"][np.where(imputed_markers)[0] - 1] = (
-                    True  # mark before and after the discontinuity
-                )
+                waypoints["imputed"][
+                    np.where(imputed_markers)[0] - 1
+                ] = True  # mark before and after the discontinuity
 
                 # merge datasets and sort, so resampled times fall between gap boundaries
                 joined_times = pd.merge(
@@ -539,7 +538,7 @@ class TrajectoryBuilderSvc:
                 joined_times.sort_values("timestamp", inplace=True)
 
                 imputed_range_markers = (
-                    joined_times["imputed"] == True
+                    joined_times["imputed"] == True  # noqa: E712
                 ).cumsum()  # Ticks up at each gap boundary
                 impute_indices = (
                     imputed_range_markers % 2 == 1
@@ -594,6 +593,7 @@ class TrajectoryBuilderSvc:
             # ---------------
             permitted_violation_types = [
                 ROCDError,
+                UnknownAirportLocationError,
             ]
             try:
                 self._validate_traj_handler.set(waypoints_pycontrail)
