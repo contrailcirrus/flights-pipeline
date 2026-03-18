@@ -695,6 +695,12 @@ class HealTrajectoryHandler:
         self._candidate_info: TrajectoryCandidateInfo | None = None
         self._min_speed_m_s = min_speed_m_s
         self._max_speed_m_s = max_speed_m_s
+        self._min_altitude_ft = (
+            -5000.0
+        )  # well below lowest point on earth; likely  bad data
+        self._max_altitude_ft = (
+            55000.0  # well above max altitude for commercial flight; likely bad data
+        )
         self._max_speed_filter_iterations = 5
         self._min_interpolate_dist_km = 10.0
         self._max_interpolate_dist_km = 400.0
@@ -1039,6 +1045,19 @@ class HealTrajectoryHandler:
         )
         return df[valid_speed_idx]
 
+    @staticmethod
+    def _filter_altitudes(
+        df: pd.DataFrame, min_altitude_ft: float, max_altitude_ft: float
+    ) -> pd.DataFrame:
+        """
+        Filter data points to keep only those with altitudes between the
+        allowed min and max.
+        """
+        valid_altitude_indices = df["altitude_baro"].between(
+            min_altitude_ft, max_altitude_ft, inclusive="neither"
+        )
+        return df[valid_altitude_indices]
+
     def heal(self) -> pd.DataFrame:
         """
         Manipulate trajectories with qaqc heuristics.
@@ -1124,6 +1143,25 @@ class HealTrajectoryHandler:
                     "flight_id": self._candidate_info.flight_id,
                 },
             )
+        # --------------
+        # Drop data points where altitude is outside the plausible range for a commercial flight.
+        # This filters out erroneous altitude readings which can occur in ADS-B data and 
+        # can trigger airspeed validation failures.
+        # --------------
+        initial_length = len(self._df)
+        self._df = self._filter_altitudes(
+            self._df, self._min_altitude_ft, self._max_altitude_ft
+        )
+
+        if len(self._df) != initial_length:
+            logger.info(
+                "healing",
+                extra={
+                    "detail": f"altitude filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "flight_id": self._candidate_info.flight_id,
+                },
+            )
+
         # --------------
         # Interpolate to one or both airports if needed.
         # --------------

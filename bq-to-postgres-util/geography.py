@@ -7,7 +7,8 @@ country_df = cc.data
 country_iso_to_continent = {}
 for iso_val, continent_name in zip(country_df["ISO2"], country_df["Continent_7"]):
     for code in iso_val.split('|'):
-        country_iso_to_continent[code.strip()] = continent_name
+        clean_code = code.replace("^", "").replace("$", "").strip()
+        country_iso_to_continent[clean_code] = continent_name
 
 continent_name_to_iso = {
     "Africa": "AF",
