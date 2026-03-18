@@ -832,6 +832,12 @@ class HealTrajectoryHandler:
         if waypoint_to_airport_trip_frac > max_interpolate_trip_frac:
             return None, waypoint_to_airport_trip_frac
 
+        # If the waypoint altitude is low, assume the plane took off or landed at a
+        # different nearby airport, and don't interpolate. Here, `airport_alt_ft`
+        # already has `self._interpolate_altitude_above_airport_ft` added.
+        if waypoint["altitude_baro"] <= airport_alt_ft:
+            return None, waypoint_to_airport_trip_frac
+
         # avoid dividing by 0
         if isclose(speed_m_s, 0):
             return None, waypoint_to_airport_trip_frac
@@ -1145,7 +1151,7 @@ class HealTrajectoryHandler:
             )
         # --------------
         # Drop data points where altitude is outside the plausible range for a commercial flight.
-        # This filters out erroneous altitude readings which can occur in ADS-B data and 
+        # This filters out erroneous altitude readings which can occur in ADS-B data and
         # can trigger airspeed validation failures.
         # --------------
         initial_length = len(self._df)
