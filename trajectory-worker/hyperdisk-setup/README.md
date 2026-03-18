@@ -8,19 +8,26 @@ used for the MetDataset xarray instances for running CoCiP.
 
 ## Pre-work
 
-(1) create a custom k8s `ComputeClass` resource, that is used by the auto-magical kyperdisk populator.
+(1) create a custom k8s `ComputeClass` resource, that is used by the auto-magical hyperdisk populator.
 _This only needs to be done once, should not be torn-down, and is a cluster-wide resource_.
-```bash
+```shell
 kubectl apply -f gcs-to-hyperdisk-compute-class.yaml
+```
+
+If you are not sure if this has been run, check with e.g. 
+```shell
+$ kubectl get computeclass | grep gcs-to-hdml
+gcs-to-hdml-compute-class   16d
 ```
 
 (2) create a custom k8s `StorageClass` resource, that defines the relationship of k8s to the underlying
 HyperdiskML GCP Disk resource.
 _This only needs to be done once, should not be torn-down, and is a cluster-wide resource_.
-```bash
-```bash
+```shell
 kubectl apply -f hyperdiskml-useast1-storage-class.yaml
 ```
+
+
 Notes:
 - the underlying HyperdiskML disk (viewable in `GCP Compute Engine > Disks`) is automatically provisioned when a k8s PVC is created using this `StorageClass`.
 - we can redefine this `StorageClass`, if we want a different HyderdiskML throughput value applied on-create of the Hyperdisk ML
@@ -29,8 +36,8 @@ Notes:
 
 
 ## Step 0 - stage zarr stores
-First, copy the zarr stores we want on the Hyperdisk into a separate GCS Bucket.
-This is our staging ground for the zarr stores we plan to sync to the HyperdiskML instance.
+First, copy the zarr stores we want on the Hyperdisk into a separate GCS Bucket. See [pre-processing instructions](pipeline-playbook/pre_process/README.md) on how to get appropriate Met data zarr stores into a GCS Bucket.
+This Bucket is our staging ground for the zarr stores we plan to sync to the HyperdiskML instance.
 
 ## Step 1 - create a `GCSDataSource` resource
 
@@ -41,16 +48,23 @@ Next, create the `GCPDataSource` custom k8s resource.
 This is a namepsace-level resource.
 
 ```bash
-kubectl apply -f gcs-era5-zarr-data-source.yaml -f flights-pipeline-<dev/prod>
+kubectl apply -f gcs-era5-zarr-data-source.yaml -n flights-pipeline-<dev/prod>
 ```
 ```text
 ⚠️ Only delete a `GCPDataSource` resource _after_ removing any `PersistentVolumeClaim`s referencing the `GCPDataSource`.
 ```
 
+If you want to check if there is a GCS DataSource available, check with e.g. 
+
+```shell
+kubectl get gcpdatasource --namespace=flights-pipeline-<dev/prod>
+```
+
 ## Step 2 - create a `PersistentVolumeClaim` (and hydrate a hyperdiskML instance)
 
 First, create a PersistentVolumeClaim resource in k8s, which creates a claim to the HyperdiskML `StorageClass` resource,
-and references the `GCPDataSource` resource from Step 1.
+and references the `GCPDataSource` resource from Step 1. Make sure the size of this disk is set appropriately to hold the contents in the GCS Bucket being copied into it. Use Cloud Console Monitoring or `gsutil du` to get the bucket size (Monitoring is cheaper for very large buckets).
+
 [REF](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/volume-populator-hdml#create-pvc)
 _This is a namespace-level resource_.
 ```bash
@@ -80,7 +94,7 @@ The best way to inspect the file system of the HyperdiskML disk is to create and
 For example, deploy `inspector-pod.yaml` to the namespace with the `PVC` created in this step.
 Then:
 ```bash
-kubectl exec -it inspector-pod -n flights-pipeline-<dev/prod> -- /bin/sh
+kubectl exec -it zarr-hyperdisk-inspector -n flights-pipeline-<dev/prod> -- /bin/sh
 ## once connected to the pod with a shell...
 cd /ecmwf-zarr-v2 && ls
 ```

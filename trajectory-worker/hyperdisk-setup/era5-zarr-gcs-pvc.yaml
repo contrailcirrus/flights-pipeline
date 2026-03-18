@@ -8,7 +8,7 @@ spec:
   storageClassName: hyperdisk-ml-single-zone-useast1c
   resources:
     requests:
-      storage: 400Gi
+      storage: 8200Gi
   dataSourceRef:
     apiGroup: datalayer.gke.io
     kind: GCPDataSource
