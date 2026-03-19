@@ -800,6 +800,7 @@ class HealTrajectoryHandler:
         airport_lon: float,
         airport_lat: float,
         airport_alt_ft: float,
+        alt_above_airport_ft: float,
         speed_m_s: float,
         airport_to_airport_dist_m: float,
         min_interpolate_dist_km: float,
@@ -818,7 +819,7 @@ class HealTrajectoryHandler:
             waypoint["altitude_baro"],
             airport_lon,
             airport_lat,
-            airport_alt_ft,
+            airport_alt_ft + alt_above_airport_ft,
         )
         waypoint_to_airport_trip_frac = (
             waypoint_to_airport_dist_m / airport_to_airport_dist_m
@@ -830,6 +831,11 @@ class HealTrajectoryHandler:
         if waypoint_to_airport_dist_m > (max_interpolate_dist_km * 1000):
             return None, waypoint_to_airport_trip_frac
         if waypoint_to_airport_trip_frac > max_interpolate_trip_frac:
+            return None, waypoint_to_airport_trip_frac
+
+        # if the waypoint altitude is low, assume the plane took off or landed at a
+        # different nearby airport, and don't interpolate
+        if waypoint["altitude_baro"] <= airport_alt_ft + alt_above_airport_ft:
             return None, waypoint_to_airport_trip_frac
 
         # avoid dividing by 0
@@ -853,7 +859,9 @@ class HealTrajectoryHandler:
         interpolated_airport_waypoint["timestamp"] = imputed_time_at_airport
         interpolated_airport_waypoint["longitude"] = airport_lon
         interpolated_airport_waypoint["latitude"] = airport_lat
-        interpolated_airport_waypoint["altitude_baro"] = airport_alt_ft
+        interpolated_airport_waypoint["altitude_baro"] = (
+            airport_alt_ft + alt_above_airport_ft
+        )
         return interpolated_airport_waypoint, waypoint_to_airport_trip_frac
 
     def _heal_too_far_airports(
@@ -885,9 +893,10 @@ class HealTrajectoryHandler:
             from first/last waypoint to departure/arrival airport to allow
             estimation.
         interpolate_altitude_above_airport_ft
-            Altitude above the airport (in feet) to use for estimations, to
-            avoid estimating new locations at or below ground level in cases
-            where the airport altitude is not accurate.
+            Altitude above the airport (in feet) to use for estimations. The buffer
+            avoids putting waypoints directly on the ground when estimating at
+            airports. This is for consistency with flights that have complete data, for
+            which the first/last waypoints are shortly after takeoff or before landing.
         candidate_info
             Data class containing pertinent information about specific flight `df`.
             Required for logging purposes.
@@ -920,17 +929,13 @@ class HealTrajectoryHandler:
         if isnan(departure_airport_lon) or isnan(arrival_airport_lon):
             return None
 
-        # interpolate to some distance above the airport, not ground level
-        departure_airport_alt_ft += interpolate_altitude_above_airport_ft
-        arrival_airport_alt_ft += interpolate_altitude_above_airport_ft
-
         airport_to_airport_dist_m = _pointed_haversine_3d(
             departure_airport_lon,
             departure_airport_lat,
-            departure_airport_alt_ft,
+            departure_airport_alt_ft + interpolate_altitude_above_airport_ft,
             arrival_airport_lon,
             arrival_airport_lat,
-            arrival_airport_alt_ft,
+            arrival_airport_alt_ft + interpolate_altitude_above_airport_ft,
         )
         # avoid dividing by 0; this would happen if the departure and arrival airports
         # are the same
@@ -956,6 +961,7 @@ class HealTrajectoryHandler:
             airport_lon=departure_airport_lon,
             airport_lat=departure_airport_lat,
             airport_alt_ft=departure_airport_alt_ft,
+            alt_above_airport_ft=interpolate_altitude_above_airport_ft,
             speed_m_s=first_speed_m_s,
             airport_to_airport_dist_m=airport_to_airport_dist_m,
             min_interpolate_dist_km=min_interpolate_dist_km,
@@ -971,6 +977,7 @@ class HealTrajectoryHandler:
             airport_lon=arrival_airport_lon,
             airport_lat=arrival_airport_lat,
             airport_alt_ft=arrival_airport_alt_ft,
+            alt_above_airport_ft=interpolate_altitude_above_airport_ft,
             speed_m_s=last_speed_m_s,
             airport_to_airport_dist_m=airport_to_airport_dist_m,
             min_interpolate_dist_km=min_interpolate_dist_km,
@@ -1145,7 +1152,7 @@ class HealTrajectoryHandler:
             )
         # --------------
         # Drop data points where altitude is outside the plausible range for a commercial flight.
-        # This filters out erroneous altitude readings which can occur in ADS-B data and 
+        # This filters out erroneous altitude readings which can occur in ADS-B data and
         # can trigger airspeed validation failures.
         # --------------
         initial_length = len(self._df)
