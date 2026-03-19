@@ -834,7 +834,7 @@ class HealTrajectoryHandler:
             return None, waypoint_to_airport_trip_frac
 
         # if the waypoint altitude is low, assume the plane took off or landed at a
-        # different nearby airport, and don't interpolate.
+        # different nearby airport, and don't interpolate
         if waypoint["altitude_baro"] <= airport_alt_ft + alt_above_airport_ft:
             return None, waypoint_to_airport_trip_frac
 
