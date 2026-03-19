@@ -468,11 +468,15 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
             s.groupby(
                 [df["airline_iata"], year_month, df["is_eu_mrv"], binned],
                 observed=False,
+                dropna=False,
             )
             .agg(["count", "sum"])
             .rename(columns={"count": "flight_count", "sum": "total_sum_ef_mj"})
             .reset_index()
         )
+        agg["airline_iata"] = agg["airline_iata"].fillna("None")
+
+
 
         agg = agg.assign(
             # Set a bin ID that is equivalent for the same range across months and airlines.

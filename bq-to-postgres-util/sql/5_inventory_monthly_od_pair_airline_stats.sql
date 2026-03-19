@@ -46,10 +46,7 @@ CREATE INDEX idx_mv_od_path_base_time ON inventory_monthly_od_pair_airline_stats
     total_ef_mj,
     total_len_km
 )
-WHERE arrival_airport_icao IS NOT NULL
-  AND arrival_airport_icao != 'None'
-  AND departure_airport_icao IS NOT NULL
-  AND departure_airport_icao != 'None';
+;
 
 CREATE INDEX idx_mv_od_path_operator ON inventory_monthly_od_pair_airline_stats (
     airline_iata,
@@ -66,10 +63,7 @@ CREATE INDEX idx_mv_od_path_operator ON inventory_monthly_od_pair_airline_stats 
     total_ef_mj,
     total_len_km
 )
-WHERE arrival_airport_icao IS NOT NULL
-  AND arrival_airport_icao != 'None'
-  AND departure_airport_icao IS NOT NULL
-  AND departure_airport_icao != 'None';
+;
 
 ALTER TABLE inventory_monthly_od_pair_airline_stats OWNER TO postgres;
 GRANT DELETE, INSERT, SELECT, UPDATE ON inventory_monthly_od_pair_airline_stats TO internal_user_rw;

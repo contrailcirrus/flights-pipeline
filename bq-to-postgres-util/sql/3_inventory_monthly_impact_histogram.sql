@@ -1,5 +1,5 @@
 CREATE TABLE inventory_monthly_impact_histogram (
-    airline_iata          TEXT NOT NULL,    -- The airline IATA identifier.
+    airline_iata          TEXT,             -- The airline IATA identifier.
     month                 DATE NOT NULL,    -- The first day of the month.
     is_eu_mrv             BOOLEAN,          -- Whether this bucket contains only EU MRV flights.
     bin_idx               INTEGER NOT NULL, -- The numerical bin ID to easily group multiple months.

@@ -33,7 +33,5 @@ EXPORT DATA OPTIONS (
            total_persistent_contrail_length_km,
            total_persistent_contrail_length_km AS contrail_generating_kms,
     FROM :target_table
-    WHERE departure_airport_icao IS NOT NULL
-      AND CHAR_LENGTH(departure_airport_icao) = 4
-      AND arrival_airport_icao IS NOT NULL
-      and CHAR_LENGTH(arrival_airport_icao) = 4;
+    WHERE (departure_airport_icao IS NULL OR CHAR_LENGTH(departure_airport_icao) = 4)
+      AND (arrival_airport_icao IS NULL OR CHAR_LENGTH(arrival_airport_icao) = 4);
