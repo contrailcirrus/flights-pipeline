@@ -819,7 +819,7 @@ class HealTrajectoryHandler:
             waypoint["altitude_baro"],
             airport_lon,
             airport_lat,
-            airport_alt_ft,
+            airport_alt_ft + alt_above_airport_ft,
         )
         waypoint_to_airport_trip_frac = (
             waypoint_to_airport_dist_m / airport_to_airport_dist_m
@@ -932,10 +932,10 @@ class HealTrajectoryHandler:
         airport_to_airport_dist_m = _pointed_haversine_3d(
             departure_airport_lon,
             departure_airport_lat,
-            departure_airport_alt_ft,
+            departure_airport_alt_ft + interpolate_altitude_above_airport_ft,
             arrival_airport_lon,
             arrival_airport_lat,
-            arrival_airport_alt_ft,
+            arrival_airport_alt_ft + interpolate_altitude_above_airport_ft,
         )
         # avoid dividing by 0; this would happen if the departure and arrival airports
         # are the same
