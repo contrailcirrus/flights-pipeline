@@ -1,12 +1,12 @@
-name: trajectory-worker-job-factory-deploy-dev
+name: inventory-cache-deploy-prod
 
 on:
   push:
     branches:
-      - develop
+      - main
     paths:
-      - trajectory-worker-job-factory/**
-      - .github/workflows/trajectory-worker-job-factory-deploy-dev.yaml
+      - inventory-cache/**
+      - .github/workflows/inventory-cache-deploy-prod.yaml
 
 # avoid possible race condition on multiple merges
 concurrency:
@@ -45,22 +45,21 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: trajectory-worker-job-factory/
+          context: inventory-cache/
           push: true
           tags: |
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-dev:${{ github.sha }}
-            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-dev:latest
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/inventory-cache-prod:${{ github.sha }}
+            us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/inventory-cache-prod:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Deploy helm resources
-        working-directory: trajectory-worker-job-factory/helm
+        working-directory: flight-emissions-report-cache/helm
         run: make deploy
         env:
-          NAMESPACE: flights-pipeline-dev
-          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/trajectory-worker-job-factory-dev:${{ github.sha }}
+          NAMESPACE: flights-pipeline-prod
+          IMAGE: us-east1-docker.pkg.dev/contrails-301217/flights-pipeline/inventory-cache-prod:${{ github.sha }}
           LOG_LEVEL: INFO
-          TWJD_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/dev-fp-twjd-ingress
-          TRAJECTORY_CHUNK_TOPIC_ID: projects/contrails-301217/topics/dev-fp-gaia-trajectory-chunk
-          REDIS_HOST: 10.231.195.4
-          REDIS_PORT: 6379
+          PSDB_USER: internal_user_rw
+          PSDB_PROXY_HOST: psdb-contrails-default-proxy.flights-pipeline-prod.svc.cluster.local
+          SUSPEND_CRONJOB: false

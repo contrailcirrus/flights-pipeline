@@ -2,6 +2,7 @@ syntax = "proto3";
 
 import "lib/contrail.proto";
 import "lib/segment.proto";
+import "lib/vertical_profile.proto";
 
 package lib;
 
@@ -9,4 +10,5 @@ message Trajectory {
     string flight_id = 1;
     repeated lib.Segment path = 2;
     repeated lib.Contrail contrails = 3;
+    repeated lib.VerticalProfile vertical_profiles = 4;
 }

@@ -120,7 +120,7 @@ class PubSubSubscriptionHandler:
             if len(resp.received_messages) == 0:
                 # it is possible there are no messages available,
                 # or, pubsub returned zero when there are in fact some messages
-                logger.info("zero messages received")
+                logger.debug("zero messages received")
                 continue
 
             pubsub_msg = resp.received_messages[0]
@@ -652,10 +652,20 @@ class CloudStorageHandler:
             uri = f"gs://{self._bucket.name}/{k}"
             logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
+            # identify all flight_ids appearing with the target airline_iata
+            # and exclude instances of null flight_ids not belonging to target airline_iata
             if airline_iata == "null":
-                df = df[df["airline_iata"].isnull()]
+                fids = df[df["airline_iata"].isnull()]["flight_id"].unique()
+                null_fids_to_holdout = (
+                    df["flight_id"].isna() & ~df["airline_iata"].isnull()
+                )
             else:
-                df = df[df["airline_iata"] == airline_iata]
+                fids = df[df["airline_iata"] == airline_iata]["flight_id"].unique()
+                null_fids_to_holdout = df["flight_id"].isna() & ~(
+                    df["airline_iata"] == airline_iata
+                )
+            df = df[df["flight_id"].isin(fids) & ~null_fids_to_holdout]
+
             df_agg = pd.concat([df_agg, df], ignore_index=True)
         return df_agg
 
@@ -685,6 +695,12 @@ class HealTrajectoryHandler:
         self._candidate_info: TrajectoryCandidateInfo | None = None
         self._min_speed_m_s = min_speed_m_s
         self._max_speed_m_s = max_speed_m_s
+        self._min_altitude_ft = (
+            -5000.0
+        )  # well below lowest point on earth; likely  bad data
+        self._max_altitude_ft = (
+            55000.0  # well above max altitude for commercial flight; likely bad data
+        )
         self._max_speed_filter_iterations = 5
         self._min_interpolate_dist_km = 10.0
         self._max_interpolate_dist_km = 400.0
@@ -722,7 +738,7 @@ class HealTrajectoryHandler:
         self._candidate_info = None
 
     @staticmethod
-    def _get_priority_map(df: pd.DataFrame, cols: list) -> dict:
+    def _get_priority_map(df: pd.DataFrame, cols: list) -> dict[str, object]:
         """
         Given a dataframe and list of columns,
         return a mapping of the column name to the value of highest count in the column.
@@ -740,12 +756,7 @@ class HealTrajectoryHandler:
         e.g.
         {"callsign": None, "airline_iata": AA}
         """
-
-        resp = {}
-        for col in cols:
-            prio_val = key_max_value_count(df, col)
-            resp.update({col: prio_val})
-        return resp
+        return {col: key_max_value_count(df, col) for col in cols}
 
     @staticmethod
     def _dataframe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
@@ -753,29 +764,34 @@ class HealTrajectoryHandler:
         Attempt to convert types for each dataframe column to expected type.
         Implicitly also checks for existence of expected columns.
         """
-        df = df.copy(deep=True)
-        cols = {
-            "icao_address": str,
-            "flight_id": str,
-            "callsign": str,
-            "tail_number": str,
-            "flight_number": str,
-            "aircraft_type_icao": str,
-            "airline_iata": str,
-            "departure_airport_icao": str,
-            "departure_scheduled_time": "datetime64[ns, UTC]",
-            "arrival_airport_icao": str,
-            "arrival_scheduled_time": "datetime64[ns, UTC]",
-            "timestamp": "datetime64[ns, UTC]",
-            "latitude": float,
-            "longitude": float,
-            "collection_type": str,
-            "altitude_baro": int,
-        }
-        df = df.astype(cols)
-        df.replace("nan", None, inplace=True)
-        df.replace("None", None, inplace=True)
-        return df
+        try:
+            df = df.copy(deep=True)
+            cols = {
+                "icao_address": str,
+                "flight_id": str,
+                "callsign": str,
+                "tail_number": str,
+                "flight_number": str,
+                "aircraft_type_icao": str,
+                "airline_iata": str,
+                "departure_airport_icao": str,
+                "departure_scheduled_time": "datetime64[ns, UTC]",
+                "arrival_airport_icao": str,
+                "arrival_scheduled_time": "datetime64[ns, UTC]",
+                "timestamp": "datetime64[ns, UTC]",
+                "latitude": float,
+                "longitude": float,
+                "collection_type": str,
+                "altitude_baro": int,
+            }
+            df = df.astype(cols)
+            df.replace("nan", None, inplace=True)
+            df.replace("None", None, inplace=True)
+            return df
+        except KeyError as e:
+            raise KeyError(
+                "flight trajectory dataframe is missing an expected column"
+            ) from e
 
     @staticmethod
     def _interpolate_to_airport(
@@ -784,6 +800,7 @@ class HealTrajectoryHandler:
         airport_lon: float,
         airport_lat: float,
         airport_alt_ft: float,
+        alt_above_airport_ft: float,
         speed_m_s: float,
         airport_to_airport_dist_m: float,
         min_interpolate_dist_km: float,
@@ -802,7 +819,7 @@ class HealTrajectoryHandler:
             waypoint["altitude_baro"],
             airport_lon,
             airport_lat,
-            airport_alt_ft,
+            airport_alt_ft + alt_above_airport_ft,
         )
         waypoint_to_airport_trip_frac = (
             waypoint_to_airport_dist_m / airport_to_airport_dist_m
@@ -814,6 +831,11 @@ class HealTrajectoryHandler:
         if waypoint_to_airport_dist_m > (max_interpolate_dist_km * 1000):
             return None, waypoint_to_airport_trip_frac
         if waypoint_to_airport_trip_frac > max_interpolate_trip_frac:
+            return None, waypoint_to_airport_trip_frac
+
+        # if the waypoint altitude is low, assume the plane took off or landed at a
+        # different nearby airport, and don't interpolate
+        if waypoint["altitude_baro"] <= airport_alt_ft + alt_above_airport_ft:
             return None, waypoint_to_airport_trip_frac
 
         # avoid dividing by 0
@@ -837,7 +859,9 @@ class HealTrajectoryHandler:
         interpolated_airport_waypoint["timestamp"] = imputed_time_at_airport
         interpolated_airport_waypoint["longitude"] = airport_lon
         interpolated_airport_waypoint["latitude"] = airport_lat
-        interpolated_airport_waypoint["altitude_baro"] = airport_alt_ft
+        interpolated_airport_waypoint["altitude_baro"] = (
+            airport_alt_ft + alt_above_airport_ft
+        )
         return interpolated_airport_waypoint, waypoint_to_airport_trip_frac
 
     def _heal_too_far_airports(
@@ -869,9 +893,10 @@ class HealTrajectoryHandler:
             from first/last waypoint to departure/arrival airport to allow
             estimation.
         interpolate_altitude_above_airport_ft
-            Altitude above the airport (in feet) to use for estimations, to
-            avoid estimating new locations at or below ground level in cases
-            where the airport altitude is not accurate.
+            Altitude above the airport (in feet) to use for estimations. The buffer
+            avoids putting waypoints directly on the ground when estimating at
+            airports. This is for consistency with flights that have complete data, for
+            which the first/last waypoints are shortly after takeoff or before landing.
         candidate_info
             Data class containing pertinent information about specific flight `df`.
             Required for logging purposes.
@@ -904,17 +929,13 @@ class HealTrajectoryHandler:
         if isnan(departure_airport_lon) or isnan(arrival_airport_lon):
             return None
 
-        # interpolate to some distance above the airport, not ground level
-        departure_airport_alt_ft += interpolate_altitude_above_airport_ft
-        arrival_airport_alt_ft += interpolate_altitude_above_airport_ft
-
         airport_to_airport_dist_m = _pointed_haversine_3d(
             departure_airport_lon,
             departure_airport_lat,
-            departure_airport_alt_ft,
+            departure_airport_alt_ft + interpolate_altitude_above_airport_ft,
             arrival_airport_lon,
             arrival_airport_lat,
-            arrival_airport_alt_ft,
+            arrival_airport_alt_ft + interpolate_altitude_above_airport_ft,
         )
         # avoid dividing by 0; this would happen if the departure and arrival airports
         # are the same
@@ -940,6 +961,7 @@ class HealTrajectoryHandler:
             airport_lon=departure_airport_lon,
             airport_lat=departure_airport_lat,
             airport_alt_ft=departure_airport_alt_ft,
+            alt_above_airport_ft=interpolate_altitude_above_airport_ft,
             speed_m_s=first_speed_m_s,
             airport_to_airport_dist_m=airport_to_airport_dist_m,
             min_interpolate_dist_km=min_interpolate_dist_km,
@@ -955,6 +977,7 @@ class HealTrajectoryHandler:
             airport_lon=arrival_airport_lon,
             airport_lat=arrival_airport_lat,
             airport_alt_ft=arrival_airport_alt_ft,
+            alt_above_airport_ft=interpolate_altitude_above_airport_ft,
             speed_m_s=last_speed_m_s,
             airport_to_airport_dist_m=airport_to_airport_dist_m,
             min_interpolate_dist_km=min_interpolate_dist_km,
@@ -975,14 +998,20 @@ class HealTrajectoryHandler:
         if interpolated_departure_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_departure_airport_waypoint)
             logger.info(
-                f"impute wp at departure - {departure_airport_icao}",
-                extra={"flight_id": candidate_info.flight_id},
+                "healing",
+                extra={
+                    "flight_id": candidate_info.flight_id,
+                    "detail": f"impute wp at departure - {departure_airport_icao}",
+                },
             )
         if interpolated_arrival_airport_waypoint is not None:
             interpolated_waypoints.append(interpolated_arrival_airport_waypoint)
             logger.info(
-                f"impute wp at arrival - {arrival_airport_icao}",
-                extra={"flight_id": candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"impute wp at arrival - {arrival_airport_icao}",
+                    "flight_id": candidate_info.flight_id,
+                },
             )
 
         if interpolated_waypoints:
@@ -1023,6 +1052,19 @@ class HealTrajectoryHandler:
         )
         return df[valid_speed_idx]
 
+    @staticmethod
+    def _filter_altitudes(
+        df: pd.DataFrame, min_altitude_ft: float, max_altitude_ft: float
+    ) -> pd.DataFrame:
+        """
+        Filter data points to keep only those with altitudes between the
+        allowed min and max.
+        """
+        valid_altitude_indices = df["altitude_baro"].between(
+            min_altitude_ft, max_altitude_ft, inclusive="neither"
+        )
+        return df[valid_altitude_indices]
+
     def heal(self) -> pd.DataFrame:
         """
         Manipulate trajectories with qaqc heuristics.
@@ -1032,12 +1074,7 @@ class HealTrajectoryHandler:
         Dataset mirroring initiated dataset, with manipulations applied.
         """
 
-        try:
-            self._df = self._dataframe_convert_types(self._df)
-        except KeyError as e:
-            raise KeyError(
-                "flight trajectory dataframe is missing an expected column"
-            ) from e
+        self._df = HealTrajectoryHandler._dataframe_convert_types(self._df)
 
         # --------------
         # update dataset so the following target keys are uniform/distinct for a given flight
@@ -1052,7 +1089,7 @@ class HealTrajectoryHandler:
 
         # drop any rows where our column values don't match the priority value
         for col, val in priority_values.items():
-            if val:
+            if not pd.isna(val):
                 keep_filter = self._df[col] == val
                 total_number_before_drop = len(self._df[col])
                 self._df = self._df[keep_filter]
@@ -1060,9 +1097,11 @@ class HealTrajectoryHandler:
 
                 if drop_cnt:
                     logger.info(
-                        f"dropped {drop_cnt} values out of "
-                        f"{total_number_before_drop} not matching {val} for field {col}.",
-                        extra={"flight_id": self._candidate_info.flight_id},
+                        "healing",
+                        extra={
+                            "detail": f"dropped {drop_cnt} values out of {total_number_before_drop} not matching {val} for field {col}",
+                            "flight_id": self._candidate_info.flight_id,
+                        },
                     )
 
         len_before_duplicate_drop = len(self._df)
@@ -1071,8 +1110,11 @@ class HealTrajectoryHandler:
         len_difference = len_before_duplicate_drop - len(self._df)
         if len_difference != 0:
             logger.info(
-                f"dropped {len_difference} duplicate timestamp records",
-                extra={"flight_id": self._candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"dropped {len_difference} duplicate timestamp records",
+                    "flight_id": self._candidate_info.flight_id,
+                },
             )
 
         # --------------
@@ -1102,9 +1144,31 @@ class HealTrajectoryHandler:
 
         if len(self._df) != initial_length:
             logger.info(
-                f"heal speed ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
-                extra={"flight_id": self._candidate_info.flight_id},
+                "healing",
+                extra={
+                    "detail": f"speed filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "flight_id": self._candidate_info.flight_id,
+                },
             )
+        # --------------
+        # Drop data points where altitude is outside the plausible range for a commercial flight.
+        # This filters out erroneous altitude readings which can occur in ADS-B data and
+        # can trigger airspeed validation failures.
+        # --------------
+        initial_length = len(self._df)
+        self._df = self._filter_altitudes(
+            self._df, self._min_altitude_ft, self._max_altitude_ft
+        )
+
+        if len(self._df) != initial_length:
+            logger.info(
+                "healing",
+                extra={
+                    "detail": f"altitude filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "flight_id": self._candidate_info.flight_id,
+                },
+            )
+
         # --------------
         # Interpolate to one or both airports if needed.
         # --------------
@@ -1123,6 +1187,7 @@ class HealTrajectoryHandler:
 
         self._df.reset_index(drop=True, inplace=True)
 
+        self._df = self._dataframe_convert_types(self._df)
         return self._df
 
 

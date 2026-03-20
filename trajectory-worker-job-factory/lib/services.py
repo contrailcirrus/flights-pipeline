@@ -27,11 +27,12 @@ from lib.exceptions import (
     SpireCacheTooSmallException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
-from pycontrails.datalib.spire.exceptions import ROCDError
+from pycontrails.datalib.spire.exceptions import ROCDError, UnknownAirportLocationError
 from lib.utils import sigterm_manager
 
 from google.cloud import bigquery
 import pandas as pd
+import numpy as np
 
 from lib.log import logger, format_traceback
 
@@ -48,6 +49,9 @@ class TrajectoryBuilderSvc:
     # minimum number of waypoints in a flight instance with null airline iata
     # presumed a true null airline iata if above this threshold
     MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
+    MAX_NOMINAL_ALT_GEN_AVIATION_FT = 20000
+    TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S = 60  # seconds; used to mark resampled waypoints as imputed if the gap between them and the previous raw waypoint is above this threshold
+    AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = 85  # m/s - patching the default value in pycontrails ValidateTrajectoryHandler based on analysis of 2024 flights
 
     def __init__(
         self,
@@ -123,6 +127,9 @@ class TrajectoryBuilderSvc:
 
             case TelemetrySource.GOOGLE_CLOUD_STORAGE:
                 logger.debug("fetching adsb from gcs")
+                # df_all comes with:
+                # 1) waypoints for flight_ids observed to have the target airline_iata
+                # 2) all waypoints with null flight_id (sat data) in target timerange
                 df_all = self._gcs_handler.fetch_airline_days(
                     [previous_day, day, next_day], airline_iata, prune=True
                 )
@@ -133,9 +140,12 @@ class TrajectoryBuilderSvc:
                 is_on_day = (first_by_fid["timestamp"] >= pd.to_datetime(day)) & (
                     first_by_fid["timestamp"] < pd.to_datetime(next_day)
                 )
+                # flight ids with trajectories originating on the target day
                 first_by_fid = first_by_fid[is_on_day]
-
-                is_fid = df_all["flight_id"].isin(first_by_fid.index)
+                target_fids = set(first_by_fid.index)
+                # remove None as a possible target flight id
+                target_fids.discard(None)
+                is_fid = df_all["flight_id"].isin(target_fids)
                 df = df_all[is_fid]
 
                 is_icao_w_null_fid = (
@@ -284,6 +294,7 @@ class TrajectoryBuilderSvc:
             key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
             if resp := self._cache_handler.pull(key):
                 progress_marker = resp
+                # TODO: add SMS alert on this event
                 logger.warning(
                     "resuming progress from a previous job",
                     extra={
@@ -306,7 +317,7 @@ class TrajectoryBuilderSvc:
                 continue
 
             if (counter % self.FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT) == 0:
-                logger.info(
+                logger.debug(
                     f"progress - processing {counter} of {number_of_flight_candidates}"
                 )
             # --------------
@@ -340,15 +351,39 @@ class TrajectoryBuilderSvc:
             # when processing airline_iata is null case
             # for TWJDs built on airline_iata<>day
             # -------------
-            # prune cases where the number of waypoints in the flight_id group is very small
-            # these are likely spurious waypoints belonging to a flight_id
-            # that has another true non-null airline_iata
-            # --
-            # this does not guarantee that we won't have false null airline-iata cases
-            # pass thru, but will help prune otherwise spurious flight instances
+            # we need to consider true null airline-iata flights
+            # and false null airline-iata flights
+            # -
+            # a true null airline iata flight is one in which no waypoints
+            # for a given flight are reported with an airline_iata
+            # thus the flight is truly with no airline_iata
+            # -
+            # a false null airline iata flight is one in which the flight
+            # is in truth associated with an airline_iata but some waypoints
+            # are missing the airline_iata field
+            # -
+            # this is a consideration unique to the null airline iata case
+            # as we are effectively disambiguating between interpreting
+            # the meaning of single waypoint with a null airline iata
+            # as being missing data for that waypoint versus truthfully
+            # missing for the flight
+            # ---------
+            # we apply two null airline-iata case specific filters
+            # (1) skip a flight if we observe any non-null airline iata waypoints
+            #     for a null airline-iata job
+            # (2) skip very short null airline-iata flights (this is likely extraneous with
+            #     the addition of (1) ).
+            if twjd.airline_iata == "null" and len(candidate.airline_iata) > 1:
+                extra_log = candidate.to_dict()
+                extra_log["detail"] = "presumed false null airline iata"
+                logger.debug(
+                    "skipping",
+                    extra=extra_log,
+                )
+                continue
+
             if (
-                len(candidate.airline_iata) == 1
-                and candidate.airline_iata[0] is None
+                twjd.airline_iata == "null"
                 and len(waypoints) <= self.MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA
             ):
                 extra_log = candidate.to_dict()
@@ -367,10 +402,13 @@ class TrajectoryBuilderSvc:
             if (
                 len(candidate.airline_iata) == 1
                 and candidate.airline_iata[0] is None
-                and waypoints["altitude_baro"].max() < 20_000
+                and waypoints["altitude_baro"].max()
+                < self.MAX_NOMINAL_ALT_GEN_AVIATION_FT
             ):
                 extra_log = candidate.to_dict()
-                extra_log["detail"] = "presumed general aviation flight - no wps above 20k ft"
+                extra_log["detail"] = (
+                    "presumed general aviation flight - no wps above 20k ft"
+                )
                 logger.debug(
                     "skipping",
                     extra=extra_log,
@@ -398,14 +436,12 @@ class TrajectoryBuilderSvc:
                     logger.info(
                         "skipping",
                         extra={
-                            "flight_id": candidate.flight_id,
                             "detail": "empty flight",
+                            "flight_id": candidate.flight_id,
                         },
                     )
                     continue
 
-                # log state of flight post heal
-                logger.info("heal step done", extra=candidate.to_dict())
             except Exception as _:
                 logger.error(
                     "skipping",
@@ -442,6 +478,7 @@ class TrajectoryBuilderSvc:
                     lambda r: r.tz_localize(None)
                 )
                 # ensure no timestamp dupes, as expected by pycontrails.resample_and_fill
+                # TODO: remove: I think this is already handled in the heal step
                 waypoints_pycontrail.drop_duplicates(["time"], inplace=True)
 
                 # resample waypoints
@@ -455,8 +492,8 @@ class TrajectoryBuilderSvc:
                     logger.info(
                         "skipping",
                         extra={
-                            "flight_id": candidate.flight_id,
                             "detail": "empty flight",
+                            "flight_id": candidate.flight_id,
                         },
                     )
                     continue
@@ -478,11 +515,47 @@ class TrajectoryBuilderSvc:
                 flight_attrs = HealTrajectoryHandler.INVARIANT_FLIGHT_ATTRS
                 for attr in flight_attrs:
                     waypoints_pycontrail[attr] = waypoints[attr].iloc[0]
-                # TODO: implement the following
-                # add a flag indicating which waypoints are due to interpolation
-                # across one or more minutes of telemetry not present in the raw spire data
-                # waypoints_pycontrail["imputed"] = ...
-                waypoints_pycontrail["imputed"] = False
+
+                # Find discontinuities in the raw data and mark waypoints on either side as "imputed"
+                wp_diff = waypoints["timestamp"].diff()
+                imputed_markers = wp_diff > pd.Timedelta(
+                    seconds=self.TRAJECTORY_SAMPLING_CUTOFF_PERIOD_S
+                )
+                waypoints["imputed"] = imputed_markers
+                waypoints["imputed"][
+                    np.where(imputed_markers)[0] - 1
+                ] = True  # mark before and after the discontinuity
+
+                # merge datasets and sort, so resampled times fall between gap boundaries
+                joined_times = pd.merge(
+                    waypoints[["timestamp", "imputed"]],
+                    waypoints_pycontrail["timestamp"].dt.tz_localize("UTC"),
+                    left_on="timestamp",
+                    right_on="timestamp",
+                    how="outer",
+                    indicator=True,
+                )
+                joined_times.sort_values("timestamp", inplace=True)
+
+                imputed_range_markers = (
+                    joined_times["imputed"] == True  # noqa: E712
+                ).cumsum()  # Ticks up at each gap boundary
+                impute_indices = (
+                    imputed_range_markers % 2 == 1
+                )  # stretches between imputed flags marked True in resampled data
+
+                joined_times["imputed"] = impute_indices
+
+                # pull out the resampled data only
+                imputed = joined_times["imputed"][
+                    (joined_times["_merge"] == "right_only")
+                    | (joined_times["_merge"] == "both")
+                ]
+                imputed.fillna(False, inplace=True)  # Likely be unnecessary
+                # reindex to match waypoints_pycontrail and mark imputed waypoints
+                imputed.reset_index(drop=True, inplace=True)
+                waypoints_pycontrail["imputed"] = imputed
+
                 del waypoints
             except Exception as _:
                 logger.error(
@@ -500,8 +573,6 @@ class TrajectoryBuilderSvc:
                 flight_id=flight_id,
                 df=waypoints_pycontrail,
             )
-            # log state of flight post resample
-            logger.info("resample step done", extra=candidate.to_dict())
 
             if twjd.export_waypoints:
                 # save waypoints to disk
@@ -522,6 +593,7 @@ class TrajectoryBuilderSvc:
             # ---------------
             permitted_violation_types = [
                 ROCDError,
+                UnknownAirportLocationError,
             ]
             try:
                 self._validate_traj_handler.set(waypoints_pycontrail)
@@ -547,8 +619,8 @@ class TrajectoryBuilderSvc:
                     logger.info(
                         "skipping",
                         extra={
-                            "flight_id": candidate.flight_id,
                             "detail": "violations found",
+                            "flight_id": candidate.flight_id,
                             "reason": violations,
                         },
                     )
@@ -567,8 +639,8 @@ class TrajectoryBuilderSvc:
                 logger.error(
                     "skipping",
                     extra={
-                        "flight_id": candidate.flight_id,
                         "detail": "validate step failed",
+                        "flight_id": candidate.flight_id,
                         "traceback": format_traceback(),
                     },
                 )
@@ -617,11 +689,13 @@ class TrajectoryBuilderSvc:
                 logger.error(
                     "skipping",
                     extra={
-                        "flight_id": candidate.flight_id,
                         "detail": "job submit failed",
+                        "flight_id": candidate.flight_id,
                         "traceback": format_traceback(),
                     },
                 )
+            # log state of flight submitted to TW
+            logger.info("end work", extra=candidate.to_dict())
 
         if self._cache_handler and twjd.airline_iata:
             self._cache_handler.pop(

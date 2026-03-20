@@ -41,13 +41,11 @@ def run(
         job_hash = hashlib.shake_128(job.as_utf8_json()).hexdigest(
             8
         )  # useful for keying in logs
-        logger.info("got twjd", extra={"job_hash": job_hash, "twjd": asdict(job)})
+        logger.info("start twjd", extra={"job_hash": job_hash, "twjd": asdict(job)})
 
         try:
             job_builder_svc.run(twjd=job)
-            logger.info(
-                "finished twjd", extra={"job_hash": job_hash, "twjd": asdict(job)}
-            )
+            logger.info("end twjd", extra={"job_hash": job_hash, "twjd": asdict(job)})
         except PermanentFailureException as e:
             # ack message; avoid pubsub redelivery
             logger.error(
@@ -80,7 +78,7 @@ def run(
 
 
 if __name__ == "__main__":
-    logger.info("starting trajectory-worker-job-factory instance")
+    logger.debug("starting trajectory-worker-job-factory instance")
 
     try:
         cache_handler = RedisHandler(
@@ -96,6 +94,8 @@ if __name__ == "__main__":
             max_speed_m_s=ValidateTrajectoryHandler.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS,
         )
         validate_traj_handler = ValidateTrajectoryHandler()
+        # Patch the default minimum rolling speed in the ValidateTrajectoryHandler
+        validate_traj_handler.AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = TrajectoryBuilderSvc.AVG_LOW_GROUND_SPEED_THRESHOLD_MPS
         # this field is missing when pulling data from the Spire parquet file cache
         validate_traj_handler.SCHEMA.pop("ingestion_time")
         gcs_handler = CloudStorageHandler()
