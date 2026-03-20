@@ -33,7 +33,7 @@ class JobWorkerSubmitSvc(BaseSvc):
     Service backing calls to the flights submit parser.
     """
 
-    TWJD_TOPIC_ID = "projects/contrails-301217/topics/dev-fp-twjd-ingress"
+    TWJD_TOPIC_ID = "projects/contrails-301217/topics/prod-fp-twjd-ingress"
 
     def __init__(self, input: argparse.Namespace):
         """
