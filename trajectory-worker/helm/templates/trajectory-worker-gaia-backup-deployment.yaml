@@ -21,9 +21,16 @@ spec:
       terminationGracePeriodSeconds: 15
       nodeSelector:
         cloud.google.com/machine-family: "c3"
+      volumes:
+        - name: ecmwf-zarr-v2
+          persistentVolumeClaim:
+            claimName: era5-zarr-gcs-pvc
       containers:
       - name: trajectory-worker-gaia-backup
         image: {{ .Values.image | required ".Values.image is required" | quote }}
+        volumeMounts:
+          - mountPath: /ecmwf-zarr-v2
+            name: ecmwf-zarr-v2
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
             value: {{ .Values.trajectoryChunkGaiaBackupSubscriptionId | required ".Values.trajectoryChunkGaiaBackupSubscriptionId is required" | quote }}
