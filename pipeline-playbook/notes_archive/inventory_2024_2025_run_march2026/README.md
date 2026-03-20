@@ -17,6 +17,15 @@ range: 2025-07-10, 2025-07-09
 note: remediation; TWJD dead-letters
 ```
 
+#### Run 1.1b
+```text
+start: March 20 23:05 UTC
+airline_iata: AA
+range: 2025-07-09
+note: remediation; TWJD dead-letters; OOM symptoms; TWJF memory increased manually in console
+```
+
+
 
 ## VM run cmd ref
 ```bash
