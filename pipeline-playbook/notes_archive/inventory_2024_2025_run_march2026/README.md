@@ -25,7 +25,13 @@ range: 2025-07-09
 note: remediation; TWJD dead-letters; OOM symptoms; TWJF memory increased manually in console
 ```
 
-
+#### Run 1.2
+```text
+start: March 21 01: UTC
+airline_iata: runlist_B.txt
+range: 2024-01-01_2025-12-31
+notes: run on nick's VM
+```
 
 ## VM run cmd ref
 ```bash
