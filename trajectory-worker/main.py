@@ -7,7 +7,7 @@ from google.oauth2 import service_account
 
 import lib.environment as env
 from lib import schemas
-from lib.exceptions import FlightTooLowError, AircraftUnrecognizedError
+from lib.schemas import WaypointsRecordCollection, WaypointsRecord
 from lib.utils import sigterm_manager
 from lib.handlers import (
     CocipTrajectoryHandler,
@@ -44,17 +44,18 @@ def run(
         if sigterm_manager.should_exit:
             sys.exit(0)
 
-        job = schemas.WaypointsRecord.from_utf8_json(message.data)
-        # Set start and end timestamps for logging purposes
-        job._start_time = job.records[0].timestamp
-        job._end_time = job.records[-1].timestamp
+        job_batch: WaypointsRecordCollection = WaypointsRecordCollection.from_utf8_json(
+            message.data
+        )
+        flight_ids = [flight.flight_info.flight_id for flight in job_batch.flights]
+        start_times = [flight.records[0].timestamp for flight in job_batch.flights]
 
         if backup_job_publisher and message.delivery_attempt > 2:
             # pass message to backup queue to be processed by traj workers w/ more resources
             logger.info(
                 "too many delivery attempts - forwarding to backup pipeline.",
                 extra={
-                    "flight_id": {job.flight_info.flight_id},
+                    "flight_ids": flight_ids,
                     "delivery_attempt": message.delivery_attempt,
                 },
             )
@@ -69,28 +70,31 @@ def run(
         logger.info(
             "start work",
             extra={
-                "flight_id": job.flight_info.flight_id,
-                "start_time": job._start_time,
-                "len_records": len(job.records),
+                "flight_id": flight_ids,
+                "start_times": start_times,
             },
         )
-
         # ===================
         # apply CoCip Trajectory model
         # ===================
-        try:
-            trajectory_cocip_handler = CocipTrajectoryHandler(job)
-        except (FlightTooLowError, AircraftUnrecognizedError) as e:
-            logger.info(
-                "skipping",
-                extra={
-                    "flight_id": job.flight_info.flight_id,
-                    "detail": "could not run cocip",
-                    "reason": e,
-                },
-            )
-            job_handler.ack(message)
-            continue
+        valid_jobs: list[WaypointsRecord] = []
+        # prune jobs that won't pass cocip
+        for job in job_batch.flights:
+            try:
+                CocipTrajectoryHandler.validate_job(job)
+                valid_jobs.append(job)
+            except Exception as e:
+                logger.info(
+                    "skipping",
+                    extra={
+                        "flight_id": job.flight_info.flight_id,
+                        "detail": "could not run cocip",
+                        "reason": e,
+                    },
+                )
+        del job_batch
+
+        trajectory_cocip_handler = CocipTrajectoryHandler(valid_jobs)
 
         try:
             trajectory_cocip_handler.load_gcs_zarr(
