@@ -17,6 +17,7 @@ import pandas as pd  # type: ignore
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
+from pycontrails.core.aircraft_performance import AircraftPerformance
 from pycontrails.models.cocip import Cocip
 from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
@@ -406,6 +407,23 @@ class PubSubPublishHandler:
         return _exit_on_error
 
 
+class TrajectoryWorkerAP(AircraftPerformance):
+    """
+    Wrapper class to modulate which aircraft performance model we use with CoCiP.
+    """
+
+    name = "trajectory_worker_ap"
+    long_name = "Trajectory Worker Aircraft Performance"
+
+    def eval_flight(self, fl: Flight):
+        aircraft_type_icao = fl.attrs["aircraft_type"]
+        perf_model = get_perf_model(aircraft_type_icao)
+        return perf_model.eval_flight(fl)
+
+    def calculate_aircraft_performance(*args, **kwargs):
+        raise
+
+
 class CocipTrajectoryHandler:
     """
     Manages the execution of the CoCip trajectory model on a flight trajectory chunk.
@@ -773,40 +791,36 @@ class CocipTrajectoryHandler:
         """
         Run the cocip trajectory model.
         """
-        logger.debug(
-            "running cocip model", extra={"flight_id": self._job.flight_info.flight_id}
+
+        perf_model_handler: TrajectoryWorkerAP = TrajectoryWorkerAP(
+            fill_low_altitude_with_isa_temperature=True,
+            fill_low_altitude_with_zero_wind=True,
         )
-        aircraft_type_icao = self._job.flight_info.aircraft_type_icao
-        perf_model = get_perf_model(aircraft_type_icao)
 
         if not self._met_dataset or not self._rad_dataset:
             raise ValueError(
                 "met dataset or rad dataset have not been loaded - run load"
             )
-        if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
+
+        max_flight_len = max([len(job.records) for job in self._job_batch])
+
+        if max_flight_len < self.LOW_MEM_WAYPOINT_COUNT:
             self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=perf_model,
+                aircraft_performance=perf_model_handler,
                 **self.STATIC_PARAMS,
             )
         else:
-            logger.debug(
-                "using low-mem cocip implementation for flight",
-                extra={
-                    "flight_id": self._job.flight_info.flight_id,
-                    "waypoint_count": len(self._job.records),
-                },
-            )
             self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=perf_model,
+                aircraft_performance=perf_model_handler,
                 **self.STATIC_PARAMS,
                 preprocess_lowmem=True,
             )
         logger.debug("evaluating cocip model")
-        result: list[Flight] = self._model.eval(self._profile_fleet)
+        result: list[Flight] = self._model.eval(self._fleet)
         logger.debug("finished evaluating cocip model")
         return result
 
