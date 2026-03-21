@@ -17,8 +17,7 @@ spec:
       serviceAccountName: flights-pipeline-default-sa
       terminationGracePeriodSeconds: 15
       nodeSelector:
-        cloud.google.com/gke-spot: "true"
-        cloud.google.com/machine-family: "c3"
+        cloud.google.com/compute-class: c3-custom-small-bootdisk
       volumes:
         - name: ecmwf-zarr-v2
           persistentVolumeClaim:
