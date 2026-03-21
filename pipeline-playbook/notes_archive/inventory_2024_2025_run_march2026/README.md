@@ -27,7 +27,7 @@ note: remediation; TWJD dead-letters; OOM symptoms; TWJF memory increased manual
 
 #### Run 1.2
 ```text
-start: March 21 01: UTC
+start: March 21 01:20 UTC
 airline_iata: runlist_B.txt
 range: 2024-01-01_2025-12-31
 notes: run on nick's VM
