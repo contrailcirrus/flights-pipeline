@@ -1549,6 +1549,9 @@ class CocipTrajectoryProto:
             if flight_id == input_chunk.flight_info.flight_id:
                 # skip target flight; only capture vert profile flights
                 continue
+            if flight_id not in input_chunk.flight_info.flight_id:
+                # skip if the profile belongs to another flight in the fleet
+                continue
             vert_profile_pb = traj.vertical_profiles.add()
             profile_df = profile_flight.dataframe
             # fetch static altitude for the vert profile trajectory

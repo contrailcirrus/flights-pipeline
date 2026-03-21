@@ -96,6 +96,7 @@ def run(
 
         trajectory_cocip_handler = CocipTrajectoryHandler(valid_jobs)
 
+        valid_jobs_flight_ids = [job.flight_info.flight_id for job in valid_jobs]
         try:
             trajectory_cocip_handler.load_gcs_zarr(
                 env.HRES_SOURCE_PATH, env.ERA5_SOURCE_PATH
@@ -104,12 +105,11 @@ def run(
             cocip_fleet_result_lookup = {
                 flight.attrs["flight_id"]: flight for flight in cocip_fleet_result
             }
-            target_flight_result = cocip_fleet_result_lookup[job.flight_info.flight_id]
         except Exception:
             logger.error(
                 "nacking",
                 extra={
-                    "flight_id": job.flight_info.flight_id,
+                    "flight_ids": valid_jobs_flight_ids,
                     "traceback": format_traceback(),
                     "detail": "cocip failed",
                 },
@@ -122,13 +122,9 @@ def run(
         # ===================
         # publish cocip outputs to BQ
         # ===================
-        logger.debug(
-            "publishing cocip summary output to bq",
-            extra={
-                "flight_id": job.flight_info.flight_id,
-            },
-        )
 
+        # publish the summary flight info for all flights in job batch
+        # (does not publish the vertical profiles in the set)
         fq_zarr_uri: str
         # qualify the zarr uri with the source type
         if job.met_source == schemas.MetSource.HRES:
@@ -138,87 +134,84 @@ def run(
         else:
             raise ValueError("traj worker job met source not recognized")
 
-        output = schemas.CocipTrajectoryChunk.from_cocip_result(
-            source_id=SOURCE_ID,
-            git_sha=env.GIT_SHA,
-            input_chunk=job,
-            zarr_uri=fq_zarr_uri,
-            result=target_flight_result,
-        )
+        for job in valid_jobs:
+            result = cocip_fleet_result_lookup[job.flight_info.flight_id]
+            output = schemas.CocipTrajectoryChunk.from_cocip_result(
+                source_id=SOURCE_ID,
+                git_sha=env.GIT_SHA,
+                input_chunk=job,
+                zarr_uri=fq_zarr_uri,
+                result=result,
+            )
 
-        trajectory_cocip_bq_publisher.publish_async(
-            data=output.to_bq_flatmap(processed_at=now),
-            timeout_seconds=110,
-            log_context=dict(
-                client_name="trajectory_cocip_bq_publisher_traj_summary",
-                icao_address=output.icao_address,
-                source_id=output.source_id,
-                time_start=output.time_start,
-            ),
-        )
+            trajectory_cocip_bq_publisher.publish_async(
+                data=output.to_bq_flatmap(processed_at=now),
+                timeout_seconds=110,
+                log_context=dict(
+                    client_name="trajectory_cocip_bq_publisher_traj_summary",
+                    icao_address=output.icao_address,
+                    source_id=output.source_id,
+                    time_start=output.time_start,
+                ),
+            )
         trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
 
         if job.export_cocip_trajectory:
             # ===================
             # if enabled, publish all trajectory segments to BQ
             # ===================
-            logger.debug(
-                "exporting per-segment cocip outputs to bq",
-                extra={
-                    "flight_id": job.flight_info.flight_id,
-                },
-            )
-
-            seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
-                source_id=SOURCE_ID,
-                git_sha=env.GIT_SHA,
-                input_chunk=job,
-                zarr_uri=fq_zarr_uri,
-                result=target_flight_result,
-            )
-            for seg in seg_outputs:
-                trajectory_cocip_bq_publisher.publish_async(
-                    data=seg.to_bq_flatmap(processed_at=now),
-                    timeout_seconds=110,
-                    log_context=dict(
-                        client_name="trajectory_cocip_bq_publisher_traj_per_seg",
-                        icao_address=output.icao_address,
-                        source_id=output.source_id,
-                        time_start=output.time_start,
-                    ),
+            for job in valid_jobs:
+                result = cocip_fleet_result_lookup[job.flight_info.flight_id]
+                seg_outputs = schemas.CocipTrajectoryChunk.from_cocip_result_all_segs(
+                    source_id=SOURCE_ID,
+                    git_sha=env.GIT_SHA,
+                    input_chunk=job,
+                    zarr_uri=fq_zarr_uri,
+                    result=result,
                 )
-            del seg_outputs
+                for seg in seg_outputs:
+                    trajectory_cocip_bq_publisher.publish_async(
+                        data=seg.to_bq_flatmap(processed_at=now),
+                        timeout_seconds=110,
+                        log_context=dict(
+                            client_name="trajectory_cocip_bq_publisher_traj_per_seg",
+                            icao_address=output.icao_address,
+                            source_id=output.source_id,
+                            time_start=output.time_start,
+                        ),
+                    )
+                del seg_outputs
+            trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
             # ===================
             # if enabled, publish trajectory segments to protobuf in GCS
             # ===================
-            traj_proto: schemas.CocipTrajectoryProto
-            traj_proto = schemas.CocipTrajectoryProto.from_cocip_results(
-                input_chunk=job,
-                fleet_results_lookup=cocip_fleet_result_lookup,
-                model=trajectory_cocip_handler.model,
-            )
-            bytes_out = traj_proto.to_bytes()
-            first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
-            if job.flight_info.airline_iata is None:
-                pq_uri_airline_iata = "null"
-            else:
-                pq_uri_airline_iata = job.flight_info.airline_iata
-            destination_uri = GCS_PARQUET_URI_TEMPLATE.format(
-                start_datehour=first_waypoint_ts.strftime("%Y%m%d%H"),
-                airline_iata=pq_uri_airline_iata,
-                flight_id=job.flight_info.flight_id,
-            )
-            gcs_blob = gcs_bucket.blob(destination_uri)
-            gcs_blob.upload_from_string(
-                bytes_out, content_type="application/x-protobuf"
-            )
-
-        trajectory_cocip_bq_publisher.wait_for_publish(timeout_seconds=120)
+            for job in valid_jobs:
+                traj_proto: schemas.CocipTrajectoryProto
+                traj_proto = schemas.CocipTrajectoryProto.from_cocip_results(
+                    input_chunk=job,
+                    fleet_results_lookup=cocip_fleet_result_lookup,
+                    model=trajectory_cocip_handler.model,
+                )
+                bytes_out = traj_proto.to_bytes()
+                first_waypoint_ts = pd.Timestamp(job.records[0].timestamp)
+                if job.flight_info.airline_iata is None:
+                    pq_uri_airline_iata = "null"
+                else:
+                    pq_uri_airline_iata = job.flight_info.airline_iata
+                destination_uri = GCS_PARQUET_URI_TEMPLATE.format(
+                    start_datehour=first_waypoint_ts.strftime("%Y%m%d%H"),
+                    airline_iata=pq_uri_airline_iata,
+                    flight_id=job.flight_info.flight_id,
+                )
+                gcs_blob = gcs_bucket.blob(destination_uri)
+                gcs_blob.upload_from_string(
+                    bytes_out, content_type="application/x-protobuf"
+                )
         job_handler.ack(message)
         logger.info(
             "end work",
             extra={
-                "flight_id": job.flight_info.flight_id,
+                "flight_ids": valid_jobs_flight_ids,
             },
         )
 
