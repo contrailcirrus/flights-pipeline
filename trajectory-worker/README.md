@@ -1,5 +1,5 @@
 # Trajectory Worker
-  
+
 ## Overview
 A Kubernetes deployment that ingests a single flight instance ("flight trajectory chunk")
 and runs CoCip on that trajectory.
