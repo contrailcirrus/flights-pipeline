@@ -737,8 +737,11 @@ class CocipTrajectoryHandler:
             self._rad_dataset = rad
 
         elif target_met_src == MetSource.ERA5:
-            zarr_src_fns = {self._find_era5_zarr_stores(job) for job in self._job_batch}
-            self._zarr_src_fn: list[str] = list(zarr_src_fns)
+            zarr_src_fns = []
+            for job in self._job_batch:
+                zarr_src_fns.extend(self._find_era5_zarr_stores(job))
+
+            self._zarr_src_fn: list[str] = list(set(zarr_src_fns))
 
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []
