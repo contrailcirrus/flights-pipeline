@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 import os
 
 import sys
@@ -703,16 +705,18 @@ class TrajectoryBuilderSvc:
                 logger.error(
                     "skipping",
                     extra={
-                        "detail": "job submit failed",
+                        "detail": "publish work failed",
                         "flight_ids": [
                             flight.flight_info.flight_id for flight in job_batch.flights
                         ],
+                        "twjd": asdict(twjd),
                         "traceback": format_traceback(),
                     },
                 )
+                continue
             # log state of flight submitted to TW
             logger.info(
-                "work submitted",
+                "publish work",
                 extra={
                     "flight_ids": [
                         flight.flight_info.flight_id for flight in job_batch.flights
