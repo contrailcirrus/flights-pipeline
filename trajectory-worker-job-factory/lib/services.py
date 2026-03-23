@@ -48,7 +48,7 @@ class TrajectoryBuilderSvc:
     FLIGHT_ID_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_flight_id.sql"
     FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT = 500
     # number of flights to package in a single TW job published to PubSub
-    TW_BATCH_SIZE = 10
+    TW_BATCH_SIZE = 50
     # minimum number of waypoints in a flight instance with null airline iata
     # presumed a true null airline iata if above this threshold
     MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
