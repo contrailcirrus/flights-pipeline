@@ -13,6 +13,7 @@ from lib.schemas import (
     MetSource,
     AirlineDayFlightsProgressMarker,
     TelemetrySource,
+    WaypointsRecordCollection,
 )
 from lib.handlers import (
     PubSubPublishHandler,
@@ -46,6 +47,8 @@ class TrajectoryBuilderSvc:
     DAILY_FLIGHTS_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_airline.sql"
     FLIGHT_ID_QUERY_FILENAME = "lib/sql/bq_waypoints_flights_daily_by_flight_id.sql"
     FLIGHT_INSTANCE_PROGRESS_COUNT_INCREMENT = 500
+    # number of flights to package in a single TW job published to PubSub
+    TW_BATCH_SIZE = 10
     # minimum number of waypoints in a flight instance with null airline iata
     # presumed a true null airline iata if above this threshold
     MIN_WAYPOINT_COUNT_NULL_AIRLINE_IATA = 30
@@ -306,6 +309,8 @@ class TrajectoryBuilderSvc:
 
         counter = 0
         number_of_flight_candidates = len(flight_instances.groups)
+
+        job_batch: WaypointsRecordCollection = WaypointsRecordCollection(flights=[])
         for flight_id, terr_waypoints in flight_instances:
             if sigterm_manager.should_exit:
                 sys.exit(0)
@@ -670,12 +675,19 @@ class TrajectoryBuilderSvc:
                     met_source=MetSource(twjd.met_source),
                     export_cocip_trajectory=twjd.full_traj,
                 )
-                if not twjd.dry_run:
+                if twjd.dry_run:
+                    continue
+                job_batch.flights.append(job)
+
+                if (len(job_batch.flights) >= self.TW_BATCH_SIZE) or (
+                    counter == number_of_flight_candidates
+                ):
                     self._job_out_handler.publish_async(
-                        job.as_utf8_json(),
+                        job_batch.as_utf8_json(),
                         timeout_seconds=45,
                     )
                     self._job_out_handler.wait_for_publish(timeout_seconds=300)
+                    job_batch.flights = []
                     if self._cache_handler and twjd.airline_iata:
                         self._cache_handler.push(
                             AirlineDayFlightsProgressMarker(

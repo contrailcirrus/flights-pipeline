@@ -17,7 +17,7 @@ with open(DEFAULT_ENGINE_UID_LOOKUP_FP, "r") as fp:
     default_engine_uid_lookup = json.load(fp)
 
 
-def get_perf_model(aircraft_type_icao: str) -> AircraftPerformance | None:
+def get_perf_model(aircraft_type_icao: str) -> AircraftPerformance:
     """
     Find a performance model for a given aircraft type, and return instance of that model.
     """
@@ -97,9 +97,7 @@ icao_addr_engine_uid_lookup: dict[str, str]
 icao_addr_engine_uid_lookup, tail_num_engine_uid_lookup = import_engine_uid_lookup()
 
 
-def get_engine_uid(
-    icao_address: str, tail_number: str, aircraft_type_icao: str
-) -> str | None:
+def get_engine_uid(icao_address: str, tail_number: str, aircraft_type_icao: str) -> str:
     """
     Find an engine uid for a given aircraft by icao_adddress, or tail_number as a fallback.
 
@@ -130,3 +128,8 @@ def get_engine_uid(
     if engine_uid := default_engine_uid_lookup.get(aircraft_type_icao):
         logger.debug("set engine_uid from aircraft type icao")
         return engine_uid
+
+    if not engine_uid:
+        raise AircraftUnrecognizedError(
+            f"could not find engine uid for aircraft type {aircraft_type_icao}"
+        )

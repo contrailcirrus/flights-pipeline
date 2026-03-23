@@ -17,14 +17,13 @@ import pandas as pd  # type: ignore
 import xarray as xr
 from google.cloud import pubsub_v1  # type: ignore
 from pycontrails import Flight, MetDataset
+from pycontrails.core.aircraft_performance import AircraftPerformance
 from pycontrails.models.cocip import Cocip
 from pycontrails.models.humidity_scaling import (
     ExponentialBoostLatitudeCorrectionHumidityScaling,
 )
 
 from lib.exceptions import (
-    AircraftUnrecognizedError,
-    PerfModelUnsupportedError,
     FlightTooLowError,
 )
 from lib.log import format_traceback, logger
@@ -408,6 +407,23 @@ class PubSubPublishHandler:
         return _exit_on_error
 
 
+class TrajectoryWorkerAP(AircraftPerformance):
+    """
+    Wrapper class to modulate which aircraft performance model we use with CoCiP.
+    """
+
+    name = "trajectory_worker_ap"
+    long_name = "Trajectory Worker Aircraft Performance"
+
+    def eval_flight(self, fl: Flight):
+        aircraft_type_icao = fl.attrs["aircraft_type"]
+        perf_model = get_perf_model(aircraft_type_icao)
+        return perf_model.eval_flight(fl)
+
+    def calculate_aircraft_performance(*args, **kwargs):
+        raise
+
+
 class CocipTrajectoryHandler:
     """
     Manages the execution of the CoCip trajectory model on a flight trajectory chunk.
@@ -437,28 +453,46 @@ class CocipTrajectoryHandler:
         max_age=np.timedelta64(12, "h"),
     )
 
-    def __init__(self, job: WaypointsRecord):
+    def __init__(self, job_batch: list[WaypointsRecord]):
         """
         Parameters
         ----------
-        job
-            A WaypointsRecord job (flight instance) to process
+        job_batch
+            A collection of WaypointsRecord jobs (flight instance) to process
         """
         # aggregate and hash the ids for all messages received by the handler
         # on instantiation.
         # this serves as a unique identifier of the unit of work handled by
         # the handler instance.
-        self._job = job
+        self._job_batch = job_batch
 
         self._zarr_src_fn: str | list[str] | None = None
         self._met_dataset: MetDataset | None = None
         self._rad_dataset: MetDataset | None = None
 
-        self._verify_altitude(self._job)
-
         self._model: Cocip | None = None
-        self._fleet: list[Flight] = self._create_fleet(self._job)
-        logger.debug("instantiated cocip handler")
+        fleet: list[Flight] = []
+        for job in job_batch:
+            fleet.extend(self._create_profile_fleet(job))
+        self._fleet = fleet
+
+    @classmethod
+    def validate_job(cls, job: WaypointsRecord):
+        """
+        Confirm that target flight will be runnable by CoCiP.
+        """
+        # confirm altitude is above threshold
+        cls._verify_altitude(job)
+
+        # confirm engine is available
+        _ = get_engine_uid(
+            job.flight_info.icao_address,
+            job.flight_info.tail_number,
+            job.flight_info.aircraft_type_icao,
+        )
+
+        # confirm perf model is available
+        _ = get_perf_model(job.flight_info.aircraft_type_icao)
 
     @classmethod
     def _verify_altitude(cls, job: WaypointsRecord):
@@ -472,7 +506,7 @@ class CocipTrajectoryHandler:
             )
 
     @classmethod
-    def _create_fleet(
+    def _create_profile_fleet(
         cls,
         job: WaypointsRecord,
     ) -> list[Flight]:
@@ -515,10 +549,6 @@ class CocipTrajectoryHandler:
             job.flight_info.tail_number,
             job.flight_info.aircraft_type_icao,
         )
-        if not engine_uid:
-            raise AircraftUnrecognizedError(
-                f"could not find engine uid for aircraft type {job.flight_info.aircraft_type_icao}"
-            )
         flight_id = job.flight_info.flight_id
         if alt_ft:
             flight_id += f"-alt-{alt_ft}"
@@ -666,8 +696,18 @@ class CocipTrajectoryHandler:
               that overlap entire flight traj + contrail evolution time.
         """
 
-        if self._job.met_source == MetSource.HRES:
-            self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(self._job)
+        met_srcs = {job.met_source for job in self._job_batch}
+        if len(met_srcs) > 1:
+            raise Exception("multiple met sources not specified in a TW batch")
+        target_met_src = met_srcs.pop()
+
+        if len(self._job_batch) > 1 and target_met_src == MetSource.HRES:
+            raise Exception("cannot run TW with flight batch and HRES met src")
+
+        if target_met_src == MetSource.HRES:
+            self._zarr_src_fn: str = self._find_nearest_hres_zarr_store(
+                self._job_batch[0]
+            )
             zarr_path = f"{hres_src}/{self._zarr_src_fn}"
             # inject explicit gcs token for fs access to gcs
             if "gs://" in zarr_path:
@@ -696,8 +736,9 @@ class CocipTrajectoryHandler:
             self._met_dataset = met
             self._rad_dataset = rad
 
-        elif self._job.met_source == MetSource.ERA5:
-            self._zarr_src_fn: list[str] = self._find_era5_zarr_stores(self._job)
+        elif target_met_src == MetSource.ERA5:
+            zarr_src_fns = {self._find_era5_zarr_stores(job) for job in self._job_batch}
+            self._zarr_src_fn: list[str] = list(zarr_src_fns)
 
             pl_ds: list[xr.Dataset] = []
             sl_ds: list[xr.Dataset] = []
@@ -750,39 +791,31 @@ class CocipTrajectoryHandler:
         """
         Run the cocip trajectory model.
         """
-        logger.debug(
-            "running cocip model", extra={"flight_id": self._job.flight_info.flight_id}
+
+        perf_model_handler: TrajectoryWorkerAP = TrajectoryWorkerAP(
+            fill_low_altitude_with_isa_temperature=True,
+            fill_low_altitude_with_zero_wind=True,
         )
-        aircraft_type_icao = self._job.flight_info.aircraft_type_icao
-        perf_model = get_perf_model(aircraft_type_icao)
-        if not perf_model:
-            raise PerfModelUnsupportedError(
-                f"could not identify perf model for {aircraft_type_icao}"
-            )
 
         if not self._met_dataset or not self._rad_dataset:
             raise ValueError(
                 "met dataset or rad dataset have not been loaded - run load"
             )
-        if len(self._job.records) < self.LOW_MEM_WAYPOINT_COUNT:
+
+        max_flight_len = max([len(job.records) for job in self._job_batch])
+
+        if max_flight_len < self.LOW_MEM_WAYPOINT_COUNT:
             self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=perf_model,
+                aircraft_performance=perf_model_handler,
                 **self.STATIC_PARAMS,
             )
         else:
-            logger.debug(
-                "using low-mem cocip implementation for flight",
-                extra={
-                    "flight_id": self._job.flight_info.flight_id,
-                    "waypoint_count": len(self._job.records),
-                },
-            )
             self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
-                aircraft_performance=perf_model,
+                aircraft_performance=perf_model_handler,
                 **self.STATIC_PARAMS,
                 preprocess_lowmem=True,
             )

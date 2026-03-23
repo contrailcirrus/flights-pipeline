@@ -395,16 +395,24 @@ class WaypointsRecord:
         js = json.dumps(asdict(self))
         return js.encode("utf-8")
 
-    @staticmethod
-    def from_utf8_json(blob: bytes):
+    @classmethod
+    def from_utf8_json(cls, blob: bytes):
         """
         Takes a utf8 json blob and marshals to an instance of this class.
         """
+        blob_dict = json.loads(blob)
+        return cls.from_dict(blob_dict)
+
+    @staticmethod
+    def from_dict(blob_dict: dict):
+        """
+        Takes a dict representation and marshals to an instance of this class.
+        """
         return WaypointsRecord(
-            flight_info=FlightInfoWide(**json.loads(blob)["flight_info"]),
-            records=[SpireWaypointPositional(**r) for r in json.loads(blob)["records"]],
-            met_source=MetSource(json.loads(blob)["met_source"]),
-            export_cocip_trajectory=json.loads(blob)["export_cocip_trajectory"],
+            flight_info=FlightInfoWide(**blob_dict["flight_info"]),
+            records=[SpireWaypointPositional(**r) for r in blob_dict["records"]],
+            met_source=MetSource(blob_dict["met_source"]),
+            export_cocip_trajectory=blob_dict["export_cocip_trajectory"],
         )
 
     def _to_logging_dict(self):
@@ -425,6 +433,32 @@ class WaypointsRecord:
         for k, v in self._to_logging_dict().items():
             out += f"{k}: {v}, "
         return out
+
+
+@dataclass
+class WaypointsRecordCollection:
+    """
+    Collection of flight instances (WaypointsRecord objs)
+    """
+
+    flights: list[WaypointsRecord]
+
+    def as_utf8_json(self) -> bytes:
+        """
+        Builds a utf-8 encoded JSON blob from the class' attributes.
+        """
+        js = json.dumps(asdict(self))
+        return js.encode("utf-8")
+
+    @staticmethod
+    def from_utf8_json(blob: bytes):
+        """
+        Takes a utf8 json blob and marshals to an instance of this class.
+        """
+        flights: list[dict] = json.loads(blob)["flights"]
+        return WaypointsRecordCollection(
+            flights=[WaypointsRecord.from_dict(itm) for itm in flights]
+        )
 
 
 @dataclass
@@ -1514,6 +1548,9 @@ class CocipTrajectoryProto:
         for flight_id, profile_flight in fleet_results_lookup.items():
             if flight_id == input_chunk.flight_info.flight_id:
                 # skip target flight; only capture vert profile flights
+                continue
+            if flight_id not in input_chunk.flight_info.flight_id:
+                # skip if the profile belongs to another flight in the fleet
                 continue
             vert_profile_pb = traj.vertical_profiles.add()
             profile_df = profile_flight.dataframe
