@@ -651,6 +651,8 @@ class TrajectoryBuilderSvc:
                 )
                 continue
 
+            # log state of flight submitted to TW
+            logger.info("end work", extra=candidate.to_dict())
             # ---------------
             # build and submit job
             # ---------------
@@ -702,12 +704,21 @@ class TrajectoryBuilderSvc:
                     "skipping",
                     extra={
                         "detail": "job submit failed",
-                        "flight_id": candidate.flight_id,
+                        "flight_ids": [
+                            flight.flight_info.flight_id for flight in job_batch.flights
+                        ],
                         "traceback": format_traceback(),
                     },
                 )
             # log state of flight submitted to TW
-            logger.info("end work", extra=candidate.to_dict())
+            logger.info(
+                "work submitted",
+                extra={
+                    "flight_ids": [
+                        flight.flight_info.flight_id for flight in job_batch.flights
+                    ]
+                },
+            )
 
         if self._cache_handler and twjd.airline_iata:
             self._cache_handler.pop(
