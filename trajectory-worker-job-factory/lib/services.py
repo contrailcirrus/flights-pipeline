@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 import os
 
 import sys
@@ -652,7 +654,7 @@ class TrajectoryBuilderSvc:
                 continue
 
             # ---------------
-            # build and submit job
+            # build job
             # ---------------
             try:
                 records: list[SpireWaypointPositional] = []
@@ -675,13 +677,29 @@ class TrajectoryBuilderSvc:
                     met_source=MetSource(twjd.met_source),
                     export_cocip_trajectory=twjd.full_traj,
                 )
-                if twjd.dry_run:
-                    continue
-                job_batch.flights.append(job)
+            except Exception as _:
+                logger.error(
+                    "skipping",
+                    extra={
+                        "detail": "job build failed",
+                        "flight_id": candidate.flight_id,
+                        "traceback": format_traceback(),
+                    },
+                )
+                continue
 
-                if (len(job_batch.flights) >= self.TW_BATCH_SIZE) or (
-                    counter == number_of_flight_candidates
-                ):
+            # log state of flight submitted to TW
+            logger.info("end work", extra=candidate.to_dict())
+            if twjd.dry_run:
+                continue
+            job_batch.flights.append(job)
+            # ---------------
+            # publish job batch
+            # ---------------
+            if (len(job_batch.flights) >= self.TW_BATCH_SIZE) or (
+                counter == number_of_flight_candidates
+            ):
+                try:
                     self._job_out_handler.publish_async(
                         job_batch.as_utf8_json(),
                         timeout_seconds=45,
@@ -697,17 +715,29 @@ class TrajectoryBuilderSvc:
                                 marker=counter,
                             )
                         )
-            except Exception as _:
-                logger.error(
-                    "skipping",
-                    extra={
-                        "detail": "job submit failed",
-                        "flight_id": candidate.flight_id,
-                        "traceback": format_traceback(),
-                    },
-                )
+                except Exception as _:
+                    job_batch.flights = []
+                    logger.error(
+                        "publish work failed",
+                        extra={
+                            "flight_ids": [
+                                flight.flight_info.flight_id
+                                for flight in job_batch.flights
+                            ],
+                            "twjd": asdict(twjd),
+                            "traceback": format_traceback(),
+                        },
+                    )
+                    continue
             # log state of flight submitted to TW
-            logger.info("end work", extra=candidate.to_dict())
+            logger.info(
+                "publish work",
+                extra={
+                    "flight_ids": [
+                        flight.flight_info.flight_id for flight in job_batch.flights
+                    ]
+                },
+            )
 
         if self._cache_handler and twjd.airline_iata:
             self._cache_handler.pop(
