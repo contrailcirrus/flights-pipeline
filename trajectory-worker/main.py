@@ -49,6 +49,7 @@ def run(
         )
         flight_ids = [flight.flight_info.flight_id for flight in job_batch.flights]
         start_times = [flight.records[0].timestamp for flight in job_batch.flights]
+        logger.debug(f"got job batch with {len(job_batch.flights)} jobs")
 
         if backup_job_publisher and message.delivery_attempt > 2:
             # pass message to backup queue to be processed by traj workers w/ more resources
@@ -93,7 +94,7 @@ def run(
                     },
                 )
         del job_batch
-
+        logger.debug(f"processing {len(valid_jobs)} valid jobs")
         trajectory_cocip_handler = CocipTrajectoryHandler(valid_jobs)
 
         valid_jobs_flight_ids = [job.flight_info.flight_id for job in valid_jobs]
