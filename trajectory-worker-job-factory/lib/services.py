@@ -634,7 +634,7 @@ class TrajectoryBuilderSvc:
                     continue
 
                 if accepted_violations and len(accepted_violations) > 0:
-                    logger.debug(
+                    logger.info(
                         "keeping",
                         extra={
                             "flight_id": candidate.flight_id,
@@ -699,6 +699,9 @@ class TrajectoryBuilderSvc:
             if (len(job_batch.flights) >= self.TW_BATCH_SIZE) or (
                 counter == number_of_flight_candidates
             ):
+                flight_ids_in_batch = [
+                    flight.flight_info.flight_id for flight in job_batch.flights
+                ]
                 try:
                     self._job_out_handler.publish_async(
                         job_batch.as_utf8_json(),
@@ -720,24 +723,19 @@ class TrajectoryBuilderSvc:
                     logger.error(
                         "publish work failed",
                         extra={
-                            "flight_ids": [
-                                flight.flight_info.flight_id
-                                for flight in job_batch.flights
-                            ],
+                            "flight_ids": flight_ids_in_batch,
                             "twjd": asdict(twjd),
                             "traceback": format_traceback(),
                         },
                     )
                     continue
-            # log state of flight submitted to TW
-            logger.info(
-                "publish work",
-                extra={
-                    "flight_ids": [
-                        flight.flight_info.flight_id for flight in job_batch.flights
-                    ]
-                },
-            )
+                # log state of flight submitted to TW
+                logger.info(
+                    "publish work",
+                    extra={
+                        "flight_ids": flight_ids_in_batch,
+                    },
+                )
 
         if self._cache_handler and twjd.airline_iata:
             self._cache_handler.pop(
