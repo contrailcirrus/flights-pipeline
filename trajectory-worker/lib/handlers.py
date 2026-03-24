@@ -808,7 +808,6 @@ class CocipTrajectoryHandler:
         max_flight_len = max([len(job.records) for job in self._job_batch])
 
         if max_flight_len < self.LOW_MEM_WAYPOINT_COUNT:
-            logger.info("using low memory mode")
             self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
@@ -816,6 +815,7 @@ class CocipTrajectoryHandler:
                 **self.STATIC_PARAMS,
             )
         else:
+            logger.info("using low memory mode")
             self._model = Cocip(
                 met=self._met_dataset,
                 rad=self._rad_dataset,
