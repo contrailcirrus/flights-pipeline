@@ -430,9 +430,8 @@ class CocipTrajectoryHandler:
     """
 
     MET_MIN_ALTITUDE_FT = 22_664  # hard-coding allows more efficient skip-over
-    # TODO: consider removing; effectively unused at this limit
     LOW_MEM_WAYPOINT_COUNT = (
-        5000  # use low-mem cocip trajectory if traj length is above this val
+        660  # use low-mem cocip trajectory if traj length is above this val
     )
 
     # matched to values used by api-preprocessor
