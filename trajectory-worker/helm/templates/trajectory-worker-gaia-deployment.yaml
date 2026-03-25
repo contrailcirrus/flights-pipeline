@@ -56,7 +56,7 @@ spec:
         # bursting supported when machine-family is specified https://docs.cloud.google.com/kubernetes-engine/docs/how-to/pod-bursting-gke#availability-in-gke
         # ref: https://docs.cloud.google.com/kubernetes-engine/docs/how-to/pod-bursting-gke#availability-in-gke
           limits:
-            cpu: "1"
+            cpu: "0.4"
             memory: "1.2Gi"
           requests:
             cpu: "0.4"
