@@ -26,4 +26,4 @@ spec:
               resource.labels.subscription_id: {{ .Values.trajectoryChunkGaiaSubscriptionId | required ".Values.trajectoryChunkGaiaSubscriptionId is required" | splitList "/" | last | quote }}
         target:
           type: Value
-          value: 100
+          value: 4000
