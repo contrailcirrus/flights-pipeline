@@ -33,8 +33,16 @@ range: 2024-01-01_2025-12-31
 notes: run on nick's VM
 ```
 
+#### Run 1.3
+```text
+start: March 25 02:27 UTC
+airline_iata: runlist_C.txt
+range: 2024-01-01_2025-12-31
+notes: run on nick's VM
+```
+
 ## VM run cmd ref
 ```bash
-cat cli_runlist_run_<B/C>.txt | xargs -I % ./cli.py jobworker submit -a % -d 2024-01-01_2024-12-31 -w gcs -s era5 -t > my_airline_iatas.log 2>&1 &
+cat runlist_<B/C>.txt | xargs -I % ./cli.py jobworker submit -a % -d 2024-01-01_2025-12-31 -w gcs -s era5 -t > my_airline_iatas.log 2>&1 &
 
 ```
