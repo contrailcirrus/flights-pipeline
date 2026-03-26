@@ -20,7 +20,7 @@ spec:
       # has this much time to gracefully exit before being killed.
       terminationGracePeriodSeconds: 15
       nodeSelector:
-        cloud.google.com/machine-family: "c3"
+        cloud.google.com/machine-family: "c4d"
 #      volumes:
 #        - name: ecmwf-zarr-v2
 #          persistentVolumeClaim:
