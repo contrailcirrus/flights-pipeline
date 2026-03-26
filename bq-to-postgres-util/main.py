@@ -470,6 +470,7 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
             s.groupby(
                 [df["airline_iata"], year_month, df["is_eu_mrv"], binned],
                 observed=False,
+                dropna=False,
             )
             .agg(["count", "sum"])
             .rename(columns={"count": "flight_count", "sum": "total_sum_ef_mj"})

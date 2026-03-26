@@ -55,8 +55,8 @@ CREATE TABLE "trajectory-cocip"
     CONSTRAINT "trajectory-cocip_pk" PRIMARY KEY (flight_id, time_start),
 
     -- Add some data integrity checks
-    CONSTRAINT check_departure_airport_icao CHECK (departure_airport_icao ~ '^[A-Z]{4}$'),
-    CONSTRAINT check_arrival_airport_icao CHECK (arrival_airport_icao ~ '^[A-Z]{4}$'),
+    CONSTRAINT check_departure_airport_icao CHECK (departure_airport_icao ~ '^[A-Z0-9]{4}$'),
+    CONSTRAINT check_arrival_airport_icao CHECK (arrival_airport_icao ~ '^[A-Z0-9]{4}$'),
     CONSTRAINT check_departure_country_iso CHECK (departure_country_iso ~ '^[A-Z]{2}$'),
     CONSTRAINT check_arrival_country_iso CHECK (arrival_country_iso ~ '^[A-Z]{2}$'),
     CONSTRAINT check_departure_continent_iso CHECK (departure_continent_iso ~ '^[A-Z]{2}$'),
