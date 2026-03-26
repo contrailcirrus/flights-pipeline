@@ -1,8 +1,12 @@
+DECLARE export_start_time TIMESTAMP DEFAULT TIMESTAMP("<export_start_time goes here>");
+DECLARE export_end_time TIMESTAMP DEFAULT TIMESTAMP("<export_end_time goes here>");
+
 EXPORT DATA OPTIONS (
-    uri =:output_gcs_uri,
+    uri = :output_gcs_uri,
     format ='PARQUET',
     overwrite = false) AS
-    SELECT chunk_len_km,
+    SELECT seg_cnt,
+           chunk_len_km,
            lat_start,
            lon_start,
            lat_end,
@@ -33,7 +37,6 @@ EXPORT DATA OPTIONS (
            total_persistent_contrail_length_km,
            total_persistent_contrail_length_km AS contrail_generating_kms,
     FROM :target_table
-    WHERE departure_airport_icao IS NOT NULL
-      AND CHAR_LENGTH(departure_airport_icao) = 4
-      AND arrival_airport_icao IS NOT NULL
-      and CHAR_LENGTH(arrival_airport_icao) = 4;
+    WHERE
+        seg_cnt > 1
+        AND time_start BETWEEN export_start_time AND export_end_time;
