@@ -18,7 +18,7 @@ spec:
       terminationGracePeriodSeconds: 60
       nodeSelector:
         cloud.google.com/gke-spot: "true"
-        cloud.google.com/machine-family: "c3"
+        cloud.google.com/machine-family: "c3d"
       containers:
       - name: trajectory-worker-job-factory
         image: {{ .Values.image | required ".Values.image is required" | quote }}
