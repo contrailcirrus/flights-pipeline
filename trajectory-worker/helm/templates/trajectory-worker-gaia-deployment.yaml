@@ -18,7 +18,7 @@ spec:
       terminationGracePeriodSeconds: 15
       nodeSelector:
         cloud.google.com/gke-spot: "true"
-        cloud.google.com/machine-family: "c3"
+        cloud.google.com/machine-family: "c4d"
 #      volumes:
 #        - name: ecmwf-zarr-v2
 #          persistentVolumeClaim:
