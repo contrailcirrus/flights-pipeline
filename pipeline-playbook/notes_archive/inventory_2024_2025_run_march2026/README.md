@@ -57,8 +57,31 @@ range: 2024-01-01_2025-12-31
 notes: remediation; most null airline iata dead lettered
 ```
 
-## VM run cmd ref
+### VM run cmd ref
 ```bash
 cat runlist_<B/C>.txt | xargs -I % ./cli.py jobworker submit -a % -d 2024-01-01_2025-12-31 -w gcs -s era5 -t > my_airline_iatas.log 2>&1 &
 
 ```
+
+## Notes
+For the first 200 or so top airlines, the nominal TW config worked well (0.4vcpu, 1.2gb ram),
+and optimal bandwidth from the hyperdisk was somewhere around 40 mb/sec per vcpu (3000-4000 workers saturated 50GB/sec).
+
+For the null airlines and the tail of the airline list, vcpu and bandwidth were highly underutilized.
+It was noticed that for the null airlines specifically, many flights were skipped due to not being above the altitude threshold
+or being in the PS/BADA list of accepted aircraft types.  If we are concerned with improving perf, we may want to filter these at 
+the TWJF stage.
+
+## Postprocessing
+The following table was created from the BQ outputs (per-flight summary data only, i.e. seg_cnt > 1).
+```text
+`contrails-301217.flights_pipeline_prod.inventory_2024_2025_run_march2026_summary`
+```
+
+The initial table of raw per-flight records had `58,733,269` rows.
+
+The false null airline iata pruning and dedupeing [with these queries](../../post_process/sql/dedupe.sql) was then applied.
+
+Step 1 dropped `2,885` false null airline iata rows.
+
+Step 2 dropped `348,500` dupes.
