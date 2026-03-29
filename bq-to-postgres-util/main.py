@@ -4,6 +4,8 @@
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import io
+import logging
+import sys
 from typing import Iterator
 
 from argparse import ArgumentParser
@@ -20,6 +22,14 @@ from geography import (
     airport_icao_to_iso_country,
     is_eu_mrv,
 )
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
 
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
 TRAJECTORY_TABLE = table(
@@ -47,11 +57,11 @@ def get_db_uri(
     }
 
     if db_host:
-        print(f"Connecting via TCP to {db_host}:{port}")
+        logger.info(f"Connecting via TCP to {db_host}:{port}")
         return URL.create(**common_params, host=db_host, port=port)
     else:
         socket_host_url = f"/cloudsql/contrails-301217:us-east1:{db_socket_instance}"
-        print(f"Connecting via Unix Socket: {socket_host_url}")
+        logger.info(f"Connecting via Unix Socket: {socket_host_url}")
         return URL.create(
             **common_params, query={"host": socket_host_url, "port": str(port)}
         )
@@ -151,7 +161,9 @@ class GcsPathReader:
         for path in self.find_valid_paths():
             blobs = self.storage_client.list_blobs(self.bucket_name, prefix=path)
             parquet_shards = [b for b in blobs if b.name.endswith(".pq")]
-            print(f"Found {len(parquet_shards)} parquet shards in {path}.")
+            logger.info(f"Found {len(parquet_shards)} parquet shards in {path}.")
+            if not parquet_shards:
+                logger.warning(f"No parquet shards found in {path}; skipping.")
             yield from parquet_shards
 
 
@@ -175,11 +187,15 @@ class GcsToPostgresLoader:
                 for data_transformer in self.data_transformers:
                     if not data_transformer.is_partitioned:
                         continue
+                    logger.debug(
+                        f"Ensuring partition {data_transformer.table_name}_{suffix} exists "
+                        f"for [{start_str}, {end_str})."
+                    )
                     conn.execute(
                         text(
                             f"""
-                        CREATE TABLE IF NOT EXISTS "{data_transformer.table_name}_{suffix}" 
-                        PARTITION OF "{data_transformer.table_name}" 
+                        CREATE TABLE IF NOT EXISTS "{data_transformer.table_name}_{suffix}"
+                        PARTITION OF "{data_transformer.table_name}"
                         FOR VALUES FROM ('{start_str}') TO ('{end_str}');
                     """
                         )
@@ -190,6 +206,7 @@ class GcsToPostgresLoader:
 
     def assert_no_data(self, start_incl: date, end_excl: date) -> None:
         """Ensure that there is no data currently within the specified date range: [start_incl, end_excl)."""
+        logger.info(f"Checking for existing data in [{start_incl}, {end_excl}).")
         stmt = select(
             func.count(TRAJECTORY_TABLE.c.flight_id).label("flight_cnt")
         ).where(
@@ -205,6 +222,7 @@ class GcsToPostgresLoader:
                     f"There is flights data present in [{start_incl}, {end_excl})."
                     " Please delete it first."
                 )
+        logger.info(f"No existing data found in [{start_incl}, {end_excl}). Safe to load.")
 
     def _read_parquet_blob(self, blob: storage.Blob) -> pd.DataFrame:
         data = blob.download_as_bytes()
@@ -232,10 +250,9 @@ class GcsToPostgresLoader:
             connection.commit()
         except Exception as e:
             connection.rollback()
-            print(f"Error uploading data: {e}")
+            logger.error(f"Error uploading {len(df)} rows to {schema}.{table_name}: {e}")
             raise
         finally:
-            cur.close()
             connection.close()
 
     def _upload_via_upsert(
@@ -258,6 +275,7 @@ class GcsToPostgresLoader:
         # Send the data in small enough chunks.
         chunk_size = 30_000 // len(df.columns)
 
+        total_conflicts = 0
         for i in range(0, len(records), chunk_size):
             chunk = records[i : i + chunk_size]
             stmt = insert(target_table).values(chunk)
@@ -267,15 +285,27 @@ class GcsToPostgresLoader:
             stmt = stmt.on_conflict_do_update(
                 index_elements=index_elements, set_=set_args
             )
+            # Use xmax to detect conflicts: xmax=0 means new insert, non-zero means update.
+            stmt_with_returning = stmt.returning(text("(xmax != 0)::int AS was_updated"))
 
             with self.engine.begin() as conn:
-                conn.execute(stmt)
+                result = conn.execute(stmt_with_returning)
+                rows = result.fetchall()
+
+            conflict_count = sum(r[0] for r in rows)
+            total_conflicts += conflict_count
+
+        if total_conflicts > 0:
+            logger.info(
+                f"{total_conflicts}/{len(records)} rows upserted into {schema}.{table_name} "
+                "updated existing records (conflicts resolved via ON CONFLICT DO UPDATE)."
+            )
 
     def to_postgres(self, blob: storage.Blob) -> None:
         try:
             df = self._read_parquet_blob(blob)
             if df.empty:
-                print(f"Empty parquet file: {blob}")
+                logger.warning(f"Empty parquet file skipped: {blob.name}")
                 return
 
             for data_transformer in self.data_transformers:
@@ -290,8 +320,11 @@ class GcsToPostgresLoader:
                     )
                 else:
                     self._upload_to_postgres(df_table_data, table_name, schema)
+
+            logger.debug(f"Completed parquet file: {blob.name} ({len(df)} rows).")
         except Exception as e:
-            print(f"Failed to process {blob.name}: {e}")
+            logger.error(f"Error processing {blob.name}: {e}", exc_info=True)
+            raise
 
 
 class MainTableDataTransformer(DataTransformer):
@@ -335,6 +368,25 @@ class MainTableDataTransformer(DataTransformer):
             include_lowest=True,
         ).astype(str)
 
+        departure_country_iso = df["departure_airport_icao"].map(airport_icao_to_iso_country)
+        departure_continent_iso = df["departure_airport_icao"].map(airport_icao_to_iso_continent)
+        arrival_country_iso = df["arrival_airport_icao"].map(airport_icao_to_iso_country)
+        arrival_continent_iso = df["arrival_airport_icao"].map(airport_icao_to_iso_continent)
+
+        # Log any airport ICAO codes that could not be mapped to a country or continent.
+        missing_dep = df["departure_airport_icao"][departure_country_iso.isna()].dropna().unique()
+        if len(missing_dep) > 0:
+            logger.info(
+                f"Missing country/continent lookup for {len(missing_dep)} departure airport(s): "
+                f"{sorted(missing_dep.tolist())}. Rows will have NULL country/continent fields."
+            )
+        missing_arr = df["arrival_airport_icao"][arrival_country_iso.isna()].dropna().unique()
+        if len(missing_arr) > 0:
+            logger.info(
+                f"Missing country/continent lookup for {len(missing_arr)} arrival airport(s): "
+                f"{sorted(missing_arr.tolist())}. Rows will have NULL country/continent fields."
+            )
+
         df = df.assign(
             chunk_len_km=df["chunk_len_km"].astype(int),
             mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int),
@@ -344,18 +396,10 @@ class MainTableDataTransformer(DataTransformer):
             flight_length_bucket=flight_length_bucket,
             co2e_kg_bucket=co2e_kg_bucket,
             co2e_kg_per_km_bucket=co2e_kg_per_km_bucket,
-            departure_country_iso=df["departure_airport_icao"].map(
-                airport_icao_to_iso_country
-            ),
-            departure_continent_iso=df["departure_airport_icao"].map(
-                airport_icao_to_iso_continent
-            ),
-            arrival_country_iso=df["arrival_airport_icao"].map(
-                airport_icao_to_iso_country
-            ),
-            arrival_continent_iso=df["arrival_airport_icao"].map(
-                airport_icao_to_iso_continent
-            ),
+            departure_country_iso=departure_country_iso,
+            departure_continent_iso=departure_continent_iso,
+            arrival_country_iso=arrival_country_iso,
+            arrival_continent_iso=arrival_continent_iso,
         )
         df = add_is_eu_mrv_column(df)
         features = [
@@ -485,7 +529,7 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
             upper_ef_mj=agg["impact"].apply(lambda x: x.right),
         )
 
-        # Drop rows that have now data and the original impact column to save database storage space.
+        # Drop rows that have no data and the original impact column to save database storage space.
         agg = agg[agg["flight_count"] != 0].copy()
         features = [
             "airline_iata",
@@ -571,6 +615,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    logger.info(
+        f"Starting bq-to-postgres-util: bucket={args.gcs_bucket} paths={args.gcs_paths}"
+    )
+
     gcs_paths = GcsPathReader(args.gcs_bucket, args.gcs_paths)
     loader = GcsToPostgresLoader(
         data_transformers=[
@@ -591,5 +639,21 @@ if __name__ == "__main__":
         loader.assert_no_data(start_incl, end_excl)
 
     parquet_files = list(gcs_paths.parquet_files())
+    logger.info(f"Processing {len(parquet_files)} parquet files total.")
+
+    failed: list[str] = []
     for p in tqdm(parquet_files):
-        loader.to_postgres(p)
+        try:
+            loader.to_postgres(p)
+        except Exception:
+            failed.append(p.name)
+
+    if failed:
+        logger.error(
+            f"ERROR: {len(failed)}/{len(parquet_files)} parquet files failed to load: {failed}"
+        )
+        sys.exit(1)
+
+    logger.info(
+        f"Successfully loaded all {len(parquet_files)} parquet files into Postgres."
+    )
