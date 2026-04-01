@@ -69,6 +69,11 @@
         "mode": "REPEATED"
       },
       {
+        "name": "marker",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      }
+      {
         "name": "twjd",
         "type": "RECORD",
         "fields": [
