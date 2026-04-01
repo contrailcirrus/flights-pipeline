@@ -3,7 +3,7 @@
 
 -- Set date range
 DECLARE date_range_start TIMESTAMP DEFAULT '2024-01-01T00:00:00';
-DECLARE date_range_end TIMESTAMP DEFAULT '2024-12-31T11:59:59';
+DECLARE date_range_end TIMESTAMP DEFAULT '2025-12-31T11:59:59';
 
 -- Set the logs table for the specific run
 WITH 
@@ -18,11 +18,11 @@ start_tb AS (SELECT *,
     FROM logs_tb
     WHERE jsonPayload.message LIKE "%start work%"
     QUALIFY ROW_NUMBER() OVER (PARTITION BY jsonPayload.flight_id) = 1), 
-    
+ 
 finish_tb AS (
     SELECT *, TIMESTAMP_DIFF(jsonPayload.end_time, jsonPayload.start_time, MINUTE) AS final_duration_mins
     FROM logs_tb
-    WHERE jsonPayload.message LIKE "%resample%"
+    WHERE jsonPayload.message LIKE "%end work%"
         QUALIFY ROW_NUMBER() OVER (PARTITION BY jsonPayload.flight_id) = 1), 
     
 skipped_tb AS (
@@ -67,7 +67,7 @@ bin_skipped_tb AS (
     SELECT TIMESTAMP_TRUNC(start_time, MONTH) AS flight_month_bin, SUM (initial_duration_mins) AS total_flight_time_mins
     FROM skipped_w_time_tb
     GROUP BY flight_month_bin),
-    
+
 summary_tb
     AS (
         SELECT COALESCE (bin_success_tb.flight_month_bin, bin_skipped_tb.flight_month_bin) AS flight_month_bin, 
@@ -81,12 +81,12 @@ summary_tb
 
 
 SELECT *,
-       twjf_skipped_flight_time_minutes / (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) *
-       100                                                                    AS twjf_skipped_perc,
-       (twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
-       (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) AS tw_dropped_perc,
-       (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
-       (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) AS total_dropped_perc
+       ROUND(twjf_skipped_flight_time_minutes / (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) *
+       100, 2)                                                                    AS twjf_skipped_perc,
+       ROUND((twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
+       (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes), 2) AS tw_dropped_perc,
+       ROUND((twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
+       (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes), 2) AS total_dropped_perc
 FROM summary_tb
 WHERE flight_month_bin IS NOT NULL
 ORDER BY flight_month_bin DESC
