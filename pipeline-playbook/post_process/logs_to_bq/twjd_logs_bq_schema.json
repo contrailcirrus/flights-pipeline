@@ -9,6 +9,31 @@
         "mode": "NULLABLE"
       },
       {
+        "name": "airline_iata",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "arrival_airport_icao",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "departure_airport_icao",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "callsign",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "flight_number",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
         "name": "start_time",
         "type": "TIMESTAMP",
         "mode": "NULLABLE"
