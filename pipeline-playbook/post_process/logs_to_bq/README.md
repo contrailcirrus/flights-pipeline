@@ -4,7 +4,7 @@ This describes our process for loading log files from the Trajectory Worker Job 
 GCS file sync into BigQuery, and how we use BQ tooling to do some/all of our (pre-)aggregation analysis.
 
 ## Data
-The logs are set up to copy to a GCS bucket via the Google Cloud Log Sink mechanism which copies logs every hour for the previous hour. These logs end up [here](contrails-301217-fp-prod-trajectory-worker-job-factory/stderr). After the Feb. 2026 run through of the 2024 Spire data, we saved the logs [here](gs://contrails-301217-sandbox-internal/flights-pipeline/flights-pipeline/inventory_2024_run_feb2026). There were two runs (run1, and run2), which had `airline_iata not null` and `airline_iata null` respectively.
+The logs are set up to copy to a GCS bucket via the Google Cloud Log Sink mechanism which copies logs every hour for the previous hour. These logs end up [here](gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr). After the Feb. 2026 run through of the 2024 Spire data, we saved the logs [here](gs://contrails-301217-sandbox-internal/flights-pipeline/flights-pipeline/inventory_2024_run_feb2026). There were two runs (run1, and run2), which had `airline_iata not null` and `airline_iata null` respectively.
 
 ## Limitations
 There is one known hard-block limitation.
@@ -37,7 +37,7 @@ Here is an example flow.
 Load all the newline JSON log files for a given run into a BQ table.
 See this [bq load command](bq_load_example.sh).
 
-Note that we use the `twjd_logs_bq_schema_lean.json`, which drops several of the `jsonPayload` fields (those affected by [#Limitations](#limitations)).
+We use the `twjd_logs_bq_schema.json`, which may need to be updated if any of the log messages to be captured change.
 
 Even with those fields missing, we can do some powerful initial analysis (and if those fields were added in the future, we could extend BQ to handle those fields).
 

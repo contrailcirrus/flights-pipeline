@@ -8,10 +8,10 @@ DECLARE date_range_end TIMESTAMP DEFAULT '2025-12-31T11:59:59';
 -- Set the logs table for the specific run
 WITH 
 logs_tb AS (SELECT *
-           FROM `contrails-301217.flights_pipeline_prod.twjf_2024_logs_feb2026`
+           FROM `contrails-301217.flights_pipeline_prod.twjf_2024-2025_logs_mar2026`
            WHERE jsonPayload.flight_id IS NOT NULL),
 
-results_tb AS (SELECT * FROM `contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary`),
+results_tb AS (SELECT * FROM `contrails-301217.flights_pipeline_prod.inventory_2024_2025_run_march2026_summary`),
 
 start_tb AS (SELECT *,
             TIMESTAMP_DIFF(jsonPayload.end_time, jsonPayload.start_time, MINUTE) AS initial_duration_mins

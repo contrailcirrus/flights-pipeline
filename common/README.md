@@ -4,7 +4,7 @@ This readme details setup for namespace-wide infrastructure.
 
 ## Cloud SQL
 Services running inside the k8s namespace `flights-pipeline-<dev/prod>` can
-access the `contrails-default-<dev/prod>` Cloud DQL postgres instance via
+access the `contrails-default-<dev/prod>` Cloud SQL postgres instance via
 the [psdb-contrails-default-proxy](../psdb-contrails-default-proxy/README.md) service.
 
 Each service within the flights-pipeline is responsible for its own database within the instance.
