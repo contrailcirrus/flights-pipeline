@@ -1064,6 +1064,19 @@ class HealTrajectoryHandler:
             min_altitude_ft, max_altitude_ft, inclusive="neither"
         )
         return df[valid_altitude_indices]
+    
+    @staticmethod
+    def _filter_zero_altitudes(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filter data points with identically zero altitude.
+
+        This is a common issue for mid-flight waypoints, or altitudes coerced
+        to zero on the ground and should generally not affect flight 
+        trajectories for the majority of flights, but can avoid flights being 
+        ejected for FlightAltitudeProfileErrors by the ValidationHandler.
+        """
+        valid_altitude_indices = df["altitude_baro"] != 0
+        return df[valid_altitude_indices]
 
     def heal(self) -> pd.DataFrame:
         """
@@ -1168,6 +1181,24 @@ class HealTrajectoryHandler:
                     "flight_id": self._candidate_info.flight_id,
                 },
             )
+        
+        # --------------
+        # Drop data points with identically zero altitude, which is a common 
+        # issue for mid-flight waypoints, or altitudes coerced to zero on the 
+        # ground. This can avoid flights being ejected for 
+        # FlightAltitudeProfileErrors by the ValidationHandler, and generally 
+        # should not affect flight trajectories for the majority of flights.
+        initial_length = len(self._df)
+        self._df = self._filter_zero_altitudes(self._df)
+        if len(self._df) != initial_length:
+            logger.info(
+                "healing",
+                extra={
+                    "detail": f"zero altitude filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "flight_id": self._candidate_info.flight_id,
+                },
+            )
+
 
         # --------------
         # Interpolate to one or both airports if needed.
