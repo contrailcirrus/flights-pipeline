@@ -22,4 +22,4 @@ RUN_URI_GLOB="gs://contrails-301217-flights-pipeline-prod/logs/inventory_2024-20
 TARGET_TABLE="twjf_2024-2025_logs_mar2026"
 
 # For each file in RUN1_URI (non-null airline_iata), load data  into BQ table 
-gsutil ls -r $RUN_URI_GLOB | grep .json | tr '\n' '\0' | xargs -0 -n1 bq load --schema_update_option=ALLOW_FIELD_ADDITION --ignore_unknown_values --source_format=NEWLINE_DELIMITED_JSON --schema=./twjd_logs_bq_schema.json flights_pipeline_prod.${TARGET_TABLE}
+gsutil ls -r $RUN_URI_GLOB | grep .json | tr '\n' '\0' | xargs -0 -n1 bq load --max_bad_records=140 --schema_update_option=ALLOW_FIELD_ADDITION --ignore_unknown_values --source_format=NEWLINE_DELIMITED_JSON --schema=./twjd_logs_bq_schema.json flights_pipeline_prod.${TARGET_TABLE}
