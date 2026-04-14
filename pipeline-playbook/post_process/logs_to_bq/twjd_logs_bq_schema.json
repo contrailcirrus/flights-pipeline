@@ -55,7 +55,7 @@
       },
       {
         "name": "waypoint_count",
-        "type": "STRING",
+        "type": "INTEGER",
         "mode": "NULLABLE"
       },
       {
