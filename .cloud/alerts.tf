@@ -7,8 +7,6 @@ variable contrails-notification-channels {
   default = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
-    # Mahesh Saripalli: SMS 
-    "projects/contrails-301217/notificationChannels/12238957771652159581",
     # Joffrey Peters: SMS
     "projects/contrails-301217/notificationChannels/13394874161276152302",
    ]
