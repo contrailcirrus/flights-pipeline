@@ -339,6 +339,7 @@ class MainTableDataTransformer(DataTransformer):
             chunk_len_km=df["chunk_len_km"].astype(int),
             mean_aircraft_mass_kg=df["mean_aircraft_mass_kg"].astype(int),
             contrail_generating_kms=df["contrail_generating_kms"].astype(int),
+            warming_contrail_generating_kms=df["total_pos_ef_persistent_contrail_length_km"].astype(int),
             ef_mj_per_km=ef_mj_per_km,
             flight_length_bucket=flight_length_bucket,
             co2e_kg_bucket=co2e_kg_bucket,
@@ -368,6 +369,7 @@ class MainTableDataTransformer(DataTransformer):
             "sum_ef_mj",
             "ef_mj_per_km",
             "contrail_generating_kms",
+            "warming_contrail_generating_kms",
             "aircraft_type_icao",
             "engine_uid",
             "mean_aircraft_mass_kg",
@@ -468,6 +470,7 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
             s.groupby(
                 [df["airline_iata"], year_month, df["is_eu_mrv"], binned],
                 observed=False,
+                dropna=False,
             )
             .agg(["count", "sum"])
             .rename(columns={"count": "flight_count", "sum": "total_sum_ef_mj"})
