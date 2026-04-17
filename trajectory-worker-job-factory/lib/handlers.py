@@ -696,10 +696,11 @@ class HealTrajectoryHandler:
         self._min_speed_m_s = min_speed_m_s
         self._max_speed_m_s = max_speed_m_s
         self._min_altitude_ft = (
-            -5000.0
-        )  # well below lowest point on earth; likely  bad data
+            0
+        )  # removes zero-altitude waypoints that are likely on-ground or erroneous; 
+        # should have minimal impact on first or last waypoints for low-lying airports
         self._max_altitude_ft = (
-            55000.0  # well above max altitude for commercial flight; likely bad data
+            55000  # well above max altitude for commercial flight; likely bad data
         )
         self._max_speed_filter_iterations = 5
         self._min_interpolate_dist_km = 10.0
@@ -1064,19 +1065,6 @@ class HealTrajectoryHandler:
             min_altitude_ft, max_altitude_ft, inclusive="neither"
         )
         return df[valid_altitude_indices]
-    
-    @staticmethod
-    def _filter_zero_altitudes(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Filter data points with identically zero altitude.
-
-        This is a common issue for mid-flight waypoints, or altitudes coerced
-        to zero on the ground and should generally not affect flight 
-        trajectories for the majority of flights, but can avoid flights being 
-        ejected for FlightAltitudeProfileErrors by the ValidationHandler.
-        """
-        valid_altitude_indices = df["altitude_baro"] != 0
-        return df[valid_altitude_indices]
 
     def heal(self) -> pd.DataFrame:
         """
@@ -1129,6 +1117,25 @@ class HealTrajectoryHandler:
                     "flight_id": self._candidate_info.flight_id,
                 },
             )
+        # --------------
+        # Drop data points where altitude is outside the plausible range for a commercial flight.
+        # This filters out erroneous altitude readings which can occur in ADS-B data and
+        # can trigger airspeed validation failures.
+        # --------------
+        initial_length = len(self._df)
+        self._df = self._filter_altitudes(
+            self._df, self._min_altitude_ft, self._max_altitude_ft
+        )
+
+        if len(self._df) != initial_length:
+            logger.info(
+                "healing",
+                extra={
+                    "detail": f"altitude filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "flight_id": self._candidate_info.flight_id,
+                },
+            )
+
 
         # --------------
         # Drop data points where computed ground speed is too slow or too fast. The
@@ -1160,41 +1167,6 @@ class HealTrajectoryHandler:
                 "healing",
                 extra={
                     "detail": f"speed filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
-                    "flight_id": self._candidate_info.flight_id,
-                },
-            )
-        # --------------
-        # Drop data points where altitude is outside the plausible range for a commercial flight.
-        # This filters out erroneous altitude readings which can occur in ADS-B data and
-        # can trigger airspeed validation failures.
-        # --------------
-        initial_length = len(self._df)
-        self._df = self._filter_altitudes(
-            self._df, self._min_altitude_ft, self._max_altitude_ft
-        )
-
-        if len(self._df) != initial_length:
-            logger.info(
-                "healing",
-                extra={
-                    "detail": f"altitude filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
-                    "flight_id": self._candidate_info.flight_id,
-                },
-            )
-        
-        # --------------
-        # Drop data points with identically zero altitude, which is a common 
-        # issue for mid-flight waypoints, or altitudes coerced to zero on the 
-        # ground. This can avoid flights being ejected for 
-        # FlightAltitudeProfileErrors by the ValidationHandler, and generally 
-        # should not affect flight trajectories for the majority of flights.
-        initial_length = len(self._df)
-        self._df = self._filter_zero_altitudes(self._df)
-        if len(self._df) != initial_length:
-            logger.info(
-                "healing",
-                extra={
-                    "detail": f"zero altitude filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
                     "flight_id": self._candidate_info.flight_id,
                 },
             )
