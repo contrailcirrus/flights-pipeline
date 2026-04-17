@@ -4,7 +4,7 @@
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import io
-import logging
+from log import logger
 import sys
 from typing import Iterator
 
@@ -22,14 +22,6 @@ from geography import (
     airport_icao_to_iso_country,
     is_eu_mrv,
 )
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S",
-    stream=sys.stdout,
-)
-logger = logging.getLogger(__name__)
 
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
 TRAJECTORY_TABLE = table(
@@ -57,11 +49,11 @@ def get_db_uri(
     }
 
     if db_host:
-        logger.info(f"Connecting via TCP to {db_host}:{port}")
+        logger.info("connecting", extra={"method": "TCP", "host": db_host, "port": port})
         return URL.create(**common_params, host=db_host, port=port)
     else:
         socket_host_url = f"/cloudsql/contrails-301217:us-east1:{db_socket_instance}"
-        logger.info(f"Connecting via Unix Socket: {socket_host_url}")
+        logger.info("connecting", extra={"method": "Unix Socket", "host": socket_host_url, "port": port})
         return URL.create(
             **common_params, query={"host": socket_host_url, "port": str(port)}
         )
@@ -161,9 +153,9 @@ class GcsPathReader:
         for path in self.find_valid_paths():
             blobs = self.storage_client.list_blobs(self.bucket_name, prefix=path)
             parquet_shards = [b for b in blobs if b.name.endswith(".pq")]
-            logger.info(f"Found {len(parquet_shards)} parquet shards in {path}.")
+            logger.info("found parquet shards", extra={"count": len(parquet_shards), "path": path})
             if not parquet_shards:
-                logger.warning(f"No parquet shards found in {path}; skipping.")
+                logger.warning("skipping", extra={"message": f"No parquet shards found in {path}."})
             yield from parquet_shards
 
 
@@ -188,8 +180,12 @@ class GcsToPostgresLoader:
                     if not data_transformer.is_partitioned:
                         continue
                     logger.debug(
-                        f"Ensuring partition {data_transformer.table_name}_{suffix} exists "
-                        f"for [{start_str}, {end_str})."
+                        "ensuring partition exists",
+                        extra={
+                            "table": data_transformer.table_name,
+                            "suffix": suffix,
+                            "date_range": (start_str, end_str)
+                        }
                     )
                     conn.execute(
                         text(
@@ -206,7 +202,7 @@ class GcsToPostgresLoader:
 
     def assert_no_data(self, start_incl: date, end_excl: date) -> None:
         """Ensure that there is no data currently within the specified date range: [start_incl, end_excl)."""
-        logger.info(f"Checking for existing data in [{start_incl}, {end_excl}).")
+        logger.debug("checking for existing data", extra={"date_range": (start_incl, end_excl)})
         stmt = select(
             func.count(TRAJECTORY_TABLE.c.flight_id).label("flight_cnt")
         ).where(
@@ -222,7 +218,7 @@ class GcsToPostgresLoader:
                     f"There is flights data present in [{start_incl}, {end_excl})."
                     " Please delete it first."
                 )
-        logger.info(f"No existing data found in [{start_incl}, {end_excl}). Safe to load.")
+        logger.debug("no existing data found", extra={"date_range": (start_incl, end_excl)})
 
     def _read_parquet_blob(self, blob: storage.Blob) -> pd.DataFrame:
         data = blob.download_as_bytes()
@@ -250,7 +246,7 @@ class GcsToPostgresLoader:
             connection.commit()
         except Exception as e:
             connection.rollback()
-            logger.error(f"Error uploading {len(df)} rows to {schema}.{table_name}: {e}")
+            logger.error("error", extra={"message": "failed to upload data", "count": len(df), "table": f"{schema}.{table_name}", "error": e})
             raise
         finally:
             connection.close()
@@ -296,16 +292,13 @@ class GcsToPostgresLoader:
             total_conflicts += conflict_count
 
         if total_conflicts > 0:
-            logger.info(
-                f"{total_conflicts}/{len(records)} rows upserted into {schema}.{table_name} "
-                "updated existing records (conflicts resolved via ON CONFLICT DO UPDATE)."
-            )
+            logger.info( "upserted", extra={ "message": "updated existing records (conflicts resolved via ON CONFLICT DO UPDATE).", "conflicts": total_conflicts, "total_records": len(records), "table": f"{schema}.{table_name}" })
 
     def to_postgres(self, blob: storage.Blob) -> None:
         try:
             df = self._read_parquet_blob(blob)
             if df.empty:
-                logger.warning(f"Empty parquet file skipped: {blob.name}")
+                logger.warning("skipped", extra={"message": "empty parquet file", "file": blob.name})
                 return
 
             for data_transformer in self.data_transformers:
@@ -321,9 +314,9 @@ class GcsToPostgresLoader:
                 else:
                     self._upload_to_postgres(df_table_data, table_name, schema)
 
-            logger.debug(f"Completed parquet file: {blob.name} ({len(df)} rows).")
+            logger.info("completed", extra={"file": blob.name, "row_count": len(df)})
         except Exception as e:
-            logger.error(f"Error processing {blob.name}: {e}", exc_info=True)
+            logger.error("error", extra={"file": blob.name, "error": e}, exc_info=True)
             raise
 
 
@@ -377,14 +370,12 @@ class MainTableDataTransformer(DataTransformer):
         missing_dep = df["departure_airport_icao"][departure_country_iso.isna()].dropna().unique()
         if len(missing_dep) > 0:
             logger.info(
-                f"Missing country/continent lookup for {len(missing_dep)} departure airport(s): "
-                f"{sorted(missing_dep.tolist())}. Rows will have NULL country/continent fields."
+                "missing country/continent lookup", extra={"message": "Rows will have NULL country/continent fields.", "affected_rows": len(missing_dep), "departure_airports": sorted(missing_dep.tolist())}
             )
         missing_arr = df["arrival_airport_icao"][arrival_country_iso.isna()].dropna().unique()
         if len(missing_arr) > 0:
             logger.info(
-                f"Missing country/continent lookup for {len(missing_arr)} arrival airport(s): "
-                f"{sorted(missing_arr.tolist())}. Rows will have NULL country/continent fields."
+                "missing country/continent lookup", extra={"message": "Rows will have NULL country/continent fields.", "affected_rows": len(missing_arr), "arrival_airports": sorted(missing_arr.tolist())}
             )
 
         df = df.assign(
@@ -616,7 +607,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     logger.info(
-        f"Starting bq-to-postgres-util: bucket={args.gcs_bucket} paths={args.gcs_paths}"
+        "starting", extra={"bucket": args.gcs_bucket, "paths": args.gcs_paths}
     )
 
     gcs_paths = GcsPathReader(args.gcs_bucket, args.gcs_paths)
@@ -639,7 +630,7 @@ if __name__ == "__main__":
         loader.assert_no_data(start_incl, end_excl)
 
     parquet_files = list(gcs_paths.parquet_files())
-    logger.info(f"Processing {len(parquet_files)} parquet files total.")
+    logger.info("processing", extra={"file_count": len(parquet_files)})
 
     failed: list[str] = []
     for p in tqdm(parquet_files):
@@ -649,11 +640,7 @@ if __name__ == "__main__":
             failed.append(p.name)
 
     if failed:
-        logger.error(
-            f"ERROR: {len(failed)}/{len(parquet_files)} parquet files failed to load: {failed}"
-        )
+        logger.error("failed to load some parquet files into Postgres", extra={"failed_count": len(failed), "total_files": len(parquet_files), "failed_files": failed})
         sys.exit(1)
 
-    logger.info(
-        f"Successfully loaded all {len(parquet_files)} parquet files into Postgres."
-    )
+    logger.info("finished", extra={"message": "success", "file_count": len(parquet_files)})
