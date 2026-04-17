@@ -4,7 +4,7 @@
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import io
-from log import logger
+from lib.log import logger
 import sys
 from typing import Iterator
 

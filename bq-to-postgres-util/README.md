@@ -31,7 +31,7 @@ This table is 1:1 with `trajectory-cocip`, and holds additional attributes for a
 ## Data Sync'ing
 
 The source-of-truth for flight CoCiP data lives in BigQuery.
-Those data sync'ed to the postgres instance originate in a BigQuery table.
+The data sync'ed to the Postgres instance originate in a BigQuery table.
 
 During a BigQuery to Postgres data sync run, you will need to first determine the source BQ table
 intended for the sync.
