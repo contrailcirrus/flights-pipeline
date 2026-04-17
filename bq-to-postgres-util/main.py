@@ -155,7 +155,7 @@ class GcsPathReader:
             parquet_shards = [b for b in blobs if b.name.endswith(".pq")]
             logger.info("found parquet shards", extra={"count": len(parquet_shards), "path": path})
             if not parquet_shards:
-                logger.warning("skipping", extra={"message": f"No parquet shards found in {path}."})
+                logger.warning("skipping", extra={"reason": f"No parquet shards found in {path}."})
             yield from parquet_shards
 
 
@@ -246,7 +246,7 @@ class GcsToPostgresLoader:
             connection.commit()
         except Exception as e:
             connection.rollback()
-            logger.error("error", extra={"message": "failed to upload data", "count": len(df), "table": f"{schema}.{table_name}", "error": e})
+            logger.error("error", extra={"reason": "failed to upload data", "count": len(df), "table": f"{schema}.{table_name}", "error": e})
             raise
         finally:
             connection.close()
@@ -292,13 +292,13 @@ class GcsToPostgresLoader:
             total_conflicts += conflict_count
 
         if total_conflicts > 0:
-            logger.info( "upserted", extra={ "message": "updated existing records (conflicts resolved via ON CONFLICT DO UPDATE).", "conflicts": total_conflicts, "total_records": len(records), "table": f"{schema}.{table_name}" })
+            logger.info( "upserted", extra={ "detail": "updated existing records (conflicts resolved via ON CONFLICT DO UPDATE).", "conflicts": total_conflicts, "total_records": len(records), "table": f"{schema}.{table_name}" })
 
     def to_postgres(self, blob: storage.Blob) -> None:
         try:
             df = self._read_parquet_blob(blob)
             if df.empty:
-                logger.warning("skipped", extra={"message": "empty parquet file", "file": blob.name})
+                logger.warning("skipped", extra={"reason": "empty parquet file", "file": blob.name})
                 return
 
             for data_transformer in self.data_transformers:
@@ -370,12 +370,12 @@ class MainTableDataTransformer(DataTransformer):
         missing_dep = df["departure_airport_icao"][departure_country_iso.isna()].dropna().unique()
         if len(missing_dep) > 0:
             logger.info(
-                "missing country/continent lookup", extra={"message": "Rows will have NULL country/continent fields.", "affected_rows": len(missing_dep), "departure_airports": sorted(missing_dep.tolist())}
+                "missing country/continent lookup", extra={"detail": "Rows will have NULL country/continent fields.", "affected_rows": len(missing_dep), "departure_airports": sorted(missing_dep.tolist())}
             )
         missing_arr = df["arrival_airport_icao"][arrival_country_iso.isna()].dropna().unique()
         if len(missing_arr) > 0:
             logger.info(
-                "missing country/continent lookup", extra={"message": "Rows will have NULL country/continent fields.", "affected_rows": len(missing_arr), "arrival_airports": sorted(missing_arr.tolist())}
+                "missing country/continent lookup", extra={"detail": "Rows will have NULL country/continent fields.", "affected_rows": len(missing_arr), "arrival_airports": sorted(missing_arr.tolist())}
             )
 
         df = df.assign(
@@ -643,4 +643,4 @@ if __name__ == "__main__":
         logger.error("failed to load some parquet files into Postgres", extra={"failed_count": len(failed), "total_files": len(parquet_files), "failed_files": failed})
         sys.exit(1)
 
-    logger.info("finished", extra={"message": "success", "file_count": len(parquet_files)})
+    logger.info("finished", extra={"detail": "success", "file_count": len(parquet_files)})
