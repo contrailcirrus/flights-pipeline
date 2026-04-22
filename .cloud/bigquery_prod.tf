@@ -4,6 +4,8 @@ resource "google_bigquery_dataset" "flights_pipeline_prod" {
   description = "data lake for observation flights data & derived data products"
   location = "US"
   delete_contents_on_destroy = false
+
+  max_time_travel_hours = 168 # 7 days in hours; maximum value
 }
 
 resource "google_bigquery_table" "spire_flights_raw_prod" {
