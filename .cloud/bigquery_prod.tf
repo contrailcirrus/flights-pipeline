@@ -42,19 +42,3 @@ resource "google_bigquery_table" "trajectory_cocip_prod" {
     google_bigquery_dataset.flights_pipeline_prod,
   ]
 }
-
-resource "google_bigquery_table" "nat_tracks_prod" {
-  dataset_id = google_bigquery_dataset.flights_pipeline_prod.dataset_id
-  table_id   = "nat_tracks_prod"
-  friendly_name = "[PROD] nat tracks"
-  description = "NAT tracks scraped from FAA NOTAMS"
-  deletion_protection = true
-  time_partitioning {
-    field = "updated_at"
-    type = "DAY"
-  }
-  schema = file("${path.module}/schemas/bq_nat_tracks.json")
-  depends_on = [
-    google_bigquery_dataset.flights_pipeline_prod,
-  ]
-}
