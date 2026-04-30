@@ -1,0 +1,48 @@
+[
+  {
+    "name": "jsonPayload",
+    "type": "RECORD",
+    "fields": [
+      {
+        "name": "start_time",
+        "type": "TIMESTAMP",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "flight_id",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "message",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "len_records",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "detail",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "reason",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "traceback",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      }
+    ]
+  },
+  {
+    "name": "severity",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  }
+]
