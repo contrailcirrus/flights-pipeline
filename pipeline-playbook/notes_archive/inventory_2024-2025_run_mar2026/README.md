@@ -98,7 +98,7 @@ gs://contrails-301217-flights-pipeline-prod/logs/<inventory_XXX_run_YYY>/<servic
 All files copied.
 
 ----
-Updated the `twjd_logs_bq_schema.json` file with current scheme. Tried uploading to a test database and went well for a log file.
+Updated the `twjd_logs_bq_schema.json` file with current schema. Tried uploading to a test database and went well for a log file.
 
 But then the run for all files had lots of errors. It took a while to track them down. Looking at job records for failed jobs did ultimately help - the location of the error (location in bytes; searchable with vim with `:<byte position int>go`) is provided, though it's typically indicated at the last properly processed line rather than the one causing the error.
 
@@ -109,3 +109,8 @@ Looking at the GCS logs viewer, I found a maximum of 137 of these resume log mes
 All the logs (except those progress restart messages) are now in the new BQ table: `contrails-301217.flights_pipeline_prod.twjf_2024-2025_logs_mar2026`.
 
 
+----
+
+TW logs load: using `bq_load_tw_logs.sh` to load all the Trajectory Worker logs into the same logs BQ table as the TWJF logs to generate a single source-of-truth for evaluating spire trajectory processing in a per-flight way.
+
+Also loaded all the tw backup logs with `bq_load_tw_backup_logs.sh` and the tw logs schema. There were no errors in loading either, so these are ready to be copied into the new logs table including all logs from twjf, tw, tw-backup.

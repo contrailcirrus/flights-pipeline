@@ -2,9 +2,22 @@
 The following instructions are for the Captain of a flights-pipeline run.
 
 ## Setup
+
+### Met Data
+
 Before running the flights-pipeline, we copy needed Met data to the `gs://contrails-301217-ecmwf-era5-zarr-v2-staging/` GCS bucket so that it can be copied into a GKE Hyperdisk for the large batch run.
 
 Follow the instructions in [the pre_process README.md](../pre_process/README.md) for getting that staging GCS bucket set up with the necessary Met data.
+
+### BigQuery output table
+
+The outputs from the CoCiP simulations by the Trajectory Worker are saved in the `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod` table. Before running a new dataset through, truncate this table so only results from this run will be present. This helps with deduplication when making the finalized dataset.
+
+### Log sinks
+
+:ogs from the TWJF and TW are saved in log sink buckets in `contrails-301217-fp-prod-trajectory-worker-job-factory`, `contrails-301217-fp-prod-trajectory-worker`, and `contrails-301217-fp-prod-trajectory-worker-backup`.
+
+Before staring a run, ensure all logs from previous runs have been copied to appropriate locations, e.g. `contrails-301217-flights-pipeline-prod/logs/inventory_2024-2025_run_mar2026`. Delete the contents of the `/stderr` prefix for each of the log sink buckets.
 
 ## Initiate
 TODO
@@ -35,15 +48,15 @@ In the `../notes_archive` directory, add a new directory for the run in the form
 ## Archive
 ### Archive Log Files
 #### TWJF log files
-TWJF log files are written to GCS with this path prefix: `contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/**`.
+TWJF log files are written to GCS with this path prefix: `gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/**`.
 The remaining filepath/URI represents the time range of the logs (UTC).
 
 The first step is to identify the complete and exclusive set of log files that represent the run.
-The second step is to copy them to an archive location (`gs://contrails-301217-sandbox-internal`).
+The second step is to copy them to an archive location (`gs://contrails-301217-flights-pipeline-prod/logs/inventory_<inventory_date_range>_run_<pipeline_run_time>`).
 
 The path for the twjf files should have the form:
 ```text
-gs://contrails-301217-sandbox-internal/flights-pipeline/inventory_{flight_date_range}_run_{pipeline_run_time}/twjf-logs/*.json
+gs://contrails-301217-flights-pipeline-prod/logs/inventory_{flight_date_range}_run_{pipeline_run_time}/twjf-logs/*.json
 ```
 The `inventory_{flight_date_range}_run_{pipeline_run_time}` path designator is the same as described
 in the naming convention for archiving pipelines notes, see [notes_archive/README.md](../notes_archive/README.md)
@@ -54,12 +67,12 @@ The same process applies for the TW and TW backup log files.
 The paths for archiving those files is, respectively:
 ```text
 # tw logs
-gs://contrails-301217-sandbox-internal/flights-pipeline/inventory_{flight_date_range}_run_{pipeline_run_time}/tw-logs/*.json
+gs://contrails-301217-flights-pipeline-prod/logs/inventory_{flight_date_range}_run_{pipeline_run_time}/tw-logs/*.json
 ```
 and
 ```text
 tw-backup logs
-gs://contrails-301217-sandbox-internal/flights-pipeline/inventory_{flight_date_range}_run_{pipeline_run_time}/tw-backup-logs/*.json
+gs://contrails-301217-flights-pipeline-prod/logs/inventory_{flight_date_range}_run_{pipeline_run_time}/tw-backup-logs/*.json
 ```
 
 ## Post Process
