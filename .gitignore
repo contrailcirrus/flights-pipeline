@@ -24,3 +24,8 @@ __pycache__/
 # local environment
 .env
 .local
+
+
+# logs etc
+*.log
+*.pkl
