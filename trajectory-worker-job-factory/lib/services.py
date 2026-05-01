@@ -551,7 +551,7 @@ class TrajectoryBuilderSvc:
                     (joined_times["_merge"] == "right_only")
                     | (joined_times["_merge"] == "both")
                 ]
-                imputed.fillna(False, inplace=True)  # Likely be unnecessary
+                imputed.fillna(False, inplace=True)  # Likely unnecessary
                 # reindex to match waypoints_pycontrail and mark imputed waypoints
                 imputed.reset_index(drop=True, inplace=True)
                 waypoints_pycontrail["imputed"] = imputed

@@ -1,14 +1,20 @@
-# 
+#
 # api-scraper
-# 
+#
+
+locals {
+  # PromQL metric names require underscores; user-defined logging metrics use hyphens.
+  promql_spire_raw_batch_prod_error_counter                   = replace(google_logging_metric.spire_raw_batch_prod_error_counter.name, "-", "_")
+  promql_spire_raw_batch_dev_error_counter                    = replace(google_logging_metric.spire_raw_batch_dev_error_counter.name, "-", "_")
+  promql_spire_cache_bot_success_counter                      = replace(google_logging_metric.spire_cache_bot_success_counter.name, "-", "_")
+  promql_trajectory_worker_gaia_prod_ack_id_failure_counter   = replace(google_logging_metric.trajectory_worker_gaia_prod_ack_id_failure_counter.name, "-", "_")
+}
 
 variable contrails-notification-channels {
   type = list(string)
   default = [
     # Nick Masson: SMS
     "projects/contrails-301217/notificationChannels/5296843968149494052",
-    # Mahesh Saripalli: SMS 
-    "projects/contrails-301217/notificationChannels/12238957771652159581",
     # Joffrey Peters: SMS
     "projects/contrails-301217/notificationChannels/13394874161276152302",
    ]
@@ -97,15 +103,14 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_prod_error
 
   conditions {
     display_name = "Error in logs (10min window)"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch k8s_container
-        | metric 'logging.googleapis.com/user/${google_logging_metric.spire_raw_batch_prod_error_counter.name}'
-        | group_by sliding(10m), aggregate(value.counter)
-        | every 1m
-        | condition val() > 0
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(
+          increase(logging_googleapis_com:user_${local.promql_spire_raw_batch_prod_error_counter}[10m])
+        ) > 0
         EOF
-      duration = "180s"
+      duration            = "180s"
+      evaluation_interval = "60s"
     }
   }
 
@@ -139,15 +144,14 @@ resource "google_monitoring_alert_policy" "k8scronjob_spire_raw_batch_dev_error_
 
   conditions {
     display_name = "Error in logs (10min window)"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch k8s_container
-        | metric 'logging.googleapis.com/user/${google_logging_metric.spire_raw_batch_dev_error_counter.name}'
-        | group_by sliding(10m), aggregate(value.counter)
-        | every 1m
-        | condition val() > 0
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(
+          increase(logging_googleapis_com:user_${local.promql_spire_raw_batch_dev_error_counter}[10m])
+        ) > 0
         EOF
-      duration = "180s"
+      duration            = "180s"
+      evaluation_interval = "60s"
     }
   }
 
@@ -191,16 +195,14 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
 
   conditions {
     display_name = "Publish count below threshold"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch pubsub_topic
-        | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_raw_bigquery.name}'
-        | group_by sliding(30m), row_count()
-        | every 1m
-        | condition val() < 10
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(increase(
+          pubsub_googleapis_com:topic_message_sizes_count{topic_id="${google_pubsub_topic.prod_spire_ingest_raw_bigquery.name}"}[30m]
+        )) < 10
         EOF
-      duration = "0s"
+      duration            = "0s"
+      evaluation_interval = "60s"
     }
   }
 
@@ -213,16 +215,14 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_api_scraper_bigquery
 
   conditions {
     display_name = "Publish count above threshold"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch pubsub_topic
-        | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_spire_ingest_raw_bigquery_dead_letter.name}'
-        | group_by sliding(30m), row_count()
-        | every 1m
-        | condition val() > 0
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(increase(
+          pubsub_googleapis_com:topic_message_sizes_count{topic_id="${google_pubsub_topic.prod_spire_ingest_raw_bigquery_dead_letter.name}"}[30m]
+        )) > 0
         EOF
-      duration = "0s"
+      duration            = "0s"
+      evaluation_interval = "60s"
     }
   }
 
@@ -254,15 +254,14 @@ resource "google_monitoring_alert_policy" "k8cronjob_spire_cache_bot_success_cou
 
   conditions {
     display_name = "success count is below threshold (1 per hour)"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch k8s_container
-        | metric 'logging.googleapis.com/user/${google_logging_metric.spire_cache_bot_success_counter.name}'
-        | group_by [], sliding(70m)
-        | every 1m
-        | condition val() == 0
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(
+          increase(logging_googleapis_com:user_${local.promql_spire_cache_bot_success_counter}[70m])
+        ) == 0
         EOF
-      duration = "0s"
+      duration            = "0s"
+      evaluation_interval = "60s"
     }
   }
 
@@ -323,15 +322,14 @@ resource "google_monitoring_alert_policy" "k8sdeployment_trajectory_worker_gaia_
 
   conditions {
     display_name = "ack id failure in logs; above threshold"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch k8s_container
-        | metric 'logging.googleapis.com/user/${google_logging_metric.trajectory_worker_gaia_prod_ack_id_failure_counter.name}'
-        | group_by sliding(10m), aggregate(value.counter)
-        | every 1m
-        | condition val() > 5
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(
+          increase(logging_googleapis_com:user_${local.promql_trajectory_worker_gaia_prod_ack_id_failure_counter}[10m])
+        ) > 5
         EOF
-      duration = "0s"
+      duration            = "0s"
+      evaluation_interval = "60s"
     }
   }
 
@@ -345,16 +343,14 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_gaia_trajectory_chun
 
   conditions {
     display_name = "Publish count above threshold"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch pubsub_topic
-        | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.name}'
-        | group_by sliding(30m), row_count()
-        | every 1m
-        | condition val() > 0
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(increase(
+          pubsub_googleapis_com:topic_message_sizes_count{topic_id="${google_pubsub_topic.prod_gaia_trajectory_chunk_dead_letter.name}"}[30m]
+        )) > 0
         EOF
-      duration = "0s"
+      duration            = "0s"
+      evaluation_interval = "60s"
     }
   }
 
@@ -367,16 +363,14 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_trajectory_worker_co
 
   conditions {
     display_name = "Publish count above threshold"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch pubsub_topic
-        | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_trajectory_worker_cocip_egress_bigquery_dead_letter.name}'
-        | group_by sliding(30m), row_count()
-        | every 1m
-        | condition val() > 0
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(increase(
+          pubsub_googleapis_com:topic_message_sizes_count{topic_id="${google_pubsub_topic.prod_trajectory_worker_cocip_egress_bigquery_dead_letter.name}"}[30m]
+        )) > 0
         EOF
-      duration = "0s"
+      duration            = "0s"
+      evaluation_interval = "60s"
     }
   }
 
@@ -477,16 +471,14 @@ resource "google_monitoring_alert_policy" "pubsubtopic_prod_twjd_ingress_dead_le
 
   conditions {
     display_name = "Publish count above threshold"
-    condition_monitoring_query_language {
-      query    = <<EOF
-        fetch pubsub_topic
-        | metric 'pubsub.googleapis.com/topic/message_sizes'
-        | filter resource.topic_id == '${google_pubsub_topic.prod_twjd_ingress_dead_letter.name}'
-        | group_by sliding(30m), row_count()
-        | every 1m
-        | condition val() > 0
+    condition_prometheus_query_language {
+      query = <<EOF
+        sum(increase(
+          pubsub_googleapis_com:topic_message_sizes_count{topic_id="${google_pubsub_topic.prod_twjd_ingress_dead_letter.name}"}[30m]
+        )) > 0
         EOF
-      duration = "0s"
+      duration            = "0s"
+      evaluation_interval = "60s"
     }
   }
 

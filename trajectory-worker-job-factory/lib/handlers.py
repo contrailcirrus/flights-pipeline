@@ -696,10 +696,11 @@ class HealTrajectoryHandler:
         self._min_speed_m_s = min_speed_m_s
         self._max_speed_m_s = max_speed_m_s
         self._min_altitude_ft = (
-            -5000.0
-        )  # well below lowest point on earth; likely  bad data
+            0
+        )  # removes zero-altitude waypoints that are likely on-ground or erroneous; 
+        # should have minimal impact on first or last waypoints for low-lying airports
         self._max_altitude_ft = (
-            55000.0  # well above max altitude for commercial flight; likely bad data
+            55000  # well above max altitude for commercial flight; likely bad data
         )
         self._max_speed_filter_iterations = 5
         self._min_interpolate_dist_km = 10.0
@@ -1116,6 +1117,25 @@ class HealTrajectoryHandler:
                     "flight_id": self._candidate_info.flight_id,
                 },
             )
+        # --------------
+        # Drop data points where altitude is outside the plausible range for a commercial flight.
+        # This filters out erroneous altitude readings which can occur in ADS-B data and
+        # can trigger airspeed validation failures.
+        # --------------
+        initial_length = len(self._df)
+        self._df = self._filter_altitudes(
+            self._df, self._min_altitude_ft, self._max_altitude_ft
+        )
+
+        if len(self._df) != initial_length:
+            logger.info(
+                "healing",
+                extra={
+                    "detail": f"altitude filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
+                    "flight_id": self._candidate_info.flight_id,
+                },
+            )
+
 
         # --------------
         # Drop data points where computed ground speed is too slow or too fast. The
@@ -1150,24 +1170,7 @@ class HealTrajectoryHandler:
                     "flight_id": self._candidate_info.flight_id,
                 },
             )
-        # --------------
-        # Drop data points where altitude is outside the plausible range for a commercial flight.
-        # This filters out erroneous altitude readings which can occur in ADS-B data and
-        # can trigger airspeed validation failures.
-        # --------------
-        initial_length = len(self._df)
-        self._df = self._filter_altitudes(
-            self._df, self._min_altitude_ft, self._max_altitude_ft
-        )
 
-        if len(self._df) != initial_length:
-            logger.info(
-                "healing",
-                extra={
-                    "detail": f"altitude filter ejected {initial_length - len(self._df)} waypoints out of {initial_length}",
-                    "flight_id": self._candidate_info.flight_id,
-                },
-            )
 
         # --------------
         # Interpolate to one or both airports if needed.

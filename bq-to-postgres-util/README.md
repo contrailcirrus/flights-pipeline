@@ -1,5 +1,6 @@
 # BQ to Postgres Util
-This subdirectory holds tooling, references, guides/instructions and documentation 
+
+This subdirectory holds tooling, references, guides/instructions and documentation
 relevant for the maintenance of the emissions report data tables (housed in a GCP Cloud SQL Postgres instance).
 
 Bigquery is the source-of-truth destination for CoCiP outputs from the flights pipeline.
@@ -8,7 +9,8 @@ Those outputs are selectively mirrored/synced to a Postgres database,
 those data in Postgres backing the public-facing data access to the flights pipeline outputs ("contrail impact inventory").
 
 ## Data Models
-The per-flight trajectory-worker outputs live in the `contrails-default-<dev/prod>` 
+
+The per-flight trajectory-worker outputs live in the `contrails-default-<dev/prod>`
 postgres instances in Cloud SQL, in the `flights-pipeline-fer-cache` database.
 
 The table definitions are stored in the `sql` directory.
@@ -18,21 +20,24 @@ Several materialized views are also built from these base tables.
 ### Table Overviews
 
 #### `trajectory-cocip`
-This is the table of primary significance, holding the per-flight CoCiP data, and those 
+
+This is the table of primary significance, holding the per-flight CoCiP data, and those
 flight attributes necessary for filtering/searching for a flight.
 
 #### `trajectory-cocip-meta`
+
 This table is 1:1 with `trajectory-cocip`, and holds additional attributes for a given flight.
 
 ## Data Sync'ing
+
 The source-of-truth for flight CoCiP data lives in BigQuery.
-Those data sync'ed to the postgres instance originate in a BigQuery table.
+The data sync'ed to the Postgres instance originate in a BigQuery table.
 
 During a BigQuery to Postgres data sync run, you will need to first determine the source BQ table
 intended for the sync.
 This will generally be an archived/static BQ dataset, resulting from a given run of the flights-pipeline.
-See reference documentation [here](https://github.com/contrailcirrus/flights-pipeline/tree/develop/pipeline-playbook/playbook) for how those BQ datasets are archived, with an example in this table (`contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary`) 
-as documented in the Feb2026 run of the 2024 flights inventory ([ref](contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary))
+See reference documentation [here](https://github.com/contrailcirrus/flights-pipeline/tree/develop/pipeline-playbook/playbook) for how those BQ datasets are archived, with an example in this table (`contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary`)
+as documented in the Feb2026 run of the 2024 flights inventory ([ref](../pipeline-playbook/notes_archive/inventory_2024_run_feb2026_summary))
 
 ### Steps
 
@@ -50,7 +55,7 @@ as documented in the Feb2026 run of the 2024 flights inventory ([ref](contrails-
    3. [`sql/3_inventory_monthly_impact_histogram.sql`](sql/3_inventory_monthly_impact_histogram.sql)
    4. [`sql/4_inventory_monthly_airlines_stats.sql`](sql/4_inventory_monthly_airlines_stats.sql)
    5. [`sql/5_inventory_monthly_od_pair_airline_stats.sql`](sql/5_inventory_monthly_od_pair_airline_stats.sql)
-3. Run `main.py --gcs_paths=<path1,path2,...>` to export the Parquet shards to Postgres. If a different GCS bucket is used 
+3. Run `main.py --gcs_paths=<path1,path2,...>` to export the Parquet shards to Postgres. If a different GCS bucket is used
    in (1) change the default values here as well.
    - First login to gcloud to access cloud storage:
      - `gcloud auth login`
@@ -69,5 +74,3 @@ as documented in the Feb2026 run of the 2024 flights inventory ([ref](contrails-
 4. Update the materialized views by running the following sequence of SQL commands:
    1. `REFRESH MATERIALIZED VIEW inventory_monthly_airlines_stats;`
    2. `REFRESH MATERIALIZED VIEW inventory_monthly_od_pair_airline_stats;`
-
-
