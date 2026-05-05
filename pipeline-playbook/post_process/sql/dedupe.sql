@@ -18,5 +18,5 @@ WHERE flight_id IN (SELECT flight_id
 -- (this includes normal dupes, and randomly dropping any airline iata conflict dupes)
 CREATE OR REPLACE TABLE :inventory_summary_table AS (SELECT *
                                                      FROM :inventory_summary_table
-                                                     QUALIFY ROW_NUMBER() OVER (PARTITION BY flight_id ORDER BY _processed_at DESC) = 1);
+                                                     QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
 
