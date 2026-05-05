@@ -71,11 +71,16 @@
       {
         "name": "reason",
         "type": "STRING",
-        "mode": "NULLABLE"
+        "mode": "REPEATED"
       },
       {
         "name": "marker",
         "type": "INTEGER",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "job_hash",
+        "type": "STRING",
         "mode": "NULLABLE"
       },
       {
