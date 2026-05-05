@@ -6,12 +6,15 @@ WITH
     skipped_tb AS (SELECT *
                     FROM logs_tb
                     WHERE logs_tb.jsonPayload.message LIKE "%skipping%"
-                      AND logs_tb.jsonPayload.detail = "violations found"),
-     start_tb AS (SELECT *,
+                      AND logs_tb.jsonPayload.detail = "violations found"
+                      AND logs_tb.resource.labels.container_name = "trajectory-worker-job-factory"),
+
+    start_tb AS (SELECT *,
                   FROM logs_tb
                   WHERE logs_tb.jsonPayload.message = "start work"
                     AND logs_tb.jsonPayload.flight_id IS NOT NULL
-                  QUALIFY ROW_NUMBER() OVER (PARTITION BY logs_tb.jsonPayload.flight_id) = 1), 
+                    AND logs_tb.resource.labels.container_name = "trajectory-worker-job-factory"
+                    QUALIFY ROW_NUMBER() OVER (PARTITION BY logs_tb.jsonPayload.flight_id) = 1), 
 
     reason_tb AS (
         SELECT
@@ -31,9 +34,7 @@ WITH
         FROM start_tb
     )
 
-
-
-SELECT reason_tb.reason, count(reason_tb.reason)  AS incidence_count
+    SELECT reason_tb.reason, count(reason_tb.reason)  AS incidence_count
     FROM reason_tb
         LEFT JOIN start_tb
         ON start_tb.jsonPayload.flight_id = reason_tb.flight_id

@@ -1,17 +1,20 @@
 WITH 
     logs_tb AS (SELECT *
-               FROM `contrails-301217.flights_pipeline_prod.twjf_2024-2025_logs_mar2026` AS t
-               WHERE t.jsonPayload.flight_id IS NOT NULL),
+                FROM `contrails-301217.flights_pipeline_prod.logs_inventory_2024_2025_run_march2026` AS t
+                WHERE t.jsonPayload.flight_id IS NOT NULL),
 
     skipped_tb AS (SELECT *
-                    FROM logs_tb
+                FROM logs_tb
                     WHERE logs_tb.jsonPayload.message LIKE "%skipping%"
-                      AND logs_tb.jsonPayload.detail = "violations found"),
-     start_tb AS (SELECT *,
-                  FROM logs_tb
-                  WHERE logs_tb.jsonPayload.message = "start work"
+                    AND logs_tb.jsonPayload.detail = "violations found"
+                    AND logs_tb.resource.labels.container_name = "trajectory-worker-job-factory"),
+
+    start_tb AS (SELECT *,
+                FROM logs_tb
+                    WHERE logs_tb.jsonPayload.message = "start work"
                     AND logs_tb.jsonPayload.flight_id IS NOT NULL
-                  QUALIFY ROW_NUMBER() OVER (PARTITION BY logs_tb.jsonPayload.flight_id) = 1), 
+                    AND logs_tb.resource.labels.container_name = "trajectory-worker-job-factory"
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY logs_tb.jsonPayload.flight_id) = 1), 
 
     reason_tb AS (
         SELECT
@@ -28,7 +31,7 @@ WITH
 
     airlines_tb AS (
         SELECT start_tb.jsonPayload.flight_id AS flight_id, start_tb.jsonPayload.airline_iata[SAFE_OFFSET(0)] as airline_iata
-        FROM start_tb
+            FROM start_tb
     )
 
 
