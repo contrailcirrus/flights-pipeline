@@ -279,17 +279,100 @@ Lastly, the contrail evolution data is written to the blob. These data are outpu
 These are similar to (tho not currently the exact data backing) what is visualized in the [Contrails.org Map](https://map.contrails.org) after an aircraft creates persistent contrails and those contrails advect and evolve in time.
 
 **Production Runs & Operational Considerations**
+The execution profile for a trajectory worker when running a unit of work will vascillate between 
+being I/O bound (during met data ingress) and CPU-bound (during model execution).
+The cost of running a unit of work is loosely proportional to the flight trajectory being processed.
+For longer flights, the trajectory worker runs the CoCiP model using the low-memory execution mode, 
+which runs the model with lower memory requirements over an extended run time.
+This helps maintain lower max memory allocation to the worker and higher average memory utilization
+On average, with the nominal configuration of 0.4 vcpu and 0.8GiB, a unit of work is expected to complete 
+in 25 seconds. Meteorological data ingress averages 15 Mb/sec per worker when running from disk.
 
+In productions runs, the meteorological data is loaded into a GCP Hyperdisk 
+(see [trajectory-worker/hyperdisk-setup/README.md](trajectory-worker/hyperdisk-setup/README.md)), 
+which affords high bandwidth throughput of the shared memory to the distributed workers.  
+Similar performance is achievable when running the workers from the meteorological zarr stores in GCS buckets 
+(see [hres-etl service](#hres-etl-service) and [era5-etl service](#era5-etl-service)), but cost is substantially higher 
+(GCP does not bill for data transfer between GCS and GCP services in the same region, these costs _are from GCS Class B operation costs alone!_).
 
+**Failure Management**
+
+The most common failure mode for the TW is out-of-memory (OOM) failures of the worker.  
+This happens from time to time for particularly long and/or heavy contrail-forming flights (<1%).
+
+If a worker restarts due to OOM, the TW queue message will expire and be redelivered at a later time.
+When the TW dequeues a message, it checks the redelivery count, and if the message indicates that it had 
+been delivered already, that message is forwarded to a backup queue 
+(why GCP PubSub does not allow for retry/redelivery-count to be set to a value less than 5, 
+in which case we could use the dead-letter queue for this purpose... I do not know).
+
+A separate/parallel deployment of the TW ("TW-backup") operates on this queue. 
+The workers in this deployment run the same TW application, but provisioned with higher memory. 
+Vertical autoscaling of a kubernetes deployment is not suitable for this goal, as the proportion of workers 
+requiring high memory allocation to those not requiring those limits is low and temporally heterogeneous.
+
+A typical production run will have order of 10 backup TW workers, and order of 10,000 (primary) workers.
+
+If a job enters the backup queue fails to be processed by the TW-backup worker 5 times, it is dead-lettered. 
+The dead-letter queue is monitored and inspected by a production run captain.
+
+All other failures of the TW are expected failures, and result in `ERROR` level logs which are captured 
+and structured as part of the data provenance tracking discussed below.
+
+A TW may fail for expected reasons if, for instance, an aircraft type is 
+unknown by the performance models (`PSFlight` or `BADA3`, as described above).
 
 **Logging, Monitoring, Alerting**
 
+Application logs are written to GCP Cloud Logging, and to shards of nl-delimited JSON files in GCS.
+Monitoring and alerting is handled with GCP Monitoring and Alerts. 
+See [HERE](.cloud/alerts.tf) for metrics & alerts (keywords: `k8sdeployment_trajectory_worker_gaia`).
+
+Notable alerts include:
+- Application logs observed with `ERROR` severity
+- Ingress messages (TWJDs) dead-lettered
+
+For production runs, a captain will monitor GCP metrics for TW and TW-backup ingress queue depth, 
+and make adjustments as needed to the horizontal auto-scaling limits of the TW and TW-backup deployment.
+
 **Observability & Reproducibility**
 
+Outputs logs are joined with TWJF logs, as described in the TWJF section, and serve as a reference 
+for chronicling the lineage of a given flight's processing thru the pipeline.
 
 ### Spire Cache Heater
+The Spire Cache Heater is some basic scripting used to warm a cache of Spire ADS-B parquet files. 
+This tooling is only relevant if one expects to run the pipeline in a configuration that pulls 
+ADS-B data from the GCS spire cache, rather than from the BQ SOT table 
+(see discussion in [Trajectory Worker Job Factory](#trajectory-worker-job-factory-twjf) above).
+
+The ADS-B telemetry data cache used by the TWJF is the same backing the Contrails.org `v1/adsb/telemetry` endpoint ([REF](https://api.contrails.org/openapi#/ADS-B/adsb_telemetry_v1_adsb_telemetry_get)).
+The caching strategy for this cache is opportunistic, meaning it is populated on client request if and only if it is not already present.
+As such, this Spire Cache Heater is simply tooling that scan the `v1/adsb/telemetry` endpoint over a target time range, 
+guaranteeing (via the API's caching behavior) that the cache exists and is contiguous over the specified range.
+
+When doing large production runs, this is generally a pre-work step, to ensure that the cache is present and complete over the time range 
+targeted in the pipeline run.
 
 ### PSDB `contrails-default` proxy
+A kubernetes Deployment and Service, that proxy traffic from within the k8s cluster 
+to the `contrails-default` GCP Cloud SQL postgres instance. 
+GCP Cloud SQL provides two connection methods: either a socket connection, or a static IP connection (classic).
+Connecting via socket URI would require intra-service networking between the k8s cluster and the k8s cluster, 
+which seems to be unsupported by GCP official docs 
+(note that this is the way that many GCP services connect to GCP Cloud SQL, but for some reason this automagic hasn't made it's way to GCP Kubernetes).
+The second method, with a protected IP (as is the case with our DBs), requires whitelisting client IPs -- an approach unsuitable given the ephemeral (and local) nature of k8 pod IPs.
+
+Thus, this proxy service.
+
+At present, this proxy does not serve a purpose in the pipeline, but is present given the expectation of automating the [BQ to Postgres Util](#bq-to-postgres-util).
+
+## BQ to Postgres Util
+The BQ to Postgres Util is tooling, run locally, that selectively syncs the outputs of the flights pipeline (stored in the `trajectory-cocip-prod` BQ table) 
+to the `contrails-default` postgres instance.  This util also performs some ETL augmentation to the data before loading 
+to the target tables and materialized views. 
+The tables and views to which these data are uploaded are those which back the [Impact Explorer](https://explore.contrails.org).
+
 
 ## Other Services
 Several other services support the flights-pipeline, but are not part of this mono repo.
@@ -299,7 +382,10 @@ Those services are described below.
 
 ### HRES-etl service
 
-### contrails-api | `v1/telemetry`
+### contrails-api | `v1/adsb/telemetry`
+As noted in the [Spire Cache Heater](#spire-cache-heater) section, the `api.contrails.org/v1/adsb/telemetry` endpoint 
+is an important part of the flights pipeline (for production runs) in that it is used to help build the cache 
+of ADS-B telemetry data as parquet shards in GCS.
 
 ## Running the Flights Pipeline 
 
