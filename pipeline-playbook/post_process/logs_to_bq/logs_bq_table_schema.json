@@ -9,6 +9,31 @@
         "mode": "NULLABLE"
       },
       {
+        "name": "airline_iata",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "arrival_airport_icao",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "departure_airport_icao",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "callsign",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "flight_number",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
         "name": "start_time",
         "type": "TIMESTAMP",
         "mode": "NULLABLE"
@@ -30,6 +55,11 @@
       },
       {
         "name": "waypoint_count",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      },
+    {
+        "name": "len_records",
         "type": "STRING",
         "mode": "NULLABLE"
       },
@@ -42,6 +72,16 @@
         "name": "reason",
         "type": "STRING",
         "mode": "REPEATED"
+      },
+      {
+        "name": "marker",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "job_hash",
+        "type": "STRING",
+        "mode": "NULLABLE"
       },
       {
         "name": "twjd",
@@ -89,6 +129,28 @@
           }
         ]
       }
+    ]
+  },
+  {
+    "name":"resource",
+    "type":"RECORD",
+    "fields":[
+    {
+        "name": "labels",
+        "type": "RECORD",
+        "fields": [
+        {
+            "name": "pod_name",
+            "type": "STRING",
+            "mode": "NULLABLE"
+        },
+        {
+            "name": "container_name",
+            "type": "STRING",
+            "mode": "REQUIRED"
+        }
+        ]
+    }
     ]
   },
   {

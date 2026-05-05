@@ -286,7 +286,7 @@ class TrajectoryBuilderSvc:
         flight_instances = df.groupby("flight_id", sort=True)
 
         # fetch marker, if one exists, from redis cache
-        progress_marker = 0
+        progress_marker: int = 0
         if self._cache_handler and twjd.airline_iata:
             # we skip cache handling if this is a twjd w/o airline_iata
             # i.e. we don't bother with cache handling for small jobs
@@ -299,7 +299,7 @@ class TrajectoryBuilderSvc:
                     "resuming progress from a previous job",
                     extra={
                         "marker": progress_marker,
-                        "airline_iata": twjd.airline_iata,
+                        "airline_iata": [twjd.airline_iata],
                         "twjd": twjd,
                     },
                 )
