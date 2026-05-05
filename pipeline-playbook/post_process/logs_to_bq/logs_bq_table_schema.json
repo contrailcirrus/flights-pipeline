@@ -71,7 +71,7 @@
       {
         "name": "reason",
         "type": "STRING",
-        "mode": "REPEATED"
+        "mode": "NULLABLE"
       },
       {
         "name": "marker",
@@ -134,6 +134,11 @@
         "name": "labels",
         "type": "RECORD",
         "fields": [
+        {
+            "name": "pod_name",
+            "type": "STRING",
+            "mode": "NULLABLE"
+        },
         {
             "name": "container_name",
             "type": "STRING",
