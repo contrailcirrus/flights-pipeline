@@ -392,7 +392,7 @@ class PubSubPublishHandler:
             except Exception as e:
                 logger.error(
                     "publish future failed",
-                    extra={"reason": e, "traceback": format_traceback()},
+                    extra={"reason": [e], "traceback": format_traceback()},
                 )
                 os._exit(1)
 

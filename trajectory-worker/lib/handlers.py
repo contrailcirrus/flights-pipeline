@@ -104,7 +104,7 @@ class PubSubSubscriptionHandler:
                 )
             except Exception as e:
                 logger.warning(
-                    "failed to pull messages from subscription", extra={"reason": e}
+                    "failed to pull messages from subscription", extra={"reason": [e]}
                 )
                 continue
 
@@ -200,7 +200,7 @@ class PubSubSubscriptionHandler:
             )
         except Exception as e:
             logger.warning(
-                "failed to ack message", extra={"message": message, "reason": e}
+                "failed to ack message", extra={"message": message, "reason": [e]}
             )
             return
         logger.debug("successfully ack'ed message")
@@ -251,7 +251,7 @@ class PubSubSubscriptionHandler:
                 except Exception as e:
                     logger.warning(
                         "failed to extend ack deadline for message",
-                        extra={"reason": e, "traceback": format_traceback()},
+                        extra={"reason": [e], "traceback": format_traceback()},
                     )
 
         logger.debug("terminated ack lease management worker")
@@ -399,7 +399,7 @@ class PubSubPublishHandler:
                     "publish future failed - unhandled exception",
                     extra={
                         "pubsub_msg": msg,
-                        "reason": e,
+                        "reason": [e],
                         "traceback": format_traceback(),
                     },
                 )
