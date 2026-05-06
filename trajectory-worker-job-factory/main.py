@@ -94,10 +94,6 @@ if __name__ == "__main__":
             max_speed_m_s=ValidateTrajectoryHandler.INSTANTANEOUS_HIGH_GROUND_SPEED_THRESHOLD_MPS,
         )
         validate_traj_handler = ValidateTrajectoryHandler()
-        # Patch the default minimum rolling speed in the ValidateTrajectoryHandler
-        validate_traj_handler.AVG_LOW_GROUND_SPEED_THRESHOLD_MPS = TrajectoryBuilderSvc.AVG_LOW_GROUND_SPEED_THRESHOLD_MPS
-        # this field is missing when pulling data from the Spire parquet file cache
-        validate_traj_handler.SCHEMA.pop("ingestion_time")
         gcs_handler = CloudStorageHandler()
         output_job_handler = PubSubPublishHandler(
             topic_id=env.TRAJECTORY_CHUNK_TOPIC_ID,
