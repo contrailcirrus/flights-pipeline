@@ -1,3 +1,4 @@
+import hashlib
 import os
 
 import sys
@@ -284,6 +285,9 @@ class TrajectoryBuilderSvc:
         # and submit jobs to worker queue
         # -----------
         flight_instances = df.groupby("flight_id", sort=True)
+        job_hash = hashlib.shake_128(twjd.as_utf8_json()).hexdigest(
+            8
+        )  # useful for keying in logs
 
         # fetch marker, if one exists, from redis cache
         progress_marker: int = 0
@@ -301,6 +305,7 @@ class TrajectoryBuilderSvc:
                         "marker": progress_marker,
                         "airline_iata": [twjd.airline_iata],
                         "twjd": twjd,
+                        "job_hash": job_hash,
                     },
                 )
 
@@ -345,6 +350,7 @@ class TrajectoryBuilderSvc:
             candidate = TrajectoryCandidateInfo.from_waypoints(
                 flight_id=flight_id,
                 df=waypoints,
+                job_hash=job_hash,
             )
 
             # -------------

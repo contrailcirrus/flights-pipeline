@@ -86,7 +86,7 @@ def run(
                 extra={
                     "flight_id": job.flight_info.flight_id,
                     "detail": "could not run cocip",
-                    "reason": e,
+                    "reason": [e],
                 },
             )
             job_handler.ack(message)
@@ -107,7 +107,7 @@ def run(
                 extra={
                     "flight_id": job.flight_info.flight_id,
                     "detail": "cocip output missing target flight result",
-                    "reason": "aircraft lookup failed in cocip",
+                    "reason": ["aircraft lookup failed in cocip"],
                 },
             )
             job_handler.ack(message)

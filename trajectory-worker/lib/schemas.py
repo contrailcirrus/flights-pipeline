@@ -763,7 +763,7 @@ class CocipTrajectoryChunk:
                 "error generating sunrise sunset offsets",
                 extra={
                     "flight_id": input_chunk.flight_info.flight_id,
-                    "reason": te,
+                    "reason": [te],
                     "traceback": format_traceback(),
                 },
             )
@@ -783,7 +783,7 @@ class CocipTrajectoryChunk:
                 "unhandled error in generating daytime nighttime offsets",
                 extra={
                     "flight_id": input_chunk.flight_info.flight_id,
-                    "reason": e,
+                    "reason": [e],
                     "traceback": format_traceback(),
                 },
             )
@@ -978,7 +978,7 @@ class CocipTrajectoryChunk:
                     extra={
                         "flight_id": input_chunk.flight_info.flight_id,
                         "segment_index": seg_ix,
-                        "reason": str(te),
+                        "reason": [str(te)],
                         "traceback": format_traceback(),
                     },
                 )
@@ -1000,7 +1000,7 @@ class CocipTrajectoryChunk:
                     extra={
                         "flight_id": input_chunk.flight_info.flight_id,
                         "segment_index": seg_ix,
-                        "reason": e,
+                        "reason": [e],
                         "traceback": format_traceback(),
                     },
                 )
@@ -1184,7 +1184,7 @@ class CocipTrajectoryChunk:
             logger.warning(
                 "could not json serialize output",
                 extra={
-                    "reason": e,
+                    "reason": [e],
                     "traceback": format_traceback(),
                     "blob": blob,
                 },
