@@ -379,8 +379,63 @@ Several other services support the flights-pipeline, but are not part of this mo
 Those services are described below.
 
 ### ERA5-etl service
+The ERA5 ETL service is a GCP CloudRun job (triggered by CloudSchedule) that periodically fetches 
+ERA5 meteorological data from ECMWF's Copernicus system.
+This is done by submitting jobs to Copernicus for target times, and polling the server 
+until those jobs are complete and outputs ready for retrieval.
+
+The ERA5 meteorological data is segregated between pressure-level variables (available at multiple `z` coordinate locations) 
+and surface-level (available at a single `z` coordinate location).
+
+Those data are stored in a zarr store in GCS, one zarr store per day period, with URI conventions:
+```
+# pressure level
+gs://contrails-301217-ecmwf-era5-zarr-v2/{%Y%m%d}_pl.zarr
+# surface level
+gs://contrails-301217-ecmwf-era5-zarr-v2/{%Y%m%d}_sl.zarr
+```
 
 ### HRES-etl service
+The HRES ETL service is a collection of GCP services that periodically trigger, 
+repackaging delivered ECMWF HRES meteorological forecasts into zarr stores in GCS.
+
+ECMWF periodically delivers HRES forecasts as grib files 
+(one per hour forecast slice, for the 72 forecast hours in a given model run).
+
+The collection of 72 files trickle in over a 1hour period.  
+These files arrive 4 times per day (there are 4 ECMWF forecast runs per day).
+These files arrive in a GCS bucket, as per our ECMWF subscription.
+
+A change-data-capture trigger fires on each file delivery (GCP EventArc).
+EventArc places an event object into a queue (PubSub), 
+which is consumed by a push subscription to a GCP Workflow instance.
+The GCP Workflow instance manages a workflow diagram, which is responsibly for simply calling (w/ retries)
+a CloudRun instance which perform the ETL. 
+Note that EventArc (via PubSub) does permit consumption of events via a direct 
+push subscription to CloudRun instances (which would remove the need for a GCP Workflow instance).
+EventArc, unfortunately, does not permit configuring the timeout period for the CloudRun instance beyond 60 seconds, 
+nor does it permit configuring retry and dead-lettering (failure management) configurations. As such, the extra 
+complexity of the GCP Workflow instance is necessary given the limitations of integrating EventArc with CloudRun.
+
+Lastly, the HRES ETL CloudRun instance will perform ETL on the ingress grib files.
+Processing a single grib file involves having a master HRES ETL CloudRun instance load that file into memory,
+fan out the loaded data (on a per-variable basis) to several other instances of HRES ETL CloudRun (workers),
+those workers each applying model-level to pressure-level conversions, and finally writing out the transformed 
+content to a GCS zarr store.
+
+HRES data is stored to zarr store, on a per model run basis, with the convention:
+```
+# pressure level
+contrails-301217-ecmwf-hres-forecast-v2-short-term/{%Y%m%d%H}/pl.zarr
+
+# surface level
+contrails-301217-ecmwf-hres-forecast-v2-short-term/{%Y%m%d%H}/sl.zarr
+```
+Where `%H` is one-of `[00, 06, 12, 18]`.
+
+Each zarr store contains 72 hours of forecasts, starting with the model run time, inclusive (which is in the timestamp in the URI).
+A consumer of these stores is expected to find the store(s) that include the forecast times of interest, 
+given the expectation of 72 hrs of timestamps past the model run time.
 
 ### contrails-api | `v1/adsb/telemetry`
 As noted in the [Spire Cache Heater](#spire-cache-heater) section, the `api.contrails.org/v1/adsb/telemetry` endpoint 
@@ -388,7 +443,24 @@ is an important part of the flights pipeline (for production runs) in that it is
 of ADS-B telemetry data as parquet shards in GCS.
 
 ## Running the Flights Pipeline 
+The flights pipeline can be run in various modes, generally covered by the following variants:
+- pull ADS-B telemetry data from BigQuery or GCS cache
+- run with ECMWF ERA5 or HRES meteorological data
+- pull meteorological data from GCS or from Hyperdisk
+- dry-run mode (run the TWJF without publishing to the TW)
+- lean vs full trajectory mode -- output per-flight summary data only, or per-segment flight summary and protobuf blob objects
 
+Trajectory Worker Job Descriptors (units of work for the Trajectory Worker Job Factory) can be specified to batch flights based on:
+- airline-day (`airline_iata <> calendar_day` groupings)
+- single flight identifier (`flight_id`)
+
+The TWJF/TWJD will be expanded at a future time to accept groups of `flight_id` in a single unit-of-work, 
+by either passing a list of `flight_id`s to the TWJF via TWJD, or via a remote lookup table (BigQuery) with job reference id
+(which maps to that list in the lookup table).
+
+Invoking the flights pipeline is currently done manually by a captain.
+
+The CLI tooling in [pipeline-cli](pipeline-cli/cli.py) is used by the captain to mint and submit TWJDs to the TWJF queue.
 
 # System Topology Diagram
 ```mermaid
@@ -564,201 +636,3 @@ graph
     get_internal_nat_track -.- nat_track_cacher
     nat_track_cacher --> nat_tracks_db
 ```
-
-# Running the Flights Pipeline
-The following outlines the steps taken when running the Flights Pipeline in the dev environment.
-
-## Cleanup
-These cleanup steps are optional, but may help minimize cognitive burden when reviewing 
-pipeline outputs and disambiguating from those data generated in previous runs of the pipeline.
-
-Most/all of these steps would not be carried out when running in production ("append only"),
-unless one were doing surgical and careful fixes of previously outputs.
-
-### Logging
-Log outputs from the `flights-pipeline/trajectory-worker-job-factory` and `flights-pipeline/trajectory-worker`
-are both available for interactive perusing in the Google Cloud Console Log Explorer,
-but are also written to file in GCS.
-
-The logs written to file serve as a source-of-truth for our data processing lineage,
-and are important in that we parse/structure and interpret those logs to generate
-a manifest of what manipulations are applied to which flights as they pass through the pipeline.
-
-The setup/description of those log sinks is documented in the README of each of the above-mentioned
-services (subdirectories). 
-See [flights-pipeline/trajectory-worker-job-factory/README.md](trajectory-worker-job-factory/README.md) 
-and [flights-pipeline/trajectory-worker/README.md](trajectory-worker/README.md).
-
-Logs are batched and written to file, with GCS URIs indicating the time at which the log sink batched and wrote the content to file.
-As such, one can generally match the log files to the time periods during which the pipeline was running.
-Nonetheless, it can be helpful to do a purge of logs from old runs of the dev pipeline.
-
-```bash
-gsutil -m rm "gs://contrails-301217-fp-dev-trajectory-worker-job-factory/stderr/**"
-gsutil -m rm "gs://contrails-301217-fp-dev-trajectory-worker/stderr/**"
-```
-
-### BigQuery
-CoCiP outputs from the trajectory-worker are written to BigQuery.
-
-One can attribute records to a given pipeline run by filtering on the `_processed_at` timestamp,
-and choosing those timestamps that overlap with the time period in which the pipeline was running.
-
-Yet, as above, it can still be useful to simply purge this table and proceed knowing 
-that any and all new records thereafter are from a subsequent pipeline run.
-
-```sql
--- BE EXTERMELY CAREFUL WITH THIS! CONFIRM TARGET TABLE, ETC...
---
-DELETE FROM `contrails-301217.flights_pipeline_dev.trajectory_cocip_dev` WHERE TRUE
-```
-
-### GCS Parquet Blobs
-If the pipeline is run in full trajectory mode, the trajectory-worker will,
-among other things, write parquet files to GCS, where each parquet file is data for a given flight.
-
-Unlike the two areas of persisted data above, we _do not_ append-only when writing parquet blobs
-to GCS.  There is no way to disambiguate, from the GCS URI itself, which pipeline run resulted in a given blob.
-This is by design, as this GCS bucket may be used to directly serve content to external users,
-thus is expected to represent `latest` of a given dataset (this may change in the future).
-
-As such, running the pipeline without first purging these files will result in either
-overwriting of existing blobs, or, creation of new blobs where a previous one did not exist.
-
-Purge these data with:
-```text
-gsutil -m rm "gs://contrails-301217-flights-pipeline-dev/trajectory-worker/trajectory-pq/**"
-```
-
-### Postgres Cache
-The outputs from the flights-pipeline (those records in the BQ table `trajectory_cocip_<prod/dev>) are selectively mirrored 
-to a Postgres database/table.  That Postgres instance backs all contrails-api endpoints that retrieve
-the flights pipeline outputs (aka. the contrail impact inventory).
-
-**The flights pipeline does not automatically mirror/sync to these database tables**.
-
-Sync'ing from BigQuery to these Postgres tables is done with the tooling documented in the [`flights-pipeline/bq-to-postgres-utils`](flights-pipeline/bq-to-postgres-utils/README.md).
-This sync/mirror is done manually and selectively, taking into consideration which subset of data in the BQ SOT dataset should be made publicly available.
-
-Purging of data in Postgres can be achieved by executing:
-
-**<TODO>**
-- we should have CASCADE deletes on any tables with fk references to our primary trajectory cocip table, such that
-when we delete rows from teh primary traj cocip table, we automatically prune from the metadata table
-- it appears that there are many routines, data types, operator classes and operator families in the contrail-default-dev database instance.
-the instructions/code for creating these is not documented in the `/bq-to-postgres-utils/README.md` or `/bq-to-postgres-utils/sql/*`
-- what instructions are necessary for rebuilding the materialized views once the underlying `trajectory-cocip` and `trajectory-cocip-meta` tables are updated?
-
-## Execute Work
-The easiest way to run the pipeline is to use the CLI tooling in `flights-pipeline/flight-emissions-report/cli.py` 
-(note that this directory is subject to renaming/restructuring in the future).
-
-This CLI, when run locally, will create "jobs" for the `trajectory-worker-job-factory`.
-A job is a data object with key-values that indicate a "unit of work" to be executed by the `trajectory-worker-job-factory`.
-This unit of work is discussed in [flights-pipeline/trajectory-worker-job-factory/README.md](trajectory-worker-job-factory/README.md) 
-and specifically defined in the [lib.schema::TrajectoryWorkerJobDescriptor](trajectory-worker-job-factory/lib/schemas.py).
-This unit of work for the `trajectory-worker-job-factory` is known as a Trajectory Worker Job Descriptor, or TWJD.
-
-Instructions for the multiple ways in which to run the `flights-pipeline/flight-emssions-report/cli.py` are documented in
-[flights-pipeline/flight-emissions-report/README.md](flight-emissions-report/README.md).
-
-### Step 1 - check environment
-Confirm that the CLI is configured to write jobs to the dev environment/pipeline.
-Inspect `flights-pipeline/flight-emissions-report/services::JobWorkerSubmitSvc.TWJD_TOPIC_ID` and _confirm that the target PubSub topic is that of the dev environment_.
-
-### Step 2 - check completeness of ADS-B cache in GCS
-This is an optional step if you intend to run the pipeline whilst fetching ADS-B data from BQ.
-Running from BQ should be avoided, however, for large processing jobs (costly).
-See the details in the section below.
-
-The contrails-api caches ADS-B data into GCS, but this cache is populated opportunistically _only_ 
-when callers hit the `api.contrails.org/v1/telemetry` endpoint. Meaning, if you intend to run the pipeline for flights over,
-say, 2025-01-10, it is possible that not all ADS-B data is cached in GCS, which would result in significant data missingness (loss of flights),
-when running the pipeline with GCS as the target ADS-B source 
-(we endeavor to fix this in the future, either with handy tooling to check/heat the cache, or, an automated worker that keeps the cache complete and hot).
-
-Given some target timerange over which the pipeline will be executed,
-first list all the cached content which is already present.
-```bash
-# list all cached ADS-B available in Jan 2025, stripping the date-hour indicator 
-gsutil ls -d "gs://contrails-301217-spire-cache-prod/hourly/2025-01*" | cut -d '/' -f 5 > available_cache_2025_01.txt
-```
-
-Do some data mongering to identify hourly gaps:
-```python
-import pandas as pd
-# load single-column, headerless data
-available_df: pd.DataFrame = pd.read_csv("available_cache_2025_01.txt", header=None, names=["datehour"])
-available_dtstr: list[str] = available_df["datehour"].values
-
-# itemize target datehours
-start_datehour = "2025-01-01"
-total_days = 31
-target: pd.DatetimeIndex = pd.date_range(start=start_datehour, periods=total_days * 24, freq='h')
-target_dtstr: list[str] = [i.strftime('%Y-%m-%dT%H') for i in target]
-
-# find missing datehours
-missing_uris = []
-for target_hour in target_dtstr:
-    if target_hour not in available_dtstr:
-        missing_uris.append(target_hour)
-
-# write manifest of missing cache datehours to file
-with open("missing_cache_2025_01.txt", "w") as fp:
-    for ln in missing_uris:
-        fp.write(ln + '\n')
-```
-
-Cycle thru the missing cache uris, and hit the contrails API for each (relying on the API to populate the missing files in GCS).
-Dispatch with concurrency (`xargs -P #`)
-
-```bash
- cat missing_cache_2025_01.txt | xargs -P 10 -I %  curl "https://api.contrails.org/v1/adsb/telemetry?date=%" -H "x-api-key: MY_VERY_SECRET_KEY_WITH_TELEMETRY_ACCESS" -o /dev/null
-```
-
-### Step 2 - run CLI to mint TWJDs
-The most common way to run the pipeline when processing large volumes of flights is with the CLI signature:
-```bash
-./cli.py jobworker submit -a {AIRLINE_IATA} -d {START_DAY}_{END_DAY} -s era5 -t
-```
-This will create a single TWJD for the trajectory-worker-job-factory,
-instructing the job factory to process all flights with an airline_iata designator matching `AIRLINE_IATA`,
-and where the flight instance originates in the range of `START_DAY` to `END_DAY`, inclusive.
-
-For example, creating a single TWJD instructing the job factory to process all flights for American Airlines,
-in calendar year 2024:
-```bash
-./cli.py jobworker submit -a AA -d 2024-01-01_2024-12-31 -w gcs -s era5 -t
-```
-
-Also:
-- The `-w gcs` flag tells the trajectory-worker-job-factory to pull ADS-B data from the contrails-api spire telemetry data cache in GCS (SEE NOTE IN ABOVE SECTION)
-For quick testing, `-w bq` can be set, which pulls ADS-B telemetry data from the BQ source-of-truth table.
-This is expensive, however, when running many TWJDs, thus best to pull from GCS for large processing jobs.
-- The `-s era5` flag tells the downstream `trajectory-worker` to use ERA5 met data when running CoCiP.
-- The `-t` flag tells the downstream `trajectory-worker` to export full trajectory data. 
-Full trajectory data means: 
-  - per-flight AND per-segment output to BigQuery (one row for summary flight, many rows for per-segment)
-  - writes parquet blob with per-flight data to GCS
-  - (running w/o this flag set with ONLY write per-flight data to BQ)
-
-Note that at present TWJDs are built based on groups of flights belonging to an `airline_iata` reported in the Spire ADS-B feed (`-a AIRLINE_IATA`).
-This is likely to change, future implementation grouping flights on a different airline designator (callsign prefix, flight number prefix, ...)
-
-If you wish to automate running the above CLI, a quick way to do that is something like...
-
-Create a manifest file of target airline iata designators:
-```text
-AA
-CX
-UA
-DL
-SW
-```
-Iterate thru that list, invoking the CLI on each target, for a given time-range:
-```bash
-cat airline_iata_list.txt | xargs -I % ./cli.py jobworker submit -a % -d 2024-01-01_2024-12-31 -w gcs -s era5 -t
-```
-
-### Step 3 - Observe
-Observe the pipeline, monitor logs for failures, PubSub dead-lettering, k8s resource health/idle resources, slowly draining PubSub queues (need for HPA cnt increase), etc.
