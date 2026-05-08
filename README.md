@@ -658,7 +658,7 @@ manually created with [`kubectl create secret`](https://kubernetes.io/docs/refer
 For most services, we use generic (Opaque) secrets ([`kubectl create secret generic`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_secret_generic/)).
 
 Typically, secrets are accessed by mounting them as environment variables in a Kubernetes resource.
-These environment variables are not passed in via CICD, rather mounted directly from a named secret.
+These environment variables are not passed in via CI/CD, rather mounted directly from a named secret.
 
 For example:
 ```yaml
@@ -679,7 +679,7 @@ kubectl get secret my-k8s-secret-name -o json -n my-namespace | jq '.data.MY_TOK
 
 ### Spire token
 The Spire Airsafe API token is stored as a kubernetes secret, and loaded into the
-`spire-ingest-api-scraper` service.
+`spire-ingest-api-scraper` and `spire-raw-batch` services.
 
 #### Setup
 Running the following will manually load the Spire Airsafe token into a secret by
