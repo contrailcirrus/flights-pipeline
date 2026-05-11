@@ -483,9 +483,6 @@ class TrajectoryBuilderSvc:
                 waypoints_pycontrail["time"] = waypoints_pycontrail["time"].apply(
                     lambda r: r.tz_localize(None)
                 )
-                # ensure no timestamp dupes, as expected by pycontrails.resample_and_fill
-                # TODO: remove: I think this is already handled in the heal step
-                waypoints_pycontrail.drop_duplicates(["time"], inplace=True)
 
                 # resample waypoints
                 pyc_flight = Flight(waypoints_pycontrail)
