@@ -1281,7 +1281,7 @@ class TrajectoryCandidateInfo:
     departure_airport_icao: list[str | None]
     start_time: datetime | None
     end_time: datetime | None
-
+    job_hash: str | None = None  # hash of the twjd
     @staticmethod
     def null_to_str(list_in: list[Any]):
         """
@@ -1298,7 +1298,7 @@ class TrajectoryCandidateInfo:
         return list_out
 
     @classmethod
-    def from_waypoints(cls, flight_id: str, df: pd.DataFrame):
+    def from_waypoints(cls, flight_id: str, df: pd.DataFrame, job_hash: str | None = None):
         """Build instance of self from pd dataframe of Spire waypoints."""
         return TrajectoryCandidateInfo(
             flight_id=flight_id,
@@ -1314,6 +1314,7 @@ class TrajectoryCandidateInfo:
             ),
             start_time=df["timestamp"].min(),
             end_time=df["timestamp"].max(),
+            job_hash=job_hash,
         )
 
     def to_dict(self):
@@ -1327,6 +1328,7 @@ class TrajectoryCandidateInfo:
             "departure_airport_icao": self.departure_airport_icao,
             "start_time": self.start_time.strftime(DATETIME_STR_FMT),
             "end_time": self.end_time.strftime(DATETIME_STR_FMT),
+            "job_hash": self.job_hash,
         }
 
     def to_json(self):

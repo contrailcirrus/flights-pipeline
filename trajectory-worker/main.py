@@ -86,7 +86,7 @@ def run(
                 extra={
                     "flight_id": job.flight_info.flight_id,
                     "detail": "could not run cocip",
-                    "reason": e,
+                    "reason": [e],
                 },
             )
             job_handler.ack(message)
@@ -101,6 +101,17 @@ def run(
                 flight.attrs["flight_id"]: flight for flight in cocip_fleet_result
             }
             target_flight_result = cocip_fleet_result_lookup[job.flight_info.flight_id]
+        except AircraftUnrecognizedError:
+            logger.error(
+                "skipping",
+                extra={
+                    "flight_id": job.flight_info.flight_id,
+                    "detail": "cocip output missing target flight result",
+                    "reason": ["aircraft lookup failed in cocip"],
+                },
+            )
+            job_handler.ack(message)
+            continue
         except Exception:
             logger.error(
                 "nacking",

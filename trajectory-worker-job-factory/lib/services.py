@@ -1,3 +1,4 @@
+import hashlib
 import os
 
 import sys
@@ -284,9 +285,12 @@ class TrajectoryBuilderSvc:
         # and submit jobs to worker queue
         # -----------
         flight_instances = df.groupby("flight_id", sort=True)
+        job_hash = hashlib.shake_128(twjd.as_utf8_json()).hexdigest(
+            8
+        )  # useful for keying in logs
 
         # fetch marker, if one exists, from redis cache
-        progress_marker = 0
+        progress_marker: int = 0
         if self._cache_handler and twjd.airline_iata:
             # we skip cache handling if this is a twjd w/o airline_iata
             # i.e. we don't bother with cache handling for small jobs
@@ -299,8 +303,9 @@ class TrajectoryBuilderSvc:
                     "resuming progress from a previous job",
                     extra={
                         "marker": progress_marker,
-                        "airline_iata": twjd.airline_iata,
+                        "airline_iata": [twjd.airline_iata],
                         "twjd": twjd,
+                        "job_hash": job_hash,
                     },
                 )
 
@@ -345,6 +350,7 @@ class TrajectoryBuilderSvc:
             candidate = TrajectoryCandidateInfo.from_waypoints(
                 flight_id=flight_id,
                 df=waypoints,
+                job_hash=job_hash,
             )
 
             # -------------
@@ -477,9 +483,6 @@ class TrajectoryBuilderSvc:
                 waypoints_pycontrail["time"] = waypoints_pycontrail["time"].apply(
                     lambda r: r.tz_localize(None)
                 )
-                # ensure no timestamp dupes, as expected by pycontrails.resample_and_fill
-                # TODO: remove: I think this is already handled in the heal step
-                waypoints_pycontrail.drop_duplicates(["time"], inplace=True)
 
                 # resample waypoints
                 pyc_flight = Flight(waypoints_pycontrail)
@@ -551,7 +554,7 @@ class TrajectoryBuilderSvc:
                     (joined_times["_merge"] == "right_only")
                     | (joined_times["_merge"] == "both")
                 ]
-                imputed.fillna(False, inplace=True)  # Likely be unnecessary
+                imputed.fillna(False, inplace=True)  # Likely unnecessary
                 # reindex to match waypoints_pycontrail and mark imputed waypoints
                 imputed.reset_index(drop=True, inplace=True)
                 waypoints_pycontrail["imputed"] = imputed

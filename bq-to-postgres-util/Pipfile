@@ -16,6 +16,7 @@ platformdirs = "==4.5.1"
 psycopg = {extras = ["binary"], version = "==3.3.2"}
 psycopg2-binary = "==2.9.11"
 shell = "*"
+python-json-logger = "==4.1.0"
 
 [requires]
 python_version = "3.12"

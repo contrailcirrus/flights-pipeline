@@ -99,7 +99,7 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_gaia_chunk_ingress
   ack_deadline_seconds         = 60
   enable_message_ordering      = false
   enable_exactly_once_delivery = true
-  message_retention_duration = "302400s"  # 3.5 day
+  message_retention_duration = "604800s"  # 7 day
 
   dead_letter_policy {
     max_delivery_attempts = 5
@@ -128,7 +128,7 @@ resource "google_pubsub_subscription" "prod_trajectory_worker_gaia_chunk_backup_
   ack_deadline_seconds         = 60
   enable_message_ordering      = false
   enable_exactly_once_delivery = true
-  message_retention_duration = "302400s"  # 3.5 day
+  message_retention_duration = "604800s"  # 7 day
 
   dead_letter_policy {
     max_delivery_attempts = 5
@@ -233,7 +233,7 @@ resource "google_pubsub_subscription" "prod_twjd_ingress" {
   ack_deadline_seconds         = 60
   enable_message_ordering      = false
   enable_exactly_once_delivery = false
-  message_retention_duration = "302400s"  # 3.5 day
+  message_retention_duration = "604800s"  # 7 day
 
   dead_letter_policy {
     max_delivery_attempts = 5
