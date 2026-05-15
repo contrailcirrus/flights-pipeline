@@ -1170,8 +1170,10 @@ class TrajectoryWorkerJobDescriptor:
     full_traj: bool  # export per-seg cocip to bq
     airline_iata: str | None = None
     flight_id: list[str] | None = None
-    dry_run: bool = False  # local use only
-    export_waypoints: bool = False  # local use only
+    job_id: str | None = None
+    job_lookup_table: str | None = None
+    dry_run: bool = False  # cli (local) use only
+    export_waypoints: bool = False  # cli (local) use only
 
     @staticmethod
     def from_utf8_json(blob: bytes):
@@ -1185,6 +1187,8 @@ class TrajectoryWorkerJobDescriptor:
             full_traj=json.loads(blob)["full_traj"],
             airline_iata=json.loads(blob)["airline_iata"],
             flight_id=json.loads(blob)["flight_id"],
+            job_id=json.loads(blob)["job_id"],
+            job_lookup_table=json.loads(blob)["job_lookup_table"],
             dry_run=json.loads(blob)["dry_run"],
             export_waypoints=json.loads(blob)["export_waypoints"],
         )
@@ -1204,13 +1208,12 @@ class TrajectoryWorkerJobDescriptor:
         valid_arg_combos = {
             (self.day, self.airline_iata, self.met_source),
             (self.day, bool(self.flight_id), self.met_source),
+            (self.job_id, self.job_lookup_table),
         }
         is_valid = sum([all(itm) for itm in valid_arg_combos]) == 1
 
         if not is_valid:
-            raise ValueError(
-                "twjd not valid - must provide only one of  flight_id or airline_iata"
-            )
+            raise ValueError("twjd not valid")
 
         if self.met_source not in MetSource:
             raise ValueError(
@@ -1219,9 +1222,6 @@ class TrajectoryWorkerJobDescriptor:
 
         # verify datestr parsing w/o exc
         _ = datetime.strptime(self.day, "%Y-%m-%d")
-
-    def __str__(self):
-        return str(self.as_utf8_json)
 
 
 @dataclass
