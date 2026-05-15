@@ -33,9 +33,11 @@ jobworker_submit_parser.add_argument(
     help='calendar day (UTC) for fetching flights. Format "%Y-%m-%d". e.g. "2024-01-12"',
     dest="day",
 )
+# list of multiple flight id values, or an empty list if not specified
 jobworker_submit_parser.add_argument(
     "-i",
     "--flight-id",
+    nargs="+",
     required=False,
     help="flight_id for target flight to submit",
     dest="flight_id",

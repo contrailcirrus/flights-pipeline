@@ -149,7 +149,7 @@ class TrajectoryWorkerJobDescriptor:
     telemetry_source: TelemetrySource  # src from which to fetch ads-b data
     full_traj: bool  # export per-seg cocip to bq
     airline_iata: str | None = None
-    flight_id: str | None = None
+    flight_id: list[str] | None = None
     dry_run: bool = False  # cli (local) use only
     export_waypoints: bool = False  # cli (local) use only
 

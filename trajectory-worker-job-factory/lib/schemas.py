@@ -1169,7 +1169,7 @@ class TrajectoryWorkerJobDescriptor:
     telemetry_source: TelemetrySource  # src from which to fetch ads-b data
     full_traj: bool  # export per-seg cocip to bq
     airline_iata: str | None = None
-    flight_id: str | None = None
+    flight_id: list[str] | None = None
     dry_run: bool = False  # local use only
     export_waypoints: bool = False  # local use only
 
@@ -1282,6 +1282,7 @@ class TrajectoryCandidateInfo:
     start_time: datetime | None
     end_time: datetime | None
     job_hash: str | None = None  # hash of the twjd
+
     @staticmethod
     def null_to_str(list_in: list[Any]):
         """
@@ -1298,7 +1299,9 @@ class TrajectoryCandidateInfo:
         return list_out
 
     @classmethod
-    def from_waypoints(cls, flight_id: str, df: pd.DataFrame, job_hash: str | None = None):
+    def from_waypoints(
+        cls, flight_id: str, df: pd.DataFrame, job_hash: str | None = None
+    ):
         """Build instance of self from pd dataframe of Spire waypoints."""
         return TrajectoryCandidateInfo(
             flight_id=flight_id,

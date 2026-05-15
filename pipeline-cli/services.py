@@ -52,7 +52,7 @@ class JobWorkerSubmitSvc(BaseSvc):
         """
         self._airline = input.airline
         self._day = input.day
-        self._flight_id = input.flight_id
+        self._flight_id: list[str] | None = input.flight_id if input.flight_id else None
         self._met_data_src = input.met_data_src
         self._telemetry_src = input.telemetry_src
         self._full_traj = input.full_traj
@@ -79,6 +79,12 @@ class JobWorkerSubmitSvc(BaseSvc):
         if self._met_data_src not in MetSource:
             raise ValueError(
                 f"--met-data-src must be one of {[i.value for i in MetSource]}"
+            )
+
+        if self._flight_id and len(self._flight_id) > 0 and "_" in self._day:
+            raise ValueError(
+                f"cannot specify a date range ({self._day}) with flight ids. "
+                f"all flight ids must fall (start time UTC) on same day."
             )
 
     def run(self):
