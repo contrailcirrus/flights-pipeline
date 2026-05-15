@@ -408,7 +408,7 @@ class TrajectoryBuilderSvc:
             # TODO: bug; airline_iata is only ever "null" str literal in the candidate obj
             if (
                 len(candidate.airline_iata) == 1
-                and candidate.airline_iata[0] is None
+                and candidate.airline_iata[0] == "null"
                 and waypoints["altitude_baro"].max()
                 < self.MAX_NOMINAL_ALT_GEN_AVIATION_FT
             ):
