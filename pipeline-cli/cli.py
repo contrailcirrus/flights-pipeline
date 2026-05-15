@@ -43,11 +43,18 @@ jobworker_submit_parser.add_argument(
     dest="flight_id",
 )
 jobworker_submit_parser.add_argument(
-    "-c",
-    "--icao-address",
+    "-j",
+    "--job-id",
     required=False,
-    help="icao_address for target flight to submit",
-    dest="icao_address",
+    help="batch job ID for a BQ lookup table",
+    dest="job_id",
+)
+jobworker_submit_parser.add_argument(
+    "-l",
+    "--job-lookup-table",
+    required=False,
+    help="name of the job ID lookup table (BigQuery)",
+    dest="job_lookup_table",
 )
 jobworker_submit_parser.add_argument(
     "-s",

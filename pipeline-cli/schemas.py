@@ -150,6 +150,8 @@ class TrajectoryWorkerJobDescriptor:
     full_traj: bool  # export per-seg cocip to bq
     airline_iata: str | None = None
     flight_id: list[str] | None = None
+    job_id: str | None = None
+    job_lookup_table: str | None = None
     dry_run: bool = False  # cli (local) use only
     export_waypoints: bool = False  # cli (local) use only
 
@@ -165,6 +167,8 @@ class TrajectoryWorkerJobDescriptor:
             full_traj=json.loads(blob)["full_traj"],
             airline_iata=json.loads(blob)["airline_iata"],
             flight_id=json.loads(blob)["flight_id"],
+            job_id=json.loads(blob)["job_id"],
+            job_lookup_table=json.loads(blob)["job_lookup_table"],
             dry_run=json.loads(blob)["dry_run"],
             export_waypoints=json.loads(blob)["export_waypoints"],
         )

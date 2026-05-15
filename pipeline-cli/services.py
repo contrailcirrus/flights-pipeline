@@ -45,6 +45,8 @@ class JobWorkerSubmitSvc(BaseSvc):
             - airline
             - day; can be single day, or date range inclusive
             - flight_id
+            - job_id
+            - job_lookup_table
             - met_data_src
             - telemetry_src
             - full_traj
@@ -53,6 +55,8 @@ class JobWorkerSubmitSvc(BaseSvc):
         self._airline = input.airline
         self._day = input.day
         self._flight_id: list[str] | None = input.flight_id if input.flight_id else None
+        self._job_id = input.job_id
+        self._job_lookup_table = input.job_lookup_table
         self._met_data_src = input.met_data_src
         self._telemetry_src = input.telemetry_src
         self._full_traj = input.full_traj
@@ -66,6 +70,7 @@ class JobWorkerSubmitSvc(BaseSvc):
         valid_flag_combos = {
             (self._day, self._airline, self._met_data_src),
             (self._day, bool(self._flight_id), self._met_data_src),
+            (self._job_id, self._job_lookup_table),
         }
         is_valid = sum([all(itm) for itm in valid_flag_combos]) == 1
 
@@ -74,6 +79,7 @@ class JobWorkerSubmitSvc(BaseSvc):
                 "Must provide flags: "
                 "(1) --flight-id & --day & --met-data-src OR "
                 "(2) --airline & --day & --met-data-src OR "
+                "(3) --job-id & --job-lookup-table"
             )
 
         if self._met_data_src not in MetSource:
@@ -96,10 +102,14 @@ class JobWorkerSubmitSvc(BaseSvc):
             logger.info(
                 f"🛠️submitting TWJDs with 🛂 flight_id: {self._flight_id} using met data source 📊{self._met_data_src}"
             )
+        elif self._job_id and self._job_lookup_table:
+            logger.info(
+                f"🛠️submitting TWJDs with 🔎 job_id: {self._job_id} from ⊞ job_lookup_table: {self._job_lookup_table} using met data source 📊{self._met_data_src}"
+            )
         else:
             raise NotImplementedError("unhandled runtime case.")
 
-        if "_" in self._day:
+        if self._day and "_" in self._day:
             start_day = self._day.split("_")[0]
             end_day = self._day.split("_")[-1]
             logger.info(
@@ -122,6 +132,7 @@ class JobWorkerSubmitSvc(BaseSvc):
                 full_traj=self._full_traj,
                 airline_iata=self._airline,
                 flight_id=self._flight_id,
+                job_id
                 dry_run=self._dry_run,
                 export_waypoints=False,
             )
