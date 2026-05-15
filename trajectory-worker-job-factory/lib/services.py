@@ -184,7 +184,7 @@ class TrajectoryBuilderSvc:
     def _fetch_flight_id_day(
         self,
         day: str,
-        flight_id: str,
+        flight_id: list[str],
         telemetry_src: TelemetrySource,
     ) -> (pd.DataFrame, pd.DataFrame):
         """
@@ -223,7 +223,7 @@ class TrajectoryBuilderSvc:
             query_parameters=[
                 bigquery.ScalarQueryParameter("target_day", "STRING", day),
                 bigquery.ScalarQueryParameter("target_day_after", "STRING", next_day),
-                bigquery.ScalarQueryParameter("flight_id", "STRING", flight_id),
+                bigquery.ArrayQueryParameter("flight_id", "STRING", flight_id),
             ]
         )
         df: pd.DataFrame = self._bq_handler.query(query, cfg)
