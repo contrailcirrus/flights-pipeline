@@ -65,7 +65,7 @@ class JobWorkerSubmitSvc(BaseSvc):
         # caller must provide ONE OF the following sets of flags
         valid_flag_combos = {
             (self._day, self._airline, self._met_data_src),
-            (self._day, self._flight_id, self._met_data_src),
+            (self._day, bool(self._flight_id), self._met_data_src),
         }
         is_valid = sum([all(itm) for itm in valid_flag_combos]) == 1
 
