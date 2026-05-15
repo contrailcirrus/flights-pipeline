@@ -10,7 +10,7 @@ from lib.exceptions import AircraftUnrecognizedError
 from pycontrails.core.aircraft_performance import AircraftPerformance
 
 DEFAULT_ENGINE_UID_LOOKUP_FP = "lib/default_engine_uid_lookup_032026.json"
-ENGINE_UID_LOOKUP_FP = "lib/engine_uid_lookup_032026.csv"
+ENGINE_UID_LOOKUP_FP = "lib/engine_uid_lookup_052026.csv"
 
 # default engine uid lookup, based on aircraft type
 with open(DEFAULT_ENGINE_UID_LOOKUP_FP, "r") as fp:
