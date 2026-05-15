@@ -187,7 +187,8 @@ class TrajectoryWorkerJobDescriptor:
         # caller must provide ONE OF the following sets of flags
         valid_arg_combos = {
             (self.day, self.airline_iata, self.met_source),
-            (self.day, self.flight_id, self.met_source),
+            (self.day, bool(self.flight_id), self.met_source),
+            (self.job_id, self.job_lookup_table),
         }
         is_valid = sum([all(itm) for itm in valid_arg_combos]) == 1
 

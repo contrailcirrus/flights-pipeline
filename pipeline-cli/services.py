@@ -132,7 +132,8 @@ class JobWorkerSubmitSvc(BaseSvc):
                 full_traj=self._full_traj,
                 airline_iata=self._airline,
                 flight_id=self._flight_id,
-                job_id
+                job_id=self._job_id,
+                job_lookup_table=self._job_lookup_table,
                 dry_run=self._dry_run,
                 export_waypoints=False,
             )
