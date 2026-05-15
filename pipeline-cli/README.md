@@ -38,3 +38,46 @@ The following arguments can be used with either job submission type:
 - `-w` telemetry source for fetching the ADS-B records.  Must be either of `bq` (default) or `gcs`
 - `-s` meteorological data type. Must be either `era5` or `hres`
 
+## Create Large Batch Jobs
+The CLI also supports minting TWJDs that tell the TWJF to process large batch jobs.
+
+A large batch job is a list of target `flight_id` values, with a `job_id` reference.
+In order for this to work, 
+the TWJF expects there to be a lookup table in the `flights_pipeline_prod` BigQuery dataset, 
+that provides `job_id` -> `flight_id` lookups.
+
+That lookup table must have the following columns:
+```text
+job_id: STRING  # e.g. 7151bdb1-8487-4d0b-b22a-df33c79dd6b0
+day: STRING  # e.g. 2025-01-01
+flight_id_list ARRAY[STRING]
+```
+
+At present, there is no convenient tooling to generate this lookup.  
+The following, however, is an example end-to-end process.
+
+### Setup
+First, create a new table in `flights_pipeline_prod`, with your custom job batch lookup.
+
+Here is an example of how to create that table based on some SQL jiujitsu against the raw spire data (`flights_pipeline_prod.spire_flights_raw_prod`).
+
+This creates a table with a single row that contains:
+- `job_id` a unique job identifier (in the below example `7151bdb1-8487-4d0b-b22a-df33c79dd6b0`)
+- `day` a string with the calendar day, on which all the flight ids are known to have begun (first timestamp)
+- `flight_id_list` a list (BQ array) with 10000 flight ids (that have at least one waypoint above 20k ft)
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.job_batch_nbm_05152026_example` AS
+    WITH flight_id_candidate_tb AS
+             (SELECT flight_id, min(timestamp) AS min_ts, max(altitude_baro) AS max_alt_ft
+              FROM `contrails-301217.flights_pipeline_prod.spire_flights_raw_prod`
+              WHERE timestamp BETWEEN "2025-02-01" AND "2025-02-03" AND flight_id IS NOT NULL
+              GROUP BY flight_id),
+         flight_list AS (SELECT flight_id
+                         FROM flight_id_candidate_tb
+                         WHERE TIMESTAMP_TRUNC(min_ts, DAY) = "2025-02-02"
+                           AND max_alt_ft > 20000
+                         LIMIT 10000)
+    SELECT GENERATE_UUID() AS job_id, "2025-02-02" AS day, ARRAY_AGG(flight_id) AS flight_id_list
+    FROM flight_id_candidate_tb
+```

@@ -405,6 +405,7 @@ class TrajectoryBuilderSvc:
             # -
             # motivation is to prune out general aviation flights when running
             # the job factory for airline_iata=null
+            # TODO: bug; airline_iata is only ever "null" str literal in the candidate obj
             if (
                 len(candidate.airline_iata) == 1
                 and candidate.airline_iata[0] is None
