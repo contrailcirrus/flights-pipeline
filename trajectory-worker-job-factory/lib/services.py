@@ -26,6 +26,8 @@ from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
     SpireCacheTooSmallException,
+    MalformedLookupTableException,
+    BadJobIdLookupException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
 from pycontrails.datalib.spire.exceptions import ROCDError, UnknownAirportLocationError
@@ -234,6 +236,65 @@ class TrajectoryBuilderSvc:
         df = df[~df["flight_id"].isnull()]
         return df, df_satellite
 
+    def _fetch_job_id(
+        self, job_id: str, job_lookup_table: str, telemetry_src: TelemetrySource
+    ):
+        """
+        Fetch and clean waypoints for the flight_id list associated with the job id.
+
+         Parameters
+        ----------
+        job_id
+            A unique identifier for the keying into a list of flight_ids
+        job_lookup_table
+            The BigQuery table name for the table in which the job_id exists
+            (expected to be in the `flights_pipeline_prod` dataset)
+        telemetry_src
+            Specifies the source from which to fetch ads-b data
+
+        Returns
+        ---------
+        pd.DataFrame
+            target terrestrial ads-b data for flights
+        pd.DataFrame
+            target superset of satellite ads-b data for flights
+        """
+        if telemetry_src != TelemetrySource.GOOGLE_CLOUD_STORAGE:
+            raise NotImplementedError(
+                f"specified telemetry source ({telemetry_src.value}) is not yet implemented for flight_id based twjd"
+            )
+
+        query = f"SELECT day, flight_id_list FROM `contrails-301217.flights_pipeline_prod.{job_lookup_table}` WHERE job_id=@job_id"
+        cfg = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("job_id", "STRING", job_id),
+            ]
+        )
+        df_lookup: pd.DataFrame = self._bq_handler.query(query, cfg)
+
+        if ("day" not in df_lookup.columns) or (
+            "flight_id_list" not in df_lookup.columns
+        ):
+            raise MalformedLookupTableException(
+                "lookup table malformed. expected columns: day, flight_id_list"
+            )
+
+        if len(df_lookup) == 1:
+            day = df_lookup.iloc[0]["day"]
+            flight_id_list = list(df_lookup.iloc[0]["flight_id_list"])
+        else:
+            raise BadJobIdLookupException(
+                f"no unique match for job id {job_id} in table {job_lookup_table}"
+            )
+
+        # df_all comes with:
+        # 1) waypoints for flight_ids in the list
+        # 2) all waypoints with null flight_id (sat data) in target timerange
+        next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        df_all = self._gcs_handler.fetch_flight_id_list([day, next_day], flight_id_list)
+
+        # TODO: implement
+
     def run(self, twjd: TrajectoryWorkerJobDescriptor):
         """
         Main service entrypoint.
@@ -264,6 +325,12 @@ class TrajectoryBuilderSvc:
                     flight_id=twjd.flight_id,
                     telemetry_src=twjd.telemetry_source,
                 )
+            elif twjd.job_id:
+                df, df_satellite = self._fetch_job_id(
+                    job_id=twjd.job_id,
+                    job_lookup_table=twjd.job_lookup_table,
+                    telemetry_src=twjd.telemetry_source,
+                )
             else:
                 raise NotImplementedError(f"twjd could not be processed {twjd}")
         except InvalidQueryException as e:
@@ -274,6 +341,8 @@ class TrajectoryBuilderSvc:
             raise PermanentFailureException(
                 f"missing spire cache for twjd - {twjd}"
             ) from e
+        except BadJobIdLookupException as e:
+            raise PermanentFailureException from e
         except Exception as e:
             raise Exception(
                 f"failed to fetch ads-b data from data source for twjd - {twjd}"
@@ -405,7 +474,6 @@ class TrajectoryBuilderSvc:
             # -
             # motivation is to prune out general aviation flights when running
             # the job factory for airline_iata=null
-            # TODO: bug; airline_iata is only ever "null" str literal in the candidate obj
             if (
                 len(candidate.airline_iata) == 1
                 and candidate.airline_iata[0] == "null"
