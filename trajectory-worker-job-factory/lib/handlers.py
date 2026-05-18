@@ -632,10 +632,15 @@ class CloudStorageHandler:
             _,
         ) in bq_blob_map.items():  # load all pq shards in subdir at once into a df
             uri = f"gs://{self._bucket.name}/{k}"
-            logger.debug("fetching " + uri)
             df = pd.read_parquet(uri)
+            logger.debug(f"fetched {uri} record count {len(df)}")
             df = df[df["flight_id"].isin(flight_ids)]
+            logger.debug(f"retained {len(df)} records")
             df_agg = pd.concat([df_agg, df], ignore_index=True)
+        logger.debug(
+            f"total records: {len(df_agg)}. "
+            f"flight_id null records: {len(df_agg[df_agg["flight_id"]].isna())}"
+        )
         return df_agg
 
     @classmethod

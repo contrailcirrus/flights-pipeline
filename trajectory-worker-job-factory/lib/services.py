@@ -287,6 +287,9 @@ class TrajectoryBuilderSvc:
                 f"no unique match for job id {job_id} in table {job_lookup_table}"
             )
 
+        del df_lookup
+        logger.debug(f"got {len(flight_id_list)} flight_id targets for job_id {job_id}")
+
         # df_all comes with:
         # 1) waypoints for flight_ids in the list
         # 2) all waypoints with null flight_id (sat data) in target timerange
