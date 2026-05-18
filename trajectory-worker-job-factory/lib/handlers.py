@@ -39,7 +39,6 @@ from lib.exceptions import (
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
 from lib.schemas import (
-    AirlineDayFlightsProgressMarker,
     TrajectoryCandidateInfo,
 )
 from lib.utils import sigterm_manager
@@ -1288,9 +1287,9 @@ class RedisHandler:
         self._host = host
         self._port = port
 
-    def pull(self, key: str) -> int:
+    def pull(self, key: str) -> int | None:
         """
-        Retrieves the value for a key in redis.
+        Retrieves the progress marker value for a key in redis.
 
         Parameters
         ----------
@@ -1305,8 +1304,9 @@ class RedisHandler:
             retry_on_timeout=True,
             socket_timeout=1,
         )
-        cache_resp = redis_client.get(key)
-        return AirlineDayFlightsProgressMarker.from_redis_resp(cache_resp)
+        resp = redis_client.get(key)
+        if resp:
+            return int(resp.decode("utf-8"))
 
     def pop(self, key: str):
         """
@@ -1327,14 +1327,14 @@ class RedisHandler:
         )
         redis_client.delete(key)
 
-    def push(self, cache_entry: AirlineDayFlightsProgressMarker):
+    def push(self, key: str, value: int):
         """
         Parameters
         ----------
-        cache_entry:
-            An AirlineDayFlightsProgressMarker
-            The key is composed based on the airline iata and day.
-            The value is the marker integer.
+        key
+            redis key corresponding to the target cache k-v
+        value
+            integer value for progress marker
         """
         redis_retry = Retry(ExponentialBackoff(), 3)
         redis_client = redis.Redis(
@@ -1347,8 +1347,8 @@ class RedisHandler:
         try:
             # try writing single record w/ expiry as an atomic transaction
             transaction = redis_client.pipeline()
-            transaction.set(name=cache_entry.key, value=cache_entry.value)
-            transaction.expire(cache_entry.key, self.KEY_EXPIRY_SEC)
+            transaction.set(name=key, value=value)
+            transaction.expire(key, self.KEY_EXPIRY_SEC)
             transaction.execute()
         finally:
             redis_client.connection_pool.disconnect()

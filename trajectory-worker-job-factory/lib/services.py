@@ -373,15 +373,17 @@ class TrajectoryBuilderSvc:
 
         # fetch marker, if one exists, from redis cache
         progress_marker: int = 0
-        if self._cache_handler and (twjd.airline_iata or twjd.job_id):
-            # we skip cache handling if this is a twjd w/o airline_iata or job_id
-            if twjd.airline_iata:
-                key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
-            if twjd.job_id:
-                key = f"{twjd.job_id}:{twjd.met_source.value}"
-
-            logger.debug(f"job cache key: {key}")
-            if resp := self._cache_handler.pull(key):
+        progress_cache_key: str | None = None
+        # we skip cache handling if this is a twjd w/o airline_iata or job_id
+        if twjd.airline_iata:
+            progress_cache_key = (
+                f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
+            )
+        if twjd.job_id:
+            progress_cache_key = f"{twjd.job_id}:{twjd.met_source.value}"
+        if self._cache_handler and progress_cache_key:
+            logger.debug(f"job cache key: {progress_cache_key}")
+            if resp := self._cache_handler.pull(progress_cache_key):
                 progress_marker = resp
                 # TODO: add SMS alert on this event
                 logger.warning(
@@ -758,21 +760,22 @@ class TrajectoryBuilderSvc:
                     met_source=MetSource(twjd.met_source),
                     export_cocip_trajectory=twjd.full_traj,
                 )
+                # update progress marker cache
+                if self._cache_handler and (twjd.airline_iata or twjd.job_id):
+                    self._cache_handler.push(
+                        AirlineDayFlightsProgressMarker(
+                            airline_iata=twjd.airline_iata,
+                            day=twjd.day,
+                            met_source=twjd.met_source.value,
+                            marker=counter,
+                        )
+                    )
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
                         job.as_utf8_json(),
                         timeout_seconds=45,
                     )
                     self._job_out_handler.wait_for_publish(timeout_seconds=300)
-                    if self._cache_handler and twjd.airline_iata:
-                        self._cache_handler.push(
-                            AirlineDayFlightsProgressMarker(
-                                airline_iata=twjd.airline_iata,
-                                day=twjd.day,
-                                met_source=twjd.met_source.value,
-                                marker=counter,
-                            )
-                        )
             except Exception as _:
                 logger.error(
                     "skipping",
@@ -785,7 +788,9 @@ class TrajectoryBuilderSvc:
             # log state of flight submitted to TW
             logger.info("end work", extra=candidate.to_dict())
 
-        if self._cache_handler and twjd.airline_iata:
-            self._cache_handler.pop(
-                f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
-            )
+        # purge progress marker cache if all work completed successfully
+        if self._cache_handler:
+            if twjd.airline_iata:
+                self._cache_handler.pop(progress_cache_key)
+            if twjd.job_id:
+                self._cache_handler.pop(progress_cache_key)
