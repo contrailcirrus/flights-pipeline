@@ -292,8 +292,18 @@ class TrajectoryBuilderSvc:
         # 2) all waypoints with null flight_id (sat data) in target timerange
         next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
         df_all = self._gcs_handler.fetch_flight_id_list([day, next_day], flight_id_list)
-
-        # TODO: implement
+        # localize timestamps
+        df_all["timestamp"] = df_all["timestamp"].dt.tz_localize("UTC")
+        df_all["departure_scheduled_time"] = df_all[
+            "departure_scheduled_time"
+        ].dt.tz_localize("UTC")
+        df_all["arrival_scheduled_time"] = df_all[
+            "arrival_scheduled_time"
+        ].dt.tz_localize("UTC")
+        # segregate sat/terr df
+        df = df_all[~df_all["flight_id"].isna()]
+        df_sat = df_all[~df_all["flight_id"].isna()]
+        return df, df_sat
 
     def run(self, twjd: TrajectoryWorkerJobDescriptor):
         """
