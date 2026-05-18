@@ -639,7 +639,7 @@ class CloudStorageHandler:
             df_agg = pd.concat([df_agg, df], ignore_index=True)
         logger.debug(
             f"total records: {len(df_agg)}. "
-            f"flight_id null records: {len(df_agg[df_agg["flight_id"]].isna())}"
+            f"flight_id null records: {len(df_agg[df_agg["flight_id"].isna()])}"
         )
         return df_agg
 
