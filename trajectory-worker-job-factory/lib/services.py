@@ -761,7 +761,7 @@ class TrajectoryBuilderSvc:
                 )
                 # update progress marker cache
                 if self._cache_handler and (twjd.airline_iata or twjd.job_id):
-                    self._cache_handler.push(progress_cache_key, progress_marker)
+                    self._cache_handler.push(progress_cache_key, counter)
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
                         job.as_utf8_json(),
@@ -781,8 +781,5 @@ class TrajectoryBuilderSvc:
             logger.info("end work", extra=candidate.to_dict())
 
         # purge progress marker cache if all work completed successfully
-        if self._cache_handler:
-            if twjd.airline_iata:
-                self._cache_handler.pop(progress_cache_key)
-            if twjd.job_id:
-                self._cache_handler.pop(progress_cache_key)
+        if self._cache_handler and (twjd.airline_iata or twjd.job_id):
+            self._cache_handler.pop(progress_cache_key)
