@@ -373,11 +373,14 @@ class TrajectoryBuilderSvc:
 
         # fetch marker, if one exists, from redis cache
         progress_marker: int = 0
-        if self._cache_handler and twjd.airline_iata:
-            # we skip cache handling if this is a twjd w/o airline_iata
-            # i.e. we don't bother with cache handling for small jobs
-            # where the trajectories are for a single icao_address or flight_id
-            key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
+        if self._cache_handler and (twjd.airline_iata or twjd.job_id):
+            # we skip cache handling if this is a twjd w/o airline_iata or job_id
+            if twjd.airline_iata:
+                key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
+            if twjd.job_id:
+                key = f"{twjd.job_id}:{twjd.met_source.value}"
+
+            logger.debug(f"job cache key: {key}")
             if resp := self._cache_handler.pull(key):
                 progress_marker = resp
                 # TODO: add SMS alert on this event
