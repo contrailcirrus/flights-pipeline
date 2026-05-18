@@ -204,4 +204,5 @@ class TrajectoryWorkerJobDescriptor:
             )
 
         # verify datestr parsing w/o exc
-        _ = datetime.strptime(self.day, "%Y-%m-%d")
+        if self.day:
+            _ = datetime.strptime(self.day, "%Y-%m-%d")
