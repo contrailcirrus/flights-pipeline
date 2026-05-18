@@ -81,3 +81,17 @@ CREATE TABLE `contrails-301217.flights_pipeline_prod.job_batch_nbm_05152026_exam
     SELECT GENERATE_UUID() AS job_id, "2025-02-02" AS day, ARRAY_AGG(flight_id) AS flight_id_list
     FROM flight_id_candidate_tb
 ```
+
+Running the CLI with a job ID generated from the above table will look something like:
+```bash
+# -j <job_id> -l <lookup_table_name>
+./cli.py jobworker submit -j 7151bdb1-8487-4d0b-b22a-df33c79dd6b0 -l job_batch_nbm_05152026_example -w gcs -s era5 -r 
+```
+
+```bash
+(cli) (base) nickmasson@BE-VY2VXKTWH9 pipeline-cli % ./cli.py jobworker submit -j 7151bdb1-8487-4d0b-b22a-df33c79dd6b0 -l job_batch_nbm_05152026_example -w gcs -s era5 -r 
+
+{"timestamp":"2026-05-18 09:42:32,099", "severity": "INFO", "textPayload": "🛠️submitting TWJDs with 🔎 job_id: 7151bdb1-8487-4d0b-b22a-df33c79dd6b0 from ⊞ job_lookup_table: job_batch_nbm_05152026_example using met data source 📊era5", "labels":{"pid":"18901"}}
+{"timestamp":"2026-05-18 09:42:32,099", "severity": "INFO", "textPayload": "⏲️ waiting for publish to finish...", "labels":{"pid":"18901"}}
+{"timestamp":"2026-05-18 09:42:33,547", "severity": "INFO", "textPayload": "🙌 DONE!", "labels":{"pid":"18901"}}
+```
