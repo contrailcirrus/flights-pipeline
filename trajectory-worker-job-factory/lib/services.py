@@ -12,7 +12,6 @@ from lib.schemas import (
     TrajectoryCandidateInfo,
     WaypointsRecord,
     MetSource,
-    AirlineDayFlightsProgressMarker,
     TelemetrySource,
 )
 from lib.handlers import (
@@ -762,14 +761,7 @@ class TrajectoryBuilderSvc:
                 )
                 # update progress marker cache
                 if self._cache_handler and (twjd.airline_iata or twjd.job_id):
-                    self._cache_handler.push(
-                        AirlineDayFlightsProgressMarker(
-                            airline_iata=twjd.airline_iata,
-                            day=twjd.day,
-                            met_source=twjd.met_source.value,
-                            marker=counter,
-                        )
-                    )
+                    self._cache_handler.push(progress_cache_key, progress_marker)
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
                         job.as_utf8_json(),
