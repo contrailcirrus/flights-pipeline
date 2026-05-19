@@ -303,8 +303,8 @@ class TrajectoryBuilderSvc:
             "arrival_scheduled_time"
         ].dt.tz_localize("UTC")
         # segregate sat/terr df
-        df = df_all[df_all["flight_id"].isnull()]
-        df_sat = df_all[~df_all["flight_id"].isnull()]
+        df = df_all[~df_all["flight_id"].isnull()]
+        df_sat = df_all[df_all["flight_id"].isnull()]
         return df, df_sat
 
     def run(self, twjd: TrajectoryWorkerJobDescriptor):
