@@ -237,7 +237,7 @@ class TrajectoryBuilderSvc:
 
     def _fetch_job_id(
         self, job_id: str, job_lookup_table: str, telemetry_src: TelemetrySource
-    ):
+    ) -> (pd.DataFrame, pd.DataFrame):
         """
         Fetch and clean waypoints for the flight_id list associated with the job id.
 
@@ -303,8 +303,8 @@ class TrajectoryBuilderSvc:
             "arrival_scheduled_time"
         ].dt.tz_localize("UTC")
         # segregate sat/terr df
-        df = df_all[~df_all["flight_id"].isna()]
-        df_sat = df_all[~df_all["flight_id"].isna()]
+        df = df_all[df_all["flight_id"].isnull()]
+        df_sat = df_all[~df_all["flight_id"].isnull()]
         return df, df_sat
 
     def run(self, twjd: TrajectoryWorkerJobDescriptor):
