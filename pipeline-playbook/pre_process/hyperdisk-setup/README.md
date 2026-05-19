@@ -27,6 +27,12 @@ _This only needs to be done once, should not be torn-down, and is a cluster-wide
 kubectl apply -f hyperdiskml-useast1-storage-class.yaml
 ```
 
+Check the settings (note specifically starting bandwidth for a new disk in `Parameters: provisioned-throughput-on-create`) with:
+
+```shell
+kubectl describe storageclasses hyperdisk-ml-single-zone-useast1c
+```
+
 
 Notes:
 - the underlying HyperdiskML disk (viewable in `GCP Compute Engine > Disks`) is automatically provisioned when a k8s PVC is created using this `StorageClass`.
@@ -36,7 +42,7 @@ Notes:
 
 
 ## Step 0 - stage zarr stores
-First, copy the zarr stores we want on the Hyperdisk into a separate GCS Bucket. See [pre-processing instructions](pipeline-playbook/pre_process/README.md) on how to get appropriate Met data zarr stores into a GCS Bucket.
+First, copy the zarr stores we want on the Hyperdisk into a separate GCS Bucket. See [pre-processing instructions](../README.md) on how to get appropriate Met data zarr stores into a GCS Bucket.
 This Bucket is our staging ground for the zarr stores we plan to sync to the HyperdiskML instance.
 
 ## Step 1 - create a `GCSDataSource` resource
