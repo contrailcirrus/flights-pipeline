@@ -4,7 +4,7 @@ metadata:
   name: hyperdisk-ml-single-zone-useast1c
 parameters:
   type: hyperdisk-ml
-  provisioned-throughput-on-create: "2400Mi"
+  provisioned-throughput-on-create: "400Mi"
 provisioner: pd.csi.storage.gke.io
 allowVolumeExpansion: false
 reclaimPolicy: Delete
