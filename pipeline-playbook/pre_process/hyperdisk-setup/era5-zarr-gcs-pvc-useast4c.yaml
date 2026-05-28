@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: era5-zarr-gcs-pvc-useast4c
+spec:
+  accessModes:
+  - ReadOnlyMany
+  storageClassName: hyperdisk-ml-single-zone-useast4c
+  resources:
+    requests:
+      storage: 4000Gi
+  dataSourceRef:
+    apiGroup: datalayer.gke.io
+    kind: GCPDataSource
+    name: gcs-era5-zarr-datasource

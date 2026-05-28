@@ -1,15 +1,16 @@
 # Hyperdisk setup
-Proof of concept work, attempting to use a hyperdisk durable/persistent storage 
-for a read-many configuration, whereby many trajectory worker instances connect to
-and read from a hyperdisk volume, that volume being populated with the zarr stores
-used for the MetDataset xarray instances for running CoCiP.
+These are instructions for setting up a Hyperdisk-ML volume as a shared disk for 
+flights-pipeline pods to access Met data read-many configuration, whereby many trajectory 
+worker instances connect to and read from the volume. This provides a cost-effective, 
+high-bandwidth solution for providing the zarr stores used for the MetDataset xarray 
+instances for running CoCiP to all TWs.
 
 # Steps
 
 ## Pre-work
 
 (1) create a custom k8s `ComputeClass` resource, that is used by the auto-magical hyperdisk populator.
-_This only needs to be done once, should not be torn-down, and is a cluster-wide resource_.
+_This only needs to be done once per cluster, should not be torn-down, and is a cluster-wide resource_.
 ```shell
 kubectl apply -f gcs-to-hyperdisk-compute-class.yaml
 ```
