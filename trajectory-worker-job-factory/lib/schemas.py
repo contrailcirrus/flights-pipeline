@@ -1226,47 +1226,6 @@ class TrajectoryWorkerJobDescriptor:
 
 
 @dataclass
-class AirlineDayFlightsProgressMarker:
-    """
-    A progress marker intended to track the last flight processed for a given airline day's flights.
-
-    The progress is measured as an integer counter for a given airline.
-    For example, given airline iata designator 'AA', the progress marker `AA-20240112-1020`
-    indicates that flight count 1020 of AA's flights on 20240112 was the last processed.
-
-    Assuming the order of flights remains consistent, then a service may resume progress at 1021,
-    knowing that 1-1020 have already been processed.
-    """
-
-    airline_iata: str
-    day: str  # "%Y-%m-%d"
-    met_source: str
-    marker: int
-
-    @property
-    def key(self):
-        """
-        key to use in cache.
-        """
-        return f"{self.airline_iata}:{self.day}:{self.met_source}"
-
-    @property
-    def value(self):
-        """
-        string object to set in redis.
-        """
-        return str(self.marker)
-
-    @staticmethod
-    def from_redis_resp(resp: bytes | None) -> int | None:
-        """
-        Light marshalling to handle byte string response type from redis.
-        """
-        if resp:
-            return int(resp.decode("utf-8"))
-
-
-@dataclass
 class TrajectoryCandidateInfo:
     """
     High level information about a candidate flight trajectory handled by
