@@ -1,7 +1,7 @@
 resource "google_logging_project_sink" "twjf_logs_sink_dev_std" {
   name        = "trajectory-worker-job-factory-dev-std-skipped-logs"
   description = "TRAJECTORY-WORKER-JOB-FACTORY: Saves logs about healing, resampling, and validation of trajectory candidates in the development environment."
-  destination = "storage.googleapis.com/${google_storage_bucket.twjf_logs_bucket_std_k8s_dev.name}"
+  destination = "storage.googleapis.com/${google_storage_bucket.twjf_logs_bucket_dev.name}"
   filter      = "resource.type=\"k8s_container\" AND resource.labels.project_id=\"contrails-301217\" AND resource.labels.location=\"us-east4\" AND resource.labels.cluster_name=\"contrails-gke-general-std-useast4\" AND resource.labels.namespace_name=\"flights-pipeline-dev\" AND labels.k8s-pod/app=\"trajectory-worker-job-factory\" AND severity>=INFO"
 
   exclusions {
