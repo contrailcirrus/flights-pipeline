@@ -34,7 +34,7 @@ jobs:
         run: gcloud components install gke-gcloud-auth-plugin
 
       - name: Authorize kubectl CLI
-        run: gcloud container clusters get-credentials contrails-gke-general --region us-east1
+        run: gcloud container clusters get-credentials contrails-gke-general-std-useast4 --region us-east4
 
       - name: Authorize docker CLI
         run: gcloud auth configure-docker us-east1-docker.pkg.dev
