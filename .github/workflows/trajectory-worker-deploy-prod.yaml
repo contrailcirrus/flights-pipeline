@@ -77,8 +77,8 @@ jobs:
           TRAJECTORY_CHUNK_GAIA_BACKUP_TOPIC_ID: projects/contrails-301217/topics/prod-fp-gaia-trajectory-chunk-backup
           TRAJECTORY_CHUNK_GAIA_BACKUP_SUBSCRIPTION_ID: projects/contrails-301217/subscriptions/prod-fp-trajectory-worker-gaia-chunk-backup-ingress
           HRES_SOURCE_PATH: gs://contrails-301217-ecmwf-hres-forecast-v2-short-term
-          ERA5_SOURCE_PATH: gs://contrails-301217-ecmwf-era5-zarr-v2
-#          ERA5_SOURCE_PATH: /ecmwf-zarr-v2
+          # ERA5_SOURCE_PATH: gs://contrails-301217-ecmwf-era5-zarr-v2
+          ERA5_SOURCE_PATH: /ecmwf-zarr-v2
           GIT_SHA: ${{ github.sha }}
           TRAJECTORY_COCIP_BQ_TOPIC_ID: projects/contrails-301217/topics/prod-fp-trajectory-worker-cocip-egress-bigquery
           GCS_BUCKET_NAME: contrails-301217-flights-pipeline-prod
