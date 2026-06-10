@@ -15,7 +15,7 @@ spec:
     kind: Deployment
     name: trajectory-worker-job-factory
   minReplicas: 1
-  maxReplicas: 730
+  maxReplicas: 5
   metrics:
     - type: External
       external:
