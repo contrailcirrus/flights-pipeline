@@ -2,6 +2,8 @@
 Application handlers.
 """
 
+from copy import copy
+
 import io
 
 import asyncio
@@ -37,7 +39,6 @@ from lib.exceptions import (
 from lib.helpers import key_max_value_count
 from lib.log import format_traceback, logger
 from lib.schemas import (
-    AirlineDayFlightsProgressMarker,
     TrajectoryCandidateInfo,
 )
 from lib.utils import sigterm_manager
@@ -393,6 +394,7 @@ class PubSubPublishHandler:
                 logger.error(
                     "publish future failed",
                     extra={"reason": [e], "traceback": format_traceback()},
+                    extra={"reason": [e], "traceback": format_traceback()},
                 )
                 os._exit(1)
 
@@ -579,6 +581,94 @@ class CloudStorageHandler:
         self._client = storage.Client()
         self._bucket = self._client.bucket(self.GCS_BUCKET_SPIRE_CACHE)
 
+    def fetch_flight_id_list(
+        self, days: list[str], flight_ids: list[str]
+    ) -> pd.DataFrame:
+        """
+        Fetch data from GCS for all matching flight_ids in the list, known to have occurred on days.
+
+        Also returns all null flight_id values observed over those days.
+
+        Parameters
+        ----------
+        days
+            list of target days for flights; fmt "%Y-%m-%d"
+        flight_ids
+            list of flight ids
+
+        Returns
+        -------
+        pd.Dataframe
+            telemetry data for the target airline and day
+        """
+        datetime_hourly_strs: list[str] = []
+        for day in days:
+            for hr in range(0, 24):
+                datetime_hourly_strs.append(f"{day}T{hr:02}")
+
+        bq_blob_uri_prefixes = [
+            f"hourly/{datetime_hr}" for datetime_hr in datetime_hourly_strs
+        ]
+
+        # map of hourly prefix to GCS blob objects available for that prefix
+        bq_blob_map: dict[str, list[storage.blob.Blob]] = dict()
+        for uri_prefix in bq_blob_uri_prefixes:
+            bq_blob_map.update(
+                {uri_prefix: list(self._bucket.list_blobs(prefix=f"{uri_prefix}/"))}
+            )
+
+        # confirm that all target data is available
+        self._verify_spire_cache(bq_blob_map)
+
+        # fetch all ads-b data from target blobs,
+        # and subset to only the target flight_ids (and null flight_id)
+        df_agg = pd.DataFrame()
+        flight_ids = copy(flight_ids)
+        flight_ids.append(None)
+        # iterate serially here (since we subset on airline iata to keep mem footprint low
+        # on each iteration)
+        for (
+            k,
+            _,
+        ) in bq_blob_map.items():  # load all pq shards in subdir at once into a df
+            uri = f"gs://{self._bucket.name}/{k}"
+            df = pd.read_parquet(uri)
+            logger.debug(f"fetched {uri} record count {len(df)}")
+            df = df[df["flight_id"].isin(flight_ids)]
+            logger.debug(f"retained {len(df)} records")
+            df_agg = pd.concat([df_agg, df], ignore_index=True)
+        logger.debug(
+            f"total records: {len(df_agg)}. "
+            f"flight_id null records: {len(df_agg[df_agg["flight_id"].isna()])}"
+        )
+        return df_agg
+
+    @classmethod
+    def _verify_spire_cache(cls, prefix_to_uri_map: dict[str, list[storage.blob.Blob]]):
+        """
+        Confirms that the spire cache exists for the target uris.
+
+        Parameters
+        ----------
+        prefix_to_uri_map
+            a mapping of bucket uri prefixes to the blobs present with that prefix
+        """
+        # confirm that all target data is available
+        for k, blob_lst in prefix_to_uri_map.items():
+            if not blob_lst:
+                raise FileNotFoundError(f"no adsb files found in gcs with prefix - {k}")
+            # confirm that files in prefix path are large enough
+            # to guarantee that cache isn't a partial export
+            blobs_size_bytes = sum([b.size for b in blob_lst])
+            if blobs_size_bytes < cls.SPIRE_CACHE_EMPTY_THRESHOLD:
+                raise SpireCacheTooSmallException(
+                    f"spire cache present but empty - found {blobs_size_bytes} bytes at {k}"
+                )
+            if blobs_size_bytes < cls.SPIRE_CACHE_PARTIAL_THRESHOLD:
+                logger.warning(
+                    f"spire cache appears partial - found {blobs_size_bytes} bytes at {k}"
+                )
+
     def fetch_airline_days(
         self, days: list[str], airline_iata: str, prune: bool = False
     ) -> pd.DataFrame:
@@ -626,20 +716,7 @@ class CloudStorageHandler:
             )
 
         # confirm that all target data is available
-        for k, blob_lst in bq_blob_map.items():
-            if not blob_lst:
-                raise FileNotFoundError(f"no adsb files found in gcs with prefix - {k}")
-            # confirm that files in prefix path are large enough
-            # to guarantee that cache isn't a partial export
-            blobs_size_bytes = sum([b.size for b in blob_lst])
-            if blobs_size_bytes < self.SPIRE_CACHE_EMPTY_THRESHOLD:
-                raise SpireCacheTooSmallException(
-                    f"spire cache present but empty - found {blobs_size_bytes} bytes at {k}"
-                )
-            if blobs_size_bytes < self.SPIRE_CACHE_PARTIAL_THRESHOLD:
-                logger.warning(
-                    f"spire cache appears partial - found {blobs_size_bytes} bytes at {k}"
-                )
+        self._verify_spire_cache(bq_blob_map)
 
         # fetch all ads-b data from target blobs, and subset to only the target airline_iata
         df_agg = pd.DataFrame()
@@ -696,8 +773,8 @@ class HealTrajectoryHandler:
         self._min_speed_m_s = min_speed_m_s
         self._max_speed_m_s = max_speed_m_s
         self._min_altitude_ft = (
-            0
-        )  # removes zero-altitude waypoints that are likely on-ground or erroneous; 
+            0  # removes zero-altitude waypoints that are likely on-ground or erroneous;
+        )
         # should have minimal impact on first or last waypoints for low-lying airports
         self._max_altitude_ft = (
             55000  # well above max altitude for commercial flight; likely bad data
@@ -1136,7 +1213,6 @@ class HealTrajectoryHandler:
                 },
             )
 
-
         # --------------
         # Drop data points where computed ground speed is too slow or too fast. The
         # "too slow" case is often taxiing. The "too fast" case is often caused by
@@ -1170,7 +1246,6 @@ class HealTrajectoryHandler:
                     "flight_id": self._candidate_info.flight_id,
                 },
             )
-
 
         # --------------
         # Interpolate to one or both airports if needed.
@@ -1213,9 +1288,9 @@ class RedisHandler:
         self._host = host
         self._port = port
 
-    def pull(self, key: str) -> int:
+    def pull(self, key: str) -> int | None:
         """
-        Retrieves the value for a key in redis.
+        Retrieves the progress marker value for a key in redis.
 
         Parameters
         ----------
@@ -1230,8 +1305,9 @@ class RedisHandler:
             retry_on_timeout=True,
             socket_timeout=1,
         )
-        cache_resp = redis_client.get(key)
-        return AirlineDayFlightsProgressMarker.from_redis_resp(cache_resp)
+        resp = redis_client.get(key)
+        if resp:
+            return int(resp.decode("utf-8"))
 
     def pop(self, key: str):
         """
@@ -1252,14 +1328,14 @@ class RedisHandler:
         )
         redis_client.delete(key)
 
-    def push(self, cache_entry: AirlineDayFlightsProgressMarker):
+    def push(self, key: str, value: int):
         """
         Parameters
         ----------
-        cache_entry:
-            An AirlineDayFlightsProgressMarker
-            The key is composed based on the airline iata and day.
-            The value is the marker integer.
+        key
+            redis key corresponding to the target cache k-v
+        value
+            integer value for progress marker
         """
         redis_retry = Retry(ExponentialBackoff(), 3)
         redis_client = redis.Redis(
@@ -1272,8 +1348,8 @@ class RedisHandler:
         try:
             # try writing single record w/ expiry as an atomic transaction
             transaction = redis_client.pipeline()
-            transaction.set(name=cache_entry.key, value=cache_entry.value)
-            transaction.expire(cache_entry.key, self.KEY_EXPIRY_SEC)
+            transaction.set(name=key, value=value)
+            transaction.expire(key, self.KEY_EXPIRY_SEC)
             transaction.execute()
         finally:
             redis_client.connection_pool.disconnect()

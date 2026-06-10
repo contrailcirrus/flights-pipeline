@@ -6,6 +6,8 @@
       priorities:
       - machineFamily: c3
       - machineFamily: c3d
+      - machineFamily: c4
+      - machineFamily: c4d
       nodePoolAutoCreation:
         enabled: true
       whenUnsatisfiable: DoNotScaleUp

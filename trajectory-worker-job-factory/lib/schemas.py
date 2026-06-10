@@ -1169,9 +1169,11 @@ class TrajectoryWorkerJobDescriptor:
     telemetry_source: TelemetrySource  # src from which to fetch ads-b data
     full_traj: bool  # export per-seg cocip to bq
     airline_iata: str | None = None
-    flight_id: str | None = None
-    dry_run: bool = False  # local use only
-    export_waypoints: bool = False  # local use only
+    flight_id: list[str] | None = None
+    job_id: str | None = None
+    job_lookup_table: str | None = None
+    dry_run: bool = False  # cli (local) use only
+    export_waypoints: bool = False  # cli (local) use only
 
     @staticmethod
     def from_utf8_json(blob: bytes):
@@ -1185,6 +1187,8 @@ class TrajectoryWorkerJobDescriptor:
             full_traj=json.loads(blob)["full_traj"],
             airline_iata=json.loads(blob)["airline_iata"],
             flight_id=json.loads(blob)["flight_id"],
+            job_id=json.loads(blob)["job_id"],
+            job_lookup_table=json.loads(blob)["job_lookup_table"],
             dry_run=json.loads(blob)["dry_run"],
             export_waypoints=json.loads(blob)["export_waypoints"],
         )
@@ -1203,14 +1207,13 @@ class TrajectoryWorkerJobDescriptor:
         # caller must provide ONE OF the following sets of flags
         valid_arg_combos = {
             (self.day, self.airline_iata, self.met_source),
-            (self.day, self.flight_id, self.met_source),
+            (self.day, bool(self.flight_id), self.met_source),
+            (self.job_id, self.job_lookup_table),
         }
         is_valid = sum([all(itm) for itm in valid_arg_combos]) == 1
 
         if not is_valid:
-            raise ValueError(
-                "twjd not valid - must provide only one of  flight_id or airline_iata"
-            )
+            raise ValueError("twjd not valid")
 
         if self.met_source not in MetSource:
             raise ValueError(
@@ -1218,51 +1221,8 @@ class TrajectoryWorkerJobDescriptor:
             )
 
         # verify datestr parsing w/o exc
-        _ = datetime.strptime(self.day, "%Y-%m-%d")
-
-    def __str__(self):
-        return str(self.as_utf8_json)
-
-
-@dataclass
-class AirlineDayFlightsProgressMarker:
-    """
-    A progress marker intended to track the last flight processed for a given airline day's flights.
-
-    The progress is measured as an integer counter for a given airline.
-    For example, given airline iata designator 'AA', the progress marker `AA-20240112-1020`
-    indicates that flight count 1020 of AA's flights on 20240112 was the last processed.
-
-    Assuming the order of flights remains consistent, then a service may resume progress at 1021,
-    knowing that 1-1020 have already been processed.
-    """
-
-    airline_iata: str
-    day: str  # "%Y-%m-%d"
-    met_source: str
-    marker: int
-
-    @property
-    def key(self):
-        """
-        key to use in cache.
-        """
-        return f"{self.airline_iata}:{self.day}:{self.met_source}"
-
-    @property
-    def value(self):
-        """
-        string object to set in redis.
-        """
-        return str(self.marker)
-
-    @staticmethod
-    def from_redis_resp(resp: bytes | None) -> int | None:
-        """
-        Light marshalling to handle byte string response type from redis.
-        """
-        if resp:
-            return int(resp.decode("utf-8"))
+        if self.day:
+            _ = datetime.strptime(self.day, "%Y-%m-%d")
 
 
 @dataclass
@@ -1282,6 +1242,7 @@ class TrajectoryCandidateInfo:
     start_time: datetime | None
     end_time: datetime | None
     job_hash: str | None = None  # hash of the twjd
+
     @staticmethod
     def null_to_str(list_in: list[Any]):
         """
@@ -1298,7 +1259,9 @@ class TrajectoryCandidateInfo:
         return list_out
 
     @classmethod
-    def from_waypoints(cls, flight_id: str, df: pd.DataFrame, job_hash: str | None = None):
+    def from_waypoints(
+        cls, flight_id: str, df: pd.DataFrame, job_hash: str | None = None
+    ):
         """Build instance of self from pd dataframe of Spire waypoints."""
         return TrajectoryCandidateInfo(
             flight_id=flight_id,
