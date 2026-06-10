@@ -1,3 +1,5 @@
+import hashlib
+import hashlib
 import os
 
 import sys
@@ -11,7 +13,6 @@ from lib.schemas import (
     TrajectoryCandidateInfo,
     WaypointsRecord,
     MetSource,
-    AirlineDayFlightsProgressMarker,
     TelemetrySource,
 )
 from lib.handlers import (
@@ -25,6 +26,8 @@ from lib.exceptions import (
     PermanentFailureException,
     InvalidQueryException,
     SpireCacheTooSmallException,
+    MalformedLookupTableException,
+    BadJobIdLookupException,
 )
 from pycontrails.datalib.spire import ValidateTrajectoryHandler
 from pycontrails.datalib.spire.exceptions import ROCDError, UnknownAirportLocationError
@@ -183,7 +186,7 @@ class TrajectoryBuilderSvc:
     def _fetch_flight_id_day(
         self,
         day: str,
-        flight_id: str,
+        flight_id: list[str],
         telemetry_src: TelemetrySource,
     ) -> (pd.DataFrame, pd.DataFrame):
         """
@@ -222,7 +225,7 @@ class TrajectoryBuilderSvc:
             query_parameters=[
                 bigquery.ScalarQueryParameter("target_day", "STRING", day),
                 bigquery.ScalarQueryParameter("target_day_after", "STRING", next_day),
-                bigquery.ScalarQueryParameter("flight_id", "STRING", flight_id),
+                bigquery.ArrayQueryParameter("flight_id", "STRING", flight_id),
             ]
         )
         df: pd.DataFrame = self._bq_handler.query(query, cfg)
@@ -232,6 +235,78 @@ class TrajectoryBuilderSvc:
         df_satellite = df[df["flight_id"].isnull()]
         df = df[~df["flight_id"].isnull()]
         return df, df_satellite
+
+    def _fetch_job_id(
+        self, job_id: str, job_lookup_table: str, telemetry_src: TelemetrySource
+    ) -> (pd.DataFrame, pd.DataFrame):
+        """
+        Fetch and clean waypoints for the flight_id list associated with the job id.
+
+         Parameters
+        ----------
+        job_id
+            A unique identifier for the keying into a list of flight_ids
+        job_lookup_table
+            The BigQuery table name for the table in which the job_id exists
+            (expected to be in the `flights_pipeline_prod` dataset)
+        telemetry_src
+            Specifies the source from which to fetch ads-b data
+
+        Returns
+        ---------
+        pd.DataFrame
+            target terrestrial ads-b data for flights
+        pd.DataFrame
+            target superset of satellite ads-b data for flights
+        """
+        if telemetry_src != TelemetrySource.GOOGLE_CLOUD_STORAGE:
+            raise NotImplementedError(
+                f"specified telemetry source ({telemetry_src.value}) is not yet implemented for flight_id based twjd"
+            )
+
+        query = f"SELECT day, flight_id_list FROM `contrails-301217.flights_pipeline_prod.{job_lookup_table}` WHERE job_id=@job_id"
+        cfg = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("job_id", "STRING", job_id),
+            ]
+        )
+        df_lookup: pd.DataFrame = self._bq_handler.query(query, cfg)
+
+        if ("day" not in df_lookup.columns) or (
+            "flight_id_list" not in df_lookup.columns
+        ):
+            raise MalformedLookupTableException(
+                "lookup table malformed. expected columns: day, flight_id_list"
+            )
+
+        if len(df_lookup) == 1:
+            day = df_lookup.iloc[0]["day"]
+            flight_id_list = list(df_lookup.iloc[0]["flight_id_list"])
+        else:
+            raise BadJobIdLookupException(
+                f"no unique match for job id {job_id} in table {job_lookup_table}"
+            )
+
+        del df_lookup
+        logger.debug(f"got {len(flight_id_list)} flight_id targets for job_id {job_id}")
+
+        # df_all comes with:
+        # 1) waypoints for flight_ids in the list
+        # 2) all waypoints with null flight_id (sat data) in target timerange
+        next_day = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        df_all = self._gcs_handler.fetch_flight_id_list([day, next_day], flight_id_list)
+        # localize timestamps
+        df_all["timestamp"] = df_all["timestamp"].dt.tz_localize("UTC")
+        df_all["departure_scheduled_time"] = df_all[
+            "departure_scheduled_time"
+        ].dt.tz_localize("UTC")
+        df_all["arrival_scheduled_time"] = df_all[
+            "arrival_scheduled_time"
+        ].dt.tz_localize("UTC")
+        # segregate sat/terr df
+        df = df_all[~df_all["flight_id"].isnull()]
+        df_sat = df_all[df_all["flight_id"].isnull()]
+        return df, df_sat
 
     def run(self, twjd: TrajectoryWorkerJobDescriptor):
         """
@@ -263,6 +338,12 @@ class TrajectoryBuilderSvc:
                     flight_id=twjd.flight_id,
                     telemetry_src=twjd.telemetry_source,
                 )
+            elif twjd.job_id:
+                df, df_satellite = self._fetch_job_id(
+                    job_id=twjd.job_id,
+                    job_lookup_table=twjd.job_lookup_table,
+                    telemetry_src=twjd.telemetry_source,
+                )
             else:
                 raise NotImplementedError(f"twjd could not be processed {twjd}")
         except InvalidQueryException as e:
@@ -273,6 +354,8 @@ class TrajectoryBuilderSvc:
             raise PermanentFailureException(
                 f"missing spire cache for twjd - {twjd}"
             ) from e
+        except BadJobIdLookupException as e:
+            raise PermanentFailureException from e
         except Exception as e:
             raise Exception(
                 f"failed to fetch ads-b data from data source for twjd - {twjd}"
@@ -284,23 +367,37 @@ class TrajectoryBuilderSvc:
         # and submit jobs to worker queue
         # -----------
         flight_instances = df.groupby("flight_id", sort=True)
+        job_hash = hashlib.shake_128(twjd.as_utf8_json()).hexdigest(
+            8
+        )  # useful for keying in logs
+        job_hash = hashlib.shake_128(twjd.as_utf8_json()).hexdigest(
+            8
+        )  # useful for keying in logs
 
         # fetch marker, if one exists, from redis cache
-        progress_marker = 0
-        if self._cache_handler and twjd.airline_iata:
-            # we skip cache handling if this is a twjd w/o airline_iata
-            # i.e. we don't bother with cache handling for small jobs
-            # where the trajectories are for a single icao_address or flight_id
-            key = f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
-            if resp := self._cache_handler.pull(key):
+        progress_marker: int = 0
+        progress_cache_key: str | None = None
+        # we skip cache handling if this is a twjd w/o airline_iata or job_id
+        if twjd.airline_iata:
+            progress_cache_key = (
+                f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
+            )
+        if twjd.job_id:
+            progress_cache_key = f"{twjd.job_id}:{twjd.met_source.value}"
+        if self._cache_handler and progress_cache_key:
+            logger.debug(f"job cache key: {progress_cache_key}")
+            if resp := self._cache_handler.pull(progress_cache_key):
                 progress_marker = resp
                 # TODO: add SMS alert on this event
                 logger.warning(
                     "resuming progress from a previous job",
                     extra={
                         "marker": progress_marker,
-                        "airline_iata": twjd.airline_iata,
+                        "airline_iata": [twjd.airline_iata],
+                        "airline_iata": [twjd.airline_iata],
                         "twjd": twjd,
+                        "job_hash": job_hash,
+                        "job_hash": job_hash,
                     },
                 )
 
@@ -345,6 +442,7 @@ class TrajectoryBuilderSvc:
             candidate = TrajectoryCandidateInfo.from_waypoints(
                 flight_id=flight_id,
                 df=waypoints,
+                job_hash=job_hash,
             )
 
             # -------------
@@ -401,7 +499,7 @@ class TrajectoryBuilderSvc:
             # the job factory for airline_iata=null
             if (
                 len(candidate.airline_iata) == 1
-                and candidate.airline_iata[0] is None
+                and candidate.airline_iata[0] == "null"
                 and waypoints["altitude_baro"].max()
                 < self.MAX_NOMINAL_ALT_GEN_AVIATION_FT
             ):
@@ -477,9 +575,6 @@ class TrajectoryBuilderSvc:
                 waypoints_pycontrail["time"] = waypoints_pycontrail["time"].apply(
                     lambda r: r.tz_localize(None)
                 )
-                # ensure no timestamp dupes, as expected by pycontrails.resample_and_fill
-                # TODO: remove: I think this is already handled in the heal step
-                waypoints_pycontrail.drop_duplicates(["time"], inplace=True)
 
                 # resample waypoints
                 pyc_flight = Flight(waypoints_pycontrail)
@@ -551,7 +646,7 @@ class TrajectoryBuilderSvc:
                     (joined_times["_merge"] == "right_only")
                     | (joined_times["_merge"] == "both")
                 ]
-                imputed.fillna(False, inplace=True)  # Likely be unnecessary
+                imputed.fillna(False, inplace=True)  # Likely unnecessary
                 # reindex to match waypoints_pycontrail and mark imputed waypoints
                 imputed.reset_index(drop=True, inplace=True)
                 waypoints_pycontrail["imputed"] = imputed
@@ -670,21 +765,15 @@ class TrajectoryBuilderSvc:
                     met_source=MetSource(twjd.met_source),
                     export_cocip_trajectory=twjd.full_traj,
                 )
+                # update progress marker cache
+                if self._cache_handler and (twjd.airline_iata or twjd.job_id):
+                    self._cache_handler.push(progress_cache_key, counter)
                 if not twjd.dry_run:
                     self._job_out_handler.publish_async(
                         job.as_utf8_json(),
                         timeout_seconds=45,
                     )
                     self._job_out_handler.wait_for_publish(timeout_seconds=300)
-                    if self._cache_handler and twjd.airline_iata:
-                        self._cache_handler.push(
-                            AirlineDayFlightsProgressMarker(
-                                airline_iata=twjd.airline_iata,
-                                day=twjd.day,
-                                met_source=twjd.met_source.value,
-                                marker=counter,
-                            )
-                        )
             except Exception as _:
                 logger.error(
                     "skipping",
@@ -697,7 +786,6 @@ class TrajectoryBuilderSvc:
             # log state of flight submitted to TW
             logger.info("end work", extra=candidate.to_dict())
 
-        if self._cache_handler and twjd.airline_iata:
-            self._cache_handler.pop(
-                f"{twjd.airline_iata}:{twjd.day}:{twjd.met_source.value}"
-            )
+        # purge progress marker cache if all work completed successfully
+        if self._cache_handler and (twjd.airline_iata or twjd.job_id):
+            self._cache_handler.pop(progress_cache_key)

@@ -33,19 +33,28 @@ jobworker_submit_parser.add_argument(
     help='calendar day (UTC) for fetching flights. Format "%Y-%m-%d". e.g. "2024-01-12"',
     dest="day",
 )
+# list of multiple flight id values, or an empty list if not specified
 jobworker_submit_parser.add_argument(
     "-i",
     "--flight-id",
+    nargs="+",
     required=False,
     help="flight_id for target flight to submit",
     dest="flight_id",
 )
 jobworker_submit_parser.add_argument(
-    "-c",
-    "--icao-address",
+    "-j",
+    "--job-id",
     required=False,
-    help="icao_address for target flight to submit",
-    dest="icao_address",
+    help="batch job ID for a BQ lookup table",
+    dest="job_id",
+)
+jobworker_submit_parser.add_argument(
+    "-l",
+    "--job-lookup-table",
+    required=False,
+    help="name of the job ID lookup table (BigQuery)",
+    dest="job_lookup_table",
 )
 jobworker_submit_parser.add_argument(
     "-s",

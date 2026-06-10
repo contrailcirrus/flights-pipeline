@@ -14,7 +14,8 @@ SELECT
     COUNT(*) as flight_cnt,
     SUM(sum_ef_mj) as total_ef_mj,
     SUM(chunk_len_km) as total_len_km,
-    SUM(contrail_generating_kms) as total_contrail_generating_km
+    SUM(contrail_generating_kms) as total_contrail_generating_km,
+    SUM(warming_contrail_generating_kms) as total_warming_contrail_generating_km
 FROM "trajectory-cocip"
 GROUP BY (
     month_bucket,
@@ -45,11 +46,7 @@ CREATE INDEX idx_mv_od_path_base_time ON inventory_monthly_od_pair_airline_stats
     flight_cnt,
     total_ef_mj,
     total_len_km
-)
-WHERE arrival_airport_icao IS NOT NULL
-  AND arrival_airport_icao != 'None'
-  AND departure_airport_icao IS NOT NULL
-  AND departure_airport_icao != 'None';
+);
 
 CREATE INDEX idx_mv_od_path_operator ON inventory_monthly_od_pair_airline_stats (
     airline_iata,
@@ -65,11 +62,7 @@ CREATE INDEX idx_mv_od_path_operator ON inventory_monthly_od_pair_airline_stats 
     flight_cnt,
     total_ef_mj,
     total_len_km
-)
-WHERE arrival_airport_icao IS NOT NULL
-  AND arrival_airport_icao != 'None'
-  AND departure_airport_icao IS NOT NULL
-  AND departure_airport_icao != 'None';
+);
 
 ALTER TABLE inventory_monthly_od_pair_airline_stats OWNER TO postgres;
 GRANT DELETE, INSERT, SELECT, UPDATE ON inventory_monthly_od_pair_airline_stats TO internal_user_rw;

@@ -1,0 +1,13 @@
+    apiVersion: cloud.google.com/v1
+    kind: ComputeClass
+    metadata:
+      name: gcs-to-hdml-compute-class
+    spec:
+      priorities:
+      - machineFamily: c3
+      - machineFamily: c3d
+      - machineFamily: c4
+      - machineFamily: c4d
+      nodePoolAutoCreation:
+        enabled: true
+      whenUnsatisfiable: DoNotScaleUp

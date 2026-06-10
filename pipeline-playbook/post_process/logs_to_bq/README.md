@@ -4,42 +4,18 @@ This describes our process for loading log files from the Trajectory Worker Job 
 GCS file sync into BigQuery, and how we use BQ tooling to do some/all of our (pre-)aggregation analysis.
 
 ## Data
-The logs are set up to copy to a GCS bucket via the Google Cloud Log Sink mechanism which copies logs every hour for the previous hour. These logs end up [here](contrails-301217-fp-prod-trajectory-worker-job-factory/stderr). After the Feb. 2026 run through of the 2024 Spire data, we saved the logs [here](gs://contrails-301217-sandbox-internal/flights-pipeline/flights-pipeline/inventory_2024_run_feb2026). There were two runs (run1, and run2), which had `airline_iata not null` and `airline_iata null` respectively.
+The logs are set up to copy to a GCS bucket via the Google Cloud Log Sink mechanism which copies logs every hour for the previous hour. These logs end up [here](gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr). After the Mar. 2026 run through of the 2024-2025 Spire data, we saved the logs [here](gs://contrails-301217-flights-pipeline-prod/logs/inventory_2024-2025_run_mar2026). 
 
 ## Limitations
-There is one known hard-block limitation.
-The logs we generated in the Feb16-Feb20 run of 2024 flight data packages several output fields as arrays.
-For instance, `airline_iata`, `callsign`, etc...
-```text
-"jsonPayload":{"airline_iata":["AA"],"arrival_airport_icao":["KRDU"],"asyncio_taskname":null,"callsign":["AAL2683"],"departure_airport_icao":["KDFW"],"end_time":"2024-01-11T15:24:58Z","flight_id":"+/4Aw2SJedk+Gc52z6eYqA==","flight_number":["AA2683"],"message":"start work","pid":1,"start_time":"2024-01-11T13:28:55Z","thread":133308409215872,"timestamp":"2026-02-17T23:29:56.428684+00:00","waypoint_count":234}
-```
-
-This is not a problem for BQ. We can define the type of these values as arrays, and if the k-v is missing,
-it would show up as empty (`null`) in BQ.
-
-_BUT_, BQ does not allows `null` values _in_ an array.
-
-So BQ load will fail for lines where we have, e.g.
-```text
-"arrival_airport_icao":["KRDU", null]
-```
-
-This is unfortunate, and there are no params we can pass to `bq load` to have it coerce such cases.
-
-The only fix here is for us to convert true `null` values in our log message outputs to string literal `"null"`.
-This would be a good logging enhancement/change to the TWJD, to be reflected in future runs, 
-but won't help us for the existing 2024 inventory run.
+This Mar. 2026 run had some inconsistencies in the format of the `jsonPayload.reason` field where it was sometimes provided as an array, and sometimes as a nullable string. Notes on how this was handled are detailed in the notes for that run and should be fixed moving forward. Similarly, we added the `jsonPayload.job_hash` field to the schema for the logs table, but it has not been included in this dataset, though it will be in the future.
 
 ## Playbook
 Here is an example flow.
 
 ### Step 1: load all logs into BQ
-Load all the newline JSON log files for a given run into a BQ table.
-See this [bq load command](bq_load_example.sh).
+Load all the newline JSON log files for a given run into a BQ table by modifying and then running [bq_load_twjf_logs.sh](bq_load_twjf_logs.sh), [bq_load_tw_logs.sh](bq_load_tw_logs.sh), [bq_load_tw_backup_logs.sh](bq_load_tw_backup_logs.sh).
 
-Note that we use the `twjd_logs_bq_schema_lean.json`, which drops several of the `jsonPayload` fields (those affected by [#Limitations](#limitations)).
-
-Even with those fields missing, we can do some powerful initial analysis (and if those fields were added in the future, we could extend BQ to handle those fields).
+We use the `logs_bq_table_schema.json`, which is harmonized to handle TWJF and TW logs, but which may need to be updated if any of the log messages to be captured change.
 
 ### Step 2: Querying the logs
 
