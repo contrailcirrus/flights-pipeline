@@ -1,4 +1,5 @@
 import hashlib
+import hashlib
 import os
 
 import sys
@@ -366,6 +367,9 @@ class TrajectoryBuilderSvc:
         # and submit jobs to worker queue
         # -----------
         flight_instances = df.groupby("flight_id", sort=True)
+        job_hash = hashlib.shake_128(twjd.as_utf8_json()).hexdigest(
+            8
+        )  # useful for keying in logs
         job_hash = hashlib.shake_128(twjd.as_utf8_json()).hexdigest(
             8
         )  # useful for keying in logs
