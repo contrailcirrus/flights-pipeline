@@ -40,8 +40,8 @@ spec:
                 key: CONTRAILS_API_KEY
         resources:
           limits:
-            cpu: "1"
-            memory: "3.95Gi"
+            cpu: "0.7"
+            memory: "2.3Gi"
           requests:
-            cpu: "1"
-            memory: "3.95Gi"
+            cpu: "0.7"
+            memory: "2.3Gi"
