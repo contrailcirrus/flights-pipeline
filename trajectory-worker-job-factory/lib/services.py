@@ -374,6 +374,7 @@ class TrajectoryBuilderSvc:
             8
         )  # useful for keying in logs
 
+
         # fetch marker, if one exists, from redis cache
         progress_marker: int = 0
         progress_cache_key: str | None = None
