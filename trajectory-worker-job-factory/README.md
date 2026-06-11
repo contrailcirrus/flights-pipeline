@@ -134,3 +134,4 @@ Follow these steps (don't forget to clean up your VM after use!).
 gcloud compute instances create SOME_VM_NAME --machine-type=f1-micro --zone=us-east1-b
 REDIS_HOST=REMOTE_HOST_IPV4 && REDIS_PORT=6379 && gcloud compute ssh SOME_VM_NAME --zone=us-east1-b -- -N -L $REDIS_PORT:$REDIS_HOST:$REDIS_PORT
 ```
+
