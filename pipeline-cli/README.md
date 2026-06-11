@@ -9,12 +9,12 @@ The CLI can be used to create the following job types.
 Example:
 ```bash
 # all flights with airline iata designator AA (American Airlines) on 2025-01-01
-./cli.py -a AA -d 2025-01-01
+./cli.py -a AA -d 2025-01-01 -s era5
 ```
 
 ```bash
 # all flights with ... over date range (inclusive) 2025-01-01 -> 2025-02-12
-./cli.py -a AA -d 2025-01-01
+./cli.py -a AA -d 2025-01-01_2025-02-12 -s era5
 ```
 
 Note: this finds all flights that originate on (first waypoint timestamp) within the calendar day specified
@@ -23,10 +23,10 @@ Note: this finds all flights that originate on (first waypoint timestamp) within
 Example:
 ```bash
 # one flight with matching flight id
-./cli.py jobworker submit -d 2025-05-16 -i 60e21ddd-b87f-423e-a5db-a2f12d5dd40a
+./cli.py jobworker submit -d 2025-05-16 -i 60e21ddd-b87f-423e-a5db-a2f12d5dd40a -s era5
 
 # two flights with matching flight id
-./cli.py jobworker submit -d 2025-05-16 -i 60e21ddd-b87f-423e-a5db-a2f12d5dd40a 2eefb1a9-28b1-4a7b-ac7c-343d7fdc7a30
+./cli.py jobworker submit -d 2025-05-16 -i 60e21ddd-b87f-423e-a5db-a2f12d5dd40a 2eefb1a9-28b1-4a7b-ac7c-343d7fdc7a30 -s era5
 ```
 
 Note: the `flight_id` passed to the CLI _must originate (first waypoint timestamp)_ on the calendar day specified.  
@@ -35,8 +35,9 @@ If multiple `flight_id` are submitted, all must fall on the calendar day.
 ### General args
 The following arguments can be used with either job submission type:
 - `-r` dry-run mode. Will run the TWJF, but the TWJF will not submit the processed flights onward to the trajectory workers
+- `-t` instructs trajectory worker to export the per-segment CoCiP outputs to BQ, as well as the flight data protobuf blob in GCS
 - `-w` telemetry source for fetching the ADS-B records.  Must be either of `bq` (default) or `gcs`
-- `-s` meteorological data type. Must be either `era5` or `hres`
+- `-s` (REQUIRED) meteorological data type. Must be either `era5` or `hres`.
 
 ## Create Large Batch Jobs
 The CLI also supports minting TWJDs that tell the TWJF to process large batch jobs.
