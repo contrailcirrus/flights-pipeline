@@ -110,7 +110,7 @@
           {
           "name": "flight_id",
           "type": "STRING",
-          "mode": "NULLABLE"
+          "mode": "REPEATED"
           },
           {
           "name": "full_traj",

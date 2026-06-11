@@ -1,5 +1,4 @@
 import hashlib
-import hashlib
 import os
 
 import sys
@@ -370,9 +369,7 @@ class TrajectoryBuilderSvc:
         job_hash = hashlib.shake_128(twjd.as_utf8_json()).hexdigest(
             8
         )  # useful for keying in logs
-        job_hash = hashlib.shake_128(twjd.as_utf8_json()).hexdigest(
-            8
-        )  # useful for keying in logs
+
 
         # fetch marker, if one exists, from redis cache
         progress_marker: int = 0
@@ -394,9 +391,7 @@ class TrajectoryBuilderSvc:
                     extra={
                         "marker": progress_marker,
                         "airline_iata": [twjd.airline_iata],
-                        "airline_iata": [twjd.airline_iata],
                         "twjd": twjd,
-                        "job_hash": job_hash,
                         "job_hash": job_hash,
                     },
                 )
