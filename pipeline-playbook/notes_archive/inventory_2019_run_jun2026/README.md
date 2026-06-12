@@ -105,6 +105,8 @@ The 2019 run was executed using the new `job_id` based batching for the TWJDs/TW
 
 The job table was built with the following query (holding batches of ~1,000 flights).
 
+NOTE THAT WE DON'T INCLUDE FLIGHTS ORIGINATING ON THE FIRST DAY OF 2019.
+
 ```sql
 CREATE TABLE contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_jobs AS
 WITH main_tb AS (SELECT flight_id, min(timestamp) AS min_ts, max(altitude_baro) AS max_alt_baro
@@ -113,11 +115,11 @@ WITH main_tb AS (SELECT flight_id, min(timestamp) AS min_ts, max(altitude_baro) 
                  GROUP BY flight_id),
      target_tb AS (SELECT flight_id, min_ts, TIMESTAMP_TRUNC(min_ts, DAY) AS day_bin
                    FROM main_tb
-                   WHERE max_alt_baro > 18000),
+                   WHERE max_alt_baro > 18000 AND min_ts >= "2019-01-02T00:00:00"),
      job_grp_tb AS (SELECT *,
                            SUBSTR(TO_HEX(SHA256(CONCAT(
-                                   CAST(CAST(0.01 * ROW_NUMBER() OVER (PARTITION BY day_bin ORDER BY min_ts) AS INT64) AS STRING),
-                                   CAST(min_ts AS STRING)))), 1, 32) AS job_id
+                                   CAST(CAST(0.001 * ROW_NUMBER() OVER (PARTITION BY day_bin ORDER BY min_ts) AS INT64) AS STRING),
+                                   CAST(day_bin AS STRING)))), 1, 32) AS job_id
                     FROM target_tb),
      agg_tb AS (SELECT job_id,
                        ARRAY_AGG(day_bin)   AS day_bin_arr,
