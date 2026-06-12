@@ -33,7 +33,7 @@ class JobWorkerSubmitSvc(BaseSvc):
     Service backing calls to the flights submit parser.
     """
 
-    TWJD_TOPIC_ID = "projects/contrails-301217/topics/prod-fp-twjd-ingress"
+    TWJD_TOPIC_ID = "projects/contrails-301217/topics/dev-fp-twjd-ingress"
 
     def __init__(self, input: argparse.Namespace):
         """
@@ -123,7 +123,7 @@ class JobWorkerSubmitSvc(BaseSvc):
             dt_rg_strs = [self._day]
 
         job_id_list = []
-        if self._job_id and self._job_id.split(".")[-1] == ".txt":
+        if self._job_id and self._job_id.split(".")[-1] == "txt":
             with open(self._job_id, "r") as fp:
                 for itm in fp.readlines():
                     job_id_list.append(itm.strip("\n"))
