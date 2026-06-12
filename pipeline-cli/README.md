@@ -96,3 +96,22 @@ Running the CLI with a job ID generated from the above table will look something
 {"timestamp":"2026-05-18 09:42:32,099", "severity": "INFO", "textPayload": "⏲️ waiting for publish to finish...", "labels":{"pid":"18901"}}
 {"timestamp":"2026-05-18 09:42:33,547", "severity": "INFO", "textPayload": "🙌 DONE!", "labels":{"pid":"18901"}}
 ```
+
+Alternatively, you can pass the filepath to a list of newline delimited job-ids in a text file:
+
+```bash
+# -j <job_id_list_filepath> -l <lookup_table_name>
+./cli.py jobworker submit -j job_id_list.txt -l job_batch_nbm_05152026_example -w gcs -s era5 -r 
+```
+
+`job_id_list.txt`:
+```text
+507e8983-63a7-47d3-a359-36b14b5c4754
+28f0180c-fbea-4b7f-8fe4-6f96091ba4b3
+c3b7b439-9ba5-4c11-8a9a-091b2c0afeed
+```
+
+```text
+⚠️ The file MUST have suffix .txt
+```
+ 
