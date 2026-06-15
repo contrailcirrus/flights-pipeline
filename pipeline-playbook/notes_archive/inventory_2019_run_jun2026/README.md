@@ -195,3 +195,9 @@ TWJF finished
 06/15/2026 ~17:05
 notes: TWJF finished minting TW flights. No dead-lettered TWJDs observed.
 ```
+
+```text
+Switch TW and TW-BU to new hyperdisk
+06/15/2026 22:10
+notes: hotpatch prod, switching TW and TW-BU deployments to era5-zarr-gcs-pvc-useast4c-100gpbs PVC
+```
