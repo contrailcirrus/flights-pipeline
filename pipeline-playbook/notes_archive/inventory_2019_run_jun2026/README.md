@@ -177,3 +177,9 @@ Scale TWJF
 06/15/2026 14:08
 notes: scaled TWJF to 500 replicas
 ```
+
+```text
+Scale k8s node pool and TW replicas and hyperdisk throughput
+06/15/2026 14:50
+notes: scaled k8s node pool to 50 instances; scaled TW to 2700 workers; scaled hyperdisk to 80gb/sec
+```
