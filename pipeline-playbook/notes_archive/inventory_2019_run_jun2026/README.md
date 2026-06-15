@@ -199,5 +199,18 @@ notes: TWJF finished minting TW flights. No dead-lettered TWJDs observed.
 ```text
 Switch TW and TW-BU to new hyperdisk
 06/15/2026 22:10
-notes: hotpatch prod, switching TW and TW-BU deployments to era5-zarr-gcs-pvc-useast4c-100gpbs PVC
+notes: hotpatch prod, switching TW and TW-BU deployments to era5-zarr-gcs-pvc-useast4c-100gpbs PVC. New hyperdisk tool ~5hrs to hydrate w/ 4TB (1yr era5 zarr).
 ```
+
+```text
+Scale node pool and TW
+06/15/2026 22:25
+notes: scaled node pool to 100 c3-std-22 instances; scaled TW to 5295; hyperdisk utilization observed around 45-50gb/sec
+```
+
+```text
+Scale node pool and TW
+06/15/2026 22:25
+notes: scaled node pool to 200 c3-std-22 instances; scaled TW to 10,595; hyperdisk utilization observed around 70gb/sec
+```
+
