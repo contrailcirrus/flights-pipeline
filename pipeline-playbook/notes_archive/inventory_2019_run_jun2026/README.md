@@ -158,3 +158,9 @@ Scale TWJF and TW
 06/15/2026 13:25
 notes: scaled TWJF to 10 replicas; scaled TW to 260 replicas; hyperdisk kept at 600mb/sec
 ```
+
+```text
+Scale TWJF
+06/15/2026 13:35
+notes: scaled TWJF to 100 replicas
+```
