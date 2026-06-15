@@ -129,3 +129,18 @@ WITH main_tb AS (SELECT flight_id, min(timestamp) AS min_ts, max(altitude_baro) 
 SELECT job_id, FORMAT_DATE('%Y-%m-%d', ARRAY_FIRST(day_bin_arr)) AS day, flight_id_list
 FROM agg_tb
 ```
+
+## Run
+
+```text
+TWJD submit
+06/15/2026 13:05 UTC
+notes: see below
+```
+
+The job-id based TWJDs in the `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_jobs` table 
+were submitted starting at ``.  See the [job-id list](2019_job_id_list.txt).  The flights referenced by those 
+ids total `26,498,316`.
+
+Executed on VM: `./cli.py jobworker submit -j /home/nickmasson/flights-pipeline/pipeline-playbook/notes_archive/inventory_2019_run_jun2026/2019_job_id_list.txt -l inventory_2019_run_jun2026_jobs -w gcs -s era5 -t > 2019_run.log 2>&1`.
+
