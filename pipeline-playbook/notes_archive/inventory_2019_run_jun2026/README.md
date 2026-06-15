@@ -181,5 +181,17 @@ notes: scaled TWJF to 500 replicas
 ```text
 Scale k8s node pool and TW replicas and hyperdisk throughput
 06/15/2026 14:50
-notes: scaled k8s node pool to 30 instances; scaled TW to 1550 workers; scaled hyperdisk to 50gb/sec
+notes: scaled k8s node pool to 30 instances; scaled TW to 1550 workers; attempt to scale hyperdisk to 80gb/sec
+```
+
+```text
+Scale k8s node pool and TW replicas
+06/15/2026 ~15:10
+notes: ISSUES WITH HYPERDISK. Did not scale to 80gb/sec, despite quota at 500gb/sec. Scale node pool back down to 5 instances; TW back down to 260 replicas.
+```
+
+```text
+TWJF finished
+06/15/2026 ~17:05
+notes: TWJF finished minting TW flights. No dead-lettered TWJDs observed.
 ```
