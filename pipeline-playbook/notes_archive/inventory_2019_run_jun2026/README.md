@@ -144,7 +144,7 @@ notes: std k8s cluster node pool scaled to 5 c3-std-22 instances
 ```text
 TWJD submit
 06/15/2026 13:20 UTC
-notes: see below
+notes: completed at 14:06UTC; see below
 ```
 
 The job-id based TWJDs in the `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_jobs` table 
@@ -152,6 +152,13 @@ were submitted starting at ``.  See the [job-id list](2019_job_id_list.txt).  Th
 ids total `26,498,316`.
 
 Executed on VM: `./cli.py jobworker submit -j /home/nickmasson/flights-pipeline/pipeline-playbook/notes_archive/inventory_2019_run_jun2026/2019_job_id_list.txt -l inventory_2019_run_jun2026_jobs -w gcs -s era5 -t > 2019_run.log 2>&1`.
+
+Finished at 14:06:
+```bash
+{"timestamp":"2026-06-15 14:06:11,230", "severity": "INFO", "textPayload": "🛠️published job_id 26862 of 26862", "labels":{"pid":"5122"}}
+{"timestamp":"2026-06-15 14:06:11,230", "severity": "INFO", "textPayload": "⏲️ waiting for publish to finish...", "labels":{"pid":"5122"}}
+{"timestamp":"2026-06-15 14:06:12,354", "severity": "INFO", "textPayload": "🙌 DONE!", "labels":{"pid":"5122"}}
+```
 
 ```text
 Scale TWJF and TW
