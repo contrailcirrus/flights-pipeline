@@ -131,10 +131,19 @@ FROM agg_tb
 ```
 
 ## Run
+Back-of-envelope calcs:
+- ~55 TW fit on a c3-std-22 node
+- ~15mb/sec per worker hyperdisk throughput
+
+```text
+Scale std k8s cluster
+06/15/2016 13:15 UTC
+notes: std k8s cluster node pool scaled to 5 c3-std-22 instances
+```
 
 ```text
 TWJD submit
-06/15/2026 13:05 UTC
+06/15/2026 13:20 UTC
 notes: see below
 ```
 
@@ -144,3 +153,8 @@ ids total `26,498,316`.
 
 Executed on VM: `./cli.py jobworker submit -j /home/nickmasson/flights-pipeline/pipeline-playbook/notes_archive/inventory_2019_run_jun2026/2019_job_id_list.txt -l inventory_2019_run_jun2026_jobs -w gcs -s era5 -t > 2019_run.log 2>&1`.
 
+```text
+Scale TWJF and TW
+06/15/2026 13:25
+notes: scaled TWJF to 10 replicas; scaled TW to 260 replicas; hyperdisk kept at 600mb/sec
+```
