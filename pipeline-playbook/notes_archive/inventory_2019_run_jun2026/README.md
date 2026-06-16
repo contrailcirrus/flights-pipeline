@@ -251,7 +251,18 @@ notes: scale up to qty 5 c3-highcpu-88 instances; scale down 117 c3-std-22
 ```
 
 ```text
-Scale node pool
-06/16/2026 15:50->
-notes: scale up to qty 30 c3-highcpu-88 instances; scale down to 1 c3-std-22
+update TW vcpu request
+06/16/2026 ~16:30
+notes: drop c3-highcpu-88 to 1 instance; increase TW resource request to 0.5vcpu/pod; scale c3-std-22 to 133; set TW replicas at 5100
 ```
+
+```text
+Scale node pool
+06/16/2026 16:00->18:20
+notes: scale up to qty 18 c3-highcpu-88 instances; qty 18 high-cpu-44 instances; scale down to 1 c3-std-22. TW at 5100 replicas (0.5vcpu/pod). Job throughput now at 250 job/sec.  Significant increase from ~170-180, while keeping total vcpu cnt constant.
+```
+
+```text
+Scale node pool
+06/16/2026 18:30-19:10
+notes: c3-highcpu-44 qty 31; c3-highcpu-88 qty 10. TW at 5100.
