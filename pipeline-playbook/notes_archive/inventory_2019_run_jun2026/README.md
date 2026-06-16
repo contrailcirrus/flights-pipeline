@@ -263,6 +263,8 @@ notes: scale up to qty 18 c3-highcpu-88 instances; qty 18 high-cpu-44 instances;
 ```
 
 ```text
-Scale node pool
+Scale node pool & TW
 06/16/2026 18:30-19:10
-notes: c3-highcpu-44 qty 31; c3-highcpu-88 qty 10. TW at 5100.
+notes: add c4d-highcpu-96 qty 5 node pool. Scale TW to 5770.
+```
+
