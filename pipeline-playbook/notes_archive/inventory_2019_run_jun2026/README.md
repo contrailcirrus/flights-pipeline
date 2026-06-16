@@ -214,3 +214,14 @@ Scale node pool and TW
 notes: scaled node pool to 200 c3-std-22 instances; scaled TW to 10,595; hyperdisk utilization observed around 70gb/sec
 ```
 
+```text
+Scale node pool and TW
+06/15/2026 23:20
+notes: scaled node pool to 250 c3-std-22 instances; scaled TW to 13,245; hyperdisk utilization observed around 75gb/sec
+```
+
+```text
+Scale node pool and TW
+06/16/2026 00:10
+notes: scaled node pool to 125 c3-std-22 instances; scaled TW to 6620; TW dequeue rate wasn't scaling linearly w/ TW replica cnt, nor was hyperdisk utilization scaling linearly... :. scale down TW to try and hit ~2.5 msgs/min/worker optima.
+```
