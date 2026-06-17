@@ -50,3 +50,9 @@ Finished at 20:25:
 {"timestamp":"2026-06-17 20:22:41,851", "severity": "INFO", "textPayload": "⏲️ waiting for publish to finish...", "labels":{"pid":"11734"}}
 {"timestamp":"2026-06-17 20:22:42,961", "severity": "INFO", "textPayload": "🙌 DONE!", "labels":{"pid":"11734"}}
 ```
+
+```text
+Scale TWJF
+06/17/2026 20:35UTC
+notes: scale TWJF to 100 replicas
+```
