@@ -68,3 +68,15 @@ Scale node pool
 06/17/2026 21:10UTC
 notes: scale qty 1 c3d-highmem-90. TW and TW-BU replicas set at 1
 ```
+
+```text
+Scale node pool & TW
+06/17/2026 21:15UTC
+notes: scale qty 10 c3d-highmem-90. TW replicas set to 1755. job rate ~100/sec -> ~3.4 jobs/worker/min.
+```
+
+```text
+Scale node pool & TW
+06/17/2026 21:35UTC
+notes: scale qty 20 c3d-highmem-90. TW replicas set to 3510. 
+```
