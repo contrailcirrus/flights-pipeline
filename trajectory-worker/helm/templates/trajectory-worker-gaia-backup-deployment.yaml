@@ -19,8 +19,8 @@ spec:
       # perform a single job iteration. When a SIGTERM is received, the job
       # has this much time to gracefully exit before being killed.
       terminationGracePeriodSeconds: 15
-      nodeSelector:
-        cloud.google.com/machine-family: "c3"
+#      nodeSelector:
+#        cloud.google.com/machine-family: "c3"
       volumes:
        - name: ecmwf-zarr-v2
          persistentVolumeClaim:
