@@ -264,7 +264,24 @@ notes: scale up to qty 18 c3-highcpu-88 instances; qty 18 high-cpu-44 instances;
 
 ```text
 Scale node pool & TW
-06/16/2026 18:30-19:10
-notes: add c4d-highcpu-96 qty 5 node pool. Scale TW to 5770.
+06/16/2026 21:05
+notes: add c4d-highcpu-96 qty 5 node pool. Scale TW to 5770. TW replicas increased ~20%; job rate increased 35%.
 ```
 
+```text
+Scale node pool & TW
+06/16/2026 21:15
+notes: scale c4d-highcpu-96 qty 15 node pool. Scale TW to 7645 (~33%+). 
+```
+
+```text
+Scale node pools
+06/16/2026 21:35
+notes: scale c4d-highcpu-96 qty 20 node pool. Scale down c3-highcpu-44 to 20 (decrease 11).
+```
+
+```text
+Scale node pool & TW
+06/16/2026 23:50
+notes: scale c4d-highcpu-96 qty 25 node pool. Scale TW to 8605.
+```
