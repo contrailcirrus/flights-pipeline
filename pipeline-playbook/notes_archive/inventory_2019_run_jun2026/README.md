@@ -313,3 +313,9 @@ PARTITION BY DATE(time_start) AS
     WHERE seg_cnt = 1
       AND time_start <= "2019-12-31T23:59:59")
 ```
+
+### NOTES
+
+## Dead-lettered jobs
+There were 108 jobs dead lettered from the trajectory-worker-backup deployment.
+The list of `flight_id`s for jobs that had been dead-lettered are in the `deadlettered.txt` file.
