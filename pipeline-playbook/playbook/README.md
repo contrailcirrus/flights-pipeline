@@ -86,7 +86,8 @@ For example: `inventory_2024_run_feb2026`
 The first table we create is a summary table, summary meaning the per-flight values (excluding the per-segment).
 To create the table, run:
 ```sql
-CREATE TABLE :inventory_summary_table AS (SELECT *
+CREATE TABLE :inventory_summary_table 
+PARTITION BY DATE(time_start) AS (SELECT *
                                           FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
                                           WHERE seg_cnt > 1
                                             AND _processed_at BETWEEN UNIX_MICROS(:run_start_time_utc) AND UNIX_MICROS(:run_end_time_utc))
@@ -99,7 +100,8 @@ Where:
 
 e.g.
 ```sql
-CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary` AS 
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary` 
+PARTITION BY DATE(time_start) AS 
   (SELECT *
     FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
     WHERE seg_cnt > 1
