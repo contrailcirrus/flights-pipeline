@@ -131,9 +131,6 @@ FROM agg_tb
 ```
 
 ## Run
-Back-of-envelope calcs:
-- ~55 TW fit on a c3-std-22 node
-- ~15mb/sec per worker hyperdisk throughput
 
 ```text
 Scale std k8s cluster
@@ -292,6 +289,12 @@ Scale node pool & TW
 notes: scale c4d-highcpu-96 qty 28 node pool. Scale TW to 9100.
 ```
 
+```text
+DONE - scale node pool & TW
+06/17/2026 04:00
+notes: scale node pools to zero; scale TW/TW-BU to 1 replica; remove PVC.
+```
+
 ## Closeout
 ### BQ tables
 Summary and per-segment tables were copied from the pipeline output.
@@ -302,7 +305,7 @@ PARTITION BY DATE(time_start) AS
   (SELECT *
     FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
     WHERE seg_cnt > 1
-      AND time_start <= "2019-12-31T23:59:59")      
+      AND _processed_at BETWEEN UNIX_MICROS("2026-06-15T13:00:00Z") AND UNIX_MICROS("2026-06-17T06:00:00Z"))
 ```
 
 ```sql
@@ -311,7 +314,7 @@ PARTITION BY DATE(time_start) AS
   (SELECT *
     FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
     WHERE seg_cnt = 1
-      AND time_start <= "2019-12-31T23:59:59")
+      AND _processed_at BETWEEN UNIX_MICROS("2026-06-15T13:00:00Z") AND UNIX_MICROS("2026-06-17T06:00:00Z"))
 ```
 
 ### NOTES
