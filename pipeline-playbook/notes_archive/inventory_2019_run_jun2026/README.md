@@ -291,3 +291,23 @@ Scale node pool & TW
 06/17/2026 02:00
 notes: scale c4d-highcpu-96 qty 28 node pool. Scale TW to 9100.
 ```
+
+## Closeout
+### BQ tables
+Summary and per-segment tables were copied from the pipeline output.
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_summary` AS 
+  (SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
+    WHERE seg_cnt > 1
+      AND time_start <= "2019-12-31T23:59:59")      
+```
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_segments` AS 
+  (SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
+    WHERE seg_cnt = 1
+      AND time_start <= "2019-12-31T23:59:59")
+```
