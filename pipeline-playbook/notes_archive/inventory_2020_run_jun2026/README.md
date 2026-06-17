@@ -56,3 +56,15 @@ Scale TWJF
 06/17/2026 20:35UTC
 notes: scale TWJF to 100 replicas
 ```
+
+```text
+Scale TWJF
+06/17/2026 21:05UTC
+notes: scale TWJF to 1000 replicas
+```
+
+```text
+Scale node pool
+06/17/2026 21:10UTC
+notes: scale qty 1 c3d-highmem-90. TW and TW-BU replicas set at 1
+```
