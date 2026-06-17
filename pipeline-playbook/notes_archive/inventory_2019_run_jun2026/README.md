@@ -297,7 +297,8 @@ notes: scale c4d-highcpu-96 qty 28 node pool. Scale TW to 9100.
 Summary and per-segment tables were copied from the pipeline output.
 
 ```sql
-CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_summary` AS 
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_summary`
+PARTITION BY DATE(time_start) AS 
   (SELECT *
     FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
     WHERE seg_cnt > 1
@@ -305,7 +306,8 @@ CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_
 ```
 
 ```sql
-CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_segments` AS 
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_segments` 
+PARTITION BY DATE(time_start) AS 
   (SELECT *
     FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
     WHERE seg_cnt = 1
