@@ -23,3 +23,30 @@ WITH main_tb AS (SELECT flight_id, min(timestamp) AS min_ts, max(altitude_baro) 
 SELECT job_id, FORMAT_DATE('%Y-%m-%d', ARRAY_FIRST(day_bin_arr)) AS day, flight_id_list
 FROM agg_tb
 ```
+
+## Run
+
+Ran spire-cache-heater over 2020/01/01 -> 2021/01/02, with skip_existing=True. Confirmed that spire ADSB cache is already warm.
+
+Also ran over 2021/01/01 -> 2024/01/02. Confirmed warm as well (thus will skip this step for the 2021, 2022 and 2023 runs).
+
+```text
+TWJD submit
+06/17/2026 19:50UTC
+notes: completed at UTC; see below
+```
+
+The job-id based TWJDs in the `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_jobs` table 
+were submitted starting at `20:25`.  See the [job-id list](2020_job_id_list.txt).  The flights referenced by those 
+ids total `17,634,394`.
+
+Executed on VM: `./cli.py jobworker submit -j /home/nickmasson/flights-pipeline/pipeline-playbook/notes_archive/inventory_2020_run_jun2026/2020_job_id_list.txt -l inventory_2020_run_jun2026_jobs -w gcs -s era5 -t > 2020_run.log 2>&1`.
+
+Finished at 20:25:
+```bash
+{"timestamp":"2026-06-17 20:22:31,670", "severity": "INFO", "textPayload": "🛠️published job_id 17901 of 18002", "labels":{"pid":"11734"}}
+{"timestamp":"2026-06-17 20:22:41,851", "severity": "INFO", "textPayload": "🛠️published job_id 18001 of 18002", "labels":{"pid":"11734"}}
+{"timestamp":"2026-06-17 20:22:41,851", "severity": "INFO", "textPayload": "🛠️published job_id 18002 of 18002", "labels":{"pid":"11734"}}
+{"timestamp":"2026-06-17 20:22:41,851", "severity": "INFO", "textPayload": "⏲️ waiting for publish to finish...", "labels":{"pid":"11734"}}
+{"timestamp":"2026-06-17 20:22:42,961", "severity": "INFO", "textPayload": "🙌 DONE!", "labels":{"pid":"11734"}}
+```
