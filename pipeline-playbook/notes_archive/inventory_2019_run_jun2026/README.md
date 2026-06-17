@@ -285,3 +285,9 @@ Scale node pool & TW
 06/16/2026 23:50
 notes: scale c4d-highcpu-96 qty 25 node pool. Scale TW to 8605.
 ```
+
+```text
+Scale node pool & TW
+06/17/2026 02:00
+notes: scale c4d-highcpu-96 qty 28 node pool. Scale TW to 9100.
+```
