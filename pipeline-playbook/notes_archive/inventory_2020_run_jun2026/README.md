@@ -33,7 +33,7 @@ Also ran over 2021/01/01 -> 2024/01/02. Confirmed warm as well (thus will skip t
 ```text
 TWJD submit
 06/18/2026 13:25UTC
-notes: completed at 13:56UTC; see below
+notes: completed at 16:12UTC; see below
 ```
 
 The job-id based TWJDs in the `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_jobs` table 
@@ -57,3 +57,39 @@ Scale TWJF
 notes: scale TWJF to 100 replicas
 ```
 
+```text
+Scale node pool and TW
+06/18/2026 15:10UTC
+notes: scale qty 1 c3d-highmem-90; deploy TW at replica 10; TW-BU at replica 3
+```
+
+```text
+Scale TWJF
+06/18/2026 15:15UTC
+notes: scale TWJF to 1000 replicas
+```
+
+```text
+Scale node pool and TW
+06/18/2026 15:18UTC
+notes: scale qty 15 c3d-highmem-90; deploy TW at replica 2630. job rate ~135-140 jobs/sec -> 3.1 jobs/worker/min
+```
+
+```text
+Scale node pool and TW
+06/18/2026 15:45UTC
+notes: scale qty 30 c3d-highmem-90; deploy TW at replica 5260. job rate ~260 jobs/sec ->  3 jobs/worker/min
+```
+
+```text
+Scale node pool and TW
+06/18/2026 16:05UTC
+notes: scale qty 45 c3d-highmem-90; deploy TW at replica 7890. job rate ~ jobs/sec ->   jobs/worker/min
+```
+
+
+```text
+DONE: TWJF
+06/18/2026 16:12UTC
+notes: scale qty 45 c3d-highmem-90; deploy TW at replica 7890. job rate ~ jobs/sec ->   jobs/worker/min
+```
