@@ -60,7 +60,7 @@ notes: scale TWJF to 100 replicas
 ```text
 Scale node pool and TW
 06/18/2026 15:10UTC
-notes: scale qty 1 c3d-highmem-90; deploy TW at replica 10; TW-BU at replica 3
+notes: scale qty 1 c3d-highcpu-90; deploy TW at replica 10; TW-BU at replica 3
 ```
 
 ```text
@@ -72,24 +72,23 @@ notes: scale TWJF to 1000 replicas
 ```text
 Scale node pool and TW
 06/18/2026 15:18UTC
-notes: scale qty 15 c3d-highmem-90; deploy TW at replica 2630. job rate ~135-140 jobs/sec -> 3.1 jobs/worker/min
+notes: scale qty 15 c3d-highcpu-90; deploy TW at replica 2630. job rate ~135-140 jobs/sec -> 3.1 jobs/worker/min
 ```
 
 ```text
 Scale node pool and TW
 06/18/2026 15:45UTC
-notes: scale qty 30 c3d-highmem-90; deploy TW at replica 5260. job rate ~260 jobs/sec ->  3 jobs/worker/min
+notes: scale qty 30 c3d-highcpu-90; deploy TW at replica 5260. job rate ~260 jobs/sec -> 3 jobs/worker/min
 ```
 
 ```text
 Scale node pool and TW
-06/18/2026 16:05UTC
-notes: scale qty 45 c3d-highmem-90; deploy TW at replica 7890. job rate ~ jobs/sec ->   jobs/worker/min
+06/18/2026 16:12UTC
+notes: scale qty 45 c3d-highcpu-90; deploy TW at replica 7890. job rate ~320 jobs/sec -> 2.5 jobs/worker/min
 ```
 
-
 ```text
-DONE: TWJF
-06/18/2026 16:12UTC
-notes: scale qty 45 c3d-highmem-90; deploy TW at replica 7890. job rate ~ jobs/sec ->   jobs/worker/min
+Scale node pool & TW
+06/18/2026 17:30UTC
+notes: scale down c3d-highcpu-90 to 40; scale up c4d-highcpu-96 to 5; scale TW to 7960.
 ```
