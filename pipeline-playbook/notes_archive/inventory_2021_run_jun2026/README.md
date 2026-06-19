@@ -31,7 +31,7 @@ Note: spire cache confirmed to be warm for 2021 ADS-B in previous 2020 prod run.
 ```text
 TWJD submit
 06/06/19 15:13UTC
-notes: completed at 15:53UTC; see below
+notes: completed at 15:53UTC; see below; DONE @ 16:40UTC
 ```
 
 The job-id based TWJDs in the `contrails-301217.flights_pipeline_prod.inventory_2021_run_jun2026_jobs` table 
