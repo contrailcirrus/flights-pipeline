@@ -63,3 +63,16 @@ Scale node pool & TW
 06/06/19 15:22UTC
 notes: scale c3d-highcpu-90 qty 40; scale TW to 7030.
 ```
+
+```text
+Scale hyperdisk
+06/06/19 17:15->17:35UTC
+notes: scale hyperdisk to 152,400 mbps
+```
+
+
+```text
+Scale node pool & TW
+06/06/19 17:45UTC
+notes: scale c3d-highcpu-90 qty 60; scale TW to 10,540.
+```
