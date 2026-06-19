@@ -31,7 +31,7 @@ Note: spire cache confirmed to be warm for 2021 ADS-B in previous 2020 prod run.
 ```text
 TWJD submit
 06/06/19 15:13UTC
-notes: completed at ; see below
+notes: completed at 15:53UTC; see below
 ```
 
 The job-id based TWJDs in the `contrails-301217.flights_pipeline_prod.inventory_2021_run_jun2026_jobs` table 
@@ -44,7 +44,12 @@ NOTE: accidentally ran the `2021_job_id_list.txt` when the CSV header was still 
 The TWJF gracefully steps over and ack's this bad message.  Noting it here, regardless, as we should expect one ERROR level log in the TWJF logs with message `"permanently failed to process twjd - acking msg"` and `twjd.job_id: "job_id"`. 
 
 ```bash
-
+{"timestamp":"2026-06-19 15:51:32,789", "severity": "INFO", "textPayload": "🛠️published job_id 22501 of 22790", "labels":{"pid":"2558"}}
+{"timestamp":"2026-06-19 15:51:42,965", "severity": "INFO", "textPayload": "🛠️published job_id 22601 of 22790", "labels":{"pid":"2558"}}
+{"timestamp":"2026-06-19 15:51:53,143", "severity": "INFO", "textPayload": "🛠️published job_id 22701 of 22790", "labels":{"pid":"2558"}}
+{"timestamp":"2026-06-19 15:52:01,288", "severity": "INFO", "textPayload": "🛠️published job_id 22790 of 22790", "labels":{"pid":"2558"}}
+{"timestamp":"2026-06-19 15:52:01,288", "severity": "INFO", "textPayload": "⏲️ waiting for publish to finish...", "labels":{"pid":"2558"}}
+{"timestamp":"2026-06-19 15:52:02,395", "severity": "INFO", "textPayload": "🙌 DONE!", "labels":{"pid":"2558"}}
 ```
 
 ```text
