@@ -30,7 +30,7 @@ Note: spire cache confirmed to be warm for 2021 ADS-B in previous 2020 prod run.
 
 ```text
 TWJD submit
-06/ UTC
+06/06/19 15:13UTC
 notes: completed at ; see below
 ```
 
@@ -40,6 +40,21 @@ ids total `22,428,707`.
 
 Executed on VM: `./cli.py jobworker submit -j /home/nickmasson/flights-pipeline/pipeline-playbook/notes_archive/inventory_2021_run_jun2026/2021_job_id_list.txt -l inventory_2021_run_jun2026_jobs -w gcs -s era5 -t > 2020_run.log 2>&1`.
 
+NOTE: accidentally ran the `2021_job_id_list.txt` when the CSV header was still in the text file. As a result, the string literal `"job_id"` was submitted as a `job_id` value in one of the TWJDs. 
+The TWJF gracefully steps over and ack's this bad message.  Noting it here, regardless, as we should expect one ERROR level log in the TWJF logs with message `"permanently failed to process twjd - acking msg"` and `twjd.job_id: "job_id"`. 
+
 ```bash
 
+```
+
+```text
+TWJF scale up
+06/06/19 15:15UTC
+notes: scale TWJF to 1000 replicas
+```
+
+```text
+Scale node pool & TW
+06/06/19 15:22UTC
+notes: scale c3d-highcpu-90 qty 40; scale TW to 7030.
 ```
