@@ -77,9 +77,20 @@ Scale node pool & TW
 notes: scale c3d-highcpu-90 qty 60; scale TW to 10,540.
 ```
 
-
 ```text
 Scale node pool & TW
 06/06/19 17:45UTC
 notes: hyperdisk increase didn't extend IO availability. scale c3d-highcpu-90 qty 50; scale TW to 8785.
+```
+
+```text
+Update TW & reconfig node pool
+06/06/19 22:05UTC
+notes: redeploy TW with 1vcpu/worker; scale down c3d-highcpu-90; scale up c4d-highcpu-192 qty 22; scale TW to ~4100.
+```
+
+```text
+scale node pool & TW
+06/06/19 22:35UTC
+notes: scale down c4d-highcpu-192 to qty 12; scale up c3d-highcpu-90 qty 50; scale TW to 10,540.
 ```
