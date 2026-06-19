@@ -92,3 +92,21 @@ Scale node pool & TW
 06/18/2026 17:30UTC
 notes: scale down c3d-highcpu-90 to 40; scale up c4d-highcpu-96 to 5; scale TW to 7960.
 ```
+
+```text
+Scale node pool & TW
+06/18/2026 17:30UTC
+notes: scale up c4d-highcpu-96 to 0; scale TW to 7020.
+```
+
+```text
+Scale node pool & TW
+06/19/2026 01:20UTC
+notes: scale up c3d-highcpu-90 to 50; scale TW to 8780.
+```
+
+```text
+DONE: TW/TW-BU completed. Scale node pool & TW
+06/19/2026 04:30UTC
+notes: scale down node pool & TW.
+```
