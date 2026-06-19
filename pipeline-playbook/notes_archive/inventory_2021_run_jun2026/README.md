@@ -25,3 +25,21 @@ FROM agg_tb
 ```
 
 ## Run
+
+Note: spire cache confirmed to be warm for 2021 ADS-B in previous 2020 prod run.
+
+```text
+TWJD submit
+06/ UTC
+notes: completed at ; see below
+```
+
+The job-id based TWJDs in the `contrails-301217.flights_pipeline_prod.inventory_2021_run_jun2026_jobs` table 
+were submitted starting at ``.  See the [job-id list](2021_job_id_list.txt).  The flights referenced by those 
+ids total `22,428,707`.
+
+Executed on VM: `./cli.py jobworker submit -j /home/nickmasson/flights-pipeline/pipeline-playbook/notes_archive/inventory_2021_run_jun2026/2021_job_id_list.txt -l inventory_2021_run_jun2026_jobs -w gcs -s era5 -t > 2020_run.log 2>&1`.
+
+```bash
+
+```
