@@ -86,11 +86,23 @@ notes: hyperdisk increase didn't extend IO availability. scale c3d-highcpu-90 qt
 ```text
 Update TW & reconfig node pool
 06/06/19 22:05UTC
-notes: redeploy TW with 1vcpu/worker; scale down c3d-highcpu-90; scale up c4d-highcpu-192 qty 22; scale TW to ~4100.
+notes: redeploy TW with 1vcpu/worker; scale down c3d-highcpu-90; scale up c4d-highcpu-192 qty 22; scale TW to ~4100. job rate ~500/sec.
 ```
 
 ```text
 scale node pool & TW
 06/06/19 22:35UTC
-notes: scale down c4d-highcpu-192 to qty 12; scale up c3d-highcpu-90 qty 50; scale TW to 10,540.
+notes: scale down c4d-highcpu-192 to qty 12; scale up c3d-highcpu-90 qty 50; scale TW to 5,270 (recall vcpu now at 1/worker). 
+```
+
+```text
+scale node pool & TW
+06/06/19 22:50UTC
+notes: scale down c4d-highcpu-192 to zero; scale TW to 4380.
+```
+
+```text
+DONE. Scale down node pool; TW; hyperdisk
+06/06/20 05:50UTC
+notes: scale down TW; scale node pool to zero; remove hyperdisk/PVC.
 ```
