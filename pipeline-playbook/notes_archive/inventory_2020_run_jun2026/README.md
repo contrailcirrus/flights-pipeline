@@ -24,6 +24,23 @@ SELECT job_id, FORMAT_DATE('%Y-%m-%d', ARRAY_FIRST(day_bin_arr)) AS day, flight_
 FROM agg_tb
 ```
 
+## Hyperdisk-ML Met Data
+
+Data were removed from the staging bucket `gs://contrails-301217-ecmwf-era5-zarr-v2/` using Lifecylce rules, then data copied in with 
+```shell
+./copy_era5_gcs_to_staging.sh 2019-12-31 2021-01-02 gs://contrails-301217-ecmwf-era5-zarr-v2/ gs://contrails-301217-ecmwf-era5-zarr-v2-staging/
+```
+Being sure to include the day before the year start, and two days after to allow both flights to bleed into the following day, but also contrail propagation from those flights to persist and evolve into Jan. 2nd of the following year.
+
+Creating the hyperdisk involved setting up the PVC referencing the GCPDataSource which kicks off the custom GCP process to copy in all the data from the staging bucket:
+
+```shell
+kubectl apply -f hyperdiskml-useast4c-storage-class.yaml
+```
+
+The process takes about 5 hours for a year of ERA5 zarr stores.
+
+
 ## Run
 
 Ran spire-cache-heater over 2020/01/01 -> 2021/01/02, with skip_existing=True. Confirmed that spire ADSB cache is already warm.
@@ -132,7 +149,79 @@ PARTITION BY DATE(time_start) AS
     WHERE seg_cnt = 1)
 ```
 
+#### Dedupe BQ tables
+The following two queries were executed to dedupe the segments table and the summary table.
+
+```sql
+CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_summary` 
+PARTITION BY DATE(time_start) AS (
+  SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_summary`
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
+```
+
+```sql
+CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_segments` 
+PARTITION BY DATE(time_start) AS (
+  SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_segments`
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
+```
+
 ### Notes
 
 ## Dead-lettered jobs
 No deadlettered TW or TWBU jobs observed. No TWJF deadlettered jobs.
+
+## Logs
+
+Logs all copied from log sink buckets to flights-pipeline-prod bucket:
+
+```shell
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2020_run_jun2026/tw-backup-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2020_run_jun2026/tw-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2020_run_jun2026/twjf-logs/
+```
+
+And log sink buckets cleared for the next run:
+
+```shell
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-backup/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/*
+```
+
+### Loading logs into BQ
+
+Logs were loaded into BQ by adjusting the log bucket prefix to `gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026` and changing the BQ table name in the bq load scripts to `logs_inventory_2020_run_june2026`. Kept the `--max_bad_records=140` flag in the TWJF log loader. Running the scripts:
+
+```shell
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S10.json] Error while reading data, error message: JSON parsing error in row starting at position 1690899339: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S10.json'
+
+Waiting on bqjob_r16f7841e7a54d1b8_0000019ee5094518_1 ... (10s) Current status: DONE   
+Waiting on bqjob_r48e444a9a0e01088_0000019ee50977d8_1 ... (8s) Current status: DONE   
+Waiting on bqjob_r4f34508a528f38db_0000019ee509a493_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r711727f51337a14f_0000019ee509ebb3_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r648d25f1e62ff6f_0000019ee50a3254_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r10f6e8f9441fa1f8_0000019ee50a78fa_1 ... (10s) Current status: DONE   
+Waiting on bqjob_r3439ab74d6d89977_0000019ee50aac7f_1 ... (15s) Current status: DONE   
+Warnings encountered during job execution:
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json] Error while reading data, error message: JSON parsing error in row starting at position 3273068748: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json'
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json] Error while reading data, error message: JSON parsing error in row starting at position 3297060304: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json'
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json] Error while reading data, error message: JSON parsing error in row starting at position 3230540387: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json'
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json] Error while reading data, error message: JSON parsing error in row starting at position 3253504163: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json'
+
+Waiting on bqjob_r616c05e63ba5848f_0000019ee50af36d_1 ... (15s) Current status: DONE   
+Warning encountered during job execution:
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S9.json] Error while reading data, error message: JSON parsing error in row starting at position 1921641989: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S9.json'
+```
+
+Shows several null airline_iata fields where it should have been an array-like value. This is a bit odd; I thought we had removed all such code paths from the TWJF.
+
+There wer no errors loading logs for the TW  or TWBU.
