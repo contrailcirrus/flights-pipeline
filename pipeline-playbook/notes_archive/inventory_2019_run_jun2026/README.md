@@ -317,6 +317,26 @@ PARTITION BY DATE(time_start) AS
       AND _processed_at BETWEEN UNIX_MICROS("2026-06-15T13:00:00Z") AND UNIX_MICROS("2026-06-17T06:00:00Z"))
 ```
 
+#### Dedupe BQ tables
+The following two queries were executed to dedupe the segments table and the summary table.
+
+```sql
+CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_summary` 
+PARTITION BY DATE(time_start) AS (
+  SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_summary`
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
+```
+
+```sql
+```sql
+CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_segments` 
+PARTITION BY DATE(time_start) AS (
+  SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_segments`
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
+```
+
 ### NOTES
 
 ## Dead-lettered jobs

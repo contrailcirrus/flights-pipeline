@@ -124,7 +124,8 @@ Next, we remove three types of dupes by running Step 1 and Step 2 (_in that orde
 
 
 #### Overview
-The following root causes result in dupes in the output dataset.
+
+<s>The following root causes result in dupes in the output dataset.
 ```text
 ❗NOTE: future improvements to the TWJF should result in only one dupe case (normal dupes) in our data.
 This requires updating the data fetching (BQ or GCS) handles in the TWJF, such that records outside the target
@@ -151,7 +152,7 @@ the TWJF validation handler.
 
 Unlike the false `null` case, we don't have a good rule regarding which of the two dupes to keep.
 As such, we choose to randomly eject one of the two (with the expectation that future improvements will eliminate this issue).
-
+</s>
 ##### Normal Dupes
 Normal dupes may occur if pubsub spuriously redelivers a message.
 In this case, we'd expect the entire row to be an exact replica across the dupe.
