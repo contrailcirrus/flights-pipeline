@@ -99,6 +99,8 @@ kubectl describe pvc era5-zarr-gcs-pvc-useast4c -n flights-pipeline-prod
 
 I can also see the job and pod handling the data transfer, and the volume created to house the data transfer shows fairly high bandwidth (~100MiB/s) use.
 
+As noted in the **Run** section below, this hyperdisk didn't allow scaling of bandwidth. Ultimately, we created a new disk with 100GB/s bandwidth and hydrated it, then switched to that disk. This involved a [new StorageClass](../../pre_process/hyperdisk-setup/hyperdiskml-useast4c-storage-class-100gbps.yaml) and a [new PVC](../../pre_process/hyperdisk-setup/era5-zarr-gcs-pvc-useast4-100gbps.yaml) referencing the StorageClass.
+
 
 ## Job ID compilation
 The 2019 run was executed using the new `job_id` based batching for the TWJDs/TWJF.
@@ -317,6 +319,7 @@ PARTITION BY DATE(time_start) AS
       AND _processed_at BETWEEN UNIX_MICROS("2026-06-15T13:00:00Z") AND UNIX_MICROS("2026-06-17T06:00:00Z"))
 ```
 
+
 #### Dedupe BQ tables
 The following two queries were executed to dedupe the segments table and the summary table.
 
@@ -336,6 +339,31 @@ PARTITION BY DATE(time_start) AS (
     FROM `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_segments`
     QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
 ```
+
+### Logs 
+
+Copied logs for the TWJF, TW, and TW-Backup:
+
+```shell
+gsutil -m mv gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/tw-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/tw-backup-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/twjf-logs/
+```
+
+Cleaned up the log sink buckets to prepare for the next run:
+
+```shell
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/*
+```
+
+#### Loading logs to BQ
+
+Updated the `bq_load_*_logs.sh` scripts to set the log source prefix for the new data run as well as the destination table for the new run. The `max_bad_records` flag for `bq load` was removed to ensure we would see any non-conformant logs.
+
+All logs loaded without error to the `flights_pipeline_prod.logs_inventory_2019_run_june2026` BQ table.
+
 
 ### NOTES
 
