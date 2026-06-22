@@ -106,3 +106,29 @@ DONE. Scale down node pool; TW; hyperdisk
 06/06/20 05:50UTC
 notes: scale down TW; scale node pool to zero; remove hyperdisk/PVC.
 ```
+
+## Closeout
+
+Summary and per-seg tables were copied from the pipeline output.  Note that no time range subsetting was performed, 
+as the BQ table was purged prior to the run.
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2021_run_jun2026_summary`
+PARTITION BY DATE(time_start) AS 
+  (SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
+    WHERE seg_cnt > 1)
+```
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2021_run_jun2026_segments` 
+PARTITION BY DATE(time_start) AS 
+  (SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
+    WHERE seg_cnt = 1)
+```
+
+### Notes
+
+## Dead-lettered jobs
+No deadlettered TW or TWBU jobs observed. No TWJF deadlettered jobs.
