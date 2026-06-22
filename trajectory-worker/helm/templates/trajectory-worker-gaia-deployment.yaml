@@ -23,7 +23,7 @@ spec:
       volumes:
        - name: ecmwf-zarr-v2
          persistentVolumeClaim:
-           claimName: era5-zarr-gcs-pvc-useast4c-100gpbs
+           claimName: era5-zarr-gcs-pvc-useast4c
       containers:
       - name: trajectory-worker-gaia
         image: {{ .Values.image | required ".Values.image is required" | quote }}
