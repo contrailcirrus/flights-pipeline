@@ -49,6 +49,8 @@ After observing normal TWJF logs, and seeing a few thousand jobs published to th
 ```text
 Deployed TW and TWBU:
 Updated the TW and TWBU helm configs to change the PVC reference to match the hyperdisk PVC created for the 2022 ERA5 data. This kicked off the CI/CD process to update the TW and TWBU deployments. These took a while to roll over because the horizontal scaling was still set to 2395 replicas.
+
+Set to run at 1vCPU/worker with 0.58 GiB memory up to 1.2 GiB.
 ```
 
 
@@ -98,4 +100,83 @@ Scaling back to 2000 workers at 23 nodes at 20:27 UTC.
 Ack rate dropped to about 130 acks/s and bandwidth usage down to 54 GB/s or 3.9 acks/min/worker. That indicates we could go to just under 2300 workers to maximize bandwidth usage if scaling is linear.
 
 Scaling up to 2270 workers at 26 nodes at 21:11 UTC.
+```
+
+```text
+Scaling TW up to 2275 workers. Noticed one node was a little low on CPU requested and we have not quite maxed out hyperdisk bandwidth (sitting at about 59GB/s).
+```
+
+```text
+Increasing hyperdisk bandwidth to 100000MB/s at 00:38 UTC 2026-06-23.
+```
+
+```text
+Bandwidth increase went through at 01:00 UTC.
+Scaling to 44 nodes, 3800 workers.
+```
+
+```text
+Seems to have worked. Ack rate at about 230-240 ack/s, so 3.6-3.9 acks/min/worker.
+The hyperdisk bandwidth was maxed out at about 99 GB/s.
+```
+
+```text
+Updating hyperdisk bandwith to 160000 MB/s at 09:38 UTC.
+
+It failed:
+
+Failed to update disk pvc-5b91bc9e-2d58-4937-910c-f19125698e96: Operation type [update] failed with message "The zone 'projects/contrails-301217/zones/us-east4-c' does not have enough resources available to fulfill the request. '(resource type:hyperdisk-ml)'."
+```
+
+```text
+Trying to update the hyperdisk bandwidth to 140000 MB/s at 10:06 UTC.
+Succeeded.
+```
+
+```text
+Updating to 5300 workers on 61 nodes at 11:11 UTC.
+
+Using most of the 140 GB/s hyperdis bandwidth (high 130s), and have about 320 acs/s for about 3.6 acks/min/worker.
+
+Still have a number of nodes with ~86 CPUs out of 90 scheduled, so bumped up to 5330 workers.
+```
+
+```text
+Updating to 5340 workers, because we still have a little excess CPU on a few nodes at 14:45 UTC.
+```
+
+```text
+It seems the average pod uses <50% of its CPU allocation. Considering dropping to 0.7 CPU/worker to get a little more efficient.
+
+If I leave the number of workers the same at 5340, that would involve scaling back the number of nodes to 43. I will try to make the CPU and number of workers update in CI/CD, then update number of nodes through terraform.
+```
+
+```text
+After rolling the pods and dropping the number of nodes, I see only about 100GB/s hyperdisk usage, and ack rate down to 230acks/s.
+
+Will scale up workers by ~40% to try to maximize bandwidth usage.
+
+Going for 7400 workers on 60 nodes.
+```
+
+```text
+This yielded about 345 acks/s using 135GB/s hyperdisk bandwidth. Seemed to be a little extra CPU overhead on the nodes, so added 80 workers to 7480 total.
+Still a little more. Bumping up to 7500 workers.
+```
+
+```
+Adding another node and 125 workers to try to saturate HD bandwidth at 14:55 UTC.
+This only bumped HD bandwidth usage up a little bit. Up to 3.8 acks/min/vcpu, up from 3.66 acks/min/vcpu with the 1 vcpu/worker setup from earlier.
+
+Going to add another node to try to maximize HD bandwidth usage.
+
+Up to 62 nodes and 7750 workers at 16:10 UTC.
+```
+
+```text
+The change seems to have dropped down to 3.66 acks/min/vcpu with 340 acks/s. It seems that rolling back to 7480 workers on 60 nodes may be slightly better.
+
+Rolling back to 7480 workers, 60 nodes at 16:22 UTC.
+
+Essentially flat performance.
 ```
