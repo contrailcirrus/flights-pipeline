@@ -292,3 +292,17 @@ gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stde
 gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/*
 gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/*
 ```
+
+#### Loading logs to BQ
+
+Updated the `bq_load_*_logs.sh` scripts to set the log source prefix for the new data run as well as the destination table for the new run. The `max_bad_records` flag for `bq load` was removed to ensure we would see any non-conformant logs.
+
+Ran scripts:
+
+```shell
+./bq_load_twjf_logs.sh 2>&1 | tee bq_load_twjf_logs_2022_run_june2026.log
+./bq_load_tw_logs.sh 2>&1 | tee bq_load_tw_logs_2022_run_june2026.log 
+./bq_load_tw_backup_logs.sh  2>&1 | tee bq_load_tw_backup_logs_2022_run_june2026.log
+```
+
+All logs loaded without error to the `flights_pipeline_prod.logs_inventory_2019_run_june2026` BQ table.
