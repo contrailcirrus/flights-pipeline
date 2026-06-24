@@ -1,12 +1,14 @@
 # Inventory 2023 (run: June 2026)
 
-## Hyperdisk Setup
+## Setup
+
+### Hyperdisk Setup
 
 The 2023 ERA5 met data was put into a new GCP bucket `gs://contrails-301217-ecmwf-era5-zarr-v2-staging-2023` so that data for 2020-2023 could be set up in parallel, letting us set up hyperdisks with the met data in parallel without having to purge the staging bucket before getting started on another year. This dataset includes zarr stores from 2022-12-31, 2024-01-01, and 2024-01-02 in addition to all of 2023. It was copied into the staging bucket wit `gsutil -m cp` commands on a VM rather than setting up a transfer job with the `copy_era5_gcs_to_staging.sh` script, mostly because I forgot that script existed. There were no errors though, and data seem to be present.
 
 To create the hyperdisk, we created a new [GCSDataSource](../../pre_process/hyperdisk-setup/gcs-era5-zarr-data-source-2023.yaml) and a new [PVC](../../pre_process/hyperdisk-setup/era5-zarr-gcs-pvc-useast4c-2023.yaml) for the 2023 dataset, opting to start the disk with 600MB/s bandwidth and and planning to scale it up.
 
-## Job ID compilation
+### Job ID compilation
 Created a new Job ID table using the following BQ query:
 
 ```sql
@@ -111,5 +113,16 @@ FROM agg_tb
 
 
 This created a new table with 31,443 Job IDs. I created the job list with `SELECT job_id FROM `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_jobs`;`, exporting the result as CSV, removing the column name top row, and changing the file name to `2023_job_id_list.txt`.
+
+### False start
+Had a false start on the run where I forgot to truncate the results table before starting, so there will be an additional flush-out period to let log sinks propagate. The TWJF and TW PubSub queues were purged.
+
+### Truncate results table
+
+Truncating the results table before the run:
+
+```sql
+TRUNCATE TABLE `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`;
+```
 
 ## Run
