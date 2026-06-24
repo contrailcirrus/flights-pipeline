@@ -12,14 +12,14 @@
 # if exactly all logs for a given run can't be referenced with a single glob
 # then this command may need to be executed several times over a list of globs
 # that completely and exactly target logs for a given run
-TW_BACKUP_URI_GLOB="gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/tw-backup-logs/"
+TW_BACKUP_URI_GLOB="gs://contrails-301217-flights-pipeline-prod/logs/inventory_2022_run_jun2026/tw-backup-logs/"
 
 # TARGET TABLE
 # ---
 # table in BigQuery where the raw flights-pipeline logs are uploaded
 # -
 # format should be similar to logs_inventory_{inventory_period}_{run_date}
-TARGET_TABLE="logs_inventory_2019_run_june2026"
+TARGET_TABLE="logs_inventory_2022_run_june2026"
 
 # For each file in TW_BACKUP_URI_GLOB, load data  into BQ table 
 gsutil ls -r $TW_BACKUP_URI_GLOB | grep .json | tr '\n' '\0' | xargs -0 -n1 bq load --schema_update_option=ALLOW_FIELD_ADDITION --ignore_unknown_values --source_format=NEWLINE_DELIMITED_JSON --schema=./logs_bq_table_schema.json flights_pipeline_prod.${TARGET_TABLE}
