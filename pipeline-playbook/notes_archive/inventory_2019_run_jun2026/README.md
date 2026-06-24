@@ -344,7 +344,7 @@ PARTITION BY DATE(time_start) AS (
 Copied logs for the TWJF, TW, and TW-Backup:
 
 ```shell
-gsutil -m mv gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/tw-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/tw-logs/
 gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/tw-backup-logs/
 gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2019_run_jun2026/twjf-logs/
 ```
