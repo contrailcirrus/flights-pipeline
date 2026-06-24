@@ -126,10 +126,72 @@ TRUNCATE TABLE `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`;
 ```
 
 ## Run
+```text
 Started run at 14:26 UTC on 2026-06-24.
 
 On a VM, I changed the `pipeline-cli/services.py` file to point to the production TWJF PubSube queue, then ran:
+```
 
 ```shell
 ./cli.py jobworker submit -j /home/joffreypeters/repos/flights-pipeline/pipeline-playbook/notes_archive/inventory_2023_run_jun2026/2023_job_id_list.txt -l inventory_2023_run_jun2026_jobs -w gcs -s era5 -t > 2023_cli_run.log 2>&1
 ```
+
+```text
+Noted appropriate TWJF logs, TWJF and TW queues filling. Scaling TWJF workers to 500 at 14:32 UTC.
+```
+
+```text
+Requesting Hyperdisk bandwidth increase to 150000MB/s at 14:32 UTC.
+```
+
+```text
+14:47 UTC
+Adding one c3d-highcpu-90 node.
+Kicking off CI/CD for TW and TW-BU. Setting TW replicas to 1 and lowering vcpu to 0.6 vcpu/worker.
+```
+
+```text
+Hyperdisk bandwidth updated at 14:57 UTC:
+
+Successfully updated disk "pvc-3b4040d8-cac1-4c22-becb-6ec584120b63".
+```
+
+```text
+TW logs look good. Scaling up nodes to 60, and workers to 8700.
+This took us to about 350 acks/s and a little over 120 GB/s hyperdisk bandwidth usage.
+```
+
+```text
+CLI finished at 15:19 UTC.
+```
+
+```text
+Trying to maximize bandwidth usage. Scaling workers up to (150GB/s)/(125GB/s)*8700 workers = 1044 workers.  At (90 vcpus)/(0.6 vcpus/worker) = 150 workers, that's 70 c3d-highcpu-90 nodes.
+Scaling up to 70 nodes and 10440 workers at 15:24 UTC.
+```
+
+```text
+This does not seem to have improved matters very much. Only up to 135 GB/s. Ack rate not clearly improved.
+
+Going to try to go to 0.8 vcpus/worker. Leaving nodes at 70, moving to 0.8 vcpus/worker and 7840 workers.
+```
+
+```text
+Seems like too high CPU usage. Backed off to 7650 workers.
+
+This yielded about 380 acks/s and 142 GB/s HD BW usage. About 3.6 acks/min/vcpu. We might do better with 1 vcpu/worker.
+```
+
+```text
+Moving to 1 vcpu/worker and 5220 workers at 16:43 UTC.
+
+Scaling down to 60 nodes after all pods rolled at 16:56 UTC. 
+```
+
+```text
+After letting the above settle for a bit, I see ~345 acks/s or 3.8 acks/min/vcpu, and 130GB/s HD BW usage. Seems like we could get a little more out of this, perhaps with more nodes.
+
+Trying to scale up to 66 nodes, 5750 workers.
+```
+
+
