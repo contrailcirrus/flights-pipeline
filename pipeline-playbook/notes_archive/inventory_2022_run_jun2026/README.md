@@ -180,3 +180,85 @@ Rolling back to 7480 workers, 60 nodes at 16:22 UTC.
 
 Essentially flat performance.
 ```
+
+```text
+All TW jobs and TWBU jobs appear to be done at 20:30 UTC, 2026-06-23.
+Scaling down TW workers and nodes.
+```
+
+```text
+Scaled TW workers down to 1, then scaled c3d-highcpu-90 nodes down to 0 on the standard cluster.
+```
+
+```text
+Removed PVC:
+kubectl delete pvc era5-zarr-gcs-pvc-useast4c -n flights-pipeline-prod
+
+PV failed to be deleted because it's registered as being attached to nodes that no longer exist. Deleting PV:
+
+kubectl get pv -n flights-pipeline-prod
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS     CLAIM                                              STORAGECLASS                        VOLUMEATTRIBUTESCLASS   REASON   AGE
+pvc-5b91bc9e-2d58-4937-910c-f19125698e96   4000Gi     ROX            Delete           Released   flights-pipeline-prod/era5-zarr-gcs-pvc-useast4c   hyperdisk-ml-single-zone-useast4c   <unset>                          35h
+
+kubectl delete pv pvc-5b91bc9e-2d58-4937-910c-f19125698e96 -n flights-pipeline-prod
+
+But this failed... apparently the PV had just been removed. None remain:
+
+kubectl get pv -n flights-pipeline-prod                                              
+No resources found
+
+Disk does not appear in the GCP web console any more either.
+```
+
+## Closeout
+### BQ tables
+Summary and per-segment BigQuery tables were copied from the pipeline output.
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_summary_temp`
+PARTITION BY DATE(time_start) AS 
+  (SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
+    WHERE seg_cnt > 1
+      AND _processed_at BETWEEN UNIX_MICROS("2026-06-22T00:00:00Z") AND UNIX_MICROS("2026-06-23T23:00:00Z"))
+```
+This generated a table with 20895694 entries.
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_segments_temp` 
+PARTITION BY DATE(time_start) AS 
+  (SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
+    WHERE seg_cnt = 1
+      AND _processed_at BETWEEN UNIX_MICROS("2026-06-22T00:00:00Z") AND UNIX_MICROS("2026-06-23T23:00:00Z"))
+```
+This generated a table with 2931415488 entries.
+
+The _processed_at between statement is likely unnecessary, but I didn't clear the `trajectory_cocip_prod` table myself befoer the run, so just trying to be certain we only get data from this run.
+
+
+#### Dedupe BQ tables
+The following two queries were executed to dedupe the segments table and the summary table.
+
+```sql
+CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_summary` 
+PARTITION BY DATE(time_start) AS (
+  SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_summary_temp`
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
+```
+This created a table with 20886689 entries.
+
+```sql
+CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_segments` 
+PARTITION BY DATE(time_start) AS (
+  SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_segments_temp`
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
+```
+This created a table with 2929354948 entries. 
+
+Both deduplicated tables dropped less than 1% of entries.
+
+### Logs 
+
