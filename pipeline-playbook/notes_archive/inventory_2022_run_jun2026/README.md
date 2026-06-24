@@ -262,3 +262,33 @@ Both deduplicated tables dropped less than 1% of entries.
 
 ### Logs 
 
+Copied logs for the TWJF, TW, and TW-Backup:
+
+```shell
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2022_run_jun2026/tw-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2022_run_jun2026/tw-backup-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2022_run_jun2026/twjf-logs/
+```
+
+There are NO LOGS in the `gs://contrails-301217-fp-prod-trajectory-worker-job-factory` bucket!
+When I removed the logs from the 2021 run, it appeared that I also accidentally removed the bucket (it disappeared from view in the GCS web console). So I re-created the bucket. That had the unintended effect of removing the Storage Object Creator role for the logging sink service account such that the log sink for that bucket stopped working.
+
+To fix, copied logs out of the log explorer:
+
+```shell
+gcloud logging copy _Default storage.googleapis.com/contrails-301217-fp-prod-trajectory-worker-job-factory --location=global --log-filter='resource.type="k8s_container" AND resource.labels.project_id="contrails-301217" AND resource.labels.location="us-east1" AND resource.labels.cluster_name="contrails-gke-general" AND resource.labels.namespace_name="flights-pipeline-prod" AND labels.k8s-pod/app="trajectory-worker-job-factory" AND severity>="INFO" AND timestamp > "2026-06-22T00:00:00Z"'
+```
+
+Now I can copy those logs to their final home:
+
+```shell
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2022_run_jun2026/twjf-logs/
+```
+
+And clean up the log sink buckets in preparation for the 2023 run:
+
+```shell
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/*
+```
