@@ -115,7 +115,7 @@ FROM agg_tb
 This created a new table with 31,443 Job IDs. I created the job list with `SELECT job_id FROM `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_jobs`;`, exporting the result as CSV, removing the column name top row, and changing the file name to `2023_job_id_list.txt`.
 
 ### False start
-Had a false start on the run where I forgot to truncate the results table before starting, so there will be an additional flush-out period to let log sinks propagate. The TWJF and TW PubSub queues were purged.
+Had a false start on the run where I forgot to truncate the results table before starting, so there will be an additional flush-out period to let log sinks propagate. The TWJF and TW PubSub queues were purged. The twjf log sink worked, which was a good test after the issues in the 2022 run. The twjf logs were purged.
 
 ### Truncate results table
 
@@ -126,3 +126,10 @@ TRUNCATE TABLE `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`;
 ```
 
 ## Run
+Started run at 14:26 UTC on 2026-06-24.
+
+On a VM, I changed the `pipeline-cli/services.py` file to point to the production TWJF PubSube queue, then ran:
+
+```shell
+./cli.py jobworker submit -j /home/joffreypeters/repos/flights-pipeline/pipeline-playbook/notes_archive/inventory_2023_run_jun2026/2023_job_id_list.txt -l inventory_2023_run_jun2026_jobs -w gcs -s era5 -t > 2023_cli_run.log 2>&1
+```
