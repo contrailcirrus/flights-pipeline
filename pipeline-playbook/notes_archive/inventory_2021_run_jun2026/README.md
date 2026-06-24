@@ -149,5 +149,102 @@ PARTITION BY DATE(time_start) AS (
 
 ### Notes
 
+### Logs 
+
+Copied logs for the TWJF, TW, and TW-Backup:
+
+```shell
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/tw-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/tw-backup-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/
+```
+
+Cleaned up the log sink buckets in preparation for the 2022 run:
+
+```shell
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/*
+```
+
+#### Loading logs to BQ
+
+Updated the `bq_load_*_logs.sh` scripts to set the log source prefix for the new data run as well as the destination table for the new run. The `max_bad_records` flag for `bq load` was removed to ensure we would see any non-conformant logs.
+
+Ran scripts:
+
+```shell
+./bq_load_twjf_logs.sh 2>&1 | tee bq_load_twjf_logs_2021_run_june2026.log
+```
+Error in loading logs: Only optional fields can be set to NULL. Field: airline_iata;
+
+Investigating, it looks like this is the problematic block:
+
+```json
+        "airline_iata": [
+            null
+        ],
+```
+Deleting the logs BQ table, putting back in `--max_bad_records=40`:
+
+```shell
+./bq_load_twjf_logs.sh 2>&1 | tee bq_load_twjf_logs_2021_run_june2026.log
+Waiting on bqjob_r75105cd1384be542_0000019efac9f96b_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r1560e36878110443_0000019efaca44f7_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r4afab5d2326799df_0000019efaca8c0c_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r3b8f81f99db2825d_0000019efacad500_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r4e80c4d2788decb8_0000019efacb1c79_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r1bd4af82297a14a2_0000019efacb6464_1 ... (10s) Current status: DONE   
+Waiting on bqjob_r3f6924534eaf71fd_0000019efacb973d_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r3c3023c9f7accb42_0000019efacbdf7f_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r789a0cecaaf663eb_0000019efacc25f4_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r57997a0853d5aa8b_0000019efacc6cb3_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r31f509efb9f9ddec_0000019efaccb32e_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r34ef323c9cccb031_0000019efaccf9ee_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r3efe9ff0a72b2bd_0000019efacd41d9_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r70010ab7b45599c4_0000019efacd8944_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r57e48108d2b29bed_0000019efacdd084_1 ... (15s) Current status: DONE   
+Waiting on bqjob_rc038fab5737c44c_0000019eface174c_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r179f826cb13f1e7f_0000019eface5e9c_1 ... (15s) Current status: DONE   
+Warnings encountered during job execution:
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S10.json] Error while reading data, error message: JSON parsing error in row starting at position 1684206961: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S10.json'
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S10.json] Error while reading data, error message: JSON parsing error in row starting at position 1686732307: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S10.json'
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S10.json] Error while reading data, error message: JSON parsing error in row starting at position 1690899339: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S10.json'
+
+Waiting on bqjob_r198ddaa2bc76109d_0000019efacea529_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r4cbbb3a565e0ffc5_0000019efaceebfa_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r662db9651518eaf_0000019efacf3353_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r482e77841412552e_0000019efacf7a04_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r7e53983d8a8b904a_0000019efacfc21d_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r258a94a4b52dad35_0000019efad0096b_1 ... (15s) Current status: DONE   
+Waiting on bqjob_r7ebd1b6493b8a299_0000019efad050fa_1 ... (15s) Current status: DONE   
+Warnings encountered during job execution:
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json] Error while reading data, error message: JSON parsing error in row starting at position 3230540387: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json'
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json] Error while reading data, error message: JSON parsing error in row starting at position 3253504163: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json'
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json] Error while reading data, error message: JSON parsing error in row starting at position 3273068748: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json'
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json] Error while reading data, error message: JSON parsing error in row starting at position 3297060304: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S8.json'
+
+Waiting on bqjob_r494d4ead94ec3e73_0000019efad09877_1 ... (15s) Current status: DONE   
+Warning encountered during job execution:
+
+b'[gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S9.json] Error while reading data, error message: JSON parsing error in row starting at position 1921641989: Only optional fields can be set to NULL. Field: airline_iata; Value: NULL File: gs://contrails-301217-flights-pipeline-prod/logs/inventory_2021_run_jun2026/twjf-logs/19/16:00:00_16:59:59_S9.json'
+```
+
+And the rest of the logs (without max_bad_records).
+
+```shell
+./bq_load_tw_logs.sh 2>&1 | tee bq_load_tw_logs_2021_run_june2026.log 
+./bq_load_tw_backup_logs.sh  2>&1 | tee bq_load_tw_backup_logs_2021_run_june2026.log
+```
+
+The rest of the logs loaded without error to the `flights_pipeline_prod.logs_inventory_2021_run_june2026` BQ table.
+
 ## Dead-lettered jobs
 No deadlettered TW or TWBU jobs observed. No TWJF deadlettered jobs.
