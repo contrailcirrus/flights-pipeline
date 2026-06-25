@@ -194,4 +194,78 @@ After letting the above settle for a bit, I see ~345 acks/s or 3.8 acks/min/vcpu
 Trying to scale up to 66 nodes, 5750 workers.
 ```
 
+```text
+Seems to have bumped slightly up to 370 acks/s or 3.7 acks/min/vcpu, and 140 GB/s HD BW usage.
+
+Have a little cpu overhead, moving up to 5760 workers.
+```
+
+```text
+TWJF finished around 19:05 UTC. No more messages in queue and no recent log messages. Scaled back to 1 worker.
+
+No TWJDs in the deadletter queue.
+```
+
+```text
+Everything seems to be running smoothly. Had some extra CPU resources, so added 20 more workers, bumping up to 5780 at 02:25 UTC, 2026-06-25.
+```
+
+```text
+TW finished around 13:30 UTC, 2026-06-25.
+TW Backup queue empty.
+
+Everything seemed smooth.
+
+TW replicas auto scaled to 1; set max replicas to 1 as well. Scaling nodes to 0. Removed PVC/hyperdisk.
+```
+
+
+
+## Closeout
+### BQ tables
+Summary and per-segment BigQuery tables were copied from the pipeline output.
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_summary_temp`
+PARTITION BY DATE(time_start) AS 
+  (SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
+    WHERE seg_cnt > 1)
+```
+This generated a table with 26479838 entries.
+
+```sql
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_segments_temp` 
+PARTITION BY DATE(time_start) AS 
+  (SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
+    WHERE seg_cnt = 1)
+```
+This generated a table with 3677810346 entries.
+
+Did not use a `_processed_at` statement in the temp table generation, since I cleared the `trajectory_cocip_prod` table myself before the run.
+
+
+#### Dedupe BQ tables
+The following two queries were executed to dedupe the segments table and the summary table.
+
+```sql
+CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_summary` 
+PARTITION BY DATE(time_start) AS (
+  SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_summary_temp`
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
+```
+This created a table with 26465836 entries.
+
+```sql
+CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_segments` 
+PARTITION BY DATE(time_start) AS (
+  SELECT *
+    FROM `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_segments_temp`
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY CONCAT(flight_id, time_start) ORDER BY _processed_at DESC) = 1);
+```
+This created a table with 3674764025 entries. 
+
+Both deduplicated tables dropped substantially less than 1% of entries.
 
