@@ -269,3 +269,35 @@ This created a table with 3674764025 entries.
 
 Both deduplicated tables dropped substantially less than 1% of entries.
 
+### Logs 
+
+Copied logs for the TWJF, TW, and TW-Backup:
+
+```shell
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2023_run_jun2026/twjf-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2023_run_jun2026/tw-logs/
+gsutil -m cp -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/2026/06/* gs://contrails-301217-flights-pipeline-prod/logs/inventory_2023_run_jun2026/tw-backup-logs/
+
+```
+
+And clean up the log sink buckets in preparation for the 2023 run:
+
+```shell
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-job-factory/stderr/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker-backup/stderr/*
+gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/*
+```
+
+#### Loading logs to BQ
+
+Updated the `bq_load_*_logs.sh` scripts to set the log source prefix for the new data run as well as the destination table for the new run. The `max_bad_records` flag for `bq load` was left in the TWJF logs load script, because there were some non-conformant `airline_iata` values.
+
+Ran scripts:
+
+```shell
+./bq_load_twjf_logs.sh 2>&1 | tee bq_load_twjf_logs_2023_run_june2026.log
+./bq_load_tw_logs.sh 2>&1 | tee bq_load_tw_logs_2023_run_june2026.log 
+./bq_load_tw_backup_logs.sh  2>&1 | tee bq_load_tw_backup_logs_2023_run_june2026.log
+```
+
+All logs loaded to the `flights_pipeline_prod.logs_inventory_2023_run_june2026` BQ table.
