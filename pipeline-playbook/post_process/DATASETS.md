@@ -1,5 +1,5 @@
 # Datasets
-The flights pipeline has been run on Spire data from 2019-2025. Each run generates three BigQuery tables, one for per-flight inventory summaries, per-segment inventory segments, and logs from the flights-pipeline run used to generate the dataset. The run also creates parquet file stores with flight segments for each day in `gs://contrails-301217-flights-pipeline-prod/trajectory-worker/trajectory-pq`.
+The flights pipeline has been run on Spire data from 2019-2025. Each run generates four BigQuery tables, one for job_ids to segregate work units, one for per-flight inventory summaries, per-segment inventory segments, and logs from the flights-pipeline run used to generate the dataset. The run also creates parquet file stores with flight segments for each day in `gs://contrails-301217-flights-pipeline-prod/trajectory-worker/trajectory-pq`.
 
 Below, we have a summary of each dataset, and some top-level statistics from the dataset.
 
@@ -9,6 +9,8 @@ Below, we have a summary of each dataset, and some top-level statistics from the
 * `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_jobs`
 * `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_segments`
 * `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_summary`
+* `contrails-301217.flights_pipeline_prod.logs_inventory_2019_run_june2026`
+
 
 Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query modified for the 2019 datasets, we find the following monthly flight minutes breakdown:
 
@@ -52,6 +54,7 @@ The 2020 dataset runs from 2020-01-01T00:00:00 to 2020-12-31T23:59:59. It was ru
 * `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_jobs`
 * `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_segments`
 * `contrails-301217.flights_pipeline_prod.inventory_2020_run_jun2026_summary`
+* `contrails-301217.flights_pipeline_prod.logs_inventory_2020_run_june2026`
 
 Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query modified for the 2020 datasets, we find the following monthly flight minutes breakdown:
 
@@ -94,6 +97,7 @@ The 2021 dataset runs from 2021-01-01T00:00:00 to 2021-12-31T23:59:59. It was ru
 * `contrails-301217.flights_pipeline_prod.inventory_2021_run_jun2026_jobs`
 * `contrails-301217.flights_pipeline_prod.inventory_2021_run_jun2026_segments`
 * `contrails-301217.flights_pipeline_prod.inventory_2021_run_jun2026_summary`
+* `contrails-301217.flights_pipeline_prod.logs_inventory_2021_run_june2026`
 
 Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query modified for the 2021 datasets, we find the following monthly flight minutes breakdown:
 
@@ -137,6 +141,7 @@ The 2022 dataset runs from 2022-01-01T00:00:00 to 2022-12-31T23:59:59. It was ru
 * `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_jobs`
 * `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_segments`
 * `contrails-301217.flights_pipeline_prod.inventory_2022_run_jun2026_summary`
+* `contrails-301217.flights_pipeline_prod.logs_inventory_2022_run_june2026`
 
 Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query modified for the 2022 datasets, we find the following monthly flight minutes breakdown:
 
@@ -177,6 +182,7 @@ The 2023 dataset runs from 2023-01-01T00:00:00 to 2023-12-31T23:59:59. It was ru
 * `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_jobs`
 * `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_segments`
 * `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_summary`
+* `contrails-301217.flights_pipeline_prod.logs_inventory_2023_run_june2026`
 
 Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query modified for the 2023 datasets, we find the following monthly flight minutes breakdown:
 
@@ -207,3 +213,62 @@ Using the [skipped_reasons_by_year.sql](sql/skipped_reasons_by_year.sql) query m
 | FlightTooFastError | 236875 | 2023 |
 | FlightTooShortError | 190130 | 2023 |
 | FlightTooLongError | 5512 | 2023 |
+
+
+## 2024-2025
+
+The 2024-2025 dataset runs from 2024-01-01T00:00:00 to 2025-12-31T23:59:59. It was run 2026-03-20 -- 2026-03-26. The BQ datasets produced were:
+
+* Note: this dataset was run before we hae a job_id run mechanism for splitting TWJD work units, so no job id table.
+* `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_segments`
+* `contrails-301217.flights_pipeline_prod.inventory_2023_run_jun2026_summary`
+* `contrails-301217.flights_pipeline_prod.logs_inventory_2024_2025_run_march2026`
+
+Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query modified for the 2024-2025 datasets, we find the following monthly flight minutes breakdown:
+
+| month | passed_minutes | skipped_minutes | total_final_minutes | twjf_skipped_perc | tw_dropped_perc | total_dropped_perc |
+|---|---|---|---|---|---|---|
+| 2025-12-01 | 438475830 | 96506692 | 371958138 | 18.04 | 12.43 | 30.47 |
+| 2025-11-01 | 418469095 | 109445502 | 359384495 | 20.73 | 11.19 | 31.92 |
+| 2025-10-01 | 448168031 | 129160991 | 386705930 | 22.37 | 10.65 | 33.02 |
+| 2025-09-01 | 429486327 | 140798144 | 370389830 | 24.69 | 10.36 | 35.05 |
+| 2025-08-01 | 402143465 | 212484648 | 345509967 | 34.57 | 9.21 | 43.79 |
+| 2025-07-01 | 398873242 | 218348674 | 342548869 | 35.38 | 9.13 | 44.5 |
+| 2025-06-01 | 377672188 | 202283951 | 323133470 | 34.88 | 9.4 | 44.28 |
+| 2025-05-01 | 390507447 | 217417092 | 335355094 | 35.76 | 9.07 | 44.84 |
+| 2025-04-01 | 396739516 | 175947971 | 342584022 | 30.72 | 9.46 | 40.18 |
+| 2025-03-01 | 423296220 | 116274266 | 366816039 | 21.55 | 10.47 | 32.02 |
+| 2025-02-01 | 374617704 | 89195627 | 325603798 | 19.23 | 10.57 | 29.8 |
+| 2025-01-01 | 405833912 | 83201548 | 355901856 | 17.01 | 10.21 | 27.22 |
+| 2024-12-01 | 408674124 | 81238236 | 356812993 | 16.58 | 10.59 | 27.17 |
+| 2024-11-01 | 384325423 | 92380003 | 334496994 | 19.38 | 10.45 | 29.83 |
+| 2024-10-01 | 418932848 | 111676780 | 364462151 | 21.05 | 10.27 | 31.31 |
+| 2024-09-01 | 409843573 | 106288615 | 357584420 | 20.59 | 10.13 | 30.72 |
+| 2024-08-01 | 430415754 | 120992009 | 377667859 | 21.94 | 9.57 | 31.51 |
+| 2024-07-01 | 437215146 | 124029673 | 383402472 | 22.1 | 9.59 | 31.69 |
+| 2024-06-01 | 409743148 | 113765669 | 357594334 | 21.73 | 9.96 | 31.69 |
+| 2024-05-01 | 397855208 | 116679297 | 345396402 | 22.68 | 10.2 | 32.87 |
+| 2024-04-01 | 331968037 | 71180693 | 305980670 | 17.66 | 6.45 | 24.1 |
+| 2024-03-01 | 342458186 | 61049036 | 321970397 | 15.13 | 5.08 | 20.21 |
+| 2024-02-01 | 281876050 | 93356931 | 262330049 | 24.88 | 5.21 | 30.09 |
+| 2024-01-01 | 306573669 | 82911713 | 287533999 | 21.29 | 4.89 | 26.18 |
+
+
+Using the [skipped_reasons_by_year.sql](sql/skipped_reasons_by_year.sql) query modified for the 2024-2025 datasets, we find the following primary skip reasons from the TWJF:
+
+| reason | reason_count | year |
+|---|---|---|
+| FlightTooSlowError | 10110425 | 2025 |
+| FlightTooShortError | 7885340 | 2025 |
+| FlightTooSlowError | 5734970 | 2024 |
+| FlightTooShortError | 4704107 | 2024 |
+| FlightAltitudeProfileError | 1317970 | 2025 |
+| OriginAirportError | 1254356 | 2024 |
+| DestinationAirportError | 1013564 | 2024 |
+| DestinationAirportError | 887326 | 2025 |
+| OriginAirportError | 807727 | 2025 |
+| FlightAltitudeProfileError | 283054 | 2024 |
+| FlightTooFastError | 121678 | 2024 |
+| FlightTooFastError | 16081 | 2025 |
+| FlightTooLongError | 1828 | 2024 |
+| FlightTooLongError | 319 | 2025 |
