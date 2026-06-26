@@ -46,7 +46,7 @@ jobworker_submit_parser.add_argument(
     "-j",
     "--job-id",
     required=False,
-    help="batch job ID for a BQ lookup table",
+    help="batch job ID for a BQ lookup table, or a filepath to a lookup textfile",
     dest="job_id",
 )
 jobworker_submit_parser.add_argument(

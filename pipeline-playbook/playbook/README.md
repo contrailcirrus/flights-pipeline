@@ -86,7 +86,8 @@ For example: `inventory_2024_run_feb2026`
 The first table we create is a summary table, summary meaning the per-flight values (excluding the per-segment).
 To create the table, run:
 ```sql
-CREATE TABLE :inventory_summary_table AS (SELECT *
+CREATE TABLE :inventory_summary_table 
+PARTITION BY DATE(time_start) AS (SELECT *
                                           FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
                                           WHERE seg_cnt > 1
                                             AND _processed_at BETWEEN UNIX_MICROS(:run_start_time_utc) AND UNIX_MICROS(:run_end_time_utc))
@@ -99,7 +100,8 @@ Where:
 
 e.g.
 ```sql
-CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary` AS 
+CREATE TABLE `contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary` 
+PARTITION BY DATE(time_start) AS 
   (SELECT *
     FROM `contrails-301217.flights_pipeline_prod.trajectory_cocip_prod`
     WHERE seg_cnt > 1
@@ -122,7 +124,8 @@ Next, we remove three types of dupes by running Step 1 and Step 2 (_in that orde
 
 
 #### Overview
-The following root causes result in dupes in the output dataset.
+
+<s>The following root causes result in dupes in the output dataset.
 ```text
 ❗NOTE: future improvements to the TWJF should result in only one dupe case (normal dupes) in our data.
 This requires updating the data fetching (BQ or GCS) handles in the TWJF, such that records outside the target
@@ -149,7 +152,7 @@ the TWJF validation handler.
 
 Unlike the false `null` case, we don't have a good rule regarding which of the two dupes to keep.
 As such, we choose to randomly eject one of the two (with the expectation that future improvements will eliminate this issue).
-
+</s>
 ##### Normal Dupes
 Normal dupes may occur if pubsub spuriously redelivers a message.
 In this case, we'd expect the entire row to be an exact replica across the dupe.
