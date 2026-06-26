@@ -19,10 +19,10 @@ spec:
 #      nodeSelector:
 #        cloud.google.com/gke-spot: "true"
 #        cloud.google.com/machine-family: "c3"
-      volumes:
-       - name: ecmwf-zarr-v2
-         persistentVolumeClaim:
-           claimName: era5-zarr-gcs-pvc-useast4c
+#      volumes:
+#       - name: ecmwf-zarr-v2
+#         persistentVolumeClaim:
+#           claimName: era5-zarr-gcs-pvc-useast4c
       containers:
       - name: trajectory-worker-gaia
         image: {{ .Values.image | required ".Values.image is required" | quote }}
