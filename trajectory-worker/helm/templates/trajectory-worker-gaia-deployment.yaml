@@ -19,7 +19,6 @@ spec:
 #      nodeSelector:
 #        cloud.google.com/gke-spot: "true"
 #        cloud.google.com/machine-family: "c3"
-#        cloud.google.com/compute-class: trajectory-worker-custom-compute-class
       volumes:
        - name: ecmwf-zarr-v2
          persistentVolumeClaim:
@@ -27,9 +26,9 @@ spec:
       containers:
       - name: trajectory-worker-gaia
         image: {{ .Values.image | required ".Values.image is required" | quote }}
-        volumeMounts:
-         - mountPath: /ecmwf-zarr-v2
-           name: ecmwf-zarr-v2
+#        volumeMounts:
+#         - mountPath: /ecmwf-zarr-v2
+#           name: ecmwf-zarr-v2
         env:
           - name: TRAJECTORY_CHUNK_SUBSCRIPTION_ID
             value: {{ .Values.trajectoryChunkGaiaSubscriptionId | required ".Values.trajectoryChunkGaiaSubscriptionId is required" | quote }}
