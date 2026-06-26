@@ -332,7 +332,6 @@ PARTITION BY DATE(time_start) AS (
 ```
 
 ```sql
-```sql
 CREATE OR REPLACE TABLE `contrails-301217.flights_pipeline_prod.inventory_2019_run_jun2026_segments` 
 PARTITION BY DATE(time_start) AS (
   SELECT *
