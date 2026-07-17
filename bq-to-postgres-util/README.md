@@ -28,6 +28,15 @@ flight attributes necessary for filtering/searching for a flight.
 
 This table is 1:1 with `trajectory-cocip`, and holds additional attributes for a given flight.
 
+#### `inventory_monthly_impact_histogram_staging`
+
+Append-only staging table for `inventory_monthly_impact_histogram`. `main.py` `COPY`s each
+parquet file's pre-aggregated histogram rows in here as it processes them, then merges them
+into `inventory_monthly_impact_histogram` in a single `GROUP BY` + upsert once at the end of
+the run (see `merge_impact_histogram_staging` in `main.py`). This avoids doing a per-file
+`ON CONFLICT DO UPDATE` against the same (airline, month, bin) rows over and over, which
+gets progressively slower over the course of a run as the table/indexes bloat.
+
 ## Data Sync'ing
 
 The source-of-truth for flight CoCiP data lives in BigQuery.
@@ -55,6 +64,7 @@ as documented in the Feb2026 run of the 2024 flights inventory ([ref](../pipelin
    3. [`sql/3_inventory_monthly_impact_histogram.sql`](sql/3_inventory_monthly_impact_histogram.sql)
    4. [`sql/4_inventory_monthly_airlines_stats.sql`](sql/4_inventory_monthly_airlines_stats.sql)
    5. [`sql/5_inventory_monthly_od_pair_airline_stats.sql`](sql/5_inventory_monthly_od_pair_airline_stats.sql)
+   6. [`sql/6_inventory_monthly_impact_histogram_staging.sql`](sql/6_inventory_monthly_impact_histogram_staging.sql)
 3. Run `main.py --gcs_paths=<path1,path2,...>` to export the Parquet shards to Postgres. If a different GCS bucket is used
    in (1) change the default values here as well.
    - First login to gcloud to access cloud storage:
@@ -71,6 +81,11 @@ as documented in the Feb2026 run of the 2024 flights inventory ([ref](../pipelin
      ```
    - The DB utility ensures that the required monthly partition tables are correctly created.
      If a partition table needs to be created you have to use the following flags instead `--db_user "postgres" and --db_password "<pw of postgres user>"`
+   - If a run fails partway through and you need to delete the partial `trajectory-cocip`
+     data for that date range before rerunning it, also clear out
+     `inventory_monthly_impact_histogram_staging` for that range (or `TRUNCATE` it, if no
+     other run is in flight) — otherwise the eventual merge into
+     `inventory_monthly_impact_histogram` will double-count the previously-staged rows.
 4. Update the materialized views by running the following sequence of SQL commands:
    1. `REFRESH MATERIALIZED VIEW inventory_monthly_airlines_stats;`
    2. `REFRESH MATERIALIZED VIEW inventory_monthly_od_pair_airline_stats;`

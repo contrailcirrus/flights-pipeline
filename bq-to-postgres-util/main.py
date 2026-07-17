@@ -29,6 +29,7 @@ TRAJECTORY_TABLE = table(
 )
 TRAJECTORY_META_TABLE_NAME = "trajectory-cocip-meta"
 TRAJECTORY_HISTOGRAM_IMPACT_TABLE_NAME = "inventory_monthly_impact_histogram"
+TRAJECTORY_HISTOGRAM_IMPACT_STAGING_TABLE_NAME = "inventory_monthly_impact_histogram_staging"
 
 CO2E_IMPACT_BINS = ["no_impact", "low_impact", "medium_impact", "high_impact"]
 
@@ -319,6 +320,34 @@ class GcsToPostgresLoader:
             logger.error("error", extra={"file": blob.name, "error": e}, exc_info=True)
             raise
 
+    def merge_impact_histogram_staging(self, staging_table: str, target_table: str) -> None:
+        """Aggregates staged per-file histogram rows into the real table in one pass.
+
+        Run once at the end of a run, instead of upserting per file, so the same
+        (airline, month, is_eu_mrv, bin) row isn't repeatedly conflict-updated once per
+        parquet file.
+        """
+        logger.info("merging histogram staging table", extra={"staging_table": staging_table, "target_table": target_table})
+        merge_stmt = text(
+            f"""
+            INSERT INTO "{target_table}"
+                (airline_iata, month, is_eu_mrv, bin_idx, lower_ef_mj, upper_ef_mj, flight_count, total_sum_ef_mj)
+            SELECT airline_iata, month, is_eu_mrv, bin_idx,
+                   MIN(lower_ef_mj), MAX(upper_ef_mj), SUM(flight_count), SUM(total_sum_ef_mj)
+            FROM "{staging_table}"
+            GROUP BY airline_iata, month, is_eu_mrv, bin_idx
+            ON CONFLICT (airline_iata, month, is_eu_mrv, bin_idx) DO UPDATE SET
+                flight_count    = "{target_table}".flight_count + EXCLUDED.flight_count,
+                total_sum_ef_mj = "{target_table}".total_sum_ef_mj + EXCLUDED.total_sum_ef_mj,
+                lower_ef_mj     = EXCLUDED.lower_ef_mj,
+                upper_ef_mj     = EXCLUDED.upper_ef_mj;
+        """
+        )
+        with self.engine.begin() as conn:
+            conn.execute(merge_stmt)
+            conn.execute(text(f'TRUNCATE "{staging_table}";'))
+        logger.info("merged histogram staging table", extra={"staging_table": staging_table, "target_table": target_table})
+
 
 class MainTableDataTransformer(DataTransformer):
     """Transforms data from the Parquet input format to the Postgres output format for the main table."""
@@ -474,7 +503,7 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
     """
 
     def __init__(self, table_name: str) -> None:
-        super().__init__(table_name, requires_upsert=True, is_partitioned=False)
+        super().__init__(table_name, requires_upsert=False, is_partitioned=False)
 
     def parquet_data_to_postgres(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -535,17 +564,6 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
         # Only keep the relevant columns specified above.
         return agg[features]
 
-    def on_conflict_do_update(self, target_table, stmt_excluded):
-        index_elements = ["airline_iata", "month", "is_eu_mrv", "bin_idx"]
-        upsert_args = {
-            "flight_count": target_table.c.flight_count + stmt_excluded.flight_count,
-            "total_sum_ef_mj": target_table.c.total_sum_ef_mj
-            + stmt_excluded.total_sum_ef_mj,
-            "lower_ef_mj": stmt_excluded.lower_ef_mj,
-            "upper_ef_mj": stmt_excluded.upper_ef_mj,
-        }
-        return index_elements, upsert_args
-
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -578,6 +596,13 @@ if __name__ == "__main__":
         dest="target_histogram_table",
         default=TRAJECTORY_HISTOGRAM_IMPACT_TABLE_NAME,
         help="Target impact histogram table name in Postgres database.",
+    )
+    parser.add_argument(
+        "--target_histogram_staging_table",
+        dest="target_histogram_staging_table",
+        default=TRAJECTORY_HISTOGRAM_IMPACT_STAGING_TABLE_NAME,
+        help="Staging table that per-file histogram rows are COPYd into, merged into "
+        "--target_histogram_table once at the end of the run.",
     )
     parser.add_argument(
         "--db_host",
@@ -615,7 +640,7 @@ if __name__ == "__main__":
         data_transformers=[
             MainTableDataTransformer(args.target_table),
             MetadataTableDataTransformer(args.target_meta_table),
-            ImpactHistogramTableDataTransformer(args.target_histogram_table),
+            ImpactHistogramTableDataTransformer(args.target_histogram_staging_table),
         ],
         db_uri=get_db_uri(
             args.db_host,
@@ -638,6 +663,10 @@ if __name__ == "__main__":
             loader.to_postgres(p)
         except Exception:
             failed.append(p.name)
+
+    loader.merge_impact_histogram_staging(
+        args.target_histogram_staging_table, args.target_histogram_table
+    )
 
     if failed:
         logger.error("failed to load some parquet files into Postgres", extra={"failed_count": len(failed), "total_files": len(parquet_files), "failed_files": failed})
