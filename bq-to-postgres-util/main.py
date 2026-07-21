@@ -249,7 +249,6 @@ class GcsToPostgresLoader:
                 detail["rows"] = df.loc[has_nul].to_dict(orient="records")
             logger.warning("nulling out field containing NUL byte", extra=detail)
 
-            df = df.copy()
             df[str_columns] = df[str_columns].apply(
                 lambda col: col.map(lambda v: None if isinstance(v, str) and "\x00" in v else v)
             )
