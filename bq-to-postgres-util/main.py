@@ -225,11 +225,33 @@ class GcsToPostgresLoader:
         return pd.read_parquet(io.BytesIO(data))
 
     def _upload_to_postgres(
-        self, df: pd.DataFrame, table_name: str, schema: str
+        self, df: pd.DataFrame, table_name: str, schema: str, file_name: str | None
     ) -> None:
         """Uploads a pandas DataFrame to Postgres using the efficient COPY command."""
 
         connection = self.engine.raw_connection()
+
+        # Postgres text columns can never store a NUL byte (0x00), regardless of upload
+        # mechanism. Rather than repair the string in place (which could silently misrepresent
+        # the real value, e.g. corrupting referential fields like a callsign into something
+        # that looks valid but isn't), null out the whole field instead. Object-dtype
+        # columns aren't necessarily strings (e.g. a column of `datetime.date`), so check each
+        # value's type rather than trusting the column dtype.
+        str_columns = df.select_dtypes(include="object").columns
+        has_nul = df[str_columns].apply(
+            lambda col: col.map(lambda v: isinstance(v, str) and "\x00" in v)
+        ).any(axis=1)
+        if has_nul.any():
+            detail = {"file": file_name, "table": f"{schema}.{table_name}"}
+            if "flight_id" in df.columns:
+                detail["flight_ids"] = df.loc[has_nul, "flight_id"].tolist()
+            else:
+                detail["rows"] = df.loc[has_nul].to_dict(orient="records")
+            logger.warning("nulling out field containing NUL byte", extra=detail)
+
+            df[str_columns] = df[str_columns].apply(
+                lambda col: col.map(lambda v: None if isinstance(v, str) and "\x00" in v else v)
+            )
 
         # Write dataframe to buffer to then copy the entire buffer to Postgres.
         buffer = io.StringIO()
@@ -312,7 +334,7 @@ class GcsToPostgresLoader:
                         df_table_data, data_transformer, table_name, schema
                     )
                 else:
-                    self._upload_to_postgres(df_table_data, table_name, schema)
+                    self._upload_to_postgres(df_table_data, table_name, schema, blob.name)
 
             logger.info("completed", extra={"file": blob.name, "row_count": len(df)})
         except Exception as e:
