@@ -226,11 +226,32 @@ class GcsToPostgresLoader:
         return pd.read_parquet(io.BytesIO(data))
 
     def _upload_to_postgres(
-        self, df: pd.DataFrame, table_name: str, schema: str
+        self, df: pd.DataFrame, table_name: str, schema: str, file_name: str | None
     ) -> None:
         """Uploads a pandas DataFrame to Postgres using the efficient COPY command."""
 
         connection = self.engine.raw_connection()
+
+        # Postgres text columns can never store a NUL byte (0x00), regardless of upload
+        # mechanism - strip any that slipped in from upstream data rather than failing the
+        # whole COPY. Object-dtype columns aren't necessarily strings (e.g. a column of
+        # `datetime.date`), so check each value's type rather than trusting the column dtype.
+        str_columns = df.select_dtypes(include="object").columns
+        has_nul = df[str_columns].apply(
+            lambda col: col.map(lambda v: isinstance(v, str) and "\x00" in v)
+        ).any(axis=1)
+        if has_nul.any():
+            detail = {"file": file_name, "table": f"{schema}.{table_name}"}
+            if "flight_id" in df.columns:
+                detail["flight_ids"] = df.loc[has_nul, "flight_id"].tolist()
+            else:
+                detail["rows"] = df.loc[has_nul].to_dict(orient="records")
+            logger.warning("stripping NUL bytes", extra=detail)
+
+            df = df.copy()
+            df[str_columns] = df[str_columns].apply(
+                lambda col: col.map(lambda v: v.replace("\x00", "") if isinstance(v, str) else v)
+            )
 
         # Write dataframe to buffer to then copy the entire buffer to Postgres.
         buffer = io.StringIO()
@@ -313,7 +334,7 @@ class GcsToPostgresLoader:
                         df_table_data, data_transformer, table_name, schema
                     )
                 else:
-                    self._upload_to_postgres(df_table_data, table_name, schema)
+                    self._upload_to_postgres(df_table_data, table_name, schema, blob.name)
 
             logger.info("completed", extra={"file": blob.name, "row_count": len(df)})
         except Exception as e:
@@ -529,10 +550,16 @@ class ImpactHistogramTableDataTransformer(DataTransformer):
         )
         binned = pd.cut(s, bins=bins, right=False).rename("impact")
 
+        # airline_iata is nullable on trajectory-cocip (some flights, e.g. general aviation,
+        # have no airline) but is NOT NULL here as part of the primary key. Bucket them
+        # under the literal string "NaN" rather than dropping them, for consistency with
+        # existing rows in the database from prior runs of this tool.
+        airline_iata = df["airline_iata"].fillna("NaN")
+
         # Group by airline, year_month, and bin
         agg = (
             s.groupby(
-                [df["airline_iata"], year_month, df["is_eu_mrv"], binned],
+                [airline_iata, year_month, df["is_eu_mrv"], binned],
                 observed=False,
                 dropna=False,
             )
