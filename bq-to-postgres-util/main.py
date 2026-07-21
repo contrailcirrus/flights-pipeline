@@ -232,9 +232,11 @@ class GcsToPostgresLoader:
         connection = self.engine.raw_connection()
 
         # Postgres text columns can never store a NUL byte (0x00), regardless of upload
-        # mechanism - strip any that slipped in from upstream data rather than failing the
-        # whole COPY. Object-dtype columns aren't necessarily strings (e.g. a column of
-        # `datetime.date`), so check each value's type rather than trusting the column dtype.
+        # mechanism. Rather than repair the string in place (which could silently misrepresent
+        # the real value, e.g. corrupting referential fields like a callsign into something
+        # that looks valid but isn't), null out the whole field instead. Object-dtype
+        # columns aren't necessarily strings (e.g. a column of `datetime.date`), so check each
+        # value's type rather than trusting the column dtype.
         str_columns = df.select_dtypes(include="object").columns
         has_nul = df[str_columns].apply(
             lambda col: col.map(lambda v: isinstance(v, str) and "\x00" in v)
@@ -245,11 +247,11 @@ class GcsToPostgresLoader:
                 detail["flight_ids"] = df.loc[has_nul, "flight_id"].tolist()
             else:
                 detail["rows"] = df.loc[has_nul].to_dict(orient="records")
-            logger.warning("stripping NUL bytes", extra=detail)
+            logger.warning("nulling out field containing NUL byte", extra=detail)
 
             df = df.copy()
             df[str_columns] = df[str_columns].apply(
-                lambda col: col.map(lambda v: v.replace("\x00", "") if isinstance(v, str) else v)
+                lambda col: col.map(lambda v: None if isinstance(v, str) and "\x00" in v else v)
             )
 
         # Write dataframe to buffer to then copy the entire buffer to Postgres.
