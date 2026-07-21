@@ -395,9 +395,7 @@ class TrajectoryBuilderSvc:
                     extra={
                         "marker": progress_marker,
                         "airline_iata": [twjd.airline_iata],
-                        "airline_iata": [twjd.airline_iata],
                         "twjd": twjd,
-                        "job_hash": job_hash,
                         "job_hash": job_hash,
                     },
                 )
