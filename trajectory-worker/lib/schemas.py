@@ -410,7 +410,7 @@ class WaypointsRecord:
     def _to_logging_dict(self):
         return {
             "flight_id": self.flight_info.flight_id,
-            "airline_iata": [self.flight_info.airline_iata],
+            "airline_iata": self.flight_info.airline_iata,
             "callsign": self.flight_info.callsign,
             "flight_number": self.flight_info.flight_number,
             "arrival_airport_icao": self.flight_info.arrival_airport_icao,
