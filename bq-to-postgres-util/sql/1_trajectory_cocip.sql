@@ -92,8 +92,6 @@ CREATE INDEX idx_sort_per_km_impact
     ON "trajectory-cocip" (ef_mj_per_km DESC, time_start DESC);
 CREATE INDEX idx_sort_time
     ON "trajectory-cocip" (time_start DESC, time_end DESC);
-CREATE INDEX index_time_start_time_end
-    ON "trajectory-cocip" (time_start, time_end);
 CREATE INDEX idx_airline_time_start
     ON "trajectory-cocip" (airline_iata, time_start DESC);
 CREATE INDEX idx_airline_time_start_ef

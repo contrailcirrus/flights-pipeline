@@ -122,26 +122,35 @@ class JobWorkerSubmitSvc(BaseSvc):
         else:
             dt_rg_strs = [self._day]
 
+        job_id_list = []
+        if self._job_id and self._job_id.split(".")[-1] == "txt":
+            with open(self._job_id, "r") as fp:
+                for itm in fp.readlines():
+                    job_id_list.append(itm.strip("\n"))
+        else:
+            job_id_list = [self._job_id]
+
         # submit twjds for dates in date range
         for dt_str in dt_rg_strs:
-            # logger.info(f"🛠️TWJD created for 🗓️day: {dt_str}")
-            twjd = TrajectoryWorkerJobDescriptor(
-                day=dt_str,
-                met_source=MetSource(self._met_data_src),
-                telemetry_source=TelemetrySource(self._telemetry_src),
-                full_traj=self._full_traj,
-                airline_iata=self._airline,
-                flight_id=self._flight_id,
-                job_id=self._job_id,
-                job_lookup_table=self._job_lookup_table,
-                dry_run=self._dry_run,
-                export_waypoints=False,
-            )
-
-            self._publish_handler.publish_async(
-                twjd.as_utf8_json(),
-                timeout_seconds=10,
-            )
+            for job_ix, job_id in enumerate(job_id_list):
+                twjd = TrajectoryWorkerJobDescriptor(
+                    day=dt_str,
+                    met_source=MetSource(self._met_data_src),
+                    telemetry_source=TelemetrySource(self._telemetry_src),
+                    full_traj=self._full_traj,
+                    airline_iata=self._airline,
+                    flight_id=self._flight_id,
+                    job_id=job_id,
+                    job_lookup_table=self._job_lookup_table,
+                    dry_run=self._dry_run,
+                    export_waypoints=False,
+                )
+                self._publish_handler.publish_async(
+                    twjd.as_utf8_json(),
+                    timeout_seconds=10,
+                )
+                if (job_ix % 100 == 0) or (job_ix + 1 == len(job_id_list)):
+                    logger.info(f"🛠️published job_id {job_ix+1} of {len(job_id_list)}")
 
         logger.info("⏲️ waiting for publish to finish...")
         self._publish_handler.wait_for_publish(timeout_seconds=300)

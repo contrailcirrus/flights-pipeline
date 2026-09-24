@@ -53,7 +53,7 @@ def run(
                 extra={
                     "job_hash": job_hash,
                     "twjd": asdict(job),
-                    "errror": str(e),
+                    "error": str(e),
                     "traceback": format_traceback(),
                 },
             )
