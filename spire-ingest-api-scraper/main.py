@@ -111,50 +111,61 @@ async def main(
         # ----------------
         # publish records
         # ---------------
+        skipped_row_count = 0
         for ix, row in spire_df.iterrows():
             # _log_invariant_violations(rows)
 
             # spire response schema is not static;
             # altitude gnss, departure/arrival airport etc...
             # is sometimes missing from the response schema
-            dto = schemas.SpireWaypointsRecord(
-                flight_info=schemas.SpireFlightInfo(
-                    icao_address=str(row["icao_address"]),
-                    flight_id=_to_str_or_none(row.get("flight_id")),
-                    callsign=_to_str_or_none(row.get("callsign")),
-                    tail_number=_to_str_or_none(row.get("tail_number")),
-                    flight_number=_to_str_or_none(row.get("flight_number")),
-                    aircraft_type_icao=_to_str_or_none(row.get("aircraft_type_icao")),
-                    airline_iata=_to_str_or_none(row.get("airline_iata")),
-                    departure_airport_icao=_to_str_or_none(
-                        row.get("departure_airport_icao")
+            try:
+                dto = schemas.SpireWaypointsRecord(
+                    flight_info=schemas.SpireFlightInfo(
+                        icao_address=str(row["icao_address"]),
+                        flight_id=_to_str_or_none(row.get("flight_id")),
+                        callsign=_to_str_or_none(row.get("callsign")),
+                        tail_number=_to_str_or_none(row.get("tail_number")),
+                        flight_number=_to_str_or_none(row.get("flight_number")),
+                        aircraft_type_icao=_to_str_or_none(
+                            row.get("aircraft_type_icao")
+                        ),
+                        airline_iata=_to_str_or_none(row.get("airline_iata")),
+                        departure_airport_icao=_to_str_or_none(
+                            row.get("departure_airport_icao")
+                        ),
+                        departure_scheduled_time=_to_str_or_none(
+                            row.get("departure_scheduled_time")
+                        ),
+                        arrival_airport_icao=_to_str_or_none(
+                            row.get("arrival_airport_icao")
+                        ),
+                        arrival_scheduled_time=_to_str_or_none(
+                            row.get("arrival_scheduled_time")
+                        ),
                     ),
-                    departure_scheduled_time=_to_str_or_none(
-                        row.get("departure_scheduled_time")
-                    ),
-                    arrival_airport_icao=_to_str_or_none(
-                        row.get("arrival_airport_icao")
-                    ),
-                    arrival_scheduled_time=_to_str_or_none(
-                        row.get("arrival_scheduled_time")
-                    ),
-                ),
-                records=[
-                    schemas.SpireWaypointPositional(
-                        ingestion_time=str(row["ingestion_time"]),
-                        timestamp=str(row["timestamp"]),
-                        latitude=float(row["latitude"]),
-                        longitude=float(row["longitude"]),
-                        collection_type=str(row["collection_type"]),
-                        altitude_baro=int(row["altitude_baro"]),
-                        altitude_gnss=_to_int_or_none(row.get("altitude_gnss")),
-                        imputed=False,
-                        flight_level=None,
-                        nic=_to_int_or_none(row.get("nic")),
-                        nacp=_to_int_or_none(row.get("nacp")),
-                    )
-                ],
-            )
+                    records=[
+                        schemas.SpireWaypointPositional(
+                            ingestion_time=str(row["ingestion_time"]),
+                            timestamp=str(row["timestamp"]),
+                            latitude=float(row["latitude"]),
+                            longitude=float(row["longitude"]),
+                            collection_type=str(row["collection_type"]),
+                            altitude_baro=int(row["altitude_baro"]),
+                            altitude_gnss=_to_int_or_none(row.get("altitude_gnss")),
+                            imputed=False,
+                            flight_level=None,
+                            nic=_to_int_or_none(row.get("nic")),
+                            nacp=_to_int_or_none(row.get("nacp")),
+                        )
+                    ],
+                )
+            except (KeyError, ValueError, TypeError) as e:
+                skipped_row_count += 1
+                logger.debug(
+                    f"Skipping row {ix}: failed to marshal required fields: {e}"
+                )
+                continue
+
             for raw_bq_json_ln in dto.to_bq_flatmap(
                 source_id="spire",
             ):
@@ -169,7 +180,13 @@ async def main(
                 )
 
         bq_queue_client.wait_for_publish(timeout_seconds=120)
-        logger.info(f"Published {len(spire_df)} records successfully.")
+        logger.info(
+            f"Published {len(spire_df) - skipped_row_count} records successfully."
+        )
+        if skipped_row_count > 0:
+            logger.error(
+                f"Skipped {skipped_row_count} rows due to invalid/missing required fields."
+            )
 
         state_client.set_last_sync_end_at(batch_end_at)
 
