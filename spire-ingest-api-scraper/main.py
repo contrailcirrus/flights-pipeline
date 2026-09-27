@@ -120,12 +120,12 @@ async def main(
             dto = schemas.SpireWaypointsRecord(
                 flight_info=schemas.SpireFlightInfo(
                     icao_address=str(row["icao_address"]),
-                    flight_id=_to_str_or_none(row["flight_id"]),
-                    callsign=_to_str_or_none(row["callsign"]),
-                    tail_number=_to_str_or_none(row["tail_number"]),
-                    flight_number=_to_str_or_none(row["flight_number"]),
-                    aircraft_type_icao=_to_str_or_none(row["aircraft_type_icao"]),
-                    airline_iata=_to_str_or_none(row["airline_iata"]),
+                    flight_id=_to_str_or_none(row.get("flight_id")),
+                    callsign=_to_str_or_none(row.get("callsign")),
+                    tail_number=_to_str_or_none(row.get("tail_number")),
+                    flight_number=_to_str_or_none(row.get("flight_number")),
+                    aircraft_type_icao=_to_str_or_none(row.get("aircraft_type_icao")),
+                    airline_iata=_to_str_or_none(row.get("airline_iata")),
                     departure_airport_icao=_to_str_or_none(
                         row.get("departure_airport_icao")
                     ),
