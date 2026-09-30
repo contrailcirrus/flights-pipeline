@@ -256,19 +256,28 @@ Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query mod
 
 Using the [skipped_reasons_by_year.sql](sql/skipped_reasons_by_year.sql) query modified for the 2024-2025 datasets, we find the following primary skip reasons from the TWJF:
 
-| reason | reason_count | year |
-|---|---|---|
-| FlightTooSlowError | 10110425 | 2025 |
-| FlightTooShortError | 7885340 | 2025 |
-| FlightTooSlowError | 5734970 | 2024 |
-| FlightTooShortError | 4704107 | 2024 |
-| FlightAltitudeProfileError | 1317970 | 2025 |
-| OriginAirportError | 1254356 | 2024 |
-| DestinationAirportError | 1013564 | 2024 |
-| DestinationAirportError | 887326 | 2025 |
-| OriginAirportError | 807727 | 2025 |
-| FlightAltitudeProfileError | 283054 | 2024 |
-| FlightTooFastError | 121678 | 2024 |
-| FlightTooFastError | 16081 | 2025 |
-| FlightTooLongError | 1828 | 2024 |
-| FlightTooLongError | 319 | 2025 |
+
+**2024**
+
+| Reason | Reason Count | Year |
+|--------|--------------| ---- |
+| FlightTooSlowError | 5,733,985 | 2024 |
+| FlightTooShortError | 4,703,466 | 2024 |
+| OriginAirportError | 1,255,350 | 2024 |
+| DestinationAirportError | 1,014,344 | 2024 |
+| FlightAltitudeProfileError | 282,985 | 2024 |
+| FlightTooFastError | 121,605 | 2024 |
+| FlightTooLongError | 1,822 | 2024 |
+
+
+**2025**
+
+| Reason | Reason Count | Year |
+|--------|--------------| ---- |
+| FlightTooSlowError | 10,110,725 | 2025 |
+| FlightTooShortError | 7,885,632 | 2025 |
+| FlightAltitudeProfileError | 1,317,953 | 2025 |
+| DestinationAirportError | 886,718 | 2025 |
+| OriginAirportError | 807,812 | 2025 |
+| FlightTooFastError | 16,049 | 2025 |
+| FlightTooLongError | 299 | 2025 |
