@@ -1,9 +1,9 @@
-# Inventory 2026 Q1, Q2, Q3 (run: Sept/Oct 2026)
+# Inventory 2026 Q1, Q2 (run: Sept 2026)
 
 ## Setup
 
 ### Job ID compilation
-Created a new Job ID table for Q1, Q2, Q3 using the following BQ query:
+Created a new Job ID table for Q1, Q2 using the following BQ query:
 
 ```sql
 CREATE TABLE contrails-301217.flights_pipeline_prod.inventory_2026Q1_run_sept2026_jobs AS
@@ -418,9 +418,7 @@ gsutil -m rm -r gs://contrails-301217-fp-prod-trajectory-worker/stderr/*
 ```
 #### Loading logs to BQ
 
-Updated the `bq_load_*_logs.sh` scripts to set the log source prefix for the new data run (in `gs://contrails-301217-flights-pipeline-prod/logs/inventory_2026Q1_run_sept2026`) as well as the destination table for the new run (`flights_pipeline_prod.logs_inventory_2026Q1_run_sept2026`). Removed the `--max_bad_records` flag from the `bq load` command. 
-
- The `max_bad_records` flag for `bq load` was left in the TWJF logs load script, because there were some non-conformant `airline_iata` values.
+Updated the `bq_load_*_logs.sh` scripts to set the log source prefix for the new data run (in `gs://contrails-301217-flights-pipeline-prod/logs/inventory_2026Q1_run_sept2026`) as well as the destination table for the new run (`flights_pipeline_prod.logs_inventory_2026Q1_run_sept2026`). Removed the `--max_bad_records` flag from the `bq load` command. This led me to discover a bit of an edge case in the TWJF logging where the `airline_iata` field isn't set on resuming a job leading to a non-conformant log. Rather that fix those in the Q1 and Q2 logs, I decided to skip those messages, implement a fix for Q3 onward and re-instate the `max_bad_records` flag set to 80. The most issues was 51 in one log file.
 
 Ran scripts:
 ```shell
@@ -430,3 +428,15 @@ Ran scripts:
 ```
 
 All logs loaded to the `flights_pipeline_prod.logs_inventory_2026Q1_run_sept2026` BQ table.
+
+Next, I updated the same log load scripts for the Q2 run and ran:
+
+```shell
+./bq_load_twjf_logs.sh 2>&1 | tee bq_load_twjf_logs_2026Q2_run_sept2026.log
+./bq_load_tw_logs.sh 2>&1 | tee bq_load_tw_logs_2026Q2_run_sept2026.log 
+./bq_load_tw_backup_logs.sh  2>&1 | tee bq_load_tw_backup_logs_2026Q2_run_sept2026.log
+```
+
+I had to adjust the `max_bad_records` in the TWJF log load script to 140, because there were quite a few bad records with some files having 108, 110, 122, 133 bad records. Not sure why there were so many restarts in this run.
+
+All logs loaded to the `flights_pipeline_prod.logs_inventory_2026Q2_run_sept2026` BQ table.

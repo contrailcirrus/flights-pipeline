@@ -281,3 +281,66 @@ Using the [skipped_reasons_by_year.sql](sql/skipped_reasons_by_year.sql) query m
 | OriginAirportError | 807,812 | 2025 |
 | FlightTooFastError | 16,049 | 2025 |
 | FlightTooLongError | 299 | 2025 |
+
+
+## 2026
+
+The 2026 dataset is broken into several sub-datasets. We used quarterly processing for the first three quarters, then monthly for the final three months.
+
+**Q1**
+The Q1 BQ datasets produced were:
+
+* `contrails-301217.flights_pipeline_prod.inventory_2026Q1_run_sept2026_jobs`
+* `contrails-301217.flights_pipeline_prod.inventory_2026Q1_run_sept2026_segments`
+* `contrails-301217.flights_pipeline_prod.inventory_2026Q1_run_sept2026_summary`
+* `contrails-301217.flights_pipeline_prod.logs_inventory_2026Q1_run_sept2026`
+
+Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query modified for the 2026Q1 datasets, we find the following monthly flight minutes breakdown:
+
+
+| month | passed_minutes | skipped_minutes | total_final_minutes | twjf_skipped_perc | tw_dropped_perc | total_dropped_perc |
+|---|---|---|---|---|---|---|
+| 2026-03-01 | 411342044 | 20535390 | 355041362 | 4.75 | 13.04 | 17.79 |
+| 2026-02-01 | 386737227 | 16512785 | 342190676 | 4.09 | 11.05 | 15.14 |
+| 2026-01-01 | 412471965 | 17893615 | 367432058 | 4.16 | 10.47 | 14.62 |
+
+Using the [skipped_reasons_by_year.sql](sql/skipped_reasons_by_year.sql) query modified for the 2026Q1 datasets, we find the following primary skip reasons from the TWJF:
+
+| reason | reason_count | reason_count_per_day | year | dataset |
+|---|---|---|---| --- |
+| DestinationAirportError | 155702 | 1749.5 | 2026 | Q1 |
+| OriginAirportError | 142730 | 1603.7 | 2026 | Q1 |
+| FlightTooShortError | 127567 | 1433.3 | 2026 | Q1 |
+| FlightTooSlowError | 48907 | 549.5 | 2026 | Q1 |
+| FlightAltitudeProfileError | 39906 | 448.4 | 2026 | Q1 |
+| FlightTooFastError | 3913 | 44.0 | 2026 | Q1 |
+| FlightTooLongError | 90 | 1.0 | 2026 | Q1 |
+
+**Q2**
+The Q2 BQ datasets produced were:
+
+* `contrails-301217.flights_pipeline_prod.inventory_2026Q2_run_sept2026_jobs`
+* `contrails-301217.flights_pipeline_prod.inventory_2026Q2_run_sept2026_segments`
+* `contrails-301217.flights_pipeline_prod.inventory_2026Q2_run_sept2026_summary`
+* `contrails-301217.flights_pipeline_prod.logs_inventory_2026Q2_run_sept2026`
+
+Using the [total_time_and_skipped.sql](sql/total_time_and_skipped.sql) query modified for the 2026Q2 datasets, we find the following monthly flight minutes breakdown:
+
+
+| month | passed_minutes | skipped_minutes | total_final_minutes | twjf_skipped_perc | tw_dropped_perc | total_dropped_perc |
+|---|---|---|---|---|---|---|
+| 2026-06-01 | 421970616 | 22210929 | 368652943 | 5.0 | 12.0 | 17.0 |
+| 2026-05-01 | 411782315 | 27186679 | 365208920 | 6.19 | 10.61 | 16.8 |
+| 2026-04-01 | 399870681 | 21460617 | 353800493 | 5.09 | 10.93 | 16.03 |
+
+Using the [skipped_reasons_by_year.sql](sql/skipped_reasons_by_year.sql) query modified for the 2026Q1 datasets, we find the following primary skip reasons from the TWJF:
+
+| reason | reason_count | reason_count_per_day | year | dataset |
+|---|---|---|---| --- |
+| DestinationAirportError | 207529 | 2305.9 | 2026 | Q2 |
+| OriginAirportError | 185221 | 2058.0 | 2026 | Q2 |
+| FlightTooShortError | 138232 | 1535.9 | 2026 | Q2 |
+| FlightTooSlowError | 55687 | 618.7 | 2026 | Q2 |
+| FlightAltitudeProfileError | 53416 | 593.5 | 2026 | Q2 |
+| FlightTooFastError | 2822 | 31.4 | 2026 | Q2 |
+| FlightTooLongError | 143 | 1.6 | 2026 | Q2 |
