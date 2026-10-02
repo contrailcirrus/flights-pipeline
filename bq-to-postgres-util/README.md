@@ -37,7 +37,7 @@ During a BigQuery to Postgres data sync run, you will need to first determine th
 intended for the sync.
 This will generally be an archived/static BQ dataset, resulting from a given run of the flights-pipeline.
 See reference documentation [here](https://github.com/contrailcirrus/flights-pipeline/tree/develop/pipeline-playbook/playbook) for how those BQ datasets are archived, with an example in this table (`contrails-301217.flights_pipeline_prod.inventory_2024_run_feb2026_summary`)
-as documented in the Feb2026 run of the 2024 flights inventory ([ref](../pipeline-playbook/notes_archive/inventory_2024_run_feb2026_summary))
+as documented in the Feb2026 run of the 2024 flights inventory ([ref](../pipeline-playbook/notes_archive/inventory_2024_run_feb2026))
 
 ### Steps
 
