@@ -36,7 +36,7 @@ EXPORT DATA OPTIONS (
            total_pos_ef_persistent_contrail_length_km,
            total_persistent_contrail_length_km,
            total_persistent_contrail_length_km AS contrail_generating_kms,
-    FROM :target_table
+    FROM :target_inventory_summary_table
     WHERE
         seg_cnt > 1
         AND time_start BETWEEN export_start_time AND export_end_time;

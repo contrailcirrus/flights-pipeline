@@ -59,25 +59,30 @@ def get_db_uri(
         )
 
 
-def extract_year_quarter_range(year_quarter_str: str) -> tuple[date, date]:
-    """Extracts the date range of YYYY(Q1-4) with an inclusive start and exclusive end date."""
-    if not year_quarter_str:
-        raise Exception("Year quarter cannot be empty!")
+def extract_date_range(period_str: str) -> tuple[date, date]:
+    """Extracts the date range of YYYY, YYYY<Q1-4>, or YYYY_MM with an inclusive start and exclusive end date."""
+    if not period_str:
+        raise Exception("Date period cannot be empty!")
 
-    if not "Q" in year_quarter_str:  # noqa: E713
-        year = int(year_quarter_str.strip())
-        year_quarter_start = date(year, 1, 1)
-        year_quarter_end = date(year + 1, 1, 1)
+    period_str = period_str.strip()
+    if "_" in period_str:
+        period = pd.Period(period_str.replace("_", "-"), freq="M")
+        range_start = period.start_time.date()
+        range_end = period.end_time.date() + timedelta(days=1)
+    elif "Q" in period_str:
+        period = pd.Period(period_str, freq="Q")
+        range_start = period.start_time.date()
+        range_end = period.end_time.date() + timedelta(days=1)
     else:
-        period = pd.Period(year_quarter_str, freq="Q")
-        year_quarter_start = period.start_time.date()
-        year_quarter_end = period.end_time.date() + timedelta(days=1)
+        year = int(period_str)
+        range_start = date(year, 1, 1)
+        range_end = date(year + 1, 1, 1)
 
-    if year_quarter_start < year_quarter_end < date(2000, 1, 1):
+    if range_start < range_end < date(2000, 1, 1):
         raise Exception(
-            f"Invalid old year detected prior to 2000. Got {year_quarter_str}"
+            f"Invalid old year detected prior to 2000. Got {period_str}"
         )
-    return year_quarter_start, year_quarter_end
+    return range_start, range_end
 
 
 def add_is_eu_mrv_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -125,11 +130,11 @@ class GcsPathReader:
         parts = path.split("/")
         if len(parts) < 2:
             raise Exception(
-                "Paths need to be in the format a/b/.../<year><optional Q1-4>"
+                "Paths need to be in the format a/b/.../<YYYY, YYYY<Q1-4>, or YYYY_MM>"
                 f"/<process date YYYYMMDD>. But got {path}."
             )
-        year_quarter_str, process_time_str = parts[-2], parts[-1]
-        start_date, end_date = extract_year_quarter_range(year_quarter_str)
+        period_str, process_time_str = parts[-2], parts[-1]
+        start_date, end_date = extract_date_range(period_str)
         parse_date = datetime.strptime(process_time_str, "%Y%m%d").date()
         if parse_date < date(2025, 1, 1) or parse_date > date.today():
             raise Exception(
@@ -144,7 +149,7 @@ class GcsPathReader:
             yield start_date, end_date
 
     def find_valid_paths(self) -> Iterator[str]:
-        # Valid paths are of the format: a/b/.../<year><optional Q1-4>/<process time YYYYMMDD>
+        # Valid paths are of the format: a/b/.../<YYYY, YYYY<Q1-4>, or YYYY_MM>/<process time YYYYMMDD>
         for path in self.paths:
             _, _, _ = self._extract_date_range_process_time(path)
             yield path
