@@ -21,6 +21,8 @@ HEADERS = {"x-api-key": API_KEY}
 CACHE_START = "2024-01-01T00"  # hour resolution
 CACHE_END = "2024-06-30T23"  # hour resolution
 SKIP_EXISTING = True  # skip any hours where a pq file is found in GCS already
+MAX_CONCURRENT_TASKS = 25
+
 
 gcs_client = storage.Client()
 gcs_bucket = gcs_client.bucket(GCS_CACHE_BUCKET_NAME)
@@ -79,9 +81,9 @@ async def main():
         print(f"found {in_cache_cnt} of {cache_periods_cnt} times already cached")
 
     # heat cache
-    max_concurrent_tasks = 25
-    sem_lock = asyncio.Semaphore(max_concurrent_tasks)
+    sem_lock = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
     await run_routines(sem_lock, [i for i in cache_periods])
+    print("Done!")
 
 
 if __name__ == "__main__":
