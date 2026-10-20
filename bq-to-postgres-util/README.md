@@ -69,8 +69,11 @@ as documented in the Feb2026 run of the 2024 flights inventory ([ref](../pipelin
        --db_host "<target_DB_ipv4>" \
        --gcs_paths "flights-pipeline/emissions-export/<target_date_range_A>/<process_time_A>,flights-pipeline/emissions-export/<target_date_range_B>/<process_time_B>"
      ```
-   - The DB utility ensures that the required monthly partition tables are correctly created.
-     If a partition table needs to be created you have to use the following flags instead `--db_user "postgres" and --db_password "<pw of postgres user>"`
+   - The DB utility ensures that the required monthly partition tables are correctly created before loading any data.
+     Partitions are created for the nominal date range of each path plus any months found in the shards'
+     `time_start` values (records can fall outside the nominal range).
+     If a partition table needs to be created you have to use the following flags instead `--db_user "postgres" and --db_password "<pw of postgres user>"`.
+     The utility checks this up front and fails before writing anything if the user lacks the required privileges.
 4. Update the materialized views by running the following sequence of SQL commands:
    1. `REFRESH MATERIALIZED VIEW inventory_monthly_airlines_stats;`
    2. `REFRESH MATERIALIZED VIEW inventory_monthly_od_pair_airline_stats;`
