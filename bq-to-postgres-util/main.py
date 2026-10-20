@@ -6,13 +6,15 @@ from dateutil.relativedelta import relativedelta
 import io
 from lib.log import logger
 import sys
-from typing import Iterator
+from typing import Iterable, Iterator
 
 from argparse import ArgumentParser
 import pandas as pd
 import numpy as np
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
 from google.cloud import storage
-from sqlalchemy import URL, and_, create_engine, func, select, table, text, column
+from sqlalchemy import URL, create_engine, table, text, column
 from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 import psycopg2  # noqa: F401
@@ -24,9 +26,6 @@ from geography import (
 )
 
 TRAJECTORY_TABLE_NAME = "trajectory-cocip"
-TRAJECTORY_TABLE = table(
-    TRAJECTORY_TABLE_NAME, column("flight_id"), column("time_start")
-)
 TRAJECTORY_META_TABLE_NAME = "trajectory-cocip-meta"
 TRAJECTORY_HISTOGRAM_IMPACT_TABLE_NAME = "inventory_monthly_impact_histogram"
 
@@ -154,14 +153,41 @@ class GcsPathReader:
             _, _, _ = self._extract_date_range_process_time(path)
             yield path
 
-    def parquet_files(self) -> Iterator[storage.Blob]:
+    def parquet_files_by_path(self) -> Iterator[tuple[str, list[storage.Blob]]]:
         for path in self.find_valid_paths():
             blobs = self.storage_client.list_blobs(self.bucket_name, prefix=path)
             parquet_shards = [b for b in blobs if b.name.endswith(".pq")]
             logger.info("found parquet shards", extra={"count": len(parquet_shards), "path": path})
             if not parquet_shards:
                 logger.warning("skipping", extra={"reason": f"No parquet shards found in {path}."})
+            yield path, parquet_shards
+
+    def parquet_files(self) -> Iterator[storage.Blob]:
+        for _, parquet_shards in self.parquet_files_by_path():
             yield from parquet_shards
+
+
+def parquet_time_start_range(blob: storage.Blob) -> tuple[date, date] | None:
+    """Returns the [start_incl, end_excl) date range of time_start in a Parquet shard.
+
+    Uses the row group statistics in the Parquet footer so that the shard does not need to be downloaded.
+    Falls back to reading only the time_start column if statistics are missing.
+    """
+    with blob.open("rb") as f:
+        pf = pq.ParquetFile(f)
+        if pf.metadata.num_rows == 0:
+            return None
+        col_idx = pf.schema_arrow.get_field_index("time_start")
+        mins, maxs = [], []
+        for rg in range(pf.metadata.num_row_groups):
+            stats = pf.metadata.row_group(rg).column(col_idx).statistics
+            if stats is None or not stats.has_min_max:
+                min_max = pc.min_max(pf.read(columns=["time_start"]).column(0)).as_py()
+                mins, maxs = [min_max["min"]], [min_max["max"]]
+                break
+            mins.append(stats.min)
+            maxs.append(stats.max)
+    return pd.Timestamp(min(mins)).date(), pd.Timestamp(max(maxs)).date() + timedelta(days=1)
 
 
 class GcsToPostgresLoader:
@@ -171,59 +197,103 @@ class GcsToPostgresLoader:
         self.engine = create_engine(db_uri)
         self.data_transformers = data_transformers
 
-    def ensure_partitions_exist(self, start_incl: date, end_excl: date) -> None:
-        current = start_incl.replace(day=1)
-        while current < end_excl:
-            next_month = current + relativedelta(months=1)
-
-            suffix = current.strftime("%Y_%m")
-            start_str = current.strftime("%Y-%m-%d")
-            end_str = next_month.strftime("%Y-%m-%d")
-
-            with self.engine.connect() as conn:
-                for data_transformer in self.data_transformers:
-                    if not data_transformer.is_partitioned:
-                        continue
-                    logger.debug(
-                        "ensuring partition exists",
-                        extra={
-                            "table": data_transformer.table_name,
-                            "suffix": suffix,
-                            "date_range": (start_str, end_str)
-                        }
-                    )
-                    conn.execute(
-                        text(
-                            f"""
-                        CREATE TABLE IF NOT EXISTS "{data_transformer.table_name}_{suffix}"
-                        PARTITION OF "{data_transformer.table_name}"
-                        FOR VALUES FROM ('{start_str}') TO ('{end_str}');
-                    """
-                        )
-                    )
-                    conn.commit()
-
-            current = next_month
-
-    def assert_no_data(self, start_incl: date, end_excl: date) -> None:
-        """Ensure that there is no data currently within the specified date range: [start_incl, end_excl)."""
-        logger.debug("checking for existing data", extra={"date_range": (start_incl, end_excl)})
-        stmt = select(
-            func.count(TRAJECTORY_TABLE.c.flight_id).label("flight_cnt")
-        ).where(
-            and_(
-                TRAJECTORY_TABLE.c.time_start >= start_incl,
-                TRAJECTORY_TABLE.c.time_start < end_excl,
-            )
-        )
+    def assert_write_privileges(self) -> None:
+        """Ensure the DB user can write to every target table before any data is loaded."""
         with self.engine.connect() as conn:
-            count = conn.scalar(stmt)
-            if count > 0:
-                raise Exception(
-                    f"There is flights data present in [{start_incl}, {end_excl})."
-                    " Please delete it first."
+            for data_transformer in self.data_transformers:
+                full_table_name = f'"{data_transformer.schema}"."{data_transformer.table_name}"'
+                # Upserts read existing values in ON CONFLICT DO UPDATE and RETURNING, so also need SELECT.
+                required = ["INSERT"] + (
+                    ["UPDATE", "SELECT"] if data_transformer.requires_upsert else []
                 )
-        logger.debug("no existing data found", extra={"date_range": (start_incl, end_excl)})
+                for privilege in required:
+                    allowed = conn.scalar(
+                        text("SELECT has_table_privilege(:table, :privilege)"),
+                        {"table": full_table_name, "privilege": privilege},
+                    )
+                    if not allowed:
+                        raise Exception(
+                            f"DB user lacks {privilege} privilege on {full_table_name}."
+                        )
+
+    def _assert_can_create_partitions(
+        self, conn, data_transformers: Iterable[DataTransformer]
+    ) -> None:
+        """Creating a partition requires owning the parent table and CREATE on its schema."""
+        for data_transformer in data_transformers:
+            owns_table, can_create = conn.execute(
+                text(
+                    """
+                    SELECT pg_has_role(c.relowner, 'USAGE'), has_schema_privilege(n.oid, 'CREATE')
+                    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = :schema AND c.relname = :table
+                """
+                ),
+                {"schema": data_transformer.schema, "table": data_transformer.table_name},
+            ).one()
+            if not (owns_table and can_create):
+                raise Exception(
+                    f"DB user cannot create partitions of "
+                    f'"{data_transformer.schema}"."{data_transformer.table_name}" '
+                    "(must own the table and have CREATE on its schema). "
+                    'Re-run with --db_user "postgres".'
+                )
+
+    def ensure_partitions_exist(self, date_ranges: Iterable[tuple[date, date]]) -> None:
+        """Create any missing monthly partitions covering the given [start_incl, end_excl) ranges.
+
+        All missing partitions are created up front, after checking that the DB user is allowed to,
+        so that a permissions problem fails the run before any data is written.
+        """
+        # Partition name -> (data transformer, partition start, partition end)
+        needed: dict[str, tuple[DataTransformer, str, str]] = {}
+        for start_incl, end_excl in date_ranges:
+            current = start_incl.replace(day=1)
+            while current < end_excl:
+                next_month = current + relativedelta(months=1)
+                for data_transformer in self.data_transformers:
+                    if data_transformer.is_partitioned:
+                        name = f"{data_transformer.table_name}_{current.strftime('%Y_%m')}"
+                        needed[name] = (
+                            data_transformer,
+                            current.strftime("%Y-%m-%d"),
+                            next_month.strftime("%Y-%m-%d"),
+                        )
+                current = next_month
+
+        with self.engine.connect() as conn:
+            missing = {
+                name: v
+                for name, v in needed.items()
+                if conn.scalar(
+                    text("SELECT to_regclass(:name)"),
+                    {"name": f'"{v[0].schema}"."{name}"'},
+                )
+                is None
+            }
+            logger.info(
+                "checked partitions",
+                extra={"needed": len(needed), "missing": sorted(missing)},
+            )
+            if not missing:
+                return
+
+            self._assert_can_create_partitions(conn, {v[0] for v in missing.values()})
+            for name, (data_transformer, start_str, end_str) in sorted(missing.items()):
+                logger.info(
+                    "creating partition",
+                    extra={"partition": name, "date_range": (start_str, end_str)},
+                )
+                conn.execute(
+                    text(
+                        f"""
+                    CREATE TABLE IF NOT EXISTS "{data_transformer.schema}"."{name}"
+                    PARTITION OF "{data_transformer.schema}"."{data_transformer.table_name}"
+                    FOR VALUES FROM ('{start_str}') TO ('{end_str}');
+                """
+                    )
+                )
+            conn.commit()
 
     def _read_parquet_blob(self, blob: storage.Blob) -> pd.DataFrame:
         data = blob.download_as_bytes()
@@ -652,11 +722,23 @@ if __name__ == "__main__":
             args.db_password,
         ),
     )
-    for start_incl, end_excl in gcs_paths.date_ranges():
-        loader.ensure_partitions_exist(start_incl, end_excl)
-        loader.assert_no_data(start_incl, end_excl)
+    loader.assert_write_privileges()
 
-    parquet_files = list(gcs_paths.parquet_files())
+    # Records can fall outside the nominal date range of their path, so partitions are created for the
+    # range actually found in the shards (as well as the nominal range).
+    partition_ranges: list[tuple[date, date]] = []
+    parquet_files: list[storage.Blob] = []
+    for (start_incl, end_excl), (path, shards) in zip(
+        gcs_paths.date_ranges(), gcs_paths.parquet_files_by_path()
+    ):
+        partition_ranges.append((start_incl, end_excl))
+        for blob in tqdm(shards, desc=f"Reading time ranges in {path}"):
+            shard_range = parquet_time_start_range(blob)
+            if shard_range is not None:
+                partition_ranges.append(shard_range)
+        parquet_files.extend(shards)
+
+    loader.ensure_partitions_exist(partition_ranges)
     logger.info("processing", extra={"file_count": len(parquet_files)})
 
     failed: list[str] = []
