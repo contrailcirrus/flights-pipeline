@@ -1467,6 +1467,14 @@ class CocipTrajectoryProto:
         if contrail_evol is None:
             # if model.contrail is set but None, then no contrail was formed on model.eval()
             return CocipTrajectoryProto(trajectory=traj)
+        # the model evaluates a fleet: the target flight plus the artificial fixed-flight-level
+        # flights used for the vertical profiles. Only the target flight's contrails belong here;
+        # the others' waypoint indices overlap the target's and would be merged into its multilines.
+        contrail_evol = contrail_evol[
+            contrail_evol["flight_id"] == input_chunk.flight_info.flight_id
+        ]
+        if contrail_evol.empty:
+            return CocipTrajectoryProto(trajectory=traj)
 
         contrail_evol_tm_grps = contrail_evol.groupby("time")
         evolution_timestep = pd.Timedelta(model.params["dt_integration"])
