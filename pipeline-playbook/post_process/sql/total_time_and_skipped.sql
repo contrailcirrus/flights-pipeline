@@ -83,7 +83,11 @@ summary_tb
             FULL JOIN final_time_tb ON bin_success_tb.flight_month_bin = final_time_tb.flight_month_bin)
 
 
-SELECT *,
+
+SELECT date(summary_tb.flight_month_bin) AS month,
+        summary_tb.twjf_passed_flight_time_minutes as passed_minutes,
+        summary_tb.twjf_skipped_flight_time_minutes as skipped_minutes,
+        summary_tb.total_final_flight_time_minutes as total_final_minutes,
        ROUND(twjf_skipped_flight_time_minutes / (twjf_skipped_flight_time_minutes + twjf_passed_flight_time_minutes) *
        100, 2)                                                                    AS twjf_skipped_perc,
        ROUND((twjf_passed_flight_time_minutes - total_final_flight_time_minutes) * 100 /
