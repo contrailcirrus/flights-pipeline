@@ -394,7 +394,7 @@ class TrajectoryBuilderSvc:
                     "resuming progress from a previous job",
                     extra={
                         "marker": progress_marker,
-                        "airline_iata": [twjd.airline_iata],
+                        "airline_iata": [twjd.airline_iata] if twjd.airline_iata else [],
                         "twjd": twjd,
                         "job_hash": job_hash,
                     },

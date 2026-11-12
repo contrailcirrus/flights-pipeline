@@ -119,6 +119,14 @@ Notable alerts include:
 - Application logs observed with `ERROR` severity
 - Progress marker timestamp has fallen behind (indicative of consecutive failures of the service and larger system issues)
 
+### Spire Raw Batch
+Spire Raw Batch is a lightweight sibling to the Spire Ingest API Scraper above. It polls the same Spire ADS-B
+API on the same 5-minute schedule and uses the same Firestore progress-marker pattern for self-healing,
+but it performs **no filtering or transformation** — it writes the raw Spire payload for each 5-minute window
+directly to a GCS bucket as gzip Parquet files (`YYYYMMDD-HHMMSS.pq`). It replaces a legacy raw Spire scraper
+and exists to keep a durable, untransformed archive of Spire data, as distinct from the curated BQ-bound
+pipeline that the Ingest API Scraper feeds. See [spire-raw-batch/README.md](./spire-raw-batch/README.md) for details.
+
 ### Trajectory Worker Job Factory (TWJF)
 The Trajectory Worker Job Factory is responsible for minting units of work for the Trajectory Worker (TW).
 Specifically, the TWJF will ingest target ADS-B telemetry data, group the telemetry data into flight instances,

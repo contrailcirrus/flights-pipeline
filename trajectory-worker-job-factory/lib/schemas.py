@@ -734,10 +734,9 @@ class CocipTrajectoryChunk:
         # cocip result attributes | PSFlight
         # dict_keys(['flight_id', 'aircraft_type', 'engine_uid', 'crs', 'aircraft_performance_model', 'n_engine', 'wingspan', 'max_mach', 'max_altitude', 'total_fuel_burn', 'gaseous_data_source', 'nvpm_data_source', 'total_co2', 'total_h2o', 'total_so2', 'total_sulphates', 'total_oc', 'total_nox', 'total_co', 'total_hc', 'total_nvpm_mass', 'total_nvpm_number', 'humidity_scaling_name', 'humidity_scaling_formula', 'pycontrails_version'])
 
-        # we drop the last segment in the cocip outputs
-        # because the resample-worker guarantees a leading edge overlap of 1 segment
-        # between consecutive jobs
-        sl = slice(0, -2)
+        # segments are forward looking in the cocip outputs, so the last row is the
+        # final waypoint and does not describe a segment; drop it
+        sl = slice(0, -1)
         segs_ef_j = result["ef"][sl]
         df_sl = result.dataframe[sl]
 
@@ -786,9 +785,9 @@ class CocipTrajectoryChunk:
         )
 
         tz_end_offset, tz_end_str = cls._utc_to_local_tz(
-            input_chunk.records[0].timestamp,
-            input_chunk.records[0].longitude,
-            input_chunk.records[0].latitude,
+            input_chunk.records[-1].timestamp,
+            input_chunk.records[-1].longitude,
+            input_chunk.records[-1].latitude,
         )
 
         (
