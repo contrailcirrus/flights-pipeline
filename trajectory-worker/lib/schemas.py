@@ -742,9 +742,9 @@ class CocipTrajectoryChunk:
         )
 
         tz_end_offset, tz_end_str = cls._utc_to_local_tz(
-            input_chunk.records[0].timestamp,
-            input_chunk.records[0].longitude,
-            input_chunk.records[0].latitude,
+            input_chunk.records[-1].timestamp,
+            input_chunk.records[-1].longitude,
+            input_chunk.records[-1].latitude,
         )
 
         try:
@@ -1312,7 +1312,7 @@ class CocipTrajectoryProto:
         """
         Resample the per-segment cocip result.
 
-        Resamples to 10min fixed frequency, but preserves contrail start and stop boundaries.
+        Resamples to 10min fixed period, but preserves contrail start and stop boundaries.
 
         Parameters
         ----------

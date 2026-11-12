@@ -785,9 +785,9 @@ class CocipTrajectoryChunk:
         )
 
         tz_end_offset, tz_end_str = cls._utc_to_local_tz(
-            input_chunk.records[0].timestamp,
-            input_chunk.records[0].longitude,
-            input_chunk.records[0].latitude,
+            input_chunk.records[-1].timestamp,
+            input_chunk.records[-1].longitude,
+            input_chunk.records[-1].latitude,
         )
 
         (
