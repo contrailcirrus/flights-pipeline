@@ -21,5 +21,5 @@ TW_URI_GLOB="gs://contrails-301217-flights-pipeline-prod/logs/inventory_2026Q3_r
 # format should be similar to logs_inventory_{inventory_period}_run_{run_date}
 TARGET_TABLE="logs_inventory_2026Q3_run_oct2026"
 
-# For each file in TW_URI_GLOB, load data into BQ table 
+# For each file in TW_URI_GLOB, load data into BQ table
 gsutil ls -r $TW_URI_GLOB | grep .json | tr '\n' '\0' | xargs -0 -n1 bq load --schema_update_option=ALLOW_FIELD_ADDITION --ignore_unknown_values --source_format=NEWLINE_DELIMITED_JSON --schema=./logs_bq_table_schema.json flights_pipeline_prod.${TARGET_TABLE}

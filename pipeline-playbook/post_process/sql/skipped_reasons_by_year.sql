@@ -1,7 +1,7 @@
 -- Determine the most common reasons for flights being skipped, grouped by year.
 
 -- Adjust logs table name to point to specific run logs
-WITH 
+WITH
     logs_tb AS (
         SELECT *
             FROM `contrails-301217.flights_pipeline_prod.logs_inventory_2026Q1_run_sept2026` AS t
@@ -20,7 +20,7 @@ WITH
             WHERE logs_tb.jsonPayload.message = "start work"
             AND logs_tb.jsonPayload.flight_id IS NOT NULL
             AND logs_tb.resource.labels.container_name = "trajectory-worker-job-factory"
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY logs_tb.jsonPayload.flight_id) = 1), 
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY logs_tb.jsonPayload.flight_id) = 1),
 
     -- Whole days spanned by start_time within each year bin
     span_tb AS (
@@ -44,11 +44,11 @@ WITH
                     skipped_tb, UNNEST(skipped_tb.jsonPayload.reason) AS reason
                     WHERE
                     skipped_tb.jsonPayload.flight_id IS NOT NULL
-                    GROUP BY 
+                    GROUP BY
                     skipped_tb.jsonPayload.flight_id, reason
             ) AS ranked_reasons
         WHERE
-        ranked_reasons.rn = 1), 
+        ranked_reasons.rn = 1),
 
     summary_tb AS (
         SELECT
