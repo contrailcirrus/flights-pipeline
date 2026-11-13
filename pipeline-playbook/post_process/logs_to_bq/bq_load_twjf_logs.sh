@@ -12,14 +12,14 @@
 # if exactly all logs for a given run can't be referenced with a single glob
 # then this command may need to be executed several times over a list of globs
 # that completely and exactly target logs for a given run
-RUN_URI_GLOB="gs://contrails-301217-flights-pipeline-prod/logs/inventory_2026Q3_run_oct2026/twjf-logs-fixed/*"
+RUN_URI_GLOB="gs://contrails-301217-flights-pipeline-prod/logs/inventory_202610_run_nov2026/twjf-logs/*"
 
 # TARGET TABLE
 # ---
 # table in BigQuery where the raw flights-pipeline logs are uploaded
 # -
 # format should be similar to logs_inventory_{inventory_period}_run_{run_date}
-TARGET_TABLE="logs_inventory_2026Q3_run_oct2026"
+TARGET_TABLE="logs_inventory_202610_run_nov2026"
 
 
 # For each file in RUN_URI_GLOB, load data into BQ table
