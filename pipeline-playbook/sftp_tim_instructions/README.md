@@ -26,16 +26,72 @@ UNION ALL SELECT * FROM `contrails-301217.flights_pipeline_prod.inventory_2026Q1
 UNION ALL SELECT * FROM `contrails-301217.flights_pipeline_prod.inventory_2026Q2_run_sept2026_summary`;
 ```
 
-This was the export for all of our initial impact inventory as of 2026-10-07. Future exports will likely be a single table each and will be simpler; something like:
+This was the export for all of our initial impact inventory as of 2026-10-07. After this, exports will use an explicit format, blanking emissions-related fields:
 
 ```sql
 EXPORT DATA OPTIONS (
-  uri = 'gs://contrails-301217-bq-sandbox-transfer-tmp-src/google-tim/2026Q3/*.csv',
+  uri = 'gs://contrails-301217-bq-sandbox-transfer-tmp-src/google-tim/202610/*.csv',
   format = 'CSV',
   overwrite = true,
   header = true
 )  AS
-SELECT * FROM `contrails-301217.flights_pipeline_prod.inventory_2026Q3_run_oct2026_summary`
+SELECT 
+_chunk_hash,
+_processed_at,
+seg_cnt,
+seg_ef_cnt,
+seg_ef_nan_cnt,
+chunk_len_km,
+lat_start,
+lon_start,
+lat_end,
+lon_end,
+time_start,
+time_end,
+total_persistent_contrail_length_km,
+total_contrail_length_sac_km,
+max_contrail_lifetime_h,
+median_contrail_lifetime_h,
+pycontrails_ver,
+perf_model_id,
+nvpm_data_source,
+source_id,
+git_sha,
+zarr_uri,
+sum_ef_mj,
+"" as total_fuel_burn_kg,
+"" as total_co2_kg,
+"" as total_h2o_kg,
+"" as total_so2_kg,
+"" as total_sulphates_kg,
+"" as total_oc_kg,
+"" as total_nox_kg,
+"" as total_co_kg,
+"" as total_hc_kg,
+"" as total_nvpm_kg,
+"" as total_nvpm_giga_cnt,
+aircraft_type_icao,
+" " as engine_uid,
+"" as mean_aircraft_mass_kg,
+"" as mean_overall_efficiency,
+icao_address,
+flight_id,
+callsign,
+tail_number,
+flight_number,
+airline_iata,
+departure_airport_icao,
+departure_scheduled_time,
+arrival_airport_icao,
+arrival_scheduled_time,
+median_altitude_ft,
+seg_pos_ef_cnt,
+total_pos_ef_persistent_contrail_length_km,
+time_start_tz,
+time_end_tz,
+time_start_sunrise_offset_mins,
+time_start_sunset_offset_mins,
+FROM `contrails-301217.flights_pipeline_prod.inventory_202610_run_nov2026_summary`
 ```
 
 ## Origin Blobs
