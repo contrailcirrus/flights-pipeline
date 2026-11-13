@@ -59,17 +59,17 @@ def get_db_uri(
 
 
 def extract_date_range(period_str: str) -> tuple[date, date]:
-    """Extracts the date range of YYYY, YYYY<Q1-4>, or YYYY_MM with an inclusive start and exclusive end date."""
+    """Extracts the date range of YYYY, YYYY<Q1-4>, or YYYYMM with an inclusive start and exclusive end date."""
     if not period_str:
         raise Exception("Date period cannot be empty!")
 
     period_str = period_str.strip()
-    if "_" in period_str:
-        period = pd.Period(period_str.replace("_", "-"), freq="M")
+    if "Q" in period_str:
+        period = pd.Period(period_str, freq="Q")
         range_start = period.start_time.date()
         range_end = period.end_time.date() + timedelta(days=1)
-    elif "Q" in period_str:
-        period = pd.Period(period_str, freq="Q")
+    elif len(period_str) == 6 and period_str.isdigit():
+        period = pd.Period(f"{period_str[:4]}-{period_str[4:]}", freq="M")
         range_start = period.start_time.date()
         range_end = period.end_time.date() + timedelta(days=1)
     else:
@@ -129,7 +129,7 @@ class GcsPathReader:
         parts = path.split("/")
         if len(parts) < 2:
             raise Exception(
-                "Paths need to be in the format a/b/.../<YYYY, YYYY<Q1-4>, or YYYY_MM>"
+                "Paths need to be in the format a/b/.../<YYYY, YYYY<Q1-4>, or YYYYMM>"
                 f"/<process date YYYYMMDD>. But got {path}."
             )
         period_str, process_time_str = parts[-2], parts[-1]
@@ -148,7 +148,7 @@ class GcsPathReader:
             yield start_date, end_date
 
     def find_valid_paths(self) -> Iterator[str]:
-        # Valid paths are of the format: a/b/.../<YYYY, YYYY<Q1-4>, or YYYY_MM>/<process time YYYYMMDD>
+        # Valid paths are of the format: a/b/.../<YYYY, YYYY<Q1-4>, or YYYYMM>/<process time YYYYMMDD>
         for path in self.paths:
             _, _, _ = self._extract_date_range_process_time(path)
             yield path

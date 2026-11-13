@@ -43,8 +43,10 @@ as documented in the Feb2026 run of the 2024 flights inventory ([ref](../pipelin
 
 1. Export the BigQuery data into Parquet shards under the following URL pattern:
    `gs://contrails-301217-sandbox-internal/flights-pipeline/emissions-export/<target_date_range>/<process_time>/*.pq`
-   - Where `target_date_range` is of format %Y(Q%N) where %Y is the full calendar year, and %N is the quarter. Q%N is
-     optional. Valid entries include e.g. 2025 or 2025Q2.
+   - Where `target_date_range` is one of:
+     - `%Y`, the full calendar year, for an annual run. E.g. `2025`.
+     - `%Y` followed by `Q%N` where `%N` is the quarter (1-4), for a quarterly run. E.g. `2026Q2`.
+     - `%Y%m`, for a monthly run. E.g. `202610`.
    - Where `process_time` is the time at which the export was run. This is %Y%m%d, the date (utc) on which the export
      command was run against BQ
    - Here is the export SQL command to run from the BigQuery prod instance: [`sql/0_bigquery_export.sql`](sql/0_bigquery_export.sql).

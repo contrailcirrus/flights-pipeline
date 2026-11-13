@@ -1,6 +1,8 @@
 -- Include time range filters if needed; normal inventory runs will not need filtering
 -- DECLARE export_start_time TIMESTAMP DEFAULT TIMESTAMP("<export_start_time goes here>");
 -- DECLARE export_end_time TIMESTAMP DEFAULT TIMESTAMP("<export_end_time goes here>"); --inclusive
+-- output_gcs_uri should have format `gs://contrails-301217-sandbox-internal/flights-pipeline/emissions-export/<target_date_range>/<process_time>/*.pq`
+-- target_inventory_summary_table will be like `contrails-301217.flights_pipeline_prod.inventory_<YYYYMM>_run_<mon_YYYY>_summary`
 
 EXPORT DATA OPTIONS (
     uri = :output_gcs_uri,
