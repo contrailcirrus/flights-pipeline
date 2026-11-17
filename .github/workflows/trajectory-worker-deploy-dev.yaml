@@ -35,7 +35,7 @@ jobs:
       - name: Authorize kubectl CLI
         uses: google-github-actions/get-gke-credentials@v2
         with:
-          cluster_name: contrails-gke-general-std-useast4
+          cluster_name: contrails-gke-general
           location: us-east4
 
       - name: Authorize docker CLI
