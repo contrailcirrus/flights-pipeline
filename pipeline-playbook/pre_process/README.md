@@ -28,7 +28,7 @@ It is possible to set this up using the Google Cloud web UI or the scripted vers
 
 The script takes 4 inputs: start_date, end_date, target_zarr_gcs_bucket, destination_zarr_gcs_bucket.
 
-From a terminal set up and authenticated with `gcloud`, Run the script like this:
+From a terminal set up and authenticated with `gcloud`, run the script like this:
 
 ```shell
 $ ./copy_era5_gcs_to_staging.sh 2024-12-31 2025-02-02 gs://contrails-301217-ecmwf-era5-zarr-v2/ gs://contrails-301217-ecmwf-era5-zarr-v2-staging/

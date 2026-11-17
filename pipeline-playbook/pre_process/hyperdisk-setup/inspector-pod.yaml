@@ -22,4 +22,4 @@ spec:
   volumes:
     - name: ecmwf-zarr-v2
       persistentVolumeClaim:
-        claimName: era5-zarr-gcs-pvc
+        claimName: era5-zarr-gcs-pvc-useast4c

@@ -1,5 +1,6 @@
-DECLARE export_start_time TIMESTAMP DEFAULT TIMESTAMP("<export_start_time goes here>");
-DECLARE export_end_time TIMESTAMP DEFAULT TIMESTAMP("<export_end_time goes here>");
+-- Include time range filters if needed; normal inventory runs will not need filtering
+-- DECLARE export_start_time TIMESTAMP DEFAULT TIMESTAMP("<export_start_time goes here>");
+-- DECLARE export_end_time TIMESTAMP DEFAULT TIMESTAMP("<export_end_time goes here>"); --inclusive
 
 EXPORT DATA OPTIONS (
     uri = :output_gcs_uri,
@@ -36,7 +37,8 @@ EXPORT DATA OPTIONS (
            total_pos_ef_persistent_contrail_length_km,
            total_persistent_contrail_length_km,
            total_persistent_contrail_length_km AS contrail_generating_kms,
-    FROM :target_table
+    FROM :target_inventory_summary_table
     WHERE
         seg_cnt > 1
-        AND time_start BETWEEN export_start_time AND export_end_time;
+        -- Include time range filters only if needed
+        -- AND time_start BETWEEN export_start_time AND export_end_time;
