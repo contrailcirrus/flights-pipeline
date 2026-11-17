@@ -32,27 +32,11 @@ jobs:
         with:
           version: '584.0.0'
 
-      - name: Set up gcloud plugins
-        run: gcloud components install gke-gcloud-auth-plugin
-
       - name: Authorize kubectl CLI
-        run: gcloud container clusters get-credentials contrails-gke-general --region us-east1
-
-      # TEMPORARY: diagnose gke-gcloud-auth-plugin / config-helper crash; prints no secrets
-      - name: Debug gcloud auth
-        run: |
-          grep PRETTY_NAME /etc/os-release
-          echo "ImageVersion=$ImageVersion"
-          which -a gcloud gke-gcloud-auth-plugin || true
-          gcloud version || true
-          gke-gcloud-auth-plugin --version || true
-          env | grep -E '^(CLOUDSDK|GOOGLE)_' | sed 's/=.*/=<set>/' || true
-          jq -r '"type=\(.type) has_private_key_id=\(has("private_key_id")) keys=\(keys)"' "$GOOGLE_APPLICATION_CREDENTIALS" || true
-          gcloud auth list || true
-          gcloud config list || true
-          gcloud config config-helper --format=json --verbosity=debug > /dev/null || true
-          kubectl version --client || true
-          kubectl get ns default -o name || true
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: contrails-gke-general
+          location: us-east1
 
       - name: Authorize docker CLI
         run: gcloud auth configure-docker us-east1-docker.pkg.dev
