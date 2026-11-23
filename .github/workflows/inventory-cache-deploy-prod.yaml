@@ -33,7 +33,7 @@ jobs:
           version: '584.0.0'
 
       - name: Authorize kubectl CLI
-        uses: google-github-actions/get-gke-credentials@v2
+        uses: google-github-actions/get-gke-credentials@v3
         with:
           cluster_name: contrails-gke-general
           location: us-east1
